@@ -214,6 +214,7 @@ const Login = () => {
               <h2 className="bottom-title">
                 {images[currentImage].title}
               </h2>
+              {/* hi */}
               <p className="bottom-text">
                 {images[currentImage].description}
               </p>
