@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { UserOutlined, LockOutlined, EyeOutlined, EyeInvisibleOutlined } from '@ant-design/icons';
+import React, { useState, useEffect } from 'react';
+import { User, Lock, Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -10,8 +10,19 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [currentImage, setCurrentImage] = useState(0);
-  const [isHovering, setIsHovering] = useState(false);
-  const intervalRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check if device is mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -57,49 +68,359 @@ const Login = () => {
     }
   ];
 
-  // Auto-cycle images when hovering over carousel
-  useEffect(() => {
-    if (isHovering) {
-      intervalRef.current = setInterval(() => {
-        setCurrentImage(prev => (prev + 1) % images.length);
-      }, 5000); // Change every 5 seconds
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [isHovering, images.length]);
-
-  const handleCarouselMouseEnter = () => {
-    setIsHovering(true);
-  };
-
-  const handleCarouselMouseLeave = () => {
-    setIsHovering(false);
-  };
-
   const handleHoverAreaEnter = (index) => {
     setCurrentImage(index);
-    // Temporarily pause auto-cycling when hovering specific area
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
   };
 
-  const handleHoverAreaLeave = () => {
-    // Resume auto-cycling if still hovering the carousel
-    if (isHovering) {
-      intervalRef.current = setInterval(() => {
-        setCurrentImage(prev => (prev + 1) % images.length);
-      }, 5000); // Change every 5 seconds
+  const getResponsiveStyles = () => {
+    const baseStyles = {
+      container: {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: isMobile ? '#2d5a4a' : '#f0f2f5',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: isMobile ? '0' : '20px',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        overflow: 'auto',
+        boxSizing: 'border-box'
+      },
+      card: {
+        backgroundColor: 'white',
+        borderRadius: isMobile ? '0' : '16px',
+        boxShadow: isMobile ? 'none' : '0 4px 24px rgba(0, 0, 0, 0.08)',
+        overflow: 'hidden',
+        maxWidth: isMobile ? '100%' : '1200px',
+        width: '100%',
+        minHeight: isMobile ? '100vh' : '700px',
+        display: 'flex'
+      },
+      content: {
+        display: 'flex',
+        width: '100%',
+        minHeight: isMobile ? '100vh' : '700px'
+      },
+      formSection: {
+        width: isMobile ? '100%' : '45%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: isMobile ? '20px' : '20px',
+        backgroundColor: 'white'
+      },
+      formContainer: {
+        width: '100%',
+        maxWidth: isMobile ? '100%' : '400px',
+        padding: isMobile ? '20px' : '0 20px'
+      },
+      featureSection: {
+        width: '55%',
+        background: 'linear-gradient(135deg, #2d5a4a 0%, #1e3d2f 100%)',
+        padding: '40px',
+        color: 'white',
+        position: 'relative',
+        display: isMobile ? 'none' : 'flex',
+        flexDirection: 'column'
+      }
+    };
+
+    return baseStyles;
+  };
+
+  const styles = getResponsiveStyles();
+
+  const additionalStyles = {
+    header: {
+      marginBottom: isMobile ? '30px' : '40px',
+      textAlign: isMobile ? 'center' : 'left'
+    },
+    logo: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: isMobile ? 'center' : 'flex-start',
+      marginBottom: isMobile ? '30px' : '40px'
+    },
+    logoIcon: {
+      marginRight: '8px'
+    },
+    logoGrid: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: '2px',
+      width: '16px',
+      height: '16px'
+    },
+    logoDot: {
+      backgroundColor: '#2d5a4a',
+      borderRadius: '2px'
+    },
+    logoText: {
+      fontSize: isMobile ? '20px' : '24px',
+      fontWeight: 'bold',
+      color: '#2d5a4a'
+    },
+    title: {
+      fontSize: isMobile ? '28px' : '32px',
+      fontWeight: 'bold',
+      color: '#1a1a1a',
+      margin: '0'
+    },
+    form: {
+      width: '100%'
+    },
+    inputGroup: {
+      marginBottom: '20px'
+    },
+    label: {
+      display: 'block',
+      fontSize: '14px',
+      fontWeight: '500',
+      color: '#333',
+      marginBottom: '8px'
+    },
+    inputWrapper: {
+      position: 'relative',
+      display: 'flex',
+      alignItems: 'center'
+    },
+    inputIcon: {
+      position: 'absolute',
+      left: '12px',
+      color: '#999',
+      zIndex: 1
+    },
+    input: {
+      width: '100%',
+      padding: isMobile ? '14px 12px 14px 40px' : '12px 12px 12px 40px',
+      border: '2px solid #e1e8ed',
+      borderRadius: '8px',
+      fontSize: isMobile ? '16px' : '14px', // Prevents zoom on iOS
+      outline: 'none',
+      transition: 'border-color 0.3s ease',
+      boxSizing: 'border-box'
+    },
+    eyeButton: {
+      position: 'absolute',
+      right: '12px',
+      background: 'none',
+      border: 'none',
+      cursor: 'pointer',
+      color: '#999',
+      padding: '4px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    formOptions: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '30px',
+      flexDirection: isMobile ? 'column' : 'row',
+      gap: isMobile ? '15px' : '0'
+    },
+    checkboxLabel: {
+      display: 'flex',
+      alignItems: 'center',
+      fontSize: '14px',
+      color: '#666',
+      cursor: 'pointer'
+    },
+    checkbox: {
+      marginRight: '8px',
+      width: '16px',
+      height: '16px'
+    },
+    forgotLink: {
+      fontSize: '14px',
+      color: '#666',
+      textDecoration: 'underline',
+      cursor: 'pointer'
+    },
+    signInButton: {
+      width: '100%',
+      padding: isMobile ? '18px' : '16px',
+      backgroundColor: '#2d5a4a',
+      color: 'white',
+      border: 'none',
+      borderRadius: '8px',
+      fontSize: isMobile ? '18px' : '16px',
+      fontWeight: '500',
+      cursor: 'pointer',
+      transition: 'background-color 0.3s ease'
+    },
+    divider: {
+      display: 'flex',
+      alignItems: 'center',
+      margin: '24px 0',
+      gap: '16px'
+    },
+    dividerLine: {
+      flex: 1,
+      height: '1px',
+      backgroundColor: '#e1e8ed'
+    },
+    dividerText: {
+      color: '#999',
+      fontSize: '14px',
+      fontWeight: '500'
+    },
+    socialButtons: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '12px'
+    },
+    socialButton: {
+      width: '100%',
+      padding: isMobile ? '14px' : '12px',
+      border: '2px solid #e1e8ed',
+      borderRadius: '8px',
+      backgroundColor: 'white',
+      fontSize: isMobile ? '16px' : '14px',
+      color: '#666',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      transition: 'border-color 0.3s ease'
+    },
+    googleIcon: {
+      width: '20px',
+      height: '20px',
+      borderRadius: '50%',
+      backgroundColor: '#4285f4',
+      color: 'white',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: '12px',
+      fontSize: '12px',
+      fontWeight: 'bold'
+    },
+    facebookIcon: {
+      width: '20px',
+      height: '20px',
+      borderRadius: '50%',
+      backgroundColor: '#1877f2',
+      color: 'white',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: '12px',
+      fontSize: '14px',
+      fontWeight: 'bold'
+    },
+    supportBadge: {
+      position: 'absolute',
+      top: '20px',
+      right: '20px',
+      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+      padding: '8px 16px',
+      borderRadius: '20px',
+      fontSize: '14px'
+    },
+    imageCarousel: {
+      marginBottom: '40px',
+      marginTop: '60px',
+      position: 'relative'
+    },
+    carouselWrapper: {
+      width: '400px',
+      height: '250px',
+      borderRadius: '16px',
+      margin: '0 auto',
+      position: 'relative',
+      overflow: 'hidden',
+      backgroundColor: '#1a1a1a'
+    },
+    imageContainer: {
+      width: '100%',
+      height: '100%',
+      position: 'relative'
+    },
+    carouselImage: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+      display: 'block',
+      transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+      borderRadius: '16px'
+    },
+    hoverAreas: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      display: 'flex',
+      width: '100%',
+      height: '100%'
+    },
+    hoverArea: {
+      flex: 1,
+      height: '100%',
+      cursor: 'pointer',
+      position: 'relative',
+      transition: 'background-color 0.3s ease',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    hoverIndicator: {
+      opacity: 0.7,
+      transition: 'opacity 0.3s ease'
+    },
+    hoverDot: {
+      width: '12px',
+      height: '12px',
+      borderRadius: '50%',
+      transition: 'all 0.3s ease'
+    },
+    bottomSection: {
+      marginTop: 'auto'
+    },
+    bottomTitle: {
+      fontSize: '28px',
+      fontWeight: 'bold',
+      margin: '0 0 16px 0',
+      transition: 'all 0.5s ease',
+      minHeight: '35px'
+    },
+    bottomText: {
+      fontSize: '16px',
+      lineHeight: '1.6',
+      color: 'rgba(255, 255, 255, 0.9)',
+      marginBottom: '24px',
+      transition: 'all 0.5s ease',
+      minHeight: '50px'
+    },
+    pagination: {
+      display: 'flex',
+      gap: '12px',
+      justifyContent: 'center'
+    },
+    paginationDot: {
+      width: '10px',
+      height: '10px',
+      backgroundColor: 'rgba(255, 255, 255, 0.4)',
+      borderRadius: '50%',
+      cursor: 'pointer',
+      transition: 'all 0.3s ease'
+    },
+    paginationDotActive: {
+      width: '24px',
+      height: '10px',
+      backgroundColor: 'white',
+      borderRadius: '5px',
+      cursor: 'pointer',
+      transition: 'all 0.3s ease'
     }
   };
 
@@ -109,128 +430,130 @@ const Login = () => {
         <div style={styles.content}>
           {/* Left Side - Login Form */}
           <div style={styles.formSection}>
-            <div style={styles.header}>
-              <div style={styles.logo}>
-                <div style={styles.logoIcon}>
-                  <div style={styles.logoGrid}>
-                    <div style={styles.logoDot}></div>
-                    <div style={styles.logoDot}></div>
-                    <div style={styles.logoDot}></div>
-                    <div style={styles.logoDot}></div>
+            <div style={styles.formContainer}>
+              <div style={additionalStyles.header}>
+                <div style={additionalStyles.logo}>
+                  <div style={additionalStyles.logoIcon}>
+                    <div style={additionalStyles.logoGrid}>
+                      <div style={additionalStyles.logoDot}></div>
+                      <div style={additionalStyles.logoDot}></div>
+                      <div style={additionalStyles.logoDot}></div>
+                      <div style={additionalStyles.logoDot}></div>
+                    </div>
+                  </div>
+                  <span style={additionalStyles.logoText}>My Access</span>
+                </div>
+                
+                <h1 style={additionalStyles.title}>Sign in</h1>
+              </div>
+
+              <div style={additionalStyles.form}>
+                <div style={additionalStyles.inputGroup}>
+                  <label style={additionalStyles.label}>E-mail</label>
+                  <div style={additionalStyles.inputWrapper}>
+                    <User style={additionalStyles.inputIcon} size={16} />
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      placeholder="example@gmail.com"
+                      style={additionalStyles.input}
+                      required
+                    />
                   </div>
                 </div>
-                <span style={styles.logoText}>My Access</span>
-              </div>
-              
-              <h1 style={styles.title}>Sign in</h1>
-              
-            </div>
 
-            <div style={styles.form}>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>E-mail</label>
-                <div style={styles.inputWrapper}>
-                  <UserOutlined style={styles.inputIcon} />
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    placeholder="example@gmail.com"
-                    style={styles.input}
-                    required
-                  />
+                <div style={additionalStyles.inputGroup}>
+                  <label style={additionalStyles.label}>Password</label>
+                  <div style={additionalStyles.inputWrapper}>
+                    <Lock style={additionalStyles.inputIcon} size={16} />
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      placeholder="6u#**%"
+                      style={additionalStyles.input}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={additionalStyles.eyeButton}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Password</label>
-                <div style={styles.inputWrapper}>
-                  <LockOutlined style={styles.inputIcon} />
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    placeholder="6u#**%"
-                    style={styles.input}
-                    required
-                  />
-                  <button
-                    onClick={() => setShowPassword(!showPassword)}
-                    style={styles.eyeButton}
-                  >
-                    {showPassword ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-                  </button>
+                <div style={additionalStyles.formOptions}>
+                  <label style={additionalStyles.checkboxLabel}>
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      style={additionalStyles.checkbox}
+                    />
+                    Remember me
+                  </label>
+                  <span style={additionalStyles.forgotLink}>Forgot Password?</span>
                 </div>
+
+                <button
+                  onClick={handleSubmit}
+                  disabled={loading}
+                  style={{
+                    ...additionalStyles.signInButton,
+                    opacity: loading ? 0.7 : 1
+                  }}
+                >
+                  {loading ? 'Signing in...' : 'Sign in'}
+                </button>
               </div>
 
-              <div style={styles.formOptions}>
-                <label style={styles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    style={styles.checkbox}
-                  />
-                  Remember me
-                </label>
-                <span style={styles.forgotLink}>Forgot Password?</span>
+              <div style={additionalStyles.divider}>
+                <div style={additionalStyles.dividerLine}></div>
+                <span style={additionalStyles.dividerText}>OR</span>
+                <div style={additionalStyles.dividerLine}></div>
               </div>
 
-              <button
-                onClick={handleSubmit}
-                disabled={loading}
-                style={{
-                  ...styles.signInButton,
-                  opacity: loading ? 0.7 : 1
-                }}
-              >
-                {loading ? 'Signing in...' : 'Sign in'}
-              </button>
+              <div style={additionalStyles.socialButtons}>
+                <button
+                  onClick={() => handleSocialLogin('Google')}
+                  style={additionalStyles.socialButton}
+                >
+                  <div style={additionalStyles.googleIcon}>G</div>
+                  Continue with Google
+                </button>
 
-              <div style={styles.divider}>
-                <span style={styles.dividerText}>OR</span>
+                <button
+                  onClick={() => handleSocialLogin('Facebook')}
+                  style={additionalStyles.socialButton}
+                >
+                  <div style={additionalStyles.facebookIcon}>f</div>
+                  Continue with Facebook
+                </button>
               </div>
-
-              <button
-                onClick={() => handleSocialLogin('Google')}
-                style={styles.socialButton}
-              >
-                <div style={styles.googleIcon}>G</div>
-                Continue with Google
-              </button>
-
-              <button
-                onClick={() => handleSocialLogin('Facebook')}
-                style={styles.socialButton}
-              >
-                <div style={styles.facebookIcon}>f</div>
-                Continue with Facebook
-              </button>
             </div>
           </div>
 
-          {/* Right Side - Feature Showcase */}
+          {/* Right Side - Feature Showcase (Hidden on Mobile) */}
           <div style={styles.featureSection}>
-            <div style={styles.supportBadge}>
+            <div style={additionalStyles.supportBadge}>
               <span>💬 Support</span>
             </div>
             
-            <div 
-              style={styles.imageCarousel}
-              onMouseEnter={handleCarouselMouseEnter}
-              onMouseLeave={handleCarouselMouseLeave}
-            >
-              <div style={styles.carouselWrapper}>
-                <div style={styles.imageContainer}>
+            <div style={additionalStyles.imageCarousel}>
+              <div style={additionalStyles.carouselWrapper}>
+                <div style={additionalStyles.imageContainer}>
                   {images.map((img, index) => (
                     <img 
                       key={index}
                       src={img.url}
                       alt={img.alt}
                       style={{
-                        ...styles.carouselImage,
+                        ...additionalStyles.carouselImage,
                         opacity: currentImage === index ? 1 : 0,
                         transform: currentImage === index ? 'scale(1)' : 'scale(1.05)'
                       }}
@@ -238,52 +561,40 @@ const Login = () => {
                   ))}
                 </div>
                 
-                {/* Enhanced hover areas with visual feedback */}
-                <div style={styles.hoverAreas}>
+                <div style={additionalStyles.hoverAreas}>
                   {images.map((_, index) => (
                     <div 
                       key={index}
                       style={{
-                        ...styles.hoverArea,
+                        ...additionalStyles.hoverArea,
                         backgroundColor: currentImage === index ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
                       }}
                       onMouseEnter={() => handleHoverAreaEnter(index)}
-                      onMouseLeave={handleHoverAreaLeave}
                     >
-                      <div style={{
-                        ...styles.hoverIndicator,
-                        opacity: isHovering ? 1 : 0
-                      }}>
+                      <div style={additionalStyles.hoverIndicator}>
                         <div style={{
-                          ...styles.hoverDot,
+                          ...additionalStyles.hoverDot,
                           backgroundColor: currentImage === index ? 'white' : 'rgba(255, 255, 255, 0.5)'
                         }}></div>
                       </div>
                     </div>
                   ))}
                 </div>
-
-                {/* Auto-cycle indicator */}
-                {isHovering && (
-                  <div style={styles.autoCycleIndicator}>
-                    <div style={styles.autoCycleText}>Auto-cycling...</div>
-                  </div>
-                )}
               </div>
             </div>
 
-            <div style={styles.bottomSection}>
-              <h2 style={styles.bottomTitle}>
+            <div style={additionalStyles.bottomSection}>
+              <h2 style={additionalStyles.bottomTitle}>
                 {images[currentImage].title}
               </h2>
-              <p style={styles.bottomText}>
+              <p style={additionalStyles.bottomText}>
                 {images[currentImage].description}
               </p>
-              <div style={styles.pagination}>
+              <div style={additionalStyles.pagination}>
                 {images.map((_, index) => (
                   <div 
                     key={index}
-                    style={currentImage === index ? styles.paginationDotActive : styles.paginationDot}
+                    style={currentImage === index ? additionalStyles.paginationDotActive : additionalStyles.paginationDot}
                     onClick={() => setCurrentImage(index)}
                   ></div>
                 ))}
@@ -294,365 +605,6 @@ const Login = () => {
       </div>
     </div>
   );
-};
-
-const styles = {
-  container: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: '100vw',
-    height: '100vh',
-    backgroundColor: '#f0f2f5',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '20px',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    overflow: 'auto',
-    boxSizing: 'border-box'
-  },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: '16px',
-    boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08)',
-    overflow: 'hidden',
-    maxWidth: '1200px',
-    width: '100%',
-    minHeight: '700px',
-    maxHeight: 'calc(100vh - 40px)',
-    display: 'flex',
-    flexDirection: 'column'
-  },
-  content: {
-    display: 'flex',
-    minHeight: '700px',
-    flex: 1,
-    overflow: 'hidden'
-  },
-  formSection: {
-    flex: 1,
-    padding: '40px',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    backgroundColor: 'white',
-    overflow: 'auto',
-    minWidth: '400px'
-  },
-  header: {
-    marginBottom: '40px'
-  },
-  logo: {
-    display: 'flex',
-    alignItems: 'center',
-    marginBottom: '40px'
-  },
-  logoIcon: {
-    marginRight: '8px'
-  },
-  logoGrid: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '2px',
-    width: '16px',
-    height: '16px'
-  },
-  logoDot: {
-    backgroundColor: '#2d5a4a',
-    borderRadius: '2px'
-  },
-  logoText: {
-    fontSize: '24px',
-    fontWeight: 'bold',
-    color: '#2d5a4a'
-  },
-  title: {
-    fontSize: '32px',
-    fontWeight: 'bold',
-    color: '#1a1a1a',
-    margin: '0 0 8px 0'
-  },
-  subtitle: {
-    color: '#666',
-    fontSize: '14px',
-    margin: 0
-  },
-  link: {
-    color: '#2d5a4a',
-    textDecoration: 'underline',
-    cursor: 'pointer'
-  },
-  form: {
-    maxWidth: '400px',
-    width: '100%'
-  },
-  inputGroup: {
-    marginBottom: '20px'
-  },
-  label: {
-    display: 'block',
-    fontSize: '14px',
-    fontWeight: '500',
-    color: '#333',
-    marginBottom: '8px'
-  },
-  inputWrapper: {
-    position: 'relative',
-    display: 'flex',
-    alignItems: 'center'
-  },
-  inputIcon: {
-    position: 'absolute',
-    left: '12px',
-    color: '#999',
-    fontSize: '16px',
-    zIndex: 1
-  },
-  input: {
-    width: '100%',
-    padding: '12px 12px 12px 40px',
-    border: '2px solid #e1e8ed',
-    borderRadius: '8px',
-    fontSize: '14px',
-    outline: 'none',
-    transition: 'border-color 0.3s ease',
-    boxSizing: 'border-box'
-  },
-  eyeButton: {
-    position: 'absolute',
-    right: '12px',
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    color: '#999',
-    fontSize: '16px',
-    padding: '4px'
-  },
-  formOptions: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '30px'
-  },
-  checkboxLabel: {
-    display: 'flex',
-    alignItems: 'center',
-    fontSize: '14px',
-    color: '#666',
-    cursor: 'pointer'
-  },
-  checkbox: {
-    marginRight: '8px',
-    width: '16px',
-    height: '16px'
-  },
-  forgotLink: {
-    fontSize: '14px',
-    color: '#666',
-    textDecoration: 'underline',
-    cursor: 'pointer'
-  },
-  signInButton: {
-    width: '100%',
-    padding: '16px',
-    backgroundColor: '#2d5a4a',
-    color: 'white',
-    border: 'none',
-    borderRadius: '8px',
-    fontSize: '16px',
-    fontWeight: '500',
-    cursor: 'pointer',
-    marginBottom: '20px',
-    transition: 'background-color 0.3s ease'
-  },
-  divider: {
-    textAlign: 'center',
-    margin: '20px 0',
-    position: 'relative'
-  },
-  dividerText: {
-    backgroundColor: 'white',
-    padding: '0 16px',
-    color: '#999',
-    fontSize: '14px'
-  },
-  socialButton: {
-    width: '100%',
-    padding: '12px',
-    border: '2px solid #e1e8ed',
-    borderRadius: '8px',
-    backgroundColor: 'white',
-    fontSize: '14px',
-    color: '#666',
-    cursor: 'pointer',
-    marginBottom: '12px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'border-color 0.3s ease'
-  },
-  googleIcon: {
-    width: '20px',
-    height: '20px',
-    borderRadius: '50%',
-    backgroundColor: '#4285f4',
-    color: 'white',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: '12px',
-    fontSize: '12px',
-    fontWeight: 'bold'
-  },
-  facebookIcon: {
-    width: '20px',
-    height: '20px',
-    borderRadius: '50%',
-    backgroundColor: '#1877f2',
-    color: 'white',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: '12px',
-    fontSize: '14px',
-    fontWeight: 'bold'
-  },
-  featureSection: {
-    flex: 1,
-    background: 'linear-gradient(135deg, #2d5a4a 0%, #1e3d2f 100%)',
-    padding: '40px',
-    color: 'white',
-    position: 'relative',
-    display: 'flex',
-    flexDirection: 'column',
-    overflow: 'auto',
-    minWidth: '500px'
-  },
-  supportBadge: {
-    position: 'absolute',
-    top: '20px',
-    right: '20px',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    padding: '8px 16px',
-    borderRadius: '20px',
-    fontSize: '14px'
-  },
-  imageCarousel: {
-    marginBottom: '40px',
-    marginTop: '60px',
-    position: 'relative'
-  },
-  carouselWrapper: {
-    width: '400px',
-    height: '250px',
-    borderRadius: '16px',
-    margin: '0 auto',
-    position: 'relative',
-    overflow: 'hidden',
-    backgroundColor: '#1a1a1a'
-  },
-  imageContainer: {
-    width: '100%',
-    height: '100%',
-    position: 'relative'
-  },
-  carouselImage: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-    display: 'block',
-    transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
-    borderRadius: '16px'
-  },
-  hoverAreas: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    display: 'flex',
-    width: '100%',
-    height: '100%'
-  },
-  hoverArea: {
-    flex: 1,
-    height: '100%',
-    cursor: 'pointer',
-    position: 'relative',
-    transition: 'background-color 0.3s ease',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  hoverIndicator: {
-    opacity: 0,
-    transition: 'opacity 0.3s ease'
-  },
-  hoverDot: {
-    width: '12px',
-    height: '12px',
-    borderRadius: '50%',
-    transition: 'all 0.3s ease'
-  },
-  autoCycleIndicator: {
-    position: 'absolute',
-    top: '10px',
-    left: '10px',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    padding: '4px 8px',
-    borderRadius: '12px',
-    opacity: 0,
-    animation: 'fadeInOut 0.5s ease-in-out'
-  },
-  autoCycleText: {
-    fontSize: '10px',
-    color: 'white',
-    fontWeight: '500'
-  },
-  bottomSection: {
-    marginTop: 'auto',
-    minHeight: '120px'
-  },
-  bottomTitle: {
-    fontSize: '28px',
-    fontWeight: 'bold',
-    margin: '0 0 16px 0',
-    transition: 'all 0.5s ease',
-    minHeight: '35px'
-  },
-  bottomText: {
-    fontSize: '16px',
-    lineHeight: '1.6',
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: '24px',
-    transition: 'all 0.5s ease',
-    minHeight: '50px'
-  },
-  pagination: {
-    display: 'flex',
-    gap: '12px',
-    justifyContent: 'center'
-  },
-  paginationDot: {
-    width: '10px',
-    height: '10px',
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-    borderRadius: '50%',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease'
-  },
-  paginationDotActive: {
-    width: '24px',
-    height: '10px',
-    backgroundColor: 'white',
-    borderRadius: '5px',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease'
-  }
 };
 
 export default Login;
