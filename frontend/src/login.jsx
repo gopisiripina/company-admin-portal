@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserOutlined, LockOutlined, EyeOutlined, EyeInvisibleOutlined } from '@ant-design/icons';
 
 const Login = () => {
@@ -9,6 +9,9 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [currentImage, setCurrentImage] = useState(0);
+  const [isHovering, setIsHovering] = useState(false);
+  const intervalRef = useRef(null);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -31,6 +34,73 @@ const Login = () => {
 
   const handleSocialLogin = (provider) => {
     console.log(`Login with ${provider}`);
+  };
+
+  const images = [
+    {
+      url: "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=500&h=350&fit=crop&crop=center",
+      alt: "Financial Dashboard",
+      title: "Smart Financial Dashboard",
+      description: "Monitor your financial performance with our intuitive dashboard. Track expenses, income, and investment returns in real-time with beautiful visualizations."
+    },
+    {
+      url: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=500&h=350&fit=crop&crop=center",
+      alt: "Analytics Chart",
+      title: "Advanced Analytics",
+      description: "Leverage powerful analytics to make data-driven decisions. Our advanced charting tools help you identify trends and opportunities for growth."
+    },
+    {
+      url: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=500&h=350&fit=crop&crop=center",
+      alt: "Business Growth",
+      title: "Business Growth Tools",
+      description: "Scale your business with our comprehensive suite of growth tools. From market analysis to performance optimization, we've got you covered."
+    }
+  ];
+
+  // Auto-cycle images when hovering over carousel
+  useEffect(() => {
+    if (isHovering) {
+      intervalRef.current = setInterval(() => {
+        setCurrentImage(prev => (prev + 1) % images.length);
+      }, 5000); // Change every 5 seconds
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [isHovering, images.length]);
+
+  const handleCarouselMouseEnter = () => {
+    setIsHovering(true);
+  };
+
+  const handleCarouselMouseLeave = () => {
+    setIsHovering(false);
+  };
+
+  const handleHoverAreaEnter = (index) => {
+    setCurrentImage(index);
+    // Temporarily pause auto-cycling when hovering specific area
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  const handleHoverAreaLeave = () => {
+    // Resume auto-cycling if still hovering the carousel
+    if (isHovering) {
+      intervalRef.current = setInterval(() => {
+        setCurrentImage(prev => (prev + 1) % images.length);
+      }, 5000); // Change every 5 seconds
+    }
   };
 
   return (
@@ -147,43 +217,76 @@ const Login = () => {
               <span>💬 Support</span>
             </div>
             
-            <div style={styles.featureCard}>
-              <div style={styles.cardHeader}>
-                <h3 style={styles.cardTitle}>Reach financial goals faster</h3>
-                <p style={styles.cardSubtitle}>
-                  Use your Venus card around the world with no hidden fees. Hold, transfer and spend money.
-                </p>
-                <button style={styles.learnMoreBtn}>Learn more</button>
-              </div>
-              
-              <div style={styles.cardVisual}>
-                <div style={styles.creditCard}>
-                  <div style={styles.cardChip}></div>
-                  <div style={styles.cardNumber}>1012 2349 6829 XXXX</div>
-                  <div style={styles.cardDetails}>
-                    <div style={styles.cardName}>Sahra</div>
-                    <div style={styles.cardExpiry}>04/26</div>
-                  </div>
+            <div 
+              style={styles.imageCarousel}
+              onMouseEnter={handleCarouselMouseEnter}
+              onMouseLeave={handleCarouselMouseLeave}
+            >
+              <div style={styles.carouselWrapper}>
+                <div style={styles.imageContainer}>
+                  {images.map((img, index) => (
+                    <img 
+                      key={index}
+                      src={img.url}
+                      alt={img.alt}
+                      style={{
+                        ...styles.carouselImage,
+                        opacity: currentImage === index ? 1 : 0,
+                        transform: currentImage === index ? 'scale(1)' : 'scale(1.05)'
+                      }}
+                    />
+                  ))}
                 </div>
-                <div style={styles.earningsCard}>
-                  <div style={styles.earningsIcon}>📊</div>
-                  <div>
-                    <div style={styles.earningsLabel}>Earnings</div>
-                    <div style={styles.earningsAmount}>$350.40</div>
-                  </div>
+                
+                {/* Enhanced hover areas with visual feedback */}
+                <div style={styles.hoverAreas}>
+                  {images.map((_, index) => (
+                    <div 
+                      key={index}
+                      style={{
+                        ...styles.hoverArea,
+                        backgroundColor: currentImage === index ? 'rgba(255, 255, 255, 0.1)' : 'transparent'
+                      }}
+                      onMouseEnter={() => handleHoverAreaEnter(index)}
+                      onMouseLeave={handleHoverAreaLeave}
+                    >
+                      <div style={{
+                        ...styles.hoverIndicator,
+                        opacity: isHovering ? 1 : 0
+                      }}>
+                        <div style={{
+                          ...styles.hoverDot,
+                          backgroundColor: currentImage === index ? 'white' : 'rgba(255, 255, 255, 0.5)'
+                        }}></div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
+
+                {/* Auto-cycle indicator */}
+                {isHovering && (
+                  <div style={styles.autoCycleIndicator}>
+                    <div style={styles.autoCycleText}>Auto-cycling...</div>
+                  </div>
+                )}
               </div>
             </div>
 
             <div style={styles.bottomSection}>
-              <h2 style={styles.bottomTitle}>Introducing new features</h2>
+              <h2 style={styles.bottomTitle}>
+                {images[currentImage].title}
+              </h2>
               <p style={styles.bottomText}>
-                Analyzing previous trends ensures that businesses always make the right decision. And as the scale of the decision and it's impact magnifies...
+                {images[currentImage].description}
               </p>
               <div style={styles.pagination}>
-                <div style={styles.paginationDot}></div>
-                <div style={styles.paginationDot}></div>
-                <div style={styles.paginationDotActive}></div>
+                {images.map((_, index) => (
+                  <div 
+                    key={index}
+                    style={currentImage === index ? styles.paginationDotActive : styles.paginationDot}
+                    onClick={() => setCurrentImage(index)}
+                  ></div>
+                ))}
               </div>
             </div>
           </div>
@@ -195,26 +298,39 @@ const Login = () => {
 
 const styles = {
   container: {
-    minHeight: '100vh',
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100vw',
+    height: '100vh',
     backgroundColor: '#f0f2f5',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     padding: '20px',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    overflow: 'auto',
+    boxSizing: 'border-box'
   },
   card: {
     backgroundColor: 'white',
     borderRadius: '16px',
     boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08)',
     overflow: 'hidden',
-    maxWidth: '1000px',
+    maxWidth: '1200px',
     width: '100%',
-    minHeight: '600px'
+    minHeight: '700px',
+    maxHeight: 'calc(100vh - 40px)',
+    display: 'flex',
+    flexDirection: 'column'
   },
   content: {
     display: 'flex',
-    minHeight: '600px'
+    minHeight: '700px',
+    flex: 1,
+    overflow: 'hidden'
   },
   formSection: {
     flex: 1,
@@ -222,7 +338,9 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'center',
-    backgroundColor: 'white'
+    backgroundColor: 'white',
+    overflow: 'auto',
+    minWidth: '400px'
   },
   header: {
     marginBottom: '40px'
@@ -268,7 +386,8 @@ const styles = {
     cursor: 'pointer'
   },
   form: {
-    maxWidth: '400px'
+    maxWidth: '400px',
+    width: '100%'
   },
   inputGroup: {
     marginBottom: '20px'
@@ -299,7 +418,8 @@ const styles = {
     borderRadius: '8px',
     fontSize: '14px',
     outline: 'none',
-    transition: 'border-color 0.3s ease'
+    transition: 'border-color 0.3s ease',
+    boxSizing: 'border-box'
   },
   eyeButton: {
     position: 'absolute',
@@ -407,7 +527,9 @@ const styles = {
     color: 'white',
     position: 'relative',
     display: 'flex',
-    flexDirection: 'column'
+    flexDirection: 'column',
+    overflow: 'auto',
+    minWidth: '500px'
   },
   supportBadge: {
     position: 'absolute',
@@ -418,129 +540,118 @@ const styles = {
     borderRadius: '20px',
     fontSize: '14px'
   },
-  featureCard: {
-    backgroundColor: 'white',
-    borderRadius: '16px',
-    padding: '24px',
-    color: '#333',
+  imageCarousel: {
     marginBottom: '40px',
-    marginTop: '60px'
+    marginTop: '60px',
+    position: 'relative'
   },
-  cardHeader: {
-    marginBottom: '20px'
-  },
-  cardTitle: {
-    fontSize: '18px',
-    fontWeight: 'bold',
-    margin: '0 0 12px 0',
-    color: '#1a1a1a'
-  },
-  cardSubtitle: {
-    fontSize: '14px',
-    color: '#666',
-    lineHeight: '1.5',
-    margin: '0 0 16px 0'
-  },
-  learnMoreBtn: {
-    backgroundColor: '#2d5a4a',
-    color: 'white',
-    border: 'none',
-    padding: '8px 16px',
-    borderRadius: '20px',
-    fontSize: '12px',
-    cursor: 'pointer'
-  },
-  cardVisual: {
+  carouselWrapper: {
+    width: '400px',
+    height: '250px',
+    borderRadius: '16px',
+    margin: '0 auto',
     position: 'relative',
-    height: '120px'
+    overflow: 'hidden',
+    backgroundColor: '#1a1a1a'
   },
-  creditCard: {
+  imageContainer: {
+    width: '100%',
+    height: '100%',
+    position: 'relative'
+  },
+  carouselImage: {
     position: 'absolute',
-    top: '0',
-    right: '0',
-    width: '160px',
-    height: '100px',
-    background: 'linear-gradient(135deg, #4a90e2 0%, #357abd 100%)',
-    borderRadius: '12px',
-    padding: '12px',
-    color: 'white',
-    fontSize: '10px'
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    display: 'block',
+    transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+    borderRadius: '16px'
   },
-  cardChip: {
-    width: '20px',
-    height: '16px',
-    backgroundColor: '#ffd700',
-    borderRadius: '4px',
-    marginBottom: '8px'
-  },
-  cardNumber: {
-    fontSize: '11px',
-    letterSpacing: '1px',
-    marginBottom: '8px'
-  },
-  cardDetails: {
+  hoverAreas: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
     display: 'flex',
-    justifyContent: 'space-between',
-    fontSize: '10px'
+    width: '100%',
+    height: '100%'
   },
-  cardName: {
-    fontWeight: 'bold'
-  },
-  cardExpiry: {},
-  earningsCard: {
-    position: 'absolute',
-    bottom: '0',
-    left: '0',
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    padding: '12px',
+  hoverArea: {
+    flex: 1,
+    height: '100%',
+    cursor: 'pointer',
+    position: 'relative',
+    transition: 'background-color 0.3s ease',
     display: 'flex',
     alignItems: 'center',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-    minWidth: '120px'
+    justifyContent: 'center'
   },
-  earningsIcon: {
-    marginRight: '8px',
-    fontSize: '16px'
+  hoverIndicator: {
+    opacity: 0,
+    transition: 'opacity 0.3s ease'
   },
-  earningsLabel: {
-    fontSize: '12px',
-    color: '#666'
+  hoverDot: {
+    width: '12px',
+    height: '12px',
+    borderRadius: '50%',
+    transition: 'all 0.3s ease'
   },
-  earningsAmount: {
-    fontSize: '16px',
-    fontWeight: 'bold',
-    color: '#1a1a1a'
+  autoCycleIndicator: {
+    position: 'absolute',
+    top: '10px',
+    left: '10px',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    padding: '4px 8px',
+    borderRadius: '12px',
+    opacity: 0,
+    animation: 'fadeInOut 0.5s ease-in-out'
+  },
+  autoCycleText: {
+    fontSize: '10px',
+    color: 'white',
+    fontWeight: '500'
   },
   bottomSection: {
-    marginTop: 'auto'
+    marginTop: 'auto',
+    minHeight: '120px'
   },
   bottomTitle: {
-    fontSize: '24px',
+    fontSize: '28px',
     fontWeight: 'bold',
-    margin: '0 0 16px 0'
+    margin: '0 0 16px 0',
+    transition: 'all 0.5s ease',
+    minHeight: '35px'
   },
   bottomText: {
-    fontSize: '14px',
-    lineHeight: '1.5',
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: '20px'
+    fontSize: '16px',
+    lineHeight: '1.6',
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: '24px',
+    transition: 'all 0.5s ease',
+    minHeight: '50px'
   },
   pagination: {
     display: 'flex',
-    gap: '8px'
+    gap: '12px',
+    justifyContent: 'center'
   },
   paginationDot: {
-    width: '8px',
-    height: '8px',
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: '50%'
+    width: '10px',
+    height: '10px',
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    borderRadius: '50%',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease'
   },
   paginationDotActive: {
-    width: '8px',
-    height: '8px',
+    width: '24px',
+    height: '10px',
     backgroundColor: 'white',
-    borderRadius: '50%'
+    borderRadius: '5px',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease'
   }
 };
 
