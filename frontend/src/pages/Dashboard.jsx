@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Bell, Users, DollarSign, ShoppingCart, TrendingUp, Calendar, Clock, Star, ArrowUpRight, ArrowDownRight, Activity, Zap } from 'lucide-react';
 import '../styles/Dashboard.css';
+import ProfileSection from './ProfileSection';
 
 const Dashboard = ({ sidebarOpen, activeSection = 'dashboard' }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -101,28 +102,16 @@ const Dashboard = ({ sidebarOpen, activeSection = 'dashboard' }) => {
         </div>
 
         {/* Header Right */}
-        <div className="header-right">
-          {/* Notifications */}
-          <button className="notification-button">
-            <Bell size={22} />
-            <span className="notification-badge"></span>
-          </button>
+<div className="header-right">
+  {/* Notifications */}
+  <button className="notification-button">
+    <Bell size={22} />
+    <span className="notification-badge"></span>
+  </button>
 
-          {/* Profile */}
-          <div className="profile-section">
-            <div className="profile-avatar">
-              JD
-            </div>
-            <div className="profile-info">
-              <span className="profile-name">
-                John Doe
-              </span>
-              <span className="profile-role">
-                Administrator
-              </span>
-            </div>
-          </div>
-        </div>
+  {/* Profile Section */}
+  <ProfileSection />
+</div>
       </header>
 
       {/* Main Content */}
