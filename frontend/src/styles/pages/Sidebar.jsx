@@ -1,21 +1,15 @@
 import React, { useState } from 'react';
-import { Home, BarChart3, User, Settings, ChevronLeft, ChevronRight, FileText, Calendar, MessageSquare, Zap, Shield, Folder, Target, TrendingUp, LogOut, UserCheck } from 'lucide-react';
+import { Home, BarChart3, User, Settings, ChevronLeft, ChevronRight, FileText, Calendar, MessageSquare, Zap, Shield, Folder, Target, TrendingUp, LogOut } from 'lucide-react';
 import '../styles/Sidebar.css';
 
-const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
+const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick }) => {
   const [hoveredItem, setHoveredItem] = useState(null);
 
   const sidebarItems = [
     { icon: Home, label: 'Dashboard', id: 'dashboard', color: '#3b82f6' },
-   
-    // Only show Admin button for superadmin
-    ...(userRole === 'superadmin' ? [
-      { icon: UserCheck, label: 'Admin', id: 'admin', color: '#06b6d4' }
-    ] : []),
-    // Show Employee button for superadmin and admin
-    ...(userRole === 'superadmin' || userRole === 'admin' ? [
-      { icon: User, label: 'Employee', id: 'employee', color: '#f59e0b' }
-    ] : []),
+    { icon: BarChart3, label: 'Analytics', id: 'analytics', color: '#8b5cf6' },
+    { icon: TrendingUp, label: 'Reports', id: 'reports', color: '#10b981' },
+    { icon: User, label: 'Employee', id: 'Employee', color: '#f59e0b' },
     { icon: LogOut, label: 'Logout', id: 'logout', color: '#ef4444' }
   ];
 
