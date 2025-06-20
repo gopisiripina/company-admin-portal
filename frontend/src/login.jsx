@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User, Lock, Eye, EyeOff } from 'lucide-react';
 import './Login.css';
 
@@ -11,6 +11,10 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [currentImage, setCurrentImage] = useState(0);
+  
+  // Timer management
+  const intervalRef = useRef(null);
+  const timeoutRef = useRef(null);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -37,16 +41,16 @@ const Login = () => {
 
   const images = [
     {
-      url: "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=500&h=350&fit=crop&crop=center",
-      alt: "Financial Dashboard",
-      title: "Smart Financial Dashboard",
-      description: "Monitor your financial performance with our intuitive dashboard. Track expenses, income, and investment returns in real-time with beautiful visualizations."
+      url: "/src/assets/image1.webp",
+      alt: "Industrial PCB Assembly",
+      title: "Automated PCB Manufacturing Process",
+      description: "We specialize in high-performance embedded systems and electronic solutions, tailored for IoT, smart devices, and industrial automation. Our focus is on innovation, reliability, and scalable quality."
     },
     {
-      url: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=500&h=350&fit=crop&crop=center",
-      alt: "Analytics Chart",
-      title: "Advanced Analytics",
-      description: "Leverage powerful analytics to make data-driven decisions. Our advanced charting tools help you identify trends and opportunities for growth."
+      url: "/src/assets/image2.webp",
+      alt: "Robotics and Embedded Systems Lab",
+      title: "Programmable Robotics for Smart Automation",
+      description: "We develop intelligent robotic systems powered by embedded technology, designed for automation, research, and next-generation innovation."
     },
     {
       url: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=500&h=350&fit=crop&crop=center",
@@ -56,8 +60,60 @@ const Login = () => {
     }
   ];
 
+  // Auto-rotation logic
+  const startAutoRotation = () => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    
+    intervalRef.current = setInterval(() => {
+      setCurrentImage(prev => (prev + 1) % images.length);
+    }, 5000);
+  };
+
+  const stopAutoRotation = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  const restartAutoRotationWithDelay = () => {
+    stopAutoRotation();
+    
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    
+    timeoutRef.current = setTimeout(() => {
+      startAutoRotation();
+    }, 5000);
+  };
+
+  // Initialize auto-rotation on component mount
+  useEffect(() => {
+    startAutoRotation();
+    
+    // Cleanup on unmount
+    return () => {
+      stopAutoRotation();
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
   const handleHoverAreaEnter = (index) => {
     setCurrentImage(index);
+    restartAutoRotationWithDelay();
+  };
+
+  const handlePaginationClick = (index) => {
+    setCurrentImage(index);
+    restartAutoRotationWithDelay();
+  };
+
+  // Pause auto-rotation when user hovers over the carousel
+  const handleCarouselMouseEnter = () => {
+    stopAutoRotation();
+  };
+
+  const handleCarouselMouseLeave = () => {
+    startAutoRotation();
   };
 
   return (
@@ -70,14 +126,9 @@ const Login = () => {
               <div className="form-header">
                 <div className="logo">
                   <div className="logo-icon">
-                    <div className="logo-grid">
-                      <div className="logo-dot"></div>
-                      <div className="logo-dot"></div>
-                      <div className="logo-dot"></div>
-                      <div className="logo-dot"></div>
-                    </div>
+                    
                   </div>
-                  <span className="logo-text">My Access</span>
+                  <img src="src/assets/logo.png" alt="My Access Logo" className="logo-image" />
                 </div>
                 
                 <h1 className="form-title">Sign in</h1>
@@ -109,7 +160,7 @@ const Login = () => {
                       name="password"
                       value={formData.password}
                       onChange={handleInputChange}
-                      placeholder="6u#**%"
+                      placeholder="Password"
                       className="form-input"
                       required
                     />
@@ -177,7 +228,11 @@ const Login = () => {
               <span>💬 Support</span>
             </div>
             
-            <div className="image-carousel">
+            <div 
+              className="image-carousel"
+              onMouseEnter={handleCarouselMouseEnter}
+              onMouseLeave={handleCarouselMouseLeave}
+            >
               <div className="carousel-wrapper">
                 <div className="image-container">
                   {images.map((img, index) => (
@@ -214,7 +269,6 @@ const Login = () => {
               <h2 className="bottom-title">
                 {images[currentImage].title}
               </h2>
-              {/* hi */}
               <p className="bottom-text">
                 {images[currentImage].description}
               </p>
@@ -223,7 +277,7 @@ const Login = () => {
                   <div 
                     key={index}
                     className={`pagination-dot ${currentImage === index ? 'active' : ''}`}
-                    onClick={() => setCurrentImage(index)}
+                    onClick={() => handlePaginationClick(index)}
                   ></div>
                 ))}
               </div>
