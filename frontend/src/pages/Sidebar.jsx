@@ -8,16 +8,7 @@ const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
   // Remove LogOut from main navigation items
   const sidebarItems = [
     { icon: Home, label: 'Dashboard', id: 'dashboard', color: '#3b82f6' },
-    { icon: BarChart3, label: 'Analytics', id: 'analytics', color: '#8b5cf6' },
-    { icon: TrendingUp, label: 'Reports', id: 'reports', color: '#10b981' },
-    { icon: User, label: 'Users', id: 'users', color: '#f59e0b' },
-    { icon: Folder, label: 'Projects', id: 'projects', color: '#ef4444' },
-    { icon: Calendar, label: 'Calendar', id: 'calendar', color: '#06b6d4' },
-    { icon: MessageSquare, label: 'Messages', id: 'messages', color: '#84cc16' },
-    { icon: FileText, label: 'Documents', id: 'documents', color: '#6366f1' },
-    { icon: Target, label: 'Goals', id: 'goals', color: '#ec4899' },
-    { icon: Shield, label: 'Security', id: 'security', color: '#64748b' },
-    { icon: Settings, label: 'Settings', id: 'settings', color: '#6b7280' }
+   
    
     // Only show Admin button for superadmin
     ...(userRole === 'superadmin' ? [
@@ -27,7 +18,7 @@ const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
     ...(userRole === 'superadmin' || userRole === 'admin' ? [
       { icon: User, label: 'Employee', id: 'employee', color: '#f59e0b' }
     ] : []),
-    { icon: LogOut, label: 'Logout', id: 'logout', color: '#ef4444' }
+   
   ];
 
   // Separate logout item
