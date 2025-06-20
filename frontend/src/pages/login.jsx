@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Lock, Eye, EyeOff } from 'lucide-react';
-// Uncomment Firebase imports
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import authService from '../firebase/authService'; // Import the auth service
 import '../styles/login.css';
 
 const Login = ({ onLoginSuccess }) => {
@@ -20,13 +18,6 @@ const Login = ({ onLoginSuccess }) => {
   const intervalRef = useRef(null);
   const timeoutRef = useRef(null);
 
-  // Keep demo credentials as fallback
-  const validCredentials = [
-    { email: 'admin@test.com', password: 'admin123', name: 'Admin User', role: 'Admin' },
-    { email: 'user@test.com', password: 'user123', name: 'Test User', role: 'User' },
-    { email: 'demo@demo.com', password: 'demo123', name: 'Demo User', role: 'Demo' },
-  ];
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -37,98 +28,62 @@ const Login = ({ onLoginSuccess }) => {
     if (error) setError('');
   };
 
-  // Function to check Firestore credentials
-  const checkFirestoreCredentials = async (email, password) => {
-    try {
-      // Query Firestore for user with matching email
-      const usersRef = collection(db, 'users'); // Adjust collection name as needed
-      const q = query(usersRef, where('email', '==', email));
-      const querySnapshot = await getDocs(q);
-      
-      if (!querySnapshot.empty) {
-        const userDoc = querySnapshot.docs[0];
-        const userData = userDoc.data();
-        
-        // Check if password matches (Note: In production, use proper password hashing)
-        if (userData.password === password) {
-          return {
-            id: userDoc.id,
-            email: userData.email,
-            name: userData.name || 'User',
-            role: userData.role || 'User',
-            ...userData
-          };
-        }
-      }
-      return null;
-    } catch (error) {
-      console.error('Firestore authentication error:', error);
-      throw error;
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      let user = null;
-
-      // First, try to authenticate with Firestore
-      try {
-        user = await checkFirestoreCredentials(formData.email, formData.password);
-        console.log('Firestore authentication result:', user);
-      } catch (firestoreError) {
-        console.error('Firestore authentication failed:', firestoreError);
-        // If Firestore fails, we'll fall back to demo credentials
-      }
-
-      // If Firestore authentication failed, check demo credentials as fallback
-      if (!user) {
-        user = validCredentials.find(
-          cred => cred.email === formData.email && cred.password === formData.password
-        );
-        if (user) {
-          console.log('Demo credentials authentication successful:', user);
-        }
-      }
-
-      if (user) {
+      // Use auth service for authentication
+      const authResult = await authService.authenticate(formData.email, formData.password);
+      
+      if (authResult.success) {
         // Login successful
-        console.log('Login successful:', user);
+        console.log('Login successful:', authResult.user);
         
-        // Store user data in localStorage if remember me is checked
-        if (rememberMe) {
-          localStorage.setItem('userData', JSON.stringify({
-            email: user.email,
-            name: user.name || 'User',
-            role: user.role || 'User'
-          }));
-        }
+        // Store user data if remember me is checked
+        authService.storeUserData(authResult.user, rememberMe);
         
         // Call the success callback to redirect to dashboard
         if (onLoginSuccess) {
-          onLoginSuccess(user);
+          onLoginSuccess(authResult.user);
         }
       } else {
         // Login failed
-        setError('Invalid email or password. Please try again.');
+        setError(authResult.error);
       }
     } catch (error) {
       console.error('Login error:', error);
-      setError('An error occurred during login. Please try again.');
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSocialLogin = (provider) => {
-    console.log(`Login with ${provider}`);
-    // You can implement social login here if needed
+  const handleSocialLogin = async (provider) => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      const authResult = await authService.socialLogin(provider);
+      
+      if (authResult.success) {
+        // Store user data if remember me is checked
+        authService.storeUserData(authResult.user, rememberMe);
+        
+        // Call the success callback
+        if (onLoginSuccess) {
+          onLoginSuccess(authResult.user);
+        }
+      } else {
+        setError(authResult.error);
+      }
+    } catch (error) {
+      console.error('Social login error:', error);
+      setError('Social login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const images = [
@@ -208,6 +163,9 @@ const Login = ({ onLoginSuccess }) => {
     startAutoRotation();
   };
 
+  // Get demo credentials for display
+  const demoCredentials = authService.getDemoCredentials();
+
   return (
     <div className="login-container">
       {/* Demo Credentials Info */}
@@ -224,9 +182,11 @@ const Login = ({ onLoginSuccess }) => {
         border: '1px solid #e5e7eb'
       }}>
         <strong>Demo Credentials:</strong><br/>
-        admin@test.com / admin123<br/>
-        user@test.com / user123<br/>
-        demo@demo.com / demo123<br/>
+        {demoCredentials.map((cred, index) => (
+          <div key={index}>
+            {cred.email} / {cred.password}<br/>
+          </div>
+        ))}
         <br/>
         <strong>Or use Firestore credentials</strong>
       </div>
