@@ -2,22 +2,9 @@ import React, { useState } from 'react';
 import { Search, Bell, Users, DollarSign, ShoppingCart, TrendingUp, Calendar, Clock, Star, ArrowUpRight, ArrowDownRight, Activity, Zap } from 'lucide-react';
 import '../styles/Dashboard.css';
 import ProfileSection from './ProfileSection';
-import AdminPopup from './AdminPopup';
-import EmployeePopup from './EmployeePopup';
 
-const Dashboard = ({ sidebarOpen, activeSection = 'dashboard', userData, onLogout }) => {
+const Dashboard = ({ sidebarOpen, activeSection = 'dashboard' }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [showAdminPopup, setShowAdminPopup] = useState(false);
-  const [showEmployeePopup, setShowEmployeePopup] = useState(false);
-
-  // Handle sidebar section changes
-  React.useEffect(() => {
-    if (activeSection === 'admin') {
-      setShowAdminPopup(true);
-    } else if (activeSection === 'employee') {
-      setShowEmployeePopup(true);
-    }
-  }, [activeSection]);
 
   const statsData = [
     { 
@@ -115,16 +102,16 @@ const Dashboard = ({ sidebarOpen, activeSection = 'dashboard', userData, onLogou
         </div>
 
         {/* Header Right */}
-        <div className="header-right">
-          {/* Notifications */}
-          <button className="notification-button">
-            <Bell size={22} />
-            <span className="notification-badge"></span>
-          </button>
+<div className="header-right">
+  {/* Notifications */}
+  <button className="notification-button">
+    <Bell size={22} />
+    <span className="notification-badge"></span>
+  </button>
 
-          {/* Profile Section */}
-          <ProfileSection />
-        </div>
+  {/* Profile Section */}
+  <ProfileSection />
+</div>
       </header>
 
       {/* Main Content */}
@@ -133,7 +120,7 @@ const Dashboard = ({ sidebarOpen, activeSection = 'dashboard', userData, onLogou
           {/* Welcome Header */}
           <div className="welcome-header">
             <h1 className="welcome-title">
-              Welcome back, {userData?.name || 'User'}! 👋
+              Welcome back, John! 👋
             </h1>
             <p className="welcome-subtitle">
               Here's what's happening with your business today. You have 3 new notifications.
@@ -243,18 +230,6 @@ const Dashboard = ({ sidebarOpen, activeSection = 'dashboard', userData, onLogou
           </div>
         </div>
       </main>
-
-      {/* Popups */}
-      <AdminPopup 
-        isOpen={showAdminPopup} 
-        onClose={() => setShowAdminPopup(false)}
-        userRole={userData?.role}
-      />
-      <EmployeePopup 
-        isOpen={showEmployeePopup} 
-        onClose={() => setShowEmployeePopup(false)}
-        userRole={userData?.role}
-      />
     </div>
   );
 };
