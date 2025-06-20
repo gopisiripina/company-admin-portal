@@ -111,12 +111,8 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  
-  /* For Firefox */
   scrollbar-width: none;
-
-  /* For WebKit (Chrome, Edge, Safari) */
-  -ms-overflow-style: none;  /* IE and Edge */
+  -ms-overflow-style: none;
 }
 .sidebar-navigation::-webkit-scrollbar {
   display: none;
