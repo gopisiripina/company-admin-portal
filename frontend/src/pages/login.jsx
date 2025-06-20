@@ -198,7 +198,7 @@ const Login = ({ onLoginSuccess }) => {
             <div className="form-container">
               <div className="form-header">
                 <div className="logo">
-                  <div className="logo-icon">
+                  <div className="">
                     
                   </div>
                   <img src="src/assets/logo.png" alt="My Access Logo" className="logo-image" />
