@@ -52,7 +52,8 @@ const AppContent = () => {
     // Store minimal user data in localStorage
     localStorage.setItem('userData', JSON.stringify({
       email: user.email,
-      name: user.name || 'User'
+      name: user.name || 'User',
+      role: user.role || 'User'
     }));
     
     // Navigate to dashboard after successful login
@@ -121,6 +122,7 @@ const AppContent = () => {
                   onToggle={toggleSidebar}
                   activeItem={activeSection}
                   onItemClick={handleSidebarItemClick}
+                   userRole={userData?.role}
                 />
                 <Dashboard
                   sidebarOpen={sidebarOpen}
