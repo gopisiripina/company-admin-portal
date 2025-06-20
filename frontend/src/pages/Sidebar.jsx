@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Home, BarChart3, User, Settings, ChevronLeft, ChevronRight, FileText, Calendar, MessageSquare, Zap, Shield, Folder, Target, TrendingUp, LogOut, UserCheck } from 'lucide-react';
+import { Home, User,  ChevronLeft, ChevronRight, Zap, LogOut, UserCheck } from 'lucide-react';
 import '../styles/Sidebar.css';
 
 const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
