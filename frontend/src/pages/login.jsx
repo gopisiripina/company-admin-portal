@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { User, Lock, Eye, EyeOff } from 'lucide-react';
-import './Login.css';
+// Uncomment Firebase imports
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../firebase/config';
+import '../styles/login.css';
 
-const Login = () => {
+const Login = ({ onLoginSuccess }) => {
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -10,7 +13,15 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [currentImage, setCurrentImage] = useState(0);
+
+  // Keep demo credentials as fallback
+  const validCredentials = [
+    { email: 'admin@test.com', password: 'admin123', name: 'Admin User', role: 'Admin' },
+    { email: 'user@test.com', password: 'user123', name: 'Test User', role: 'User' },
+    { email: 'demo@demo.com', password: 'demo123', name: 'Demo User', role: 'Demo' },
+  ];
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -18,21 +29,102 @@ const Login = () => {
       ...prev,
       [name]: value
     }));
+    // Clear error when user starts typing
+    if (error) setError('');
+  };
+
+  // Function to check Firestore credentials
+  const checkFirestoreCredentials = async (email, password) => {
+    try {
+      // Query Firestore for user with matching email
+      const usersRef = collection(db, 'users'); // Adjust collection name as needed
+      const q = query(usersRef, where('email', '==', email));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        const userDoc = querySnapshot.docs[0];
+        const userData = userDoc.data();
+        
+        // Check if password matches (Note: In production, use proper password hashing)
+        if (userData.password === password) {
+          return {
+            id: userDoc.id,
+            email: userData.email,
+            name: userData.name || 'User',
+            role: userData.role || 'User',
+            ...userData
+          };
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('Firestore authentication error:', error);
+      throw error;
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
     
-    // Simulate API call
-    setTimeout(() => {
-      console.log('Login attempt:', formData);
+    try {
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      let user = null;
+
+      // First, try to authenticate with Firestore
+      try {
+        user = await checkFirestoreCredentials(formData.email, formData.password);
+        console.log('Firestore authentication result:', user);
+      } catch (firestoreError) {
+        console.error('Firestore authentication failed:', firestoreError);
+        // If Firestore fails, we'll fall back to demo credentials
+      }
+
+      // If Firestore authentication failed, check demo credentials as fallback
+      if (!user) {
+        user = validCredentials.find(
+          cred => cred.email === formData.email && cred.password === formData.password
+        );
+        if (user) {
+          console.log('Demo credentials authentication successful:', user);
+        }
+      }
+
+      if (user) {
+        // Login successful
+        console.log('Login successful:', user);
+        
+        // Store user data in localStorage if remember me is checked
+        if (rememberMe) {
+          localStorage.setItem('userData', JSON.stringify({
+            email: user.email,
+            name: user.name || 'User',
+            role: user.role || 'User'
+          }));
+        }
+        
+        // Call the success callback to redirect to dashboard
+        if (onLoginSuccess) {
+          onLoginSuccess(user);
+        }
+      } else {
+        // Login failed
+        setError('Invalid email or password. Please try again.');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('An error occurred during login. Please try again.');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   const handleSocialLogin = (provider) => {
     console.log(`Login with ${provider}`);
+    // You can implement social login here if needed
   };
 
   const images = [
@@ -62,6 +154,27 @@ const Login = () => {
 
   return (
     <div className="login-container">
+      {/* Demo Credentials Info */}
+      <div style={{
+        position: 'fixed',
+        top: '20px',
+        right: '20px',
+        background: 'rgba(255, 255, 255, 0.95)',
+        padding: '15px',
+        borderRadius: '10px',
+        boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+        fontSize: '12px',
+        zIndex: 1000,
+        border: '1px solid #e5e7eb'
+      }}>
+        <strong>Demo Credentials:</strong><br/>
+        admin@test.com / admin123<br/>
+        user@test.com / user123<br/>
+        demo@demo.com / demo123<br/>
+        <br/>
+        <strong>Or use Firestore credentials</strong>
+      </div>
+
       <div className="login-card">
         <div className="login-content">
           {/* Left Side - Login Form */}
@@ -84,6 +197,22 @@ const Login = () => {
               </div>
 
               <form className="login-form" onSubmit={handleSubmit}>
+                {/* Error Message */}
+                {error && (
+                  <div style={{
+                    background: '#fee2e2',
+                    border: '1px solid #fecaca',
+                    color: '#dc2626',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    marginBottom: '16px',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}>
+                    {error}
+                  </div>
+                )}
+
                 <div className="input-group">
                   <label className="input-label">E-mail</label>
                   <div className="input-wrapper">
@@ -109,7 +238,7 @@ const Login = () => {
                       name="password"
                       value={formData.password}
                       onChange={handleInputChange}
-                      placeholder="6u#**%"
+                      placeholder="Enter your password"
                       className="form-input"
                       required
                     />
@@ -140,6 +269,10 @@ const Login = () => {
                   type="submit"
                   disabled={loading}
                   className="signin-button"
+                  style={{
+                    opacity: loading ? 0.7 : 1,
+                    cursor: loading ? 'not-allowed' : 'pointer'
+                  }}
                 >
                   {loading ? 'Signing in...' : 'Sign in'}
                 </button>
@@ -155,6 +288,7 @@ const Login = () => {
                 <button
                   onClick={() => handleSocialLogin('Google')}
                   className="social-button"
+                  disabled={loading}
                 >
                   <div className="google-icon">G</div>
                   Continue with Google
@@ -163,6 +297,7 @@ const Login = () => {
                 <button
                   onClick={() => handleSocialLogin('Facebook')}
                   className="social-button"
+                  disabled={loading}
                 >
                   <div className="facebook-icon">f</div>
                   Continue with Facebook
@@ -214,7 +349,6 @@ const Login = () => {
               <h2 className="bottom-title">
                 {images[currentImage].title}
               </h2>
-              {/* hi */}
               <p className="bottom-text">
                 {images[currentImage].description}
               </p>
