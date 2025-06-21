@@ -1,14 +1,44 @@
 import React, { useState } from 'react';
-import { Home, User,  ChevronLeft, ChevronRight, Zap, LogOut, UserCheck } from 'lucide-react';
+import { Home, User, ChevronLeft, ChevronRight, Zap, LogOut, UserCheck, FolderKanban, ChevronDown, ChevronUp, Calendar, DollarSign, BarChart3, GitBranch, ClipboardList, AlertTriangle, FileText, BookOpen } from 'lucide-react';
 import '../styles/Sidebar.css';
 
 const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
   const [hoveredItem, setHoveredItem] = useState(null);
+  const [expandedItems, setExpandedItems] = useState({});
 
-  // Remove LogOut from main navigation items
+  const handleExpandToggle = (itemId) => {
+    setExpandedItems(prev => ({
+      ...prev,
+      [itemId]: !prev[itemId]
+    }));
+  };
+
   const sidebarItems = [
     { icon: Home, label: 'Dashboard', id: 'dashboard', color: '#3b82f6' },
-   
+    
+    // Project Management parent with children
+   // Project Management (only for superadmin and admin)
+...(userRole === 'superadmin' || userRole === 'admin' ? [
+  {
+    icon: FolderKanban,
+    label: 'Project Management',
+    id: 'project-management',
+    color: '#8b5cf6',
+    hasChildren: true,
+    children: [
+      { icon: Calendar, label: 'Project Timeline', id: 'project-timeline' },
+      { icon: DollarSign, label: 'Project Budgeting', id: 'project-budgeting' },
+      { icon: BarChart3, label: 'Gantt Chart', id: 'gantt-chart' },
+      { icon: GitBranch, label: 'Agile Project Plan', id: 'agile-project-plan' },
+      { icon: ClipboardList, label: 'Project Tracker', id: 'project-tracker' },
+      { icon: AlertTriangle, label: 'Issue Tracker', id: 'issue-tracker' },
+      { icon: AlertTriangle, label: 'Project Risk', id: 'project-risk' },
+      { icon: FileText, label: 'Project Report', id: 'project-report' },
+      { icon: BookOpen, label: 'KT', id: 'kt' }
+    ]
+  }
+] : []),
+
    
     // Only show Admin button for superadmin
     ...(userRole === 'superadmin' ? [
@@ -18,16 +48,84 @@ const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
     ...(userRole === 'superadmin' || userRole === 'admin' ? [
       { icon: User, label: 'Employee', id: 'employee', color: '#f59e0b' }
     ] : []),
-   
   ];
 
   // Separate logout item
   const logoutItem = { icon: LogOut, label: 'Logout', id: 'logout', color: '#ef4444' };
 
   const handleItemClick = (item) => {
-    if (onItemClick) {
-      onItemClick(item.id);
+    if (item.hasChildren) {
+      handleExpandToggle(item.id);
+      // If sidebar is closed, open it when clicking parent items
+      if (!isOpen) {
+        onToggle();
+      }
+    } else {
+      if (onItemClick) {
+        onItemClick(item.id);
+      }
     }
+  };
+
+  const handleChildClick = (childItem) => {
+    if (onItemClick) {
+      onItemClick(childItem.id);
+    }
+  };
+
+  const renderNavItem = (item, index, isChild = false) => {
+    const isExpanded = expandedItems[item.id];
+    const itemKey = isChild ? `child-${item.id}` : item.id;
+    
+    return (
+      <div key={itemKey} className={`nav-item-container ${isChild ? 'child-item' : ''}`}>
+        <div
+          className={`nav-item ${activeItem === item.id ? 'active' : ''} ${item.hasChildren ? 'has-children' : ''}`}
+          onClick={() => isChild ? handleChildClick(item) : handleItemClick(item)}
+          onMouseEnter={() => setHoveredItem(isChild ? `child-${index}` : index)}
+          onMouseLeave={() => setHoveredItem(null)}
+        >
+          {/* Active indicator */}
+          {activeItem === item.id && (
+            <div className="active-indicator" />
+          )}
+          
+          <item.icon 
+            size={isChild ? 18 : 22} 
+            className="nav-item-icon"
+          />
+          
+          {isOpen && (
+            <span className={`nav-item-label ${isOpen ? 'open' : 'closed'}`}>
+              {item.label}
+            </span>
+          )}
+
+          {/* Expand/Collapse icon for parent items */}
+          {item.hasChildren && isOpen && (
+            <div className="expand-icon">
+              {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </div>
+          )}
+          
+          {/* Hover effect tooltip for collapsed sidebar */}
+          {hoveredItem === (isChild ? `child-${index}` : index) && !isOpen && (
+            <div className="nav-tooltip">
+              {item.label}
+            </div>
+          )}
+        </div>
+
+        {/* Children items */}
+        {item.hasChildren && isExpanded && isOpen && (
+          <div className="nav-children">
+            {item.children.map((child, childIndex) => 
+              renderNavItem(child, childIndex, true)
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -59,38 +157,7 @@ const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
 
       {/* Sidebar Navigation */}
       <nav className="sidebar-navigation">
-        {sidebarItems.map((item, index) => (
-          <div
-            key={item.id}
-            className={`nav-item ${activeItem === item.id ? 'active' : ''}`}
-            onClick={() => handleItemClick(item)}
-            onMouseEnter={() => setHoveredItem(index)}
-            onMouseLeave={() => setHoveredItem(null)}
-          >
-            {/* Active indicator */}
-            {activeItem === item.id && (
-              <div className="active-indicator" />
-            )}
-            
-            <item.icon 
-              size={22} 
-              className="nav-item-icon"
-            />
-            
-            {isOpen && (
-              <span className={`nav-item-label ${isOpen ? 'open' : 'closed'}`}>
-                {item.label}
-              </span>
-            )}
-            
-            {/* Hover effect tooltip for collapsed sidebar */}
-            {hoveredItem === index && !isOpen && (
-              <div className="nav-tooltip">
-                {item.label}
-              </div>
-            )}
-          </div>
-        ))}
+        {sidebarItems.map((item, index) => renderNavItem(item, index))}
       </nav>
 
       {/* Footer with Logout */}
