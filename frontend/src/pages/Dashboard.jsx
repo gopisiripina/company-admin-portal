@@ -2,22 +2,11 @@ import React, { useState } from 'react';
 import { Search, Bell, Users, DollarSign, ShoppingCart, TrendingUp, Calendar, Clock, Star, ArrowUpRight, ArrowDownRight, Activity, Zap } from 'lucide-react';
 import '../styles/Dashboard.css';
 import ProfileSection from './ProfileSection';
-import AdminPopup from './AdminPopup';
-import EmployeePopup from './EmployeePopup';
+import AdminManagement from './AdminManagement'; // Import AdminManagement instead of AdminPopup
+import EmployeeManagement from './EmployeeManagement';
 
-const Dashboard = ({ sidebarOpen, activeSection = 'dashboard', userData, onLogout }) => {
+const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [showAdminPopup, setShowAdminPopup] = useState(false);
-  const [showEmployeePopup, setShowEmployeePopup] = useState(false);
-
-  // Handle sidebar section changes
-  React.useEffect(() => {
-    if (activeSection === 'admin') {
-      setShowAdminPopup(true);
-    } else if (activeSection === 'employee') {
-      setShowEmployeePopup(true);
-    }
-  }, [activeSection]);
 
   const statsData = [
     { 
@@ -98,6 +87,85 @@ const Dashboard = ({ sidebarOpen, activeSection = 'dashboard', userData, onLogou
     }
   ];
 
+  // Render Admin Management if admin section is active
+  if (activeSection === 'admin') {
+    return (
+      <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+        {/* Header */}
+        <header className="dashboard-header">
+          {/* Search Bar */}
+          <div className="search-container">
+            <Search size={22} className="search-icon" />
+            <input
+              type="text"
+              placeholder="Search admins..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
+            />
+          </div>
+
+          {/* Header Right */}
+          <div className="header-right">
+            {/* Notifications */}
+            <button className="notification-button">
+              <Bell size={22} />
+              <span className="notification-badge"></span>
+            </button>
+
+            {/* Profile Section */}
+            <ProfileSection />
+          </div>
+        </header>
+
+        {/* Admin Management Content */}
+        <main className="main-content">
+          <AdminManagement userRole={userData?.role} />
+        </main>
+      </div>
+    );
+  }
+
+  // Render Employee Management if employee section is active
+  if (activeSection === 'employee') {
+    return (
+      <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+        {/* Header */}
+        <header className="dashboard-header">
+          {/* Search Bar */}
+          <div className="search-container">
+            <Search size={22} className="search-icon" />
+            <input
+              type="text"
+              placeholder="Search employees..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
+            />
+          </div>
+
+          {/* Header Right */}
+          <div className="header-right">
+            {/* Notifications */}
+            <button className="notification-button">
+              <Bell size={22} />
+              <span className="notification-badge"></span>
+            </button>
+
+            {/* Profile Section */}
+            <ProfileSection />
+          </div>
+        </header>
+
+        {/* Employee Management Content */}
+        <main className="main-content">
+          <EmployeeManagement userRole={userData?.role} />
+        </main>
+      </div>
+    );
+  }
+
+  // Default dashboard content
   return (
     <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
       {/* Header */}
@@ -243,18 +311,6 @@ const Dashboard = ({ sidebarOpen, activeSection = 'dashboard', userData, onLogou
           </div>
         </div>
       </main>
-
-      {/* Popups */}
-      <AdminPopup 
-        isOpen={showAdminPopup} 
-        onClose={() => setShowAdminPopup(false)}
-        userRole={userData?.role}
-      />
-      <EmployeePopup 
-        isOpen={showEmployeePopup} 
-        onClose={() => setShowEmployeePopup(false)}
-        userRole={userData?.role}
-      />
     </div>
   );
 };
