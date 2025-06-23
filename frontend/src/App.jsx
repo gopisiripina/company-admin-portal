@@ -53,7 +53,21 @@ useEffect(() => {
     setActiveSection('dashboard');
   }
 }, [location.pathname]);
-
+useEffect(() => {
+  // Handle URL-based navigation
+  const path = location.pathname;
+  if (path.includes('/project-budgeting')) {
+    setActiveSection('project-budgeting');
+  } else if (path.includes('/project-timeline')) {
+    setActiveSection('project-timeline');
+  } else if (path.includes('/admin')) {
+    setActiveSection('admin');
+  } else if (path.includes('/employee')) {
+    setActiveSection('employee');
+  } else if (path === '/dashboard') {
+    setActiveSection('dashboard');
+  }
+}, [location.pathname]);
   const handleLoginSuccess = (user) => {
     setUserData({
       name: user.name || 'User',
@@ -92,7 +106,9 @@ useEffect(() => {
   } else {
     setActiveSection(itemId);
     // Update URL for specific sections
-    if (itemId === 'project-timeline') {
+    if (itemId === 'project-budgeting') {
+      navigate('/dashboard/project-budgeting', { replace: true });
+    } else if (itemId === 'project-timeline') {
       navigate('/dashboard/project-timeline', { replace: true });
     } else if (itemId === 'admin') {
       navigate('/dashboard/admin', { replace: true });

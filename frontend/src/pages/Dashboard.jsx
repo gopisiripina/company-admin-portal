@@ -5,6 +5,7 @@ import ProfileSection from './ProfileSection';
 import AdminManagement from './AdminManagement'; // Import AdminManagement instead of AdminPopup
 import EmployeeManagement from './EmployeeManagement';
 import ProjectTimeline from './ProjectTimeline';
+import ProjectBudgeting from './ProjectBudgeting';
 
 const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -126,7 +127,43 @@ const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout }) => {
       </div>
     );
   }
+if (activeSection === 'project-budgeting') {
+  return (
+    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+      {/* Header */}
+      <header className="dashboard-header">
+        {/* Search Bar */}
+        <div className="search-container">
+          <Search size={22} className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search project budgeting..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+        </div>
 
+        {/* Header Right */}
+        <div className="header-right">
+          {/* Notifications */}
+          <button className="notification-button">
+            <Bell size={22} />
+            <span className="notification-badge"></span>
+          </button>
+
+          {/* Profile Section */}
+          <ProfileSection />
+        </div>
+      </header>
+
+      {/* Project Budgeting Content */}
+      <main className="main-content">
+        <ProjectBudgeting userRole={userData?.role} />
+      </main>
+    </div>
+  );
+}
   // Render Employee Management if employee section is active
   if (activeSection === 'employee') {
     return (
