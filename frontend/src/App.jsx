@@ -57,6 +57,21 @@ const AppContent = () => {
       setActiveSection('dashboard');
     }
   }, [location.pathname]);
+  useEffect(() => {
+  // Handle URL-based navigation
+  const path = location.pathname;
+  if (path.includes('/project-budgeting')) {
+    setActiveSection('project-budgeting');
+  } else if (path.includes('/project-timeline')) {
+    setActiveSection('project-timeline');
+  } else if (path.includes('/admin')) {
+    setActiveSection('admin');
+  } else if (path.includes('/employee')) {
+    setActiveSection('employee');
+  } else if (path === '/dashboard') {
+    setActiveSection('dashboard');
+  }
+}, [location.pathname]);
 
   const handleLoginSuccess = (user) => {
     console.log('=== Login Success Debug ===');
@@ -117,22 +132,24 @@ const AppContent = () => {
   };
 
   const handleSidebarItemClick = (itemId) => {
-    if (itemId === 'logout') {
-      handleLogout();
+  if (itemId === 'logout') {
+    handleLogout();
+  } else {
+    setActiveSection(itemId);
+    // Update URL for specific sections
+    if (itemId === 'project-budgeting') {
+      navigate('/dashboard/project-budgeting', { replace: true });
+    } else if (itemId === 'project-timeline') {
+      navigate('/dashboard/project-timeline', { replace: true });
+    } else if (itemId === 'admin') {
+      navigate('/dashboard/admin', { replace: true });
+    } else if (itemId === 'employee') {
+      navigate('/dashboard/employee', { replace: true });
     } else {
-      setActiveSection(itemId);
-      // Update URL for specific sections
-      if (itemId === 'project-timeline') {
-        navigate('/dashboard/project-timeline', { replace: true });
-      } else if (itemId === 'admin') {
-        navigate('/dashboard/admin', { replace: true });
-      } else if (itemId === 'employee') {
-        navigate('/dashboard/employee', { replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
-      }
+      navigate('/dashboard', { replace: true });
     }
-  };
+  }
+};
 
   // Show loading while checking auth state
   if (checkingAuth) {
