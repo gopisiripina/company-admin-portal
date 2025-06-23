@@ -1,42 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { 
-  Table, 
-  Button, 
-  Modal, 
-  Form, 
-  Input, 
-  Space, 
-  Popconfirm, 
-  Card, 
-  Statistic, 
-  Row, 
-  Col,
-  message,
-  Avatar,
-  Tag,
-  Typography,
-  Switch
-} from 'antd';
-import { 
-  UserAddOutlined, 
-  EditOutlined, 
-  DeleteOutlined, 
-  SearchOutlined,
-  TeamOutlined,
-  MailOutlined,
-} from '@ant-design/icons';
+import { Table, Button, Modal, Form, Input, Space, Popconfirm, Card, Statistic, Row, Col,message,Avatar,Tag,Typography,Switch} from 'antd';
+import { UserAddOutlined, EditOutlined, DeleteOutlined, SearchOutlined,TeamOutlined,MailOutlined,} from '@ant-design/icons';
 import { db } from '../firebase/config';
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  query, 
-  where, 
-  getDocs, 
-  orderBy
-} from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, getDocs, orderBy} from 'firebase/firestore';
 import { sendEmployeeWelcomeEmail, initEmailJS } from './EmailService';
 import '../styles/AdminManagement.css';
 
