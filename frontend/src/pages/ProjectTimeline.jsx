@@ -96,7 +96,7 @@ const ProjectTimeline = () => {
     setLoading(true);
     try {
       // Add to Firebase (uncomment when Firebase is set up)
-      /*
+      
       const docRef = await addDoc(collection(db, 'tasks'), {
         employeeId: values.employeeId,
         employeeName: values.employeeName,
@@ -105,7 +105,7 @@ const ProjectTimeline = () => {
         status: values.status,
         createdAt: new Date()
       });
-      */
+      
 
       // For now, add to local state
       const newTask = {
@@ -224,34 +224,38 @@ const ProjectTimeline = () => {
                 </th>
               </tr>
             </thead>
-            <tbody>
-              {getCurrentPageData().map((task) => (
-                <tr key={task.id} className="table-row">
-                  <td className="employee-name">
-                    <div className="employee-info">
-                      <div className="employee-avatar">
-                        {task.employeeName.charAt(0)}
-                      </div>
-                      <span>{task.employeeName}</span>
-                    </div>
-                  </td>
-                  <td className="employee-id">{task.employeeId}</td>
-                  <td className="task-name">{task.taskName}</td>
-                  <td className="deadline">
-                    <div className="deadline-info">
-                      <Calendar size={14} />
-                      {new Date(task.deadline).toLocaleDateString()}
-                    </div>
-                  </td>
-                  <td className="status">
-                    <div className={`status-badge ${getStatusClass(task.status)}`}>
-                      {getStatusIcon(task.status)}
-                      {task.status}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
+<tbody>
+  {getCurrentPageData().map((task, index) => (
+    <tr 
+      key={task.id} 
+      className="table-row"
+      style={{ animationDelay: `${0.3 + (index * 0.1)}s` }}
+    >
+      <td className="employee-name">
+        <div className="employee-info">
+          <div className="employee-avatar">
+            {task.employeeName.charAt(0)}
+          </div>
+          <span>{task.employeeName}</span>
+        </div>
+      </td>
+      <td className="employee-id">{task.employeeId}</td>
+      <td className="task-name">{task.taskName}</td>
+      <td className="deadline">
+        <div className="deadline-info">
+          <Calendar size={14} />
+          {new Date(task.deadline).toLocaleDateString()}
+        </div>
+      </td>
+      <td className="status">
+        <div className={`status-badge ${getStatusClass(task.status)}`}>
+          {getStatusIcon(task.status)}
+          {task.status}
+        </div>
+      </td>
+    </tr>
+  ))}
+</tbody>
           </table>
 
           {getCurrentPageData().length === 0 && (
