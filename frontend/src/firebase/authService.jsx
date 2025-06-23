@@ -26,15 +26,37 @@ class AuthService {
         const userDoc = querySnapshot.docs[0];
         const userData = userDoc.data();
         
+        // Debug log to see what we get from Firestore
+        console.log('Raw Firestore userData:', userData);
+        console.log('profileImage from Firestore:', userData.profileImage);
+        
         // Check if password matches (Note: In production, use proper password hashing)
         if (userData.password === password) {
-          return {
+          // Convert Firestore timestamps to regular dates to avoid serialization issues
+          const createdAt = userData.createdAt?.toDate ? userData.createdAt.toDate() : userData.createdAt;
+          const updatedAt = userData.updatedAt?.toDate ? userData.updatedAt.toDate() : userData.updatedAt;
+          
+          // Explicitly construct the user object to ensure all fields are included
+          const user = {
             id: userDoc.id,
             email: userData.email,
             name: userData.name || 'User',
             role: userData.role || 'User',
-            ...userData
+            profileImage: userData.profileImage, // Explicitly include this
+            photoURL: userData.photoURL, // Also include this if present
+            isActive: userData.isActive,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            password: undefined // Don't include password in the returned object
           };
+          
+          // Debug log to see what we're returning
+          console.log('Constructed user object:', user);
+          console.log('profileImage in constructed user:', user.profileImage);
+          console.log('profileImage type:', typeof user.profileImage);
+          console.log('profileImage length:', user.profileImage?.length);
+          
+          return user;
         }
       }
       return null;
@@ -77,6 +99,7 @@ class AuthService {
         if (user) {
           authMethod = 'firestore';
           console.log('Firestore authentication successful:', user);
+          console.log('profileImage in auth result:', user.profileImage);
         }
       } catch (firestoreError) {
         console.error('Firestore authentication failed:', firestoreError);
@@ -117,15 +140,38 @@ class AuthService {
   storeUserData(user, rememberMe = false) {
     if (rememberMe && user) {
       try {
-        localStorage.setItem('userData', JSON.stringify({
+        console.log('Storing user data. Input user:', user);
+        console.log('Input user profileImage:', user.profileImage);
+        
+        // Store ALL user data, not just limited fields
+        const dataToStore = {
+          id: user.id,
           email: user.email,
           name: user.name || 'User',
-          role: user.role || 'User'
-        }));
-        console.log('User data stored in localStorage');
+          role: user.role || 'User',
+          profileImage: user.profileImage, // Include profile image
+          photoURL: user.photoURL,
+          isActive: user.isActive,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt
+        };
+        
+        console.log('Data to store:', dataToStore);
+        console.log('profileImage in dataToStore:', dataToStore.profileImage);
+        
+        localStorage.setItem('userData', JSON.stringify(dataToStore));
+        
+        // Verify what was actually stored
+        const storedData = localStorage.getItem('userData');
+        const parsedStoredData = JSON.parse(storedData);
+        console.log('Verified stored data:', parsedStoredData);
+        console.log('Verified stored profileImage:', parsedStoredData.profileImage);
+        
       } catch (error) {
         console.error('Error storing user data:', error);
       }
+    } else {
+      console.log('Not storing user data. rememberMe:', rememberMe, 'user:', !!user);
     }
   }
 
@@ -136,7 +182,10 @@ class AuthService {
   getStoredUserData() {
     try {
       const userData = localStorage.getItem('userData');
-      return userData ? JSON.parse(userData) : null;
+      const parsedData = userData ? JSON.parse(userData) : null;
+      console.log('Retrieved stored user data:', parsedData);
+      console.log('profileImage in stored data:', parsedData?.profileImage);
+      return parsedData;
     } catch (error) {
       console.error('Error retrieving stored user data:', error);
       return null;
