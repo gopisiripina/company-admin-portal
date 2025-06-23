@@ -27,6 +27,9 @@ const AppContent = () => {
     if (savedUserData) {
       try {
         const parsedData = JSON.parse(savedUserData);
+        console.log('Loading saved user data:', parsedData);
+        console.log('Saved profileImage:', parsedData.profileImage);
+        
         setUserData(parsedData);
         setIsLoggedIn(true);
         // If user is on login page but authenticated, redirect to dashboard
@@ -40,54 +43,67 @@ const AppContent = () => {
     }
     setCheckingAuth(false);
   }, [location.pathname, navigate]);
-useEffect(() => {
-  // Handle URL-based navigation
-  const path = location.pathname;
-  if (path.includes('/project-timeline')) {
-    setActiveSection('project-timeline');
-  } else if (path.includes('/admin')) {
-    setActiveSection('admin');
-  } else if (path.includes('/employee')) {
-    setActiveSection('employee');
-  } else if (path === '/dashboard') {
-    setActiveSection('dashboard');
-  }
-}, [location.pathname]);
-useEffect(() => {
-  // Handle URL-based navigation
-  const path = location.pathname;
-  if (path.includes('/project-budgeting')) {
-    setActiveSection('project-budgeting');
-  } else if (path.includes('/project-timeline')) {
-    setActiveSection('project-timeline');
-  } else if (path.includes('/admin')) {
-    setActiveSection('admin');
-  } else if (path.includes('/employee')) {
-    setActiveSection('employee');
-  } else if (path === '/dashboard') {
-    setActiveSection('dashboard');
-  }
-}, [location.pathname]);
+
+  useEffect(() => {
+    // Handle URL-based navigation
+    const path = location.pathname;
+    if (path.includes('/project-timeline')) {
+      setActiveSection('project-timeline');
+    } else if (path.includes('/admin')) {
+      setActiveSection('admin');
+    } else if (path.includes('/employee')) {
+      setActiveSection('employee');
+    } else if (path === '/dashboard') {
+      setActiveSection('dashboard');
+    }
+  }, [location.pathname]);
+
   const handleLoginSuccess = (user) => {
-    setUserData({
+    console.log('=== Login Success Debug ===');
+    console.log('Received user object:', user);
+    console.log('User profileImage:', user.profileImage);
+    console.log('User object keys:', Object.keys(user || {}));
+    
+    // Store the COMPLETE user object, not just selected fields
+    const completeUserData = {
+      id: user.id,
       name: user.name || 'User',
       email: user.email,
-      role: user.role || 'User'
-    });
+      role: user.role || 'User',
+      profileImage: user.profileImage, // CRITICAL: Include profile image
+      photoURL: user.photoURL,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      displayName: user.displayName,
+      userType: user.userType
+    };
+    
+    console.log('Setting complete user data:', completeUserData);
+    console.log('Profile image in complete data:', completeUserData.profileImage);
+    
+    setUserData(completeUserData);
     setIsLoggedIn(true);
     
-    // Store minimal user data in localStorage
-    localStorage.setItem('userData', JSON.stringify({
-      email: user.email,
-      name: user.name || 'User',
-      role: user.role || 'User'
-    }));
+    // Store complete user data in localStorage
+    try {
+      localStorage.setItem('userData', JSON.stringify(completeUserData));
+      
+      // Verify storage
+      const storedData = localStorage.getItem('userData');
+      const parsedStoredData = JSON.parse(storedData);
+      console.log('Verified localStorage data:', parsedStoredData);
+      console.log('Verified profileImage in storage:', parsedStoredData.profileImage);
+    } catch (error) {
+      console.error('Error storing user data:', error);
+    }
     
     // Navigate to dashboard after successful login
     navigate('/dashboard', { replace: true });
   };
 
   const handleLogout = () => {
+    console.log('Logging out user');
     setIsLoggedIn(false);
     setUserData(null);
     localStorage.removeItem('userData');
@@ -100,25 +116,23 @@ useEffect(() => {
     setSidebarOpen(!sidebarOpen);
   };
 
- const handleSidebarItemClick = (itemId) => {
-  if (itemId === 'logout') {
-    handleLogout();
-  } else {
-    setActiveSection(itemId);
-    // Update URL for specific sections
-    if (itemId === 'project-budgeting') {
-      navigate('/dashboard/project-budgeting', { replace: true });
-    } else if (itemId === 'project-timeline') {
-      navigate('/dashboard/project-timeline', { replace: true });
-    } else if (itemId === 'admin') {
-      navigate('/dashboard/admin', { replace: true });
-    } else if (itemId === 'employee') {
-      navigate('/dashboard/employee', { replace: true });
+  const handleSidebarItemClick = (itemId) => {
+    if (itemId === 'logout') {
+      handleLogout();
     } else {
-      navigate('/dashboard', { replace: true });
+      setActiveSection(itemId);
+      // Update URL for specific sections
+      if (itemId === 'project-timeline') {
+        navigate('/dashboard/project-timeline', { replace: true });
+      } else if (itemId === 'admin') {
+        navigate('/dashboard/admin', { replace: true });
+      } else if (itemId === 'employee') {
+        navigate('/dashboard/employee', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     }
-  }
-};
+  };
 
   // Show loading while checking auth state
   if (checkingAuth) {
@@ -151,29 +165,29 @@ useEffect(() => {
       
       {/* Dashboard Route */}
       <Route 
-  path="/dashboard/*" 
-  element={
-    <ProtectedRoute isLoggedIn={isLoggedIn}>
-      <AnimatedBackground>
-        <div style={{ display: 'flex', height: '100vh', width: '100vw' }}>
-          <Sidebar
-            isOpen={sidebarOpen}
-            onToggle={toggleSidebar}
-            activeItem={activeSection}
-            onItemClick={handleSidebarItemClick}
-            userRole={userData?.role}
-          />
-          <Dashboard
-            sidebarOpen={sidebarOpen}
-            activeSection={activeSection}
-            userData={userData}
-            onLogout={handleLogout}
-          />
-        </div>
-      </AnimatedBackground>
-    </ProtectedRoute>
-  } 
-/>
+        path="/dashboard/*" 
+        element={
+          <ProtectedRoute isLoggedIn={isLoggedIn}>
+            <AnimatedBackground>
+              <div style={{ display: 'flex', height: '100vh', width: '100vw' }}>
+                <Sidebar
+                  isOpen={sidebarOpen}
+                  onToggle={toggleSidebar}
+                  activeItem={activeSection}
+                  onItemClick={handleSidebarItemClick}
+                  userRole={userData?.role}
+                />
+                <Dashboard
+                  sidebarOpen={sidebarOpen}
+                  activeSection={activeSection}
+                  userData={userData}
+                  onLogout={handleLogout}
+                />
+              </div>
+            </AnimatedBackground>
+          </ProtectedRoute>
+        } 
+      />
       
       {/* Catch all route - redirect to appropriate page */}
       <Route 
