@@ -158,6 +158,19 @@ const AppContent = () => {
     }
     setCheckingAuth(false);
   }, [location.pathname, navigate]);
+useEffect(() => {
+  // Handle URL-based navigation
+  const path = location.pathname;
+  if (path.includes('/project-timeline')) {
+    setActiveSection('project-timeline');
+  } else if (path.includes('/admin')) {
+    setActiveSection('admin');
+  } else if (path.includes('/employee')) {
+    setActiveSection('employee');
+  } else if (path === '/dashboard') {
+    setActiveSection('dashboard');
+  }
+}, [location.pathname]);
 
   const handleLoginSuccess = (user) => {
     setUserData({
@@ -185,6 +198,28 @@ const AppContent = () => {
     setActiveSection('dashboard');
     navigate('/', { replace: true });
   };
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
+ const handleSidebarItemClick = (itemId) => {
+  if (itemId === 'logout') {
+    handleLogout();
+  } else {
+    setActiveSection(itemId);
+    // Update URL for specific sections
+    if (itemId === 'project-timeline') {
+      navigate('/dashboard/project-timeline', { replace: true });
+    } else if (itemId === 'admin') {
+      navigate('/dashboard/admin', { replace: true });
+    } else if (itemId === 'employee') {
+      navigate('/dashboard/employee', { replace: true });
+    } else {
+      navigate('/dashboard', { replace: true });
+    }
+  }
+};
 
   // Show loading while checking auth state
   if (checkingAuth) {
@@ -220,346 +255,23 @@ const AppContent = () => {
         path="/dashboard" 
         element={
           <ProtectedRoute isLoggedIn={isLoggedIn}>
-            <DashboardLayout
-              sidebarOpen={sidebarOpen}
-              setSidebarOpen={setSidebarOpen}
-              activeSection={activeSection}
-              setActiveSection={setActiveSection}
-              userData={userData}
-              handleLogout={handleLogout}
-            >
-              <Dashboard
-                sidebarOpen={sidebarOpen}
-                activeSection={activeSection}
-                userData={userData}
-                onLogout={handleLogout}
-              />
-            </DashboardLayout>
-          </ProtectedRoute>
-        } 
-      />
-
-      {/* Admin Management Route - Only for superadmin */}
-      <Route 
-        path="/admin" 
-        element={
-          <ProtectedRoute isLoggedIn={isLoggedIn}>
-            {userData?.role === 'superadmin' ? (
-              <DashboardLayout
-                sidebarOpen={sidebarOpen}
-                setSidebarOpen={setSidebarOpen}
-                activeSection={activeSection}
-                setActiveSection={setActiveSection}
-                userData={userData}
-                handleLogout={handleLogout}
-              >
-                <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-                  <header className="dashboard-header">
-                    <div className="search-container">
-                      <Search size={22} className="search-icon" />
-                      <input
-                        type="text"
-                        placeholder="Search admins..."
-                        className="search-input"
-                      />
-                    </div>
-                    <div className="header-right">
-                      <button className="notification-button">
-                        <Bell size={22} />
-                        <span className="notification-badge"></span>
-                      </button>
-                      {/* Fixed: Pass userData and onLogout to ProfileSection */}
-                      <ProfileSection userData={userData} onLogout={handleLogout} />
-                    </div>
-                  </header>
-                  <main className="main-content">
-                    <AdminManagement userRole={userData?.role} />
-                  </main>
-                </div>
-              </DashboardLayout>
-            ) : (
-              <Navigate to="/dashboard" replace />
-            )}
-          </ProtectedRoute>
-        } 
-      />
-
-      {/* Employee Management Route - For superadmin and admin */}
-      <Route 
-        path="/employee" 
-        element={
-          <ProtectedRoute isLoggedIn={isLoggedIn}>
-            {(userData?.role === 'superadmin' || userData?.role === 'admin') ? (
-              <DashboardLayout
-                sidebarOpen={sidebarOpen}
-                setSidebarOpen={setSidebarOpen}
-                activeSection={activeSection}
-                setActiveSection={setActiveSection}
-                userData={userData}
-                handleLogout={handleLogout}
-              >
-                <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-                  <header className="dashboard-header">
-                    <div className="search-container">
-                      <Search size={22} className="search-icon" />
-                      <input
-                        type="text"
-                        placeholder="Search employees..."
-                        className="search-input"
-                      />
-                    </div>
-                    <div className="header-right">
-                      <button className="notification-button">
-                        <Bell size={22} />
-                        <span className="notification-badge"></span>
-                      </button>
-                      {/* Fixed: Pass userData and onLogout to ProfileSection */}
-                      <ProfileSection userData={userData} onLogout={handleLogout} />
-                    </div>
-                  </header>
-                  <main className="main-content">
-                    <EmployeeManagement userRole={userData?.role} />
-                  </main>
-                </div>
-              </DashboardLayout>
-            ) : (
-              <Navigate to="/dashboard" replace />
-            )}
-          </ProtectedRoute>
-        } 
-      />
-
-      {/* Project Management Routes - For superadmin and admin */}
-      <Route 
-        path="/project/timeline" 
-        element={
-          <ProtectedRoute isLoggedIn={isLoggedIn}>
-            {(userData?.role === 'superadmin' || userData?.role === 'admin') ? (
-              <DashboardLayout
-                sidebarOpen={sidebarOpen}
-                setSidebarOpen={setSidebarOpen}
-                activeSection={activeSection}
-                setActiveSection={setActiveSection}
-                userData={userData}
-                handleLogout={handleLogout}
-              >
-                <ProjectManagementPage 
-                  title="Project Timeline" 
-                  sidebarOpen={sidebarOpen} 
-                  userData={userData} 
+            <AnimatedBackground>
+              <div style={{ display: 'flex', height: '100vh', width: '100vw' }}>
+                <Sidebar
+                  isOpen={sidebarOpen}
+                  onToggle={toggleSidebar}
+                  activeItem={activeSection}
+                  onItemClick={handleSidebarItemClick}
+                   userRole={userData?.role}
                 />
-              </DashboardLayout>
-            ) : (
-              <Navigate to="/dashboard" replace />
-            )}
-          </ProtectedRoute>
-        } 
-      />
-
-      <Route 
-        path="/project/budgeting" 
-        element={
-          <ProtectedRoute isLoggedIn={isLoggedIn}>
-            {(userData?.role === 'superadmin' || userData?.role === 'admin') ? (
-              <DashboardLayout
-                sidebarOpen={sidebarOpen}
-                setSidebarOpen={setSidebarOpen}
-                activeSection={activeSection}
-                setActiveSection={setActiveSection}
-                userData={userData}
-                handleLogout={handleLogout}
-              >
-                <ProjectManagementPage 
-                  title="Project Budgeting" 
-                  sidebarOpen={sidebarOpen} 
-                  userData={userData} 
+                <Dashboard
+                  sidebarOpen={sidebarOpen}
+                  activeSection={activeSection}
+                  userData={userData}
+                  onLogout={handleLogout}
                 />
-              </DashboardLayout>
-            ) : (
-              <Navigate to="/dashboard" replace />
-            )}
-          </ProtectedRoute>
-        } 
-      />
-
-      <Route 
-        path="/project/gantt-chart" 
-        element={
-          <ProtectedRoute isLoggedIn={isLoggedIn}>
-            {(userData?.role === 'superadmin' || userData?.role === 'admin') ? (
-              <DashboardLayout
-                sidebarOpen={sidebarOpen}
-                setSidebarOpen={setSidebarOpen}
-                activeSection={activeSection}
-                setActiveSection={setActiveSection}
-                userData={userData}
-                handleLogout={handleLogout}
-              >
-                <ProjectManagementPage 
-                  title="Gantt Chart" 
-                  sidebarOpen={sidebarOpen} 
-                  userData={userData} 
-                />
-              </DashboardLayout>
-            ) : (
-              <Navigate to="/dashboard" replace />
-            )}
-          </ProtectedRoute>
-        } 
-      />
-
-      <Route 
-        path="/project/agile-plan" 
-        element={
-          <ProtectedRoute isLoggedIn={isLoggedIn}>
-            {(userData?.role === 'superadmin' || userData?.role === 'admin') ? (
-              <DashboardLayout
-                sidebarOpen={sidebarOpen}
-                setSidebarOpen={setSidebarOpen}
-                activeSection={activeSection}
-                setActiveSection={setActiveSection}
-                userData={userData}
-                handleLogout={handleLogout}
-              >
-                <ProjectManagementPage 
-                  title="Agile Project Plan" 
-                  sidebarOpen={sidebarOpen} 
-                  userData={userData} 
-                />
-              </DashboardLayout>
-            ) : (
-              <Navigate to="/dashboard" replace />
-            )}
-          </ProtectedRoute>
-        } 
-      />
-
-      <Route 
-        path="/project/tracker" 
-        element={
-          <ProtectedRoute isLoggedIn={isLoggedIn}>
-            {(userData?.role === 'superadmin' || userData?.role === 'admin') ? (
-              <DashboardLayout
-                sidebarOpen={sidebarOpen}
-                setSidebarOpen={setSidebarOpen}
-                activeSection={activeSection}
-                setActiveSection={setActiveSection}
-                userData={userData}
-                handleLogout={handleLogout}
-              >
-                <ProjectManagementPage 
-                  title="Project Tracker" 
-                  sidebarOpen={sidebarOpen} 
-                  userData={userData} 
-                />
-              </DashboardLayout>
-            ) : (
-              <Navigate to="/dashboard" replace />
-            )}
-          </ProtectedRoute>
-        } 
-      />
-
-      <Route 
-        path="/project/issues" 
-        element={
-          <ProtectedRoute isLoggedIn={isLoggedIn}>
-            {(userData?.role === 'superadmin' || userData?.role === 'admin') ? (
-              <DashboardLayout
-                sidebarOpen={sidebarOpen}
-                setSidebarOpen={setSidebarOpen}
-                activeSection={activeSection}
-                setActiveSection={setActiveSection}
-                userData={userData}
-                handleLogout={handleLogout}
-              >
-                <ProjectManagementPage 
-                  title="Issue Tracker" 
-                  sidebarOpen={sidebarOpen} 
-                  userData={userData} 
-                />
-              </DashboardLayout>
-            ) : (
-              <Navigate to="/dashboard" replace />
-            )}
-          </ProtectedRoute>
-        } 
-      />
-
-      <Route 
-        path="/project/risk" 
-        element={
-          <ProtectedRoute isLoggedIn={isLoggedIn}>
-            {(userData?.role === 'superadmin' || userData?.role === 'admin') ? (
-              <DashboardLayout
-                sidebarOpen={sidebarOpen}
-                setSidebarOpen={setSidebarOpen}
-                activeSection={activeSection}
-                setActiveSection={setActiveSection}
-                userData={userData}
-                handleLogout={handleLogout}
-              >
-                <ProjectManagementPage 
-                  title="Project Risk Management" 
-                  sidebarOpen={sidebarOpen} 
-                  userData={userData} 
-                />
-              </DashboardLayout>
-            ) : (
-              <Navigate to="/dashboard" replace />
-            )}
-          </ProtectedRoute>
-        } 
-      />
-
-      <Route 
-        path="/project/reports" 
-        element={
-          <ProtectedRoute isLoggedIn={isLoggedIn}>
-            {(userData?.role === 'superadmin' || userData?.role === 'admin') ? (
-              <DashboardLayout
-                sidebarOpen={sidebarOpen}
-                setSidebarOpen={setSidebarOpen}
-                activeSection={activeSection}
-                setActiveSection={setActiveSection}
-                userData={userData}
-                handleLogout={handleLogout}
-              >
-                <ProjectManagementPage 
-                  title="Project Reports" 
-                  sidebarOpen={sidebarOpen} 
-                  userData={userData} 
-                />
-              </DashboardLayout>
-            ) : (
-              <Navigate to="/dashboard" replace />
-            )}
-          </ProtectedRoute>
-        } 
-      />
-
-      <Route 
-        path="/project/kt" 
-        element={
-          <ProtectedRoute isLoggedIn={isLoggedIn}>
-            {(userData?.role === 'superadmin' || userData?.role === 'admin') ? (
-              <DashboardLayout
-                sidebarOpen={sidebarOpen}
-                setSidebarOpen={setSidebarOpen}
-                activeSection={activeSection}
-                setActiveSection={setActiveSection}
-                userData={userData}
-                handleLogout={handleLogout}
-              >
-                <ProjectManagementPage 
-                  title="Knowledge Transfer (KT)" 
-                  sidebarOpen={sidebarOpen} 
-                  userData={userData} 
-                />
-              </DashboardLayout>
-            ) : (
-              <Navigate to="/dashboard" replace />
-            )}
+              </div>
+            </AnimatedBackground>
           </ProtectedRoute>
         } 
       />
