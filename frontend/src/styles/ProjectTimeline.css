@@ -1,3 +1,54 @@
+/* Add this keyframe animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Update the timeline-header */
+.timeline-header {
+  margin-bottom: 32px;
+  animation: fadeInUp 0.6s ease-out;
+}
+
+/* Update the timeline-controls */
+.timeline-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  gap: 20px;
+  animation: fadeInUp 0.6s ease-out 0.1s both;
+}
+
+/* Update the timeline-table-container */
+.timeline-table-container {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  animation: fadeInUp 0.6s ease-out 0.2s both;
+}
+
+/* Add animation for table rows */
+.table-row {
+  transition: all 0.2s ease;
+  animation: fadeInUp 0.4s ease-out both;
+}
+
+.table-row:nth-child(1) { animation-delay: 0.3s; }
+.table-row:nth-child(2) { animation-delay: 0.4s; }
+.table-row:nth-child(3) { animation-delay: 0.5s; }
+.table-row:nth-child(4) { animation-delay: 0.6s; }
+.table-row:nth-child(5) { animation-delay: 0.7s; }
+
 .project-timeline-container {
   padding: 24px;
   min-height: 100vh;
