@@ -4,6 +4,7 @@ import '../styles/Dashboard.css';
 import ProfileSection from './ProfileSection';
 import AdminManagement from './AdminManagement'; // Import AdminManagement instead of AdminPopup
 import EmployeeManagement from './EmployeeManagement';
+import ProjectTimeline from './ProjectTimeline';
 
 const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -164,7 +165,43 @@ const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout }) => {
       </div>
     );
   }
+if (activeSection === 'project-timeline') {
+  return (
+    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+      {/* Header */}
+      <header className="dashboard-header">
+        {/* Search Bar */}
+        <div className="search-container">
+          <Search size={22} className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search project timeline..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+        </div>
 
+        {/* Header Right */}
+        <div className="header-right">
+          {/* Notifications */}
+          <button className="notification-button">
+            <Bell size={22} />
+            <span className="notification-badge"></span>
+          </button>
+
+          {/* Profile Section */}
+          <ProfileSection />
+        </div>
+      </header>
+
+      {/* Project Timeline Content */}
+      <main className="main-content">
+        <ProjectTimeline userRole={userData?.role} />
+      </main>
+    </div>
+  );
+}
   // Default dashboard content
   return (
     <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>

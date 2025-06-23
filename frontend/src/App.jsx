@@ -40,6 +40,19 @@ const AppContent = () => {
     }
     setCheckingAuth(false);
   }, [location.pathname, navigate]);
+useEffect(() => {
+  // Handle URL-based navigation
+  const path = location.pathname;
+  if (path.includes('/project-timeline')) {
+    setActiveSection('project-timeline');
+  } else if (path.includes('/admin')) {
+    setActiveSection('admin');
+  } else if (path.includes('/employee')) {
+    setActiveSection('employee');
+  } else if (path === '/dashboard') {
+    setActiveSection('dashboard');
+  }
+}, [location.pathname]);
 
   const handleLoginSuccess = (user) => {
     setUserData({
@@ -73,13 +86,23 @@ const AppContent = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
-  const handleSidebarItemClick = (itemId) => {
-    if (itemId === 'logout') {
-      handleLogout();
+ const handleSidebarItemClick = (itemId) => {
+  if (itemId === 'logout') {
+    handleLogout();
+  } else {
+    setActiveSection(itemId);
+    // Update URL for specific sections
+    if (itemId === 'project-timeline') {
+      navigate('/dashboard/project-timeline', { replace: true });
+    } else if (itemId === 'admin') {
+      navigate('/dashboard/admin', { replace: true });
+    } else if (itemId === 'employee') {
+      navigate('/dashboard/employee', { replace: true });
     } else {
-      setActiveSection(itemId);
+      navigate('/dashboard', { replace: true });
     }
-  };
+  }
+};
 
   // Show loading while checking auth state
   if (checkingAuth) {
@@ -112,29 +135,29 @@ const AppContent = () => {
       
       {/* Dashboard Route */}
       <Route 
-        path="/dashboard" 
-        element={
-          <ProtectedRoute isLoggedIn={isLoggedIn}>
-            <AnimatedBackground>
-              <div style={{ display: 'flex', height: '100vh', width: '100vw' }}>
-                <Sidebar
-                  isOpen={sidebarOpen}
-                  onToggle={toggleSidebar}
-                  activeItem={activeSection}
-                  onItemClick={handleSidebarItemClick}
-                   userRole={userData?.role}
-                />
-                <Dashboard
-                  sidebarOpen={sidebarOpen}
-                  activeSection={activeSection}
-                  userData={userData}
-                  onLogout={handleLogout}
-                />
-              </div>
-            </AnimatedBackground>
-          </ProtectedRoute>
-        } 
-      />
+  path="/dashboard/*" 
+  element={
+    <ProtectedRoute isLoggedIn={isLoggedIn}>
+      <AnimatedBackground>
+        <div style={{ display: 'flex', height: '100vh', width: '100vw' }}>
+          <Sidebar
+            isOpen={sidebarOpen}
+            onToggle={toggleSidebar}
+            activeItem={activeSection}
+            onItemClick={handleSidebarItemClick}
+            userRole={userData?.role}
+          />
+          <Dashboard
+            sidebarOpen={sidebarOpen}
+            activeSection={activeSection}
+            userData={userData}
+            onLogout={handleLogout}
+          />
+        </div>
+      </AnimatedBackground>
+    </ProtectedRoute>
+  } 
+/>
       
       {/* Catch all route - redirect to appropriate page */}
       <Route 
