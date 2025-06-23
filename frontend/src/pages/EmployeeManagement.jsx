@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Table, 
   Button, 
@@ -15,9 +15,7 @@ import {
   Avatar,
   Tag,
   Typography,
-  Switch,
-  Drawer,
-  Dropdown
+  Switch
 } from 'antd';
 import { 
   UserAddOutlined, 
@@ -26,9 +24,7 @@ import {
   SearchOutlined,
   TeamOutlined,
   MailOutlined,
-  MoreOutlined,
-  PhoneOutlined,
-  UserOutlined
+   UploadOutlined, UserOutlined
 } from '@ant-design/icons';
 import { db } from '../firebase/config';
 import { 
@@ -40,391 +36,251 @@ import {
   query, 
   where, 
   getDocs, 
-  orderBy, 
-  limit, 
-  startAfter,
-  getCountFromServer
+  orderBy
 } from 'firebase/firestore';
 import { sendEmployeeWelcomeEmail, initEmailJS } from './EmailService';
+import '../styles/Employee Management.css';
+import { Upload, message as antMessage } from 'antd';
 const { Title, Text } = Typography;
 const { Search } = Input;
 
-// Enhanced CSS for mobile responsiveness
-const enhancedStyles = `
-  @keyframes slideUpFromBottom {
-    from {
-      opacity: 0;
-      transform: translateY(30px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .animated-card {
-    animation: slideUpFromBottom 0.5s ease-out;
-  }
-
-  .animated-card-delayed {
-    animation: slideUpFromBottom 0.5s ease-out 0.1s both;
-  }
-
-  .animated-card-delayed-2 {
-    animation: slideUpFromBottom 0.5s ease-out 0.2s both;
-  }
-
-  .animated-card-delayed-3 {
-    animation: slideUpFromBottom 0.5s ease-out 0.3s both;
-  }
-
-  /* Mobile responsive styles */
-  @media (max-width: 768px) {
-    .employee-management-container {
-      padding: 12px !important;
-    }
-    
-    .mobile-header {
-      flex-direction: column !important;
-      gap: 16px !important;
-    }
-    
-    .mobile-header .ant-btn {
-      width: 100% !important;
-      justify-content: center !important;
-    }
-    
-    .mobile-stats {
-      margin-bottom: 16px !important;
-    }
-    
-    .mobile-stats .ant-col {
-      margin-bottom: 8px !important;
-    }
-    
-    .mobile-search {
-      margin-bottom: 16px !important;
-    }
-    
-    .mobile-search .ant-input-search {
-      max-width: 100% !important;
-    }
-    
-    /* Mobile table styles */
-    .mobile-table .ant-table {
-      font-size: 12px !important;
-    }
-    
-    .mobile-table .ant-table-tbody > tr > td {
-      padding: 8px 4px !important;
-      border-bottom: 1px solid #f0f0f0 !important;
-    }
-    
-    .mobile-table .ant-table-thead > tr > th {
-      padding: 8px 4px !important;
-      font-size: 12px !important;
-    }
-    
-    .mobile-employee-info {
-      display: flex !important;
-      flex-direction: column !important;
-      gap: 4px !important;
-    }
-    
-    .mobile-employee-main {
-      display: flex !important;
-      align-items: center !important;
-      gap: 8px !important;
-    }
-    
-    .mobile-employee-details {
-      font-size: 11px !important;
-    }
-    
-    .mobile-employee-tags {
-      display: flex !important;
-      gap: 4px !important;
-      flex-wrap: wrap !important;
-      margin-top: 4px !important;
-    }
-    
-    .mobile-employee-tags .ant-tag {
-      font-size: 10px !important;
-      padding: 2px 6px !important;
-      margin: 0 !important;
-    }
-    
-    .mobile-actions {
-      display: flex !important;
-      gap: 4px !important;
-    }
-    
-    .mobile-actions .ant-btn {
-      padding: 4px 8px !important;
-      font-size: 12px !important;
-      height: auto !important;
-    }
-  }
-  
-  /* Ensure horizontal scroll for the entire page content */
-  .employee-management-wrapper {
-    width: 100%;
-    overflow-x: auto;
-    min-width: 320px;
-  }
-  
-  .employee-management-content {
-    min-width: 800px;
-    width: 100%;
-  }
-  
-  @media (max-width: 768px) {
-    .employee-management-content {
-      min-width: 100%;
-    }
-  }
-  
-  /* Custom scrollbar for better UX */
-  .employee-management-wrapper::-webkit-scrollbar {
-    height: 8px;
-  }
-  
-  .employee-management-wrapper::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-  }
-  
-  .employee-management-wrapper::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 4px;
-  }
-  
-  .employee-management-wrapper::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-  }
-`;
-
-// Add styles to document head
-if (typeof document !== 'undefined') {
-  const existingStyle = document.getElementById('employee-management-styles');
-  if (existingStyle) {
-    existingStyle.remove();
-  }
-  
-  const styleSheet = document.createElement("style");
-  styleSheet.id = 'employee-management-styles';
-  styleSheet.innerText = enhancedStyles;
-  document.head.appendChild(styleSheet);
-}
-
-// Enhanced Employee Card Component for Mobile
-const MobileEmployeeCard = ({ employee, onEdit, onDelete, loading }) => {
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-
-  const menuItems = [
-    {
-      key: 'edit',
-      label: 'Edit Employee',
-      icon: <EditOutlined />,
-      onClick: () => {
-        onEdit(employee);
-        setIsDrawerOpen(false);
-      }
-    },
-    {
-      key: 'delete',
-      label: 'Delete Employee',
-      icon: <DeleteOutlined />,
-      danger: true,
-      onClick: () => {
-        setIsDrawerOpen(false);
-        // Show confirmation
-        Modal.confirm({
-          title: 'Delete Employee',
-          content: 'Are you sure you want to delete this employee?',
-          okText: 'Yes',
-          cancelText: 'No',
-          onOk: () => onDelete(employee.id)
-        });
-      }
-    }
-  ];
-
-  return (
-    <>
-      <Card 
-        size="small" 
-        style={{ marginBottom: '8px' }}
-        actions={[
-          <Button 
-            key="edit"
-            type="primary" 
-            icon={<EditOutlined />} 
-            size="small"
-            onClick={() => onEdit(employee)}
-            style={{ backgroundColor: '#f59e0b', borderColor: '#f59e0b' }}
-          >
-            Edit
-          </Button>,
-          <Popconfirm
-            key="delete"
-            title="Delete Employee"
-            description="Are you sure you want to delete this employee?"
-            onConfirm={() => onDelete(employee.id)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button 
-              danger 
-              icon={<DeleteOutlined />} 
-              size="small"
-            >
-              Delete
-            </Button>
-          </Popconfirm>
-        ]}
+// Mobile Employee Card Component
+const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete }) => (
+  <Card 
+    size="small" 
+    className="mobile-employee-card"
+    actions={[
+      <Button 
+        key="edit"
+        type="primary" 
+        icon={<EditOutlined />} 
+        size="small"
+        onClick={() => onEdit(employee)}
+        className="brand-primary"
       >
-        <div className="mobile-employee-info">
-          <div className="mobile-employee-main">
-            <Avatar 
-              style={{ backgroundColor: '#1F4842' }}
-              size="large"
-            >
-              {employee.name.charAt(0).toUpperCase()}
-            </Avatar>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: '14px' }}>{employee.name}</div>
-              <Text type="secondary" style={{ fontSize: '12px' }}>
-                <MailOutlined /> {employee.email}
-              </Text>
-            </div>
-          </div>
-          <div className="mobile-employee-tags">
-            <Tag color="orange" size="small">{employee.role}</Tag>
-            <Tag color={employee.isActive ? 'green' : 'red'} size="small">
-              {employee.isActive ? 'Active' : 'Inactive'}
-            </Tag>
-            {employee.createdAt && (
-              <Tag color="blue" size="small">
-                {employee.createdAt?.toDate ? employee.createdAt.toDate().toLocaleDateString() : 'Unknown'}
-              </Tag>
-            )}
-          </div>
-        </div>
-      </Card>
-    </>
-  );
-};
+        Edit
+      </Button>,
+      <Popconfirm
+        key="delete"
+        title="Delete Employee"
+        description="Are you sure you want to delete this employee?"
+        onConfirm={() => onDelete(employee.id)}
+        okText="Yes"
+        cancelText="No"
+      >
+        <Button 
+          danger 
+          icon={<DeleteOutlined />} 
+          size="small"
+        >
+          Delete
+        </Button>
+      </Popconfirm>
+    ]}
+  >
+    <div className="mobile-employee-info">
+  <div style={{ 
+    display: 'flex', 
+    alignItems: 'flex-start',  // Changed alignment
+    gap: '12px',
+    marginBottom: '12px'
+  }}>
+    <Avatar 
+      style={{ 
+        backgroundColor: '#1F4842',
+        flexShrink: 0
+      }}
+      size="large"
+      src={employee.profileImage}
+      icon={!employee.profileImage && <UserOutlined />}
+    >
+      {!employee.profileImage && employee.name.charAt(0).toUpperCase()}
+    </Avatar>
+    <div style={{ 
+      flex: 1,
+      textAlign: 'left'  // Ensure left alignment
+    }}>
+      <div style={{ 
+        fontWeight: 600, 
+        fontSize: '14px',
+        marginBottom: '4px'
+      }}>
+        {employee.name}
+      </div>
+      <Text type="secondary" style={{ 
+        fontSize: '12px',
+        display: 'block',
+        marginBottom: '4px'
+      }}>
+        <MailOutlined /> {employee.email}
+      </Text>
+      {employee.employeeId && (
+        <Text type="secondary" style={{ fontSize: '12px' }}>
+          ID: {employee.employeeId}
+        </Text>
+      )}
+    </div>
+  </div>
+  <div style={{ 
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '6px',
+    justifyContent: 'flex-start'  // Left align tags
+  }}>
+    <Tag color="blue" size="small">{employee.role}</Tag>
+    <Tag color={employee.isActive ? 'green' : 'red'} size="small">
+      {employee.isActive ? 'Active' : 'Inactive'}
+    </Tag>
+    {employee.employeeId && (
+      <Tag color="geekblue" size="small">{employee.employeeId}</Tag>
+    )}
+    {employee.createdAt && (
+      <Tag color="purple" size="small">
+        {employee.createdAt?.toDate ? employee.createdAt.toDate().toLocaleDateString() : 'Unknown'}
+      </Tag>
+    )}
+  </div>
+</div>
+  </Card>
+));
 
-// Add/Edit Employee Modal Component (unchanged)
-const EmployeeFormModal = ({ isOpen, onClose, editingEmployee, onSuccess }) => {
+// Employee Form Modal Component
+const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSuccess }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [profileImage, setProfileImage] = useState(null);
 
-  
   useEffect(() => {
-    if (editingEmployee) {
-      form.setFieldsValue({
-        name: editingEmployee.name,
-        email: editingEmployee.email,
-        role: editingEmployee.role,
-        isActive: editingEmployee.isActive !== undefined ? editingEmployee.isActive : true
-      });
-    } else {
-      form.resetFields();
+    if (isOpen) {
+      if (editingEmployee) {
+        setTimeout(() => {
+          form.setFieldsValue({
+            name: editingEmployee.name,
+            email: editingEmployee.email,
+            employeeId: editingEmployee.employeeId,
+            role: editingEmployee.role,
+            isActive: editingEmployee.isActive !== undefined ? editingEmployee.isActive : true
+          });
+          setProfileImage(editingEmployee.profileImage || null);
+        }, 0);
+      } else {
+        form.resetFields();
+        setProfileImage(null);
+      }
     }
-  }, [editingEmployee, form]);
+  }, [editingEmployee, form, isOpen]);
 
-  
+  useEffect(() => {
+    if (!isOpen) {
+      form.resetFields();
+      setProfileImage(null);
+    }
+  }, [isOpen, form]);
 
-  const generatePassword = () => {
+  const generatePassword = useCallback(() => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let password = '';
     for (let i = 0; i < 8; i++) {
       password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return password;
-  };
+  }, []);
 
-  
-
-
-  const handleSubmit = async (values) => {
-    setLoading(true);
+  // Image upload handler
+  const handleImageUpload = useCallback((file) => {
+    const isJpgOrPng = file.type === 'image/jpeg' || file.type === 'image/png' || file.type === 'image/jpg';
+    if (!isJpgOrPng) {
+      message.error('You can only upload JPG/PNG files!');
+      return false;
+    }
     
-    console.log('Form values:', values);
-    console.log('Database instance:', db);
-    console.log('Collection reference:', collection(db, 'users'));
+    const isLt2M = file.size / 1024 / 1024 < 2;
+    if (!isLt2M) {
+      message.error('Image must be smaller than 2MB!');
+      return false;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setProfileImage(e.target.result);
+    };
+    reader.readAsDataURL(file);
+    
+    return false; // Prevent default upload
+  }, []);
+
+  const handleSubmit = useCallback(async (values) => {
+    setLoading(true);
     
     try {
       if (editingEmployee) {
-        console.log('Updating employee:', editingEmployee.id);
         const docRef = doc(db, 'users', editingEmployee.id);
         const updateData = {
           name: values.name,
           email: values.email,
           role: values.role || 'employee',
+          employeeId: values.employeeId,
           isActive: values.isActive !== undefined ? values.isActive : true,
+          profileImage: profileImage,
           updatedAt: new Date()
         };
-        console.log('Update data:', updateData);
         
         await updateDoc(docRef, updateData);
-        console.log('Employee updated successfully');
         message.success('Employee updated successfully');
       } else {
         const password = generatePassword();
         const employeeData = {
           name: values.name,
           email: values.email,
+          employeeId: values.employeeId,
           role: 'employee',
           isActive: values.isActive !== undefined ? values.isActive : true,
+          profileImage: profileImage,
           password,
           createdAt: new Date(),
           updatedAt: new Date()
         };
         
-        console.log('Adding new employee data:', employeeData);
-        
-        const docRef = await addDoc(collection(db, 'users'), employeeData);
-        console.log('Document written with ID: ', docRef.id);
+        await addDoc(collection(db, 'users'), employeeData);
         message.success('Employee created successfully!');
-        const emailResult = await sendEmployeeWelcomeEmail({
-  name: values.name,
-  email: values.email,
-  password: password,
-  role: 'employee'
-});
+        
+        try {
+          const emailResult = await sendEmployeeWelcomeEmail({
+            name: values.name,
+            email: values.email,
+            password: password,
+            role: 'employee'
+          });
 
-if (emailResult.success) {
-  message.success('Welcome email sent to employee!');
-} else {
-  message.warning('Employee created but email could not be sent. Please share credentials manually.');
-  console.error('Email send failed:', emailResult.error);
-}
+          if (emailResult.success) {
+            message.success('Welcome email sent to employee!');
+          } else {
+            message.warning('Employee created but email could not be sent. Please share credentials manually.');
+          }
+        } catch (emailError) {
+          console.error('Email send failed:', emailError);
+          message.warning('Employee created but email could not be sent.');
+        }
       }
 
       form.resetFields();
+      setProfileImage(null);
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Detailed error saving employee:', error);
-      console.error('Error code:', error.code);
-      console.error('Error message:', error.message);
+      console.error('Error saving employee:', error);
       
-      if (error.code === 'permission-denied') {
-        message.error('Permission denied. Check your Firestore security rules.');
-      } else if (error.code === 'unavailable') {
-        message.error('Firebase service is currently unavailable. Please try again.');
-      } else if (error.code === 'invalid-argument') {
-        message.error('Invalid data provided. Please check your inputs.');
-      } else {
-        message.error(`Error saving employee: ${error.message}`);
-      }
+      const errorMessages = {
+        'permission-denied': 'Permission denied. Check your Firestore security rules.',
+        'unavailable': 'Firebase service is currently unavailable. Please try again.',
+        'invalid-argument': 'Invalid data provided. Please check your inputs.'
+      };
+      
+      message.error(errorMessages[error.code] || `Error saving employee: ${error.message}`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [editingEmployee, generatePassword, onSuccess, onClose, form, profileImage]);
 
   return (
     <Modal
@@ -433,6 +289,7 @@ if (emailResult.success) {
       onCancel={onClose}
       footer={null}
       destroyOnClose
+      className="employee-form-modal"
     >
       <Form
         form={form}
@@ -440,6 +297,42 @@ if (emailResult.success) {
         onFinish={handleSubmit}
         initialValues={{ role: 'employee', isActive: true }}
       >
+        {/* Profile Image Upload */}
+        <Form.Item
+          label="Profile Image"
+          extra="Upload JPG/PNG files, max 2MB"
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <Avatar 
+              size={64} 
+              src={profileImage}
+              style={{ backgroundColor: '#1F4842' }}
+              icon={!profileImage && <UserOutlined />}
+            >
+              {!profileImage && form.getFieldValue('name')?.charAt(0)?.toUpperCase()}
+            </Avatar>
+            <Upload
+              showUploadList={false}
+              beforeUpload={handleImageUpload}
+              accept="image/*"
+            >
+              <Button icon={<UploadOutlined />}>
+                {profileImage ? 'Change Image' : 'Upload Image'}
+              </Button>
+            </Upload>
+            {profileImage && (
+              <Button 
+                type="link" 
+                danger 
+                onClick={() => setProfileImage(null)}
+                size="small"
+              >
+                Remove
+              </Button>
+            )}
+          </div>
+        </Form.Item>
+
         <Form.Item
           name="name"
           label="Name"
@@ -458,6 +351,25 @@ if (emailResult.success) {
         >
           <Input placeholder="Enter email address" />
         </Form.Item>
+
+        <Form.Item
+  name="employeeId"
+  label="Employee ID"
+  rules={[
+    { required: true, message: 'Please enter employee ID' },
+    { pattern: /^[A-Z0-9]+$/, message: 'Employee ID should contain only uppercase letters and numbers' }
+  ]}
+>
+  <Input 
+    placeholder="Enter employee ID (e.g., EMP001)" 
+    style={{ textTransform: 'uppercase' }}
+    onChange={(e) => {
+      // Auto-convert to uppercase
+      e.target.value = e.target.value.toUpperCase();
+    }}
+  />
+</Form.Item>
+
 
         <Form.Item
           name="isActive"
@@ -480,7 +392,7 @@ if (emailResult.success) {
               type="primary" 
               htmlType="submit" 
               loading={loading}
-              style={{ backgroundColor: '#f59e0b', borderColor: '#f59e0b' }}
+              className="brand-primary"
             >
               {editingEmployee ? 'Update' : 'Create'}
             </Button>
@@ -489,11 +401,12 @@ if (emailResult.success) {
       </Form>
     </Modal>
   );
-};
+});
 
 // Main Employee Management Component
 const EmployeeManagement = ({ userRole }) => {
   const [employees, setEmployees] = useState([]);
+  const [allEmployees, setAllEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFormModal, setShowFormModal] = useState(false);
@@ -503,262 +416,242 @@ const EmployeeManagement = ({ userRole }) => {
     pageSize: 10,
     total: 0
   });
-  const [lastDoc, setLastDoc] = useState(null);
-  const [totalEmployees, setTotalEmployees] = useState(0);
-  const [activeEmployees, setActiveEmployees] = useState(0);
-  const [inactiveEmployees, setInactiveEmployees] = useState(0);
-  const [isMobile, setIsMobile] = useState(false);
+
+  // Use useMemo for calculations
+  const { totalEmployees, activeEmployees, inactiveEmployees } = useMemo(() => {
+    const total = allEmployees.length;
+    const active = allEmployees.filter(employee => employee.isActive === true).length;
+    const inactive = total - active;
+    
+    return { totalEmployees: total, activeEmployees: active, inactiveEmployees: inactive };
+  }, [allEmployees]);
 
   // Check if mobile screen
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    
-    checkMobile();
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', checkMobile);
-    
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Get total count of employees
-  const getTotalCount = async () => {
+  // Fetch all employees
+  const fetchAllEmployees = useCallback(async () => {
     try {
-      console.log('Getting total employee count...');
       const q = query(
         collection(db, 'users'),
-        where('role', '==', 'employee')
-      );
-      const snapshot = await getCountFromServer(q);
-      const count = snapshot.data().count;
-      console.log('Total employees count:', count);
-      setTotalEmployees(count);
-
-      const activeQuery = query(
-        collection(db, 'users'),
         where('role', '==', 'employee'),
-        where('isActive', '==', true)
+        orderBy('createdAt', 'desc')
       );
-      const activeSnapshot = await getCountFromServer(activeQuery);
-      const activeCount = activeSnapshot.data().count;
-      setActiveEmployees(activeCount);
-      setInactiveEmployees(count - activeCount);
-
-    } catch (error) {
-      console.error('Error getting total count:', error);
-      try {
-        const q = query(
-          collection(db, 'users'),
-          where('role', '==', 'employee')
-        );
-        const querySnapshot = await getDocs(q);
-        const count = querySnapshot.size;
-        console.log('Fallback count:', count);
-        setTotalEmployees(count);
-
-        let activeCount = 0;
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          if (data.isActive === true) {
-            activeCount++;
-          }
-        });
-        setActiveEmployees(activeCount);
-        setInactiveEmployees(count - activeCount);
-
-      } catch (fallbackError) {
-        console.error('Fallback count error:', fallbackError);
-      }
-    }
-  };
-
-  // Fetch employees with pagination
-  const fetchEmployees = async (page = 1, pageSize = 10, search = '') => {
-    try {
-      setLoading(true);
-      console.log('Fetching employees - Page:', page, 'PageSize:', pageSize, 'Search:', search);
       
-      let q;
-      if (search) {
-        console.log('Building search query...');
-        q = query(
-          collection(db, 'users'),
-          where('role', '==', 'employee'),
-          orderBy('createdAt', 'desc')
-        );
-      } else {
-        if (page === 1) {
-          console.log('Building first page query...');
-          q = query(
-            collection(db, 'users'),
-            where('role', '==', 'employee'),
-            orderBy('createdAt', 'desc'),
-            limit(pageSize)
-          );
-        } else {
-          console.log('Building next page query...');
-          q = query(
-            collection(db, 'users'),
-            where('role', '==', 'employee'),
-            orderBy('createdAt', 'desc'),
-            startAfter(lastDoc),
-            limit(pageSize)
-          );
-        }
-      }
-
-      console.log('Executing query...');
       const querySnapshot = await getDocs(q);
-      let employeeList = [];
-      let lastDocument = null;
-
-      console.log('Query snapshot size:', querySnapshot.size);
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        console.log('Document:', doc.id, data);
-        employeeList.push({ id: doc.id, ...data });
-        lastDocument = doc;
-      });
-
-      if (search) {
-        console.log('Filtering search results...');
-        employeeList = employeeList.filter(employee =>
-          employee.name.toLowerCase().includes(search.toLowerCase()) ||
-          employee.email.toLowerCase().includes(search.toLowerCase())
-        );
-        const startIndex = (page - 1) * pageSize;
-        const endIndex = startIndex + pageSize;
-        const paginatedList = employeeList.slice(startIndex, endIndex);
-        
-        console.log('Search results:', paginatedList.length, 'of', employeeList.length);
-        setEmployees(paginatedList);
-        setPagination({
-          current: page,
-          pageSize: pageSize,
-          total: employeeList.length
-        });
-      } else {
-        console.log('Setting employees:', employeeList.length);
-        setEmployees(employeeList);
-        setLastDoc(lastDocument);
-        setPagination({
-          current: page,
-          pageSize: pageSize,
-          total: totalEmployees
-        });
-      }
+      const employeeList = querySnapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() 
+      }));
+      
+      setAllEmployees(employeeList);
+      return employeeList;
     } catch (error) {
       console.error('Error fetching employees:', error);
-      console.error('Error code:', error.code);
-      console.error('Error message:', error.message);
+      message.error(`Error loading employees: ${error.message}`);
+      return [];
+    }
+  }, []);
+
+  // Apply filters and pagination
+  const applyFiltersAndPagination = useCallback((employeeList, search = '', page = 1, pageSize = 10) => {
+    let filteredEmployees = [...employeeList];
+    
+    if (search) {
+  const searchLower = search.toLowerCase();
+  filteredEmployees = filteredEmployees.filter(employee =>
+    employee.name.toLowerCase().includes(searchLower) ||
+    employee.email.toLowerCase().includes(searchLower) ||
+    (employee.employeeId && employee.employeeId.toLowerCase().includes(searchLower))  // Add this line
+  );
+}
+    
+    const total = filteredEmployees.length;
+    const startIndex = (page - 1) * pageSize;
+    const paginatedEmployees = filteredEmployees.slice(startIndex, startIndex + pageSize);
+    
+    setEmployees(paginatedEmployees);
+    setPagination({
+      current: page,
+      pageSize: pageSize,
+      total: total
+    });
+    
+    return paginatedEmployees;
+  }, []);
+
+  // Fetch employees with pagination
+  const fetchEmployees = useCallback(async (page = 1, pageSize = 10, search = '') => {
+    try {
+      setLoading(true);
+      
+      let employeeList = allEmployees;
+      if (employeeList.length === 0) {
+        employeeList = await fetchAllEmployees();
+      }
+      
+      applyFiltersAndPagination(employeeList, search, page, pageSize);
+    } catch (error) {
+      console.error('Error in fetchEmployees:', error);
       message.error(`Error loading employees: ${error.message}`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [allEmployees, fetchAllEmployees, applyFiltersAndPagination]);
 
-  useEffect(() => {
-  if (userRole === 'superadmin' || userRole === 'admin') {
-    // Initialize EmailJS first
-    const emailInitialized = initEmailJS();
-    if (!emailInitialized) {
-      console.warn('EmailJS initialization failed - emails may not work');
+  // Refresh data
+  const refreshData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const employeeList = await fetchAllEmployees();
+      applyFiltersAndPagination(employeeList, searchQuery, 1, pagination.pageSize);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setLoading(false);
     }
-    
-    getTotalCount();
-    fetchEmployees();
-  }
-}, [userRole]);
+  }, [fetchAllEmployees, applyFiltersAndPagination, searchQuery, pagination.pageSize]);
 
-  const handleTableChange = (paginationInfo) => {
-    fetchEmployees(paginationInfo.current, paginationInfo.pageSize, searchQuery);
-  };
+  // Initialize component
+  useEffect(() => {
+    if (userRole === 'superadmin' || userRole === 'admin') {
+      const emailInitialized = initEmailJS();
+      if (!emailInitialized) {
+        console.warn('EmailJS initialization failed - emails may not work');
+      }
+      
+      fetchEmployees();
+    }
+  }, [userRole, fetchEmployees]);
 
-  const handleSearch = (value) => {
+  // Event handlers
+  const handleTableChange = useCallback((paginationInfo) => {
+    applyFiltersAndPagination(allEmployees, searchQuery, paginationInfo.current, paginationInfo.pageSize);
+  }, [allEmployees, searchQuery, applyFiltersAndPagination]);
+
+  const handleSearch = useCallback((value) => {
     setSearchQuery(value);
-    fetchEmployees(1, pagination.pageSize, value);
-  };
+    applyFiltersAndPagination(allEmployees, value, 1, pagination.pageSize);
+  }, [allEmployees, pagination.pageSize, applyFiltersAndPagination]);
 
-  const handleEdit = (employee) => {
+  const handleEdit = useCallback((employee) => {
     setEditingEmployee(employee);
     setShowFormModal(true);
-  };
+  }, []);
 
-  const handleDelete = async (employeeId) => {
+  const handleDelete = useCallback(async (employeeId) => {
     try {
       setLoading(true);
       await deleteDoc(doc(db, 'users', employeeId));
       message.success('Employee deleted successfully');
-      fetchEmployees(pagination.current, pagination.pageSize, searchQuery);
-      getTotalCount();
+      await refreshData();
     } catch (error) {
       console.error('Error deleting employee:', error);
       message.error('Error deleting employee');
     } finally {
       setLoading(false);
     }
-  };
+  }, [refreshData]);
 
-  const handleFormClose = () => {
+  const handleFormClose = useCallback(() => {
     setShowFormModal(false);
     setEditingEmployee(null);
-  };
+  }, []);
 
-  const handleFormSuccess = () => {
-    fetchEmployees(pagination.current, pagination.pageSize, searchQuery);
-    getTotalCount();
-  };
+  const handleFormSuccess = useCallback(async () => {
+    await refreshData();
+  }, [refreshData]);
 
-  // Enhanced table columns with better mobile handling
-  const columns = [
-    {
-      title: 'Employee',
-      dataIndex: 'name',
-      key: 'name',
-      fixed: 'left',
-      width: isMobile ? 200 : 250,
-      render: (text, record) => (
-        <div className="mobile-employee-info">
-          <div className="mobile-employee-main">
-            <Avatar 
-              style={{ backgroundColor: '#1F4842' }}
-              size={isMobile ? "default" : "large"}
-            >
-              {text.charAt(0).toUpperCase()}
-            </Avatar>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 600, fontSize: isMobile ? '12px' : '14px' }}>{text}</div>
-              <Text type="secondary" style={{ fontSize: isMobile ? '10px' : '12px' }}>
-                <MailOutlined /> {record.email}
-              </Text>
-              {isMobile && (
-                <div className="mobile-employee-tags">
-                  <Tag color="orange" size="small">{record.role}</Tag>
-                  <Tag color={record.isActive ? 'green' : 'red'} size="small">
-                    {record.isActive ? 'Active' : 'Inactive'}
-                  </Tag>
-                </div>
-              )}
-            </div>
-          </div>
+  // Table columns with memoization
+const columns = useMemo(() => [
+  {
+  title: 'Employee',
+  dataIndex: 'name',
+  key: 'name',
+  fixed: 'left',
+  width: isMobile ? 200 : 250,
+  render: (text, record) => (
+    <div style={{ 
+      display: 'flex', 
+      alignItems: 'flex-start',  // Changed from 'center' to 'flex-start'
+      gap: '12px',
+      width: '100%'
+    }}>
+      <Avatar 
+        style={{ 
+          backgroundColor: '#1F4842',
+          flexShrink: 0  // Prevent avatar from shrinking
+        }}
+        size={isMobile ? "default" : "large"}
+        src={record.profileImage}
+        icon={!record.profileImage && <UserOutlined />}
+      >
+        {!record.profileImage && text.charAt(0).toUpperCase()}
+      </Avatar>
+      <div style={{ 
+        flex: 1,
+        minWidth: 0,  // Allow text to wrap
+        textAlign: 'left'  // Ensure left alignment
+      }}>
+        <div style={{ 
+          fontWeight: 600, 
+          fontSize: isMobile ? '12px' : '14px',
+          marginBottom: '4px',
+          textAlign: 'left'  // Explicit left alignment
+        }}>
+          {text}
         </div>
-      ),
-    },
+        <div style={{ 
+          fontSize: isMobile ? '10px' : '12px',
+          color: '#666',
+          textAlign: 'left'  // Explicit left alignment
+        }}>
+          <MailOutlined style={{ marginRight: '4px' }} /> 
+          {record.email}
+        </div>
+        {isMobile && (
+          <div style={{ 
+            marginTop: '8px',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '4px',
+            justifyContent: 'flex-start'  // Left align tags
+          }}>
+            <Tag color="blue" size="small">{record.role}</Tag>
+            <Tag color={record.isActive ? 'green' : 'red'} size="small">
+              {record.isActive ? 'Active' : 'Inactive'}
+            </Tag>
+            {record.employeeId && (
+              <Tag color="geekblue" size="small">{record.employeeId}</Tag>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  ),
+},
     {
-      title: 'Email',
-      dataIndex: 'email',
-      key: 'email',
-      width: 200,
-      responsive: ['lg'],
-    },
+  title: 'Employee ID',
+  dataIndex: 'employeeId',
+  key: 'employeeId',
+  width: 120,
+  render: (employeeId) => (
+    <Tag color="geekblue">{employeeId || 'N/A'}</Tag>
+  ),
+  responsive: ['md'],
+},
     {
       title: 'Role',
       dataIndex: 'role',
       key: 'role',
       width: 100,
-      render: (role) => (
-        <Tag color="orange">{role}</Tag>
-      ),
+      render: (role) => <Tag color="blue">{role}</Tag>,
       responsive: ['md'],
     },
     {
@@ -789,13 +682,13 @@ const EmployeeManagement = ({ userRole }) => {
       fixed: 'right',
       width: isMobile ? 120 : 140,
       render: (_, record) => (
-        <div className="mobile-actions">
+        <div className={isMobile ? 'mobile-actions' : 'actions-container'}>
           <Button
             type="primary"
             icon={<EditOutlined />}
             size={isMobile ? "small" : "middle"}
             onClick={() => handleEdit(record)}
-            style={{ backgroundColor: '#f59e0b', borderColor: '#f59e0b' }}
+            className="brand-primary"
           />
           <Popconfirm
             title="Delete Employee"
@@ -813,13 +706,13 @@ const EmployeeManagement = ({ userRole }) => {
         </div>
       ),
     },
-  ];
+  ], [isMobile, handleEdit, handleDelete]);
 
-  // Check if user has permission
+  // Permission check - Allow both superadmin and admin
   if (userRole !== 'superadmin' && userRole !== 'admin') {
     return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        <TeamOutlined style={{ fontSize: '48px', color: '#d1d5db', marginBottom: '16px' }} />
+      <div className="access-denied">
+        <TeamOutlined className="access-denied-icon" />
         <Title level={3}>Access Denied</Title>
         <Text type="secondary">You don't have permission to view employee management.</Text>
       </div>
@@ -829,19 +722,23 @@ const EmployeeManagement = ({ userRole }) => {
   return (
     <div className="employee-management-wrapper">
       <div className="employee-management-content">
-        <div className={`employee-management-container ${isMobile ? 'mobile-table' : ''}`} style={{ padding: '24px' }}>
+        <div className={`employee-management-container ${isMobile ? 'mobile-table' : ''}`}>
           {/* Header */}
-          <div style={{ marginBottom: '24px' }} className="animated-card">
+          <div className="animated-card" style={{ marginBottom: '24px' }}>
             <div className={`${isMobile ? 'mobile-header' : ''}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div>
-                <Title level={2} style={{ margin: 0, fontSize: isMobile ? '20px' : '24px' }}>Employee Management</Title>
-                <Text type="secondary" style={{ fontSize: isMobile ? '12px' : '14px' }}>Manage your team members and their access levels</Text>
+                <Title level={2} className={isMobile ? 'responsive-title' : ''} style={{ margin: 0 }}>
+                  Employee Management
+                </Title>
+                <Text type="secondary" className={isMobile ? 'responsive-subtitle' : ''}>
+                  Manage employee users and their access levels
+                </Text>
               </div>
               <Button
                 type="primary"
                 icon={<UserAddOutlined />}
                 onClick={() => setShowFormModal(true)}
-                style={{ backgroundColor: '#1F4842' }}
+                className="brand-primary"
                 size={isMobile ? "middle" : "large"}
               >
                 Add Employee
@@ -852,32 +749,35 @@ const EmployeeManagement = ({ userRole }) => {
           {/* Stats Cards */}
           <Row gutter={[16, 16]} style={{ marginBottom: '24px' }} className={isMobile ? 'mobile-stats' : ''}>
             <Col xs={24} sm={12} md={8} lg={6}>
-              <Card className="animated-card-delayed">
+              <Card className="animated-card-delayed stats-card">
                 <Statistic
                   title="Total Employees"
                   value={totalEmployees}
                   prefix={<TeamOutlined />}
-                  valueStyle={{ color: '#1F4842', fontSize: isMobile ? '20px' : '24px' }}
+                  valueStyle={{ color: '#1F4842' }}
+                  className={isMobile ? 'responsive-stat-value' : ''}
                 />
               </Card>
             </Col>
             <Col xs={24} sm={12} md={8} lg={6}>
-              <Card className="animated-card-delayed-2">
+              <Card className="animated-card-delayed-2 stats-card">
                 <Statistic
                   title="Active Employees"
                   value={activeEmployees}
                   prefix={<TeamOutlined />}
-                  valueStyle={{ color: '#10b981', fontSize: isMobile ? '20px' : '24px' }}
+                  valueStyle={{ color: '#10b981' }}
+                  className={isMobile ? 'responsive-stat-value' : ''}
                 />
               </Card>
             </Col>
             <Col xs={24} sm={12} md={8} lg={6}>
-              <Card className="animated-card-delayed-3">
+              <Card className="animated-card-delayed-3 stats-card">
                 <Statistic
                   title="Inactive Employees"
                   value={inactiveEmployees}
                   prefix={<TeamOutlined />}
-                  valueStyle={{ color: '#ef4444', fontSize: isMobile ? '20px' : '24px' }}
+                  valueStyle={{ color: '#ef4444' }}
+                  className={isMobile ? 'responsive-stat-value' : ''}
                 />
               </Card>
             </Col>
@@ -892,6 +792,7 @@ const EmployeeManagement = ({ userRole }) => {
                 <Button 
                   type="primary" 
                   icon={<SearchOutlined />}
+                  className="brand-primary"
                   style={{ backgroundColor: '#1F4842', borderColor: '#1F4842' }}
                 >
                   Search

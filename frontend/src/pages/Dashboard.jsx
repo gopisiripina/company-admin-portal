@@ -116,7 +116,7 @@ const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout }) => {
             </button>
 
             {/* Profile Section */}
-            <ProfileSection />
+            <ProfileSection userData={userData} onLogout={onLogout}/>
           </div>
         </header>
 
@@ -191,7 +191,7 @@ if (activeSection === 'project-budgeting') {
             </button>
 
             {/* Profile Section */}
-            <ProfileSection />
+            <ProfileSection userData={userData} onLogout={onLogout}/>
           </div>
         </header>
 
@@ -228,7 +228,7 @@ if (activeSection === 'project-timeline') {
           </button>
 
           {/* Profile Section */}
-          <ProfileSection />
+          <ProfileSection userData={userData} onLogout={onLogout}/>
         </div>
       </header>
 
@@ -264,8 +264,8 @@ if (activeSection === 'project-timeline') {
             <span className="notification-badge"></span>
           </button>
 
-          {/* Profile Section */}
-          <ProfileSection />
+          {/* Profile Section - Pass userData and onLogout */}
+          <ProfileSection userData={userData} onLogout={onLogout} />
         </div>
       </header>
 
@@ -275,7 +275,7 @@ if (activeSection === 'project-timeline') {
           {/* Welcome Header */}
           <div className="welcome-header">
             <h1 className="welcome-title">
-              Welcome back, {userData?.name || 'User'}! 👋
+              Welcome back, {userData?.name || userData?.displayName || 'User'}! 👋
             </h1>
             <p className="welcome-subtitle">
               Here's what's happening with your business today. You have 3 new notifications.
