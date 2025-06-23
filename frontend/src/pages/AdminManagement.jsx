@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Table, 
   Button, 
@@ -15,9 +15,7 @@ import {
   Avatar,
   Tag,
   Typography,
-  Switch,
-  Drawer,
-  Dropdown
+  Switch
 } from 'antd';
 import { 
   UserAddOutlined, 
@@ -26,9 +24,6 @@ import {
   SearchOutlined,
   TeamOutlined,
   MailOutlined,
-  MoreOutlined,
-  PhoneOutlined,
-  UserOutlined
 } from '@ant-design/icons';
 import { db } from '../firebase/config';
 import { 
@@ -40,310 +35,116 @@ import {
   query, 
   where, 
   getDocs, 
-  orderBy, 
-  limit, 
-  startAfter,
-  getCountFromServer
+  orderBy
 } from 'firebase/firestore';
 import { sendEmployeeWelcomeEmail, initEmailJS } from './EmailService';
+import '../styles/AdminManagement.css';
+
 const { Title, Text } = Typography;
 const { Search } = Input;
 
-// Enhanced CSS for mobile responsiveness
-const enhancedStyles = `
-  @keyframes slideUpFromBottom {
-    from {
-      opacity: 0;
-      transform: translateY(30px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .animated-card {
-    animation: slideUpFromBottom 0.5s ease-out;
-  }
-
-  .animated-card-delayed {
-    animation: slideUpFromBottom 0.5s ease-out 0.1s both;
-  }
-
-  .animated-card-delayed-2 {
-    animation: slideUpFromBottom 0.5s ease-out 0.2s both;
-  }
-
-  .animated-card-delayed-3 {
-    animation: slideUpFromBottom 0.5s ease-out 0.3s both;
-  }
-
-  /* Mobile responsive styles */
-  @media (max-width: 768px) {
-    .admin-management-container {
-      padding: 12px !important;
-    }
-    
-    .mobile-header {
-      flex-direction: column !important;
-      gap: 16px !important;
-    }
-    
-    .mobile-header .ant-btn {
-      width: 100% !important;
-      justify-content: center !important;
-    }
-    
-    .mobile-stats {
-      margin-bottom: 16px !important;
-    }
-    
-    .mobile-stats .ant-col {
-      margin-bottom: 8px !important;
-    }
-    
-    .mobile-search {
-      margin-bottom: 16px !important;
-    }
-    
-    .mobile-search .ant-input-search {
-      max-width: 100% !important;
-    }
-    
-    /* Mobile table styles */
-    .mobile-table .ant-table {
-      font-size: 12px !important;
-    }
-    
-    .mobile-table .ant-table-tbody > tr > td {
-      padding: 8px 4px !important;
-      border-bottom: 1px solid #f0f0f0 !important;
-    }
-    
-    .mobile-table .ant-table-thead > tr > th {
-      padding: 8px 4px !important;
-      font-size: 12px !important;
-    }
-    
-    .mobile-admin-info {
-      display: flex !important;
-      flex-direction: column !important;
-      gap: 4px !important;
-    }
-    
-    .mobile-admin-main {
-      display: flex !important;
-      align-items: center !important;
-      gap: 8px !important;
-    }
-    
-    .mobile-admin-details {
-      font-size: 11px !important;
-    }
-    
-    .mobile-admin-tags {
-      display: flex !important;
-      gap: 4px !important;
-      flex-wrap: wrap !important;
-      margin-top: 4px !important;
-    }
-    
-    .mobile-admin-tags .ant-tag {
-      font-size: 10px !important;
-      padding: 2px 6px !important;
-      margin: 0 !important;
-    }
-    
-    .mobile-actions {
-      display: flex !important;
-      gap: 4px !important;
-    }
-    
-    .mobile-actions .ant-btn {
-      padding: 4px 8px !important;
-      font-size: 12px !important;
-      height: auto !important;
-    }
-  }
-  
-  /* Ensure horizontal scroll for the entire page content */
-  .admin-management-wrapper {
-    width: 100%;
-    overflow-x: auto;
-    min-width: 320px;
-  }
-  
-  .admin-management-content {
-    min-width: 800px;
-    width: 100%;
-  }
-  
-  @media (max-width: 768px) {
-    .admin-management-content {
-      min-width: 100%;
-    }
-  }
-  
-  /* Custom scrollbar for better UX */
-  .admin-management-wrapper::-webkit-scrollbar {
-    height: 8px;
-  }
-  
-  .admin-management-wrapper::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-  }
-  
-  .admin-management-wrapper::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 4px;
-  }
-  
-  .admin-management-wrapper::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-  }
-`;
-
-// Add styles to document head
-if (typeof document !== 'undefined') {
-  const existingStyle = document.getElementById('admin-management-styles');
-  if (existingStyle) {
-    existingStyle.remove();
-  }
-  
-  const styleSheet = document.createElement("style");
-  styleSheet.id = 'admin-management-styles';
-  styleSheet.innerText = enhancedStyles;
-  document.head.appendChild(styleSheet);
-}
-
-// Enhanced Admin Card Component for Mobile
-const MobileAdminCard = ({ admin, onEdit, onDelete, loading }) => {
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-
-  const menuItems = [
-    {
-      key: 'edit',
-      label: 'Edit Admin',
-      icon: <EditOutlined />,
-      onClick: () => {
-        onEdit(admin);
-        setIsDrawerOpen(false);
-      }
-    },
-    {
-      key: 'delete',
-      label: 'Delete Admin',
-      icon: <DeleteOutlined />,
-      danger: true,
-      onClick: () => {
-        setIsDrawerOpen(false);
-        // Show confirmation
-        Modal.confirm({
-          title: 'Delete Admin',
-          content: 'Are you sure you want to delete this admin?',
-          okText: 'Yes',
-          cancelText: 'No',
-          onOk: () => onDelete(admin.id)
-        });
-      }
-    }
-  ];
-
-  return (
-    <>
-      <Card 
-        size="small" 
-        style={{ marginBottom: '8px' }}
-        actions={[
-          <Button 
-            key="edit"
-            type="primary" 
-            icon={<EditOutlined />} 
-            size="small"
-            onClick={() => onEdit(admin)}
-            style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6' }}
-          >
-            Edit
-          </Button>,
-          <Popconfirm
-            key="delete"
-            title="Delete Admin"
-            description="Are you sure you want to delete this admin?"
-            onConfirm={() => onDelete(admin.id)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button 
-              danger 
-              icon={<DeleteOutlined />} 
-              size="small"
-            >
-              Delete
-            </Button>
-          </Popconfirm>
-        ]}
+// Mobile Admin Card Component
+const MobileAdminCard = React.memo(({ admin, onEdit, onDelete }) => (
+  <Card 
+    size="small" 
+    className="mobile-admin-card"
+    actions={[
+      <Button 
+        key="edit"
+        type="primary" 
+        icon={<EditOutlined />} 
+        size="small"
+        onClick={() => onEdit(admin)}
+        className="brand-primary"
       >
-        <div className="mobile-admin-info">
-          <div className="mobile-admin-main">
-            <Avatar 
-              style={{ backgroundColor: '#3b82f6' }}
-              size="large"
-            >
-              {admin.name.charAt(0).toUpperCase()}
-            </Avatar>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: '14px' }}>{admin.name}</div>
-              <Text type="secondary" style={{ fontSize: '12px' }}>
-                <MailOutlined /> {admin.email}
-              </Text>
-            </div>
-          </div>
-          <div className="mobile-admin-tags">
-            <Tag color="blue" size="small">{admin.role}</Tag>
-            <Tag color={admin.isActive ? 'green' : 'red'} size="small">
-              {admin.isActive ? 'Active' : 'Inactive'}
-            </Tag>
-            {admin.createdAt && (
-              <Tag color="geekblue" size="small">
-                {admin.createdAt?.toDate ? admin.createdAt.toDate().toLocaleDateString() : 'Unknown'}
-              </Tag>
-            )}
-          </div>
+        Edit
+      </Button>,
+      <Popconfirm
+        key="delete"
+        title="Delete Admin"
+        description="Are you sure you want to delete this admin?"
+        onConfirm={() => onDelete(admin.id)}
+        okText="Yes"
+        cancelText="No"
+      >
+        <Button 
+          danger 
+          icon={<DeleteOutlined />} 
+          size="small"
+        >
+          Delete
+        </Button>
+      </Popconfirm>
+    ]}
+  >
+    <div className="mobile-admin-info">
+      <div className="mobile-admin-main">
+        <Avatar 
+          style={{ backgroundColor: '#1F4842' }}
+          size="large"
+        >
+          {admin.name.charAt(0).toUpperCase()}
+        </Avatar>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 600, fontSize: '14px' }}>{admin.name}</div>
+          <Text type="secondary" style={{ fontSize: '12px' }}>
+            <MailOutlined /> {admin.email}
+          </Text>
         </div>
-      </Card>
-    </>
-  );
-};
+      </div>
+      <div className="mobile-admin-tags">
+        <Tag color="blue" size="small">{admin.role}</Tag>
+        <Tag color={admin.isActive ? 'green' : 'red'} size="small">
+          {admin.isActive ? 'Active' : 'Inactive'}
+        </Tag>
+        {admin.createdAt && (
+          <Tag color="geekblue" size="small">
+            {admin.createdAt?.toDate ? admin.createdAt.toDate().toLocaleDateString() : 'Unknown'}
+          </Tag>
+        )}
+      </div>
+    </div>
+  </Card>
+));
 
-// Add/Edit Admin Modal Component
-const AdminFormModal = ({ isOpen, onClose, editingAdmin, onSuccess }) => {
+// Admin Form Modal Component
+const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (editingAdmin) {
-      form.setFieldsValue({
-        name: editingAdmin.name,
-        email: editingAdmin.email,
-        role: editingAdmin.role,
-        isActive: editingAdmin.isActive !== undefined ? editingAdmin.isActive : true
-      });
-    } else {
+    if (isOpen) {
+      if (editingAdmin) {
+        setTimeout(() => {
+          form.setFieldsValue({
+            name: editingAdmin.name,
+            email: editingAdmin.email,
+            role: editingAdmin.role,
+            isActive: editingAdmin.isActive !== undefined ? editingAdmin.isActive : true
+          });
+        }, 0);
+      } else {
+        form.resetFields();
+      }
+    }
+  }, [editingAdmin, form, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
       form.resetFields();
     }
-  }, [editingAdmin, form]);
+  }, [isOpen, form]);
 
-  const generatePassword = () => {
+  const generatePassword = useCallback(() => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let password = '';
     for (let i = 0; i < 8; i++) {
       password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return password;
-  };
+  }, []);
 
-  const handleSubmit = async (values) => {
+  const handleSubmit = useCallback(async (values) => {
     setLoading(true);
     
     try {
@@ -371,21 +172,25 @@ const AdminFormModal = ({ isOpen, onClose, editingAdmin, onSuccess }) => {
           updatedAt: new Date()
         };
         
-        const docRef = await addDoc(collection(db, 'users'), adminData);
+        await addDoc(collection(db, 'users'), adminData);
         message.success('Admin created successfully!');
         
-        const emailResult = await sendEmployeeWelcomeEmail({
-          name: values.name,
-          email: values.email,
-          password: password,
-          role: 'admin'
-        });
+        try {
+          const emailResult = await sendEmployeeWelcomeEmail({
+            name: values.name,
+            email: values.email,
+            password: password,
+            role: 'admin'
+          });
 
-        if (emailResult.success) {
-          message.success('Welcome email sent to admin!');
-        } else {
-          message.warning('Admin created but email could not be sent. Please share credentials manually.');
-          console.error('Email send failed:', emailResult.error);
+          if (emailResult.success) {
+            message.success('Welcome email sent to admin!');
+          } else {
+            message.warning('Admin created but email could not be sent. Please share credentials manually.');
+          }
+        } catch (emailError) {
+          console.error('Email send failed:', emailError);
+          message.warning('Admin created but email could not be sent.');
         }
       }
 
@@ -393,23 +198,19 @@ const AdminFormModal = ({ isOpen, onClose, editingAdmin, onSuccess }) => {
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Detailed error saving admin:', error);
-      console.error('Error code:', error.code);
-      console.error('Error message:', error.message);
+      console.error('Error saving admin:', error);
       
-      if (error.code === 'permission-denied') {
-        message.error('Permission denied. Check your Firestore security rules.');
-      } else if (error.code === 'unavailable') {
-        message.error('Firebase service is currently unavailable. Please try again.');
-      } else if (error.code === 'invalid-argument') {
-        message.error('Invalid data provided. Please check your inputs.');
-      } else {
-        message.error(`Error saving admin: ${error.message}`);
-      }
+      const errorMessages = {
+        'permission-denied': 'Permission denied. Check your Firestore security rules.',
+        'unavailable': 'Firebase service is currently unavailable. Please try again.',
+        'invalid-argument': 'Invalid data provided. Please check your inputs.'
+      };
+      
+      message.error(errorMessages[error.code] || `Error saving admin: ${error.message}`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [editingAdmin, generatePassword, onSuccess, onClose, form]);
 
   return (
     <Modal
@@ -418,6 +219,7 @@ const AdminFormModal = ({ isOpen, onClose, editingAdmin, onSuccess }) => {
       onCancel={onClose}
       footer={null}
       destroyOnClose
+      className="admin-form-modal"
     >
       <Form
         form={form}
@@ -465,7 +267,7 @@ const AdminFormModal = ({ isOpen, onClose, editingAdmin, onSuccess }) => {
               type="primary" 
               htmlType="submit" 
               loading={loading}
-              style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6' }}
+              className="brand-primary"
             >
               {editingAdmin ? 'Update' : 'Create'}
             </Button>
@@ -474,11 +276,12 @@ const AdminFormModal = ({ isOpen, onClose, editingAdmin, onSuccess }) => {
       </Form>
     </Modal>
   );
-};
+});
 
 // Main Admin Management Component
 const AdminManagement = ({ userRole }) => {
   const [admins, setAdmins] = useState([]);
+  const [allAdmins, setAllAdmins] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFormModal, setShowFormModal] = useState(false);
@@ -488,199 +291,159 @@ const AdminManagement = ({ userRole }) => {
     pageSize: 10,
     total: 0
   });
-  const [lastDoc, setLastDoc] = useState(null);
-  const [totalAdmins, setTotalAdmins] = useState(0);
-  const [activeAdmins, setActiveAdmins] = useState(0);
-  const [inactiveAdmins, setInactiveAdmins] = useState(0);
-  const [isMobile, setIsMobile] = useState(false);
+
+  // Use useMemo for calculations
+  const { totalAdmins, activeAdmins, inactiveAdmins } = useMemo(() => {
+    const total = allAdmins.length;
+    const active = allAdmins.filter(admin => admin.isActive === true).length;
+    const inactive = total - active;
+    
+    return { totalAdmins: total, activeAdmins: active, inactiveAdmins: inactive };
+  }, [allAdmins]);
 
   // Check if mobile screen
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    
-    checkMobile();
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', checkMobile);
-    
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Get total count of admins
-  const getTotalCount = async () => {
+  // Fetch all admins
+  const fetchAllAdmins = useCallback(async () => {
     try {
       const q = query(
         collection(db, 'users'),
-        where('role', '==', 'admin')
-      );
-      const snapshot = await getCountFromServer(q);
-      const count = snapshot.data().count;
-      setTotalAdmins(count);
-
-      const activeQuery = query(
-        collection(db, 'users'),
         where('role', '==', 'admin'),
-        where('isActive', '==', true)
+        orderBy('createdAt', 'desc')
       );
-      const activeSnapshot = await getCountFromServer(activeQuery);
-      const activeCount = activeSnapshot.data().count;
-      setActiveAdmins(activeCount);
-      setInactiveAdmins(count - activeCount);
-
+      
+      const querySnapshot = await getDocs(q);
+      const adminList = querySnapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() 
+      }));
+      
+      setAllAdmins(adminList);
+      return adminList;
     } catch (error) {
-      console.error('Error getting total count:', error);
-      try {
-        const q = query(
-          collection(db, 'users'),
-          where('role', '==', 'admin')
-        );
-        const querySnapshot = await getDocs(q);
-        const count = querySnapshot.size;
-        setTotalAdmins(count);
-
-        let activeCount = 0;
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          if (data.isActive === true) {
-            activeCount++;
-          }
-        });
-        setActiveAdmins(activeCount);
-        setInactiveAdmins(count - activeCount);
-
-      } catch (fallbackError) {
-        console.error('Fallback count error:', fallbackError);
-      }
+      console.error('Error fetching admins:', error);
+      message.error(`Error loading admins: ${error.message}`);
+      return [];
     }
-  };
+  }, []);
+
+  // Apply filters and pagination
+  const applyFiltersAndPagination = useCallback((adminList, search = '', page = 1, pageSize = 10) => {
+    let filteredAdmins = [...adminList];
+    
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredAdmins = filteredAdmins.filter(admin =>
+        admin.name.toLowerCase().includes(searchLower) ||
+        admin.email.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    const total = filteredAdmins.length;
+    const startIndex = (page - 1) * pageSize;
+    const paginatedAdmins = filteredAdmins.slice(startIndex, startIndex + pageSize);
+    
+    setAdmins(paginatedAdmins);
+    setPagination({
+      current: page,
+      pageSize: pageSize,
+      total: total
+    });
+    
+    return paginatedAdmins;
+  }, []);
 
   // Fetch admins with pagination
-  const fetchAdmins = async (page = 1, pageSize = 10, search = '') => {
+  const fetchAdmins = useCallback(async (page = 1, pageSize = 10, search = '') => {
     try {
       setLoading(true);
       
-      let q;
-      if (search) {
-        q = query(
-          collection(db, 'users'),
-          where('role', '==', 'admin'),
-          orderBy('createdAt', 'desc')
-        );
-      } else {
-        if (page === 1) {
-          q = query(
-            collection(db, 'users'),
-            where('role', '==', 'admin'),
-            orderBy('createdAt', 'desc'),
-            limit(pageSize)
-          );
-        } else {
-          q = query(
-            collection(db, 'users'),
-            where('role', '==', 'admin'),
-            orderBy('createdAt', 'desc'),
-            startAfter(lastDoc),
-            limit(pageSize)
-          );
-        }
+      let adminList = allAdmins;
+      if (adminList.length === 0) {
+        adminList = await fetchAllAdmins();
       }
-
-      const querySnapshot = await getDocs(q);
-      let adminList = [];
-      let lastDocument = null;
-
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        adminList.push({ id: doc.id, ...data });
-        lastDocument = doc;
-      });
-
-      if (search) {
-        adminList = adminList.filter(admin =>
-          admin.name.toLowerCase().includes(search.toLowerCase()) ||
-          admin.email.toLowerCase().includes(search.toLowerCase())
-        );
-        const startIndex = (page - 1) * pageSize;
-        const endIndex = startIndex + pageSize;
-        const paginatedList = adminList.slice(startIndex, endIndex);
-        
-        setAdmins(paginatedList);
-        setPagination({
-          current: page,
-          pageSize: pageSize,
-          total: adminList.length
-        });
-      } else {
-        setAdmins(adminList);
-        setLastDoc(lastDocument);
-        setPagination({
-          current: page,
-          pageSize: pageSize,
-          total: totalAdmins
-        });
-      }
+      
+      applyFiltersAndPagination(adminList, search, page, pageSize);
     } catch (error) {
-      console.error('Error fetching admins:', error);
+      console.error('Error in fetchAdmins:', error);
       message.error(`Error loading admins: ${error.message}`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [allAdmins, fetchAllAdmins, applyFiltersAndPagination]);
 
+  // Refresh data
+  const refreshData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const adminList = await fetchAllAdmins();
+      applyFiltersAndPagination(adminList, searchQuery, 1, pagination.pageSize);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchAllAdmins, applyFiltersAndPagination, searchQuery, pagination.pageSize]);
+
+  // Initialize component
   useEffect(() => {
     if (userRole === 'superadmin') {
-      // Initialize EmailJS first
       const emailInitialized = initEmailJS();
       if (!emailInitialized) {
         console.warn('EmailJS initialization failed - emails may not work');
       }
       
-      getTotalCount();
       fetchAdmins();
     }
-  }, [userRole]);
+  }, [userRole, fetchAdmins]);
 
-  const handleTableChange = (paginationInfo) => {
-    fetchAdmins(paginationInfo.current, paginationInfo.pageSize, searchQuery);
-  };
+  // Event handlers
+  const handleTableChange = useCallback((paginationInfo) => {
+    applyFiltersAndPagination(allAdmins, searchQuery, paginationInfo.current, paginationInfo.pageSize);
+  }, [allAdmins, searchQuery, applyFiltersAndPagination]);
 
-  const handleSearch = (value) => {
+  const handleSearch = useCallback((value) => {
     setSearchQuery(value);
-    fetchAdmins(1, pagination.pageSize, value);
-  };
+    applyFiltersAndPagination(allAdmins, value, 1, pagination.pageSize);
+  }, [allAdmins, pagination.pageSize, applyFiltersAndPagination]);
 
-  const handleEdit = (admin) => {
+  const handleEdit = useCallback((admin) => {
     setEditingAdmin(admin);
     setShowFormModal(true);
-  };
+  }, []);
 
-  const handleDelete = async (adminId) => {
+  const handleDelete = useCallback(async (adminId) => {
     try {
       setLoading(true);
       await deleteDoc(doc(db, 'users', adminId));
       message.success('Admin deleted successfully');
-      fetchAdmins(pagination.current, pagination.pageSize, searchQuery);
-      getTotalCount();
+      await refreshData();
     } catch (error) {
       console.error('Error deleting admin:', error);
       message.error('Error deleting admin');
     } finally {
       setLoading(false);
     }
-  };
+  }, [refreshData]);
 
-  const handleFormClose = () => {
+  const handleFormClose = useCallback(() => {
     setShowFormModal(false);
     setEditingAdmin(null);
-  };
+  }, []);
 
-  const handleFormSuccess = () => {
-    fetchAdmins(pagination.current, pagination.pageSize, searchQuery);
-    getTotalCount();
-  };
+  const handleFormSuccess = useCallback(async () => {
+    await refreshData();
+  }, [refreshData]);
 
-  // Enhanced table columns with better mobile handling
-  const columns = [
+  // Table columns with memoization
+  const columns = useMemo(() => [
     {
       title: 'Admin',
       dataIndex: 'name',
@@ -688,15 +451,15 @@ const AdminManagement = ({ userRole }) => {
       fixed: 'left',
       width: isMobile ? 200 : 250,
       render: (text, record) => (
-        <div className="mobile-admin-info">
-          <div className="mobile-admin-main">
+        <div className={isMobile ? 'mobile-admin-info' : 'admin-info'}>
+          <div className={isMobile ? 'mobile-admin-main' : 'admin-main'}>
             <Avatar 
-              style={{ backgroundColor: '#3b82f6' }}
+              style={{ backgroundColor: '#1F4842' }}
               size={isMobile ? "default" : "large"}
             >
               {text.charAt(0).toUpperCase()}
             </Avatar>
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="admin-details">
               <div style={{ fontWeight: 600, fontSize: isMobile ? '12px' : '14px' }}>{text}</div>
               <Text type="secondary" style={{ fontSize: isMobile ? '10px' : '12px' }}>
                 <MailOutlined /> {record.email}
@@ -726,9 +489,7 @@ const AdminManagement = ({ userRole }) => {
       dataIndex: 'role',
       key: 'role',
       width: 100,
-      render: (role) => (
-        <Tag color="blue">{role}</Tag>
-      ),
+      render: (role) => <Tag color="blue">{role}</Tag>,
       responsive: ['md'],
     },
     {
@@ -759,13 +520,13 @@ const AdminManagement = ({ userRole }) => {
       fixed: 'right',
       width: isMobile ? 120 : 140,
       render: (_, record) => (
-        <div className="mobile-actions">
+        <div className={isMobile ? 'mobile-actions' : 'actions-container'}>
           <Button
             type="primary"
             icon={<EditOutlined />}
             size={isMobile ? "small" : "middle"}
             onClick={() => handleEdit(record)}
-            style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6' }}
+            className="brand-primary"
           />
           <Popconfirm
             title="Delete Admin"
@@ -783,13 +544,13 @@ const AdminManagement = ({ userRole }) => {
         </div>
       ),
     },
-  ];
+  ], [isMobile, handleEdit, handleDelete]);
 
-  // Check if user has permission
+  // Permission check
   if (userRole !== 'superadmin') {
     return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        <TeamOutlined style={{ fontSize: '48px', color: '#d1d5db', marginBottom: '16px' }} />
+      <div className="access-denied">
+        <TeamOutlined className="access-denied-icon" />
         <Title level={3}>Access Denied</Title>
         <Text type="secondary">You don't have permission to view admin management.</Text>
       </div>
@@ -799,19 +560,23 @@ const AdminManagement = ({ userRole }) => {
   return (
     <div className="admin-management-wrapper">
       <div className="admin-management-content">
-        <div className={`admin-management-container ${isMobile ? 'mobile-table' : ''}`} style={{ padding: '24px' }}>
+        <div className={`admin-management-container ${isMobile ? 'mobile-table' : ''}`}>
           {/* Header */}
-          <div style={{ marginBottom: '24px' }} className="animated-card">
+          <div className="animated-card" style={{ marginBottom: '24px' }}>
             <div className={`${isMobile ? 'mobile-header' : ''}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div>
-                <Title level={2} style={{ margin: 0, fontSize: isMobile ? '20px' : '24px' }}>Admin Management</Title>
-                <Text type="secondary" style={{ fontSize: isMobile ? '12px' : '14px' }}>Manage admin users and their access levels</Text>
+                <Title level={2} className={isMobile ? 'responsive-title' : ''} style={{ margin: 0 }}>
+                  Admin Management
+                </Title>
+                <Text type="secondary" className={isMobile ? 'responsive-subtitle' : ''}>
+                  Manage admin users and their access levels
+                </Text>
               </div>
               <Button
                 type="primary"
                 icon={<UserAddOutlined />}
                 onClick={() => setShowFormModal(true)}
-                style={{ backgroundColor: '#3b82f6' }}
+                className="brand-primary"
                 size={isMobile ? "middle" : "large"}
               >
                 Add Admin
@@ -822,32 +587,35 @@ const AdminManagement = ({ userRole }) => {
           {/* Stats Cards */}
           <Row gutter={[16, 16]} style={{ marginBottom: '24px' }} className={isMobile ? 'mobile-stats' : ''}>
             <Col xs={24} sm={12} md={8} lg={6}>
-              <Card className="animated-card-delayed">
+              <Card className="animated-card-delayed stats-card">
                 <Statistic
                   title="Total Admins"
                   value={totalAdmins}
                   prefix={<TeamOutlined />}
-                  valueStyle={{ color: '#3b82f6', fontSize: isMobile ? '20px' : '24px' }}
+                  valueStyle={{ color: '#1F4842' }}
+                  className={isMobile ? 'responsive-stat-value' : ''}
                 />
               </Card>
             </Col>
             <Col xs={24} sm={12} md={8} lg={6}>
-              <Card className="animated-card-delayed-2">
+              <Card className="animated-card-delayed-2 stats-card">
                 <Statistic
                   title="Active Admins"
                   value={activeAdmins}
                   prefix={<TeamOutlined />}
-                  valueStyle={{ color: '#10b981', fontSize: isMobile ? '20px' : '24px' }}
+                  valueStyle={{ color: '#10b981' }}
+                  className={isMobile ? 'responsive-stat-value' : ''}
                 />
               </Card>
             </Col>
             <Col xs={24} sm={12} md={8} lg={6}>
-              <Card className="animated-card-delayed-3">
+              <Card className="animated-card-delayed-3 stats-card">
                 <Statistic
                   title="Inactive Admins"
                   value={inactiveAdmins}
                   prefix={<TeamOutlined />}
-                  valueStyle={{ color: '#ef4444', fontSize: isMobile ? '20px' : '24px' }}
+                  valueStyle={{ color: '#ef4444' }}
+                  className={isMobile ? 'responsive-stat-value' : ''}
                 />
               </Card>
             </Col>
@@ -862,7 +630,8 @@ const AdminManagement = ({ userRole }) => {
                 <Button 
                   type="primary" 
                   icon={<SearchOutlined />}
-                  style={{ backgroundColor: '#3b82f6', borderColor: '#3b82f6' }}
+                  className="brand-primary"
+                  style={{ backgroundColor: '#1F4842', borderColor: '#1F4842' }}
                 >
                   Search
                 </Button>
