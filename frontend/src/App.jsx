@@ -4,105 +4,10 @@ import Login from './pages/login';
 import Dashboard from './pages/Dashboard.jsx';
 import Sidebar from './pages/Sidebar.jsx';
 import AnimatedBackground from './pages/AnimatedBackground';
-import AdminManagement from './pages/AdminManagement';
-import EmployeeManagement from './pages/EmployeeManagement';
-import { Search, Bell } from 'lucide-react';
-import ProfileSection from './pages/ProfileSection';
 
 // Protected Route component
 const ProtectedRoute = ({ children, isLoggedIn }) => {
   return isLoggedIn ? children : <Navigate to="/" replace />;
-};
-
-// Generic page component for project management sections
-const ProjectManagementPage = ({ title, sidebarOpen, userData }) => {
-  return (
-    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-      <header className="dashboard-header">
-        <div className="search-container">
-          <Search size={22} className="search-icon" />
-          <input
-            type="text"
-            placeholder={`Search ${title.toLowerCase()}...`}
-            className="search-input"
-          />
-        </div>
-        <div className="header-right">
-          <button className="notification-button">
-            <Bell size={22} />
-            <span className="notification-badge"></span>
-          </button>
-          {/* Fixed: Pass userData to ProfileSection */}
-          <ProfileSection userData={userData} />
-        </div>
-      </header>
-      <main className="main-content">
-        <div className="content-container">
-          <div className="welcome-header">
-            <h1 className="welcome-title">{title}</h1>
-            <p className="welcome-subtitle">
-              {title} content will be implemented here.
-            </p>
-          </div>
-          {/* Add your specific component content here */}
-        </div>
-      </main>
-    </div>
-  );
-};
-
-// Layout component for dashboard pages with sidebar
-const DashboardLayout = ({ children, sidebarOpen, setSidebarOpen, activeSection, setActiveSection, userData, handleLogout }) => {
-  const navigate = useNavigate();
-
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
-
-  const handleSidebarItemClick = (itemId) => {
-    if (itemId === 'logout') {
-      handleLogout();
-      return;
-    }
-
-    setActiveSection(itemId);
-    
-    // Route mapping for all sidebar items
-    const routeMap = {
-      'dashboard': '/dashboard',
-      'admin': '/admin',
-      'employee': '/employee',
-      'project-timeline': '/project/timeline',
-      'project-budgeting': '/project/budgeting',
-      'gantt-chart': '/project/gantt-chart',
-      'agile-project-plan': '/project/agile-plan',
-      'project-tracker': '/project/tracker',
-      'issue-tracker': '/project/issues',
-      'project-risk': '/project/risk',
-      'project-report': '/project/reports',
-      'kt': '/project/kt'
-    };
-
-    const route = routeMap[itemId];
-    if (route) {
-      navigate(route);
-    }
-  };
-
-  return (
-    <AnimatedBackground>
-      <div style={{ display: 'flex', height: '100vh', width: '100vw' }}>
-        <Sidebar
-          isOpen={sidebarOpen}
-          onToggle={toggleSidebar}
-          activeItem={activeSection}
-          onItemClick={handleSidebarItemClick}
-          userRole={userData?.role}
-        />
-        {children}
-      </div>
-    </AnimatedBackground>
-  );
 };
 
 // Main App component wrapped with router logic
@@ -116,38 +21,18 @@ const AppContent = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Update active section based on current route
-  useEffect(() => {
-    const path = location.pathname;
-    const pathToSectionMap = {
-      '/dashboard': 'dashboard',
-      '/admin': 'admin',
-      '/employee': 'employee',
-      '/project/timeline': 'project-timeline',
-      '/project/budgeting': 'project-budgeting',
-      '/project/gantt-chart': 'gantt-chart',
-      '/project/agile-plan': 'agile-project-plan',
-      '/project/tracker': 'project-tracker',
-      '/project/issues': 'issue-tracker',
-      '/project/risk': 'project-risk',
-      '/project/reports': 'project-report',
-      '/project/kt': 'kt'
-    };
-
-    const section = pathToSectionMap[path];
-    if (section) {
-      setActiveSection(section);
-    }
-  }, [location.pathname]);
-
   // Check for existing session on initial load
   useEffect(() => {
     const savedUserData = localStorage.getItem('userData');
     if (savedUserData) {
       try {
         const parsedData = JSON.parse(savedUserData);
+        console.log('Loading saved user data:', parsedData);
+        console.log('Saved profileImage:', parsedData.profileImage);
+        
         setUserData(parsedData);
         setIsLoggedIn(true);
+        // If user is on login page but authenticated, redirect to dashboard
         if (location.pathname === '/') {
           navigate('/dashboard', { replace: true });
         }
@@ -158,44 +43,72 @@ const AppContent = () => {
     }
     setCheckingAuth(false);
   }, [location.pathname, navigate]);
-useEffect(() => {
-  // Handle URL-based navigation
-  const path = location.pathname;
-  if (path.includes('/project-timeline')) {
-    setActiveSection('project-timeline');
-  } else if (path.includes('/admin')) {
-    setActiveSection('admin');
-  } else if (path.includes('/employee')) {
-    setActiveSection('employee');
-  } else if (path === '/dashboard') {
-    setActiveSection('dashboard');
-  }
-}, [location.pathname]);
+
+  useEffect(() => {
+    // Handle URL-based navigation
+    const path = location.pathname;
+    if (path.includes('/project-timeline')) {
+      setActiveSection('project-timeline');
+    } else if (path.includes('/admin')) {
+      setActiveSection('admin');
+    } else if (path.includes('/employee')) {
+      setActiveSection('employee');
+    } else if (path === '/dashboard') {
+      setActiveSection('dashboard');
+    }
+  }, [location.pathname]);
 
   const handleLoginSuccess = (user) => {
-    setUserData({
+    console.log('=== Login Success Debug ===');
+    console.log('Received user object:', user);
+    console.log('User profileImage:', user.profileImage);
+    console.log('User object keys:', Object.keys(user || {}));
+    
+    // Store the COMPLETE user object, not just selected fields
+    const completeUserData = {
+      id: user.id,
       name: user.name || 'User',
       email: user.email,
       role: user.role || 'User',
-      profileImage: user.profileImage || null
-    });
+      profileImage: user.profileImage, // CRITICAL: Include profile image
+      photoURL: user.photoURL,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      displayName: user.displayName,
+      userType: user.userType
+    };
+    
+    console.log('Setting complete user data:', completeUserData);
+    console.log('Profile image in complete data:', completeUserData.profileImage);
+    
+    setUserData(completeUserData);
     setIsLoggedIn(true);
     
-    localStorage.setItem('userData', JSON.stringify({
-      email: user.email,
-      name: user.name || 'User',
-      role: user.role || 'User',
-      profileImage: user.profileImage || null
-    }));
+    // Store complete user data in localStorage
+    try {
+      localStorage.setItem('userData', JSON.stringify(completeUserData));
+      
+      // Verify storage
+      const storedData = localStorage.getItem('userData');
+      const parsedStoredData = JSON.parse(storedData);
+      console.log('Verified localStorage data:', parsedStoredData);
+      console.log('Verified profileImage in storage:', parsedStoredData.profileImage);
+    } catch (error) {
+      console.error('Error storing user data:', error);
+    }
     
+    // Navigate to dashboard after successful login
     navigate('/dashboard', { replace: true });
   };
 
   const handleLogout = () => {
+    console.log('Logging out user');
     setIsLoggedIn(false);
     setUserData(null);
     localStorage.removeItem('userData');
-    setActiveSection('dashboard');
+    setActiveSection('dashboard'); // Reset to default section
+    // Navigate to login page after logout
     navigate('/', { replace: true });
   };
 
@@ -203,23 +116,23 @@ useEffect(() => {
     setSidebarOpen(!sidebarOpen);
   };
 
- const handleSidebarItemClick = (itemId) => {
-  if (itemId === 'logout') {
-    handleLogout();
-  } else {
-    setActiveSection(itemId);
-    // Update URL for specific sections
-    if (itemId === 'project-timeline') {
-      navigate('/dashboard/project-timeline', { replace: true });
-    } else if (itemId === 'admin') {
-      navigate('/dashboard/admin', { replace: true });
-    } else if (itemId === 'employee') {
-      navigate('/dashboard/employee', { replace: true });
+  const handleSidebarItemClick = (itemId) => {
+    if (itemId === 'logout') {
+      handleLogout();
     } else {
-      navigate('/dashboard', { replace: true });
+      setActiveSection(itemId);
+      // Update URL for specific sections
+      if (itemId === 'project-timeline') {
+        navigate('/dashboard/project-timeline', { replace: true });
+      } else if (itemId === 'admin') {
+        navigate('/dashboard/admin', { replace: true });
+      } else if (itemId === 'employee') {
+        navigate('/dashboard/employee', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     }
-  }
-};
+  };
 
   // Show loading while checking auth state
   if (checkingAuth) {
@@ -252,7 +165,7 @@ useEffect(() => {
       
       {/* Dashboard Route */}
       <Route 
-        path="/dashboard" 
+        path="/dashboard/*" 
         element={
           <ProtectedRoute isLoggedIn={isLoggedIn}>
             <AnimatedBackground>
@@ -262,7 +175,7 @@ useEffect(() => {
                   onToggle={toggleSidebar}
                   activeItem={activeSection}
                   onItemClick={handleSidebarItemClick}
-                   userRole={userData?.role}
+                  userRole={userData?.role}
                 />
                 <Dashboard
                   sidebarOpen={sidebarOpen}

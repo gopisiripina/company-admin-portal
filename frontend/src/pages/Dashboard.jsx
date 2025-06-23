@@ -115,7 +115,7 @@ const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout }) => {
             </button>
 
             {/* Profile Section */}
-            <ProfileSection />
+            <ProfileSection userData={userData} onLogout={onLogout}/>
           </div>
         </header>
 
@@ -154,7 +154,7 @@ const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout }) => {
             </button>
 
             {/* Profile Section */}
-            <ProfileSection />
+            <ProfileSection userData={userData} onLogout={onLogout}/>
           </div>
         </header>
 
@@ -191,7 +191,7 @@ if (activeSection === 'project-timeline') {
           </button>
 
           {/* Profile Section */}
-          <ProfileSection />
+          <ProfileSection userData={userData} onLogout={onLogout}/>
         </div>
       </header>
 
