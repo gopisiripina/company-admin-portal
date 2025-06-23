@@ -79,34 +79,68 @@ const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete }) => (
     ]}
   >
     <div className="mobile-employee-info">
-      <div className="mobile-employee-main">
-        <Avatar 
-          style={{ backgroundColor: '#1F4842' }}
-          size="large"
-          src={employee.profileImage}
-          icon={!employee.profileImage && <UserOutlined />}
-        >
-          {!employee.profileImage && employee.name.charAt(0).toUpperCase()}
-        </Avatar>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, fontSize: '14px' }}>{employee.name}</div>
-          <Text type="secondary" style={{ fontSize: '12px' }}>
-            <MailOutlined /> {employee.email}
-          </Text>
-        </div>
+  <div style={{ 
+    display: 'flex', 
+    alignItems: 'flex-start',  // Changed alignment
+    gap: '12px',
+    marginBottom: '12px'
+  }}>
+    <Avatar 
+      style={{ 
+        backgroundColor: '#1F4842',
+        flexShrink: 0
+      }}
+      size="large"
+      src={employee.profileImage}
+      icon={!employee.profileImage && <UserOutlined />}
+    >
+      {!employee.profileImage && employee.name.charAt(0).toUpperCase()}
+    </Avatar>
+    <div style={{ 
+      flex: 1,
+      textAlign: 'left'  // Ensure left alignment
+    }}>
+      <div style={{ 
+        fontWeight: 600, 
+        fontSize: '14px',
+        marginBottom: '4px'
+      }}>
+        {employee.name}
       </div>
-      <div className="mobile-employee-tags">
-        <Tag color="blue" size="small">{employee.role}</Tag>
-        <Tag color={employee.isActive ? 'green' : 'red'} size="small">
-          {employee.isActive ? 'Active' : 'Inactive'}
-        </Tag>
-        {employee.createdAt && (
-          <Tag color="geekblue" size="small">
-            {employee.createdAt?.toDate ? employee.createdAt.toDate().toLocaleDateString() : 'Unknown'}
-          </Tag>
-        )}
-      </div>
+      <Text type="secondary" style={{ 
+        fontSize: '12px',
+        display: 'block',
+        marginBottom: '4px'
+      }}>
+        <MailOutlined /> {employee.email}
+      </Text>
+      {employee.employeeId && (
+        <Text type="secondary" style={{ fontSize: '12px' }}>
+          ID: {employee.employeeId}
+        </Text>
+      )}
     </div>
+  </div>
+  <div style={{ 
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '6px',
+    justifyContent: 'flex-start'  // Left align tags
+  }}>
+    <Tag color="blue" size="small">{employee.role}</Tag>
+    <Tag color={employee.isActive ? 'green' : 'red'} size="small">
+      {employee.isActive ? 'Active' : 'Inactive'}
+    </Tag>
+    {employee.employeeId && (
+      <Tag color="geekblue" size="small">{employee.employeeId}</Tag>
+    )}
+    {employee.createdAt && (
+      <Tag color="purple" size="small">
+        {employee.createdAt?.toDate ? employee.createdAt.toDate().toLocaleDateString() : 'Unknown'}
+      </Tag>
+    )}
+  </div>
+</div>
   </Card>
 ));
 
@@ -123,6 +157,7 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
           form.setFieldsValue({
             name: editingEmployee.name,
             email: editingEmployee.email,
+            employeeId: editingEmployee.employeeId,
             role: editingEmployee.role,
             isActive: editingEmployee.isActive !== undefined ? editingEmployee.isActive : true
           });
@@ -184,6 +219,7 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
           name: values.name,
           email: values.email,
           role: values.role || 'employee',
+          employeeId: values.employeeId,
           isActive: values.isActive !== undefined ? values.isActive : true,
           profileImage: profileImage,
           updatedAt: new Date()
@@ -196,6 +232,7 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
         const employeeData = {
           name: values.name,
           email: values.email,
+          employeeId: values.employeeId,
           role: 'employee',
           isActive: values.isActive !== undefined ? values.isActive : true,
           profileImage: profileImage,
@@ -316,6 +353,25 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
         </Form.Item>
 
         <Form.Item
+  name="employeeId"
+  label="Employee ID"
+  rules={[
+    { required: true, message: 'Please enter employee ID' },
+    { pattern: /^[A-Z0-9]+$/, message: 'Employee ID should contain only uppercase letters and numbers' }
+  ]}
+>
+  <Input 
+    placeholder="Enter employee ID (e.g., EMP001)" 
+    style={{ textTransform: 'uppercase' }}
+    onChange={(e) => {
+      // Auto-convert to uppercase
+      e.target.value = e.target.value.toUpperCase();
+    }}
+  />
+</Form.Item>
+
+
+        <Form.Item
           name="isActive"
           label="Active Status"
           valuePropName="checked"
@@ -408,12 +464,13 @@ const EmployeeManagement = ({ userRole }) => {
     let filteredEmployees = [...employeeList];
     
     if (search) {
-      const searchLower = search.toLowerCase();
-      filteredEmployees = filteredEmployees.filter(employee =>
-        employee.name.toLowerCase().includes(searchLower) ||
-        employee.email.toLowerCase().includes(searchLower)
-      );
-    }
+  const searchLower = search.toLowerCase();
+  filteredEmployees = filteredEmployees.filter(employee =>
+    employee.name.toLowerCase().includes(searchLower) ||
+    employee.email.toLowerCase().includes(searchLower) ||
+    (employee.employeeId && employee.employeeId.toLowerCase().includes(searchLower))  // Add this line
+  );
+}
     
     const total = filteredEmployees.length;
     const startIndex = (page - 1) * pageSize;
@@ -514,47 +571,81 @@ const EmployeeManagement = ({ userRole }) => {
   // Table columns with memoization
 const columns = useMemo(() => [
   {
-    title: 'Employee',
-    dataIndex: 'name',
-    key: 'name',
-    fixed: 'left',
-    width: isMobile ? 200 : 250,
-    render: (text, record) => (
-      <div className={isMobile ? 'mobile-employee-info' : 'employee-info'}>
-        <div className={isMobile ? 'mobile-employee-main' : 'employee-main'}>
-          <Avatar 
-            style={{ backgroundColor: '#1F4842' }}
-            size={isMobile ? "default" : "large"}
-            src={record.profileImage}
-            icon={!record.profileImage && <UserOutlined />}
-          >
-            {!record.profileImage && text.charAt(0).toUpperCase()}
-          </Avatar>
-          <div className="employee-details">
-            <div style={{ fontWeight: 600, fontSize: isMobile ? '12px' : '14px' }}>{text}</div>
-            <Text type="secondary" style={{ fontSize: isMobile ? '10px' : '12px' }}>
-              <MailOutlined /> {record.email}
-            </Text>
-            {isMobile && (
-              <div className="mobile-employee-tags">
-                <Tag color="blue" size="small">{record.role}</Tag>
-                <Tag color={record.isActive ? 'green' : 'red'} size="small">
-                  {record.isActive ? 'Active' : 'Inactive'}
-                </Tag>
-              </div>
+  title: 'Employee',
+  dataIndex: 'name',
+  key: 'name',
+  fixed: 'left',
+  width: isMobile ? 200 : 250,
+  render: (text, record) => (
+    <div style={{ 
+      display: 'flex', 
+      alignItems: 'flex-start',  // Changed from 'center' to 'flex-start'
+      gap: '12px',
+      width: '100%'
+    }}>
+      <Avatar 
+        style={{ 
+          backgroundColor: '#1F4842',
+          flexShrink: 0  // Prevent avatar from shrinking
+        }}
+        size={isMobile ? "default" : "large"}
+        src={record.profileImage}
+        icon={!record.profileImage && <UserOutlined />}
+      >
+        {!record.profileImage && text.charAt(0).toUpperCase()}
+      </Avatar>
+      <div style={{ 
+        flex: 1,
+        minWidth: 0,  // Allow text to wrap
+        textAlign: 'left'  // Ensure left alignment
+      }}>
+        <div style={{ 
+          fontWeight: 600, 
+          fontSize: isMobile ? '12px' : '14px',
+          marginBottom: '4px',
+          textAlign: 'left'  // Explicit left alignment
+        }}>
+          {text}
+        </div>
+        <div style={{ 
+          fontSize: isMobile ? '10px' : '12px',
+          color: '#666',
+          textAlign: 'left'  // Explicit left alignment
+        }}>
+          <MailOutlined style={{ marginRight: '4px' }} /> 
+          {record.email}
+        </div>
+        {isMobile && (
+          <div style={{ 
+            marginTop: '8px',
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '4px',
+            justifyContent: 'flex-start'  // Left align tags
+          }}>
+            <Tag color="blue" size="small">{record.role}</Tag>
+            <Tag color={record.isActive ? 'green' : 'red'} size="small">
+              {record.isActive ? 'Active' : 'Inactive'}
+            </Tag>
+            {record.employeeId && (
+              <Tag color="geekblue" size="small">{record.employeeId}</Tag>
             )}
           </div>
-        </div>
+        )}
       </div>
-    ),
-  },
+    </div>
+  ),
+},
     {
-      title: 'Email',
-      dataIndex: 'email',
-      key: 'email',
-      width: 200,
-      responsive: ['lg'],
-    },
+  title: 'Employee ID',
+  dataIndex: 'employeeId',
+  key: 'employeeId',
+  width: 120,
+  render: (employeeId) => (
+    <Tag color="geekblue">{employeeId || 'N/A'}</Tag>
+  ),
+  responsive: ['md'],
+},
     {
       title: 'Role',
       dataIndex: 'role',
