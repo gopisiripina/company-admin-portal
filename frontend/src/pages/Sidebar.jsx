@@ -59,10 +59,17 @@ const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
     ]
   }
 ] : []),
-   
+   ...(userRole === 'superadmin' || userRole === 'hr' ? [
+  { icon: FileText, label: 'Job Description', id: 'job-description', color: '#10b981' },
+  { icon: FileText, label: 'Job Post', id: 'job-post', color: '#10b981' },
+  { icon: FileText, label: 'Job Apply', id: 'job-apply', color: '#10b981' }
+] : []),
     // Only show Admin button for superadmin
     ...(userRole === 'superadmin' ? [
       { icon: UserCheck, label: 'Admin', id: 'admin', color: '#06b6d4' }
+    ] : []),
+        ...(userRole === 'superadmin' ? [
+      { icon: UserCheck, label: 'Hr', id: 'Hr', color: '#06b6d4' }
     ] : []),
     // Show Employee button for superadmin and admin
     ...(userRole === 'superadmin' || userRole === 'admin' ? [
