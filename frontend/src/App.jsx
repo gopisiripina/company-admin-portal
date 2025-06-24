@@ -45,22 +45,17 @@ const AppContent = () => {
   }, [location.pathname, navigate]);
 
   useEffect(() => {
-    // Handle URL-based navigation
-    const path = location.pathname;
-    if (path.includes('/project-timeline')) {
-      setActiveSection('project-timeline');
-    } else if (path.includes('/admin')) {
-      setActiveSection('admin');
-    } else if (path.includes('/employee')) {
-      setActiveSection('employee');
-    } else if (path === '/dashboard') {
-      setActiveSection('dashboard');
-    }
-  }, [location.pathname]);
-  useEffect(() => {
   // Handle URL-based navigation
   const path = location.pathname;
-  if (path.includes('/project-budgeting')) {
+  if (path.includes('/job-apply')) {
+    setActiveSection('job-apply');
+  } else if (path.includes('/job-post')) {
+    setActiveSection('job-post');
+  } else if (path.includes('/job-description')) {
+    setActiveSection('job-description');
+  } else if (path.includes('/hr')) {
+    setActiveSection('Hr');
+  } else if (path.includes('/project-budgeting')) {
     setActiveSection('project-budgeting');
   } else if (path.includes('/project-timeline')) {
     setActiveSection('project-timeline');
@@ -72,6 +67,9 @@ const AppContent = () => {
     setActiveSection('dashboard');
   }
 }, [location.pathname]);
+
+
+
 
   const handleLoginSuccess = (user) => {
     console.log('=== Login Success Debug ===');
@@ -137,7 +135,15 @@ const AppContent = () => {
   } else {
     setActiveSection(itemId);
     // Update URL for specific sections
-    if (itemId === 'project-budgeting') {
+     if (itemId === 'job-apply') {
+      navigate('/dashboard/job-apply', { replace: true });
+    }else if (itemId === 'job-post') {
+      navigate('/dashboard/job-post', { replace: true });
+    }else if (itemId === 'job-description') {
+      navigate('/dashboard/job-description', { replace: true });
+    } else if (itemId === 'Hr') {
+      navigate('/dashboard/hr', { replace: true });
+    } else if (itemId === 'project-budgeting') {
       navigate('/dashboard/project-budgeting', { replace: true });
     } else if (itemId === 'project-timeline') {
       navigate('/dashboard/project-timeline', { replace: true });
