@@ -1,11 +1,45 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Table, Button, Modal, Form, Input, Space, Popconfirm, Card, Statistic, Row, Col,message,Avatar,Tag,Typography,Switch} from 'antd';
-import { UserAddOutlined, EditOutlined, DeleteOutlined, SearchOutlined,TeamOutlined,MailOutlined,} from '@ant-design/icons';
+import { 
+  Table, 
+  Button, 
+  Modal, 
+  Form, 
+  Input, 
+  Space, 
+  Popconfirm, 
+  Card, 
+  Statistic, 
+  Row, 
+  Col,
+  message,
+  Avatar,
+  Tag,
+  Typography,
+  Switch
+} from 'antd';
+import { 
+  UserAddOutlined, 
+  EditOutlined, 
+  DeleteOutlined, 
+  SearchOutlined,
+  TeamOutlined,
+  MailOutlined,
+} from '@ant-design/icons';
 import { db } from '../firebase/config';
-import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, getDocs, orderBy} from 'firebase/firestore';
+import { 
+  collection, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  query, 
+  where, 
+  getDocs, 
+  orderBy
+} from 'firebase/firestore';
 import { sendEmployeeWelcomeEmail, initEmailJS } from './EmailService';
 import '../styles/AdminManagement.css';
-
+import { Upload, message as antMessage } from 'antd';
 const { Title, Text } = Typography;
 const { Search } = Input;
 
@@ -44,27 +78,60 @@ const MobileAdminCard = React.memo(({ admin, onEdit, onDelete }) => (
     ]}
   >
     <div className="mobile-admin-info">
-      <div className="mobile-admin-main">
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'flex-start',
+        gap: '12px',
+        marginBottom: '12px'
+      }}>
         <Avatar 
-          style={{ backgroundColor: '#1F4842' }}
+          style={{ 
+            backgroundColor: '#1F4842',
+            flexShrink: 0
+          }}
           size="large"
+          src={admin.profileImage}
+          icon={!admin.profileImage && <UserOutlined />}
         >
-          {admin.name.charAt(0).toUpperCase()}
+          {!admin.profileImage && admin.name.charAt(0).toUpperCase()}
         </Avatar>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, fontSize: '14px' }}>{admin.name}</div>
-          <Text type="secondary" style={{ fontSize: '12px' }}>
+        <div style={{ 
+          flex: 1,
+          textAlign: 'left'
+        }}>
+          <div style={{ 
+            fontWeight: 600, 
+            fontSize: '14px',
+            marginBottom: '4px'
+          }}>
+            {admin.name}
+          </div>
+          <Text type="secondary" style={{ 
+            fontSize: '12px',
+            display: 'block',
+            marginBottom: '4px'
+          }}>
             <MailOutlined /> {admin.email}
           </Text>
+          {admin.adminId && (
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              ID: {admin.adminId}
+            </Text>
+          )}
         </div>
       </div>
-      <div className="mobile-admin-tags">
+      <div style={{ 
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '6px',
+        justifyContent: 'flex-start'
+      }}>
         <Tag color="blue" size="small">{admin.role}</Tag>
-        <Tag color={admin.isActive ? 'green' : 'red'} size="small">
-          {admin.isActive ? 'Active' : 'Inactive'}
-        </Tag>
+        {admin.adminId && (
+          <Tag color="geekblue" size="small">{admin.adminId}</Tag>
+        )}
         {admin.createdAt && (
-          <Tag color="geekblue" size="small">
+          <Tag color="purple" size="small">
             {admin.createdAt?.toDate ? admin.createdAt.toDate().toLocaleDateString() : 'Unknown'}
           </Tag>
         )}
@@ -77,6 +144,7 @@ const MobileAdminCard = React.memo(({ admin, onEdit, onDelete }) => (
 const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [profileImage, setProfileImage] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -85,12 +153,14 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
           form.setFieldsValue({
             name: editingAdmin.name,
             email: editingAdmin.email,
-            role: editingAdmin.role,
-            isActive: editingAdmin.isActive !== undefined ? editingAdmin.isActive : true
+            adminId: editingAdmin.adminId,
+            role: editingAdmin.role
           });
+          setProfileImage(editingAdmin.profileImage || null);
         }, 0);
       } else {
         form.resetFields();
+        setProfileImage(null);
       }
     }
   }, [editingAdmin, form, isOpen]);
@@ -98,6 +168,7 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
   useEffect(() => {
     if (!isOpen) {
       form.resetFields();
+      setProfileImage(null);
     }
   }, [isOpen, form]);
 
@@ -110,73 +181,124 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
     return password;
   }, []);
 
-  const handleSubmit = useCallback(async (values) => {
-    setLoading(true);
+  // Image upload handler
+  const handleImageUpload = useCallback((file) => {
+    const isJpgOrPng = file.type === 'image/jpeg' || file.type === 'image/png' || file.type === 'image/jpg';
+    if (!isJpgOrPng) {
+      message.error('You can only upload JPG/PNG files!');
+      return false;
+    }
     
-    try {
-      if (editingAdmin) {
-        const docRef = doc(db, 'users', editingAdmin.id);
-        const updateData = {
-          name: values.name,
-          email: values.email,
-          role: values.role || 'admin',
-          isActive: values.isActive !== undefined ? values.isActive : true,
-          updatedAt: new Date()
-        };
-        
-        await updateDoc(docRef, updateData);
-        message.success('Admin updated successfully');
-      } else {
-        const password = generatePassword();
-        const adminData = {
-          name: values.name,
-          email: values.email,
-          role: 'admin',
-          isActive: values.isActive !== undefined ? values.isActive : true,
-          password,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-        
-        await addDoc(collection(db, 'users'), adminData);
-        message.success('Admin created successfully!');
-        
-        try {
-          const emailResult = await sendEmployeeWelcomeEmail({
-            name: values.name,
-            email: values.email,
-            password: password,
-            role: 'admin'
-          });
+    const isLt2M = file.size / 1024 / 1024 < 2;
+    if (!isLt2M) {
+      message.error('Image must be smaller than 2MB!');
+      return false;
+    }
 
-          if (emailResult.success) {
-            message.success('Welcome email sent to admin!');
-          } else {
-            message.warning('Admin created but email could not be sent. Please share credentials manually.');
-          }
-        } catch (emailError) {
-          console.error('Email send failed:', emailError);
-          message.warning('Admin created but email could not be sent.');
-        }
-      }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setProfileImage(e.target.result);
+    };
+    reader.readAsDataURL(file);
+    
+    return false; // Prevent default upload
+  }, []);
 
-      form.resetFields();
-      onSuccess();
-      onClose();
-    } catch (error) {
-      console.error('Error saving admin:', error);
-      
-      const errorMessages = {
-        'permission-denied': 'Permission denied. Check your Firestore security rules.',
-        'unavailable': 'Firebase service is currently unavailable. Please try again.',
-        'invalid-argument': 'Invalid data provided. Please check your inputs.'
+  const handleSubmit = useCallback(async (values) => {
+  setLoading(true);
+  
+  try {
+    if (editingAdmin) {
+      // Update existing admin
+      const updateData = {
+        name: values.name,
+        email: values.email,
+        role: values.role || 'admin',
+        employeeid: values.adminId,
+        isactive: false,
+        profileimage: profileImage,
+        updatedat: new Date().toISOString()
       };
       
-      message.error(errorMessages[error.code] || `Error saving admin: ${error.message}`);
-    } finally {
-      setLoading(false);
+      // Use supabaseAdmin to bypass RLS
+      const { data, error } = await supabaseAdmin
+        .from('users')
+        .update(updateData)
+        .eq('id', editingAdmin.id)
+        .select();
+
+      if (error) {
+        console.error('Supabase update error:', error);
+        throw error;
+      }
+      
+      message.success('Admin updated successfully');
+    } else {
+      // Create new admin
+      const password = generatePassword();
+      
+      const adminData = {
+        name: values.name,
+        email: values.email,
+        employeeid: values.adminId,
+        role: 'admin',
+        isactive: false,
+        isfirstlogin: true,
+        profileimage: profileImage,
+        password,
+        createdat: new Date().toISOString(),
+        updatedat: new Date().toISOString()
+      };
+      
+      // Use supabaseAdmin to bypass RLS
+      const { data, error } = await supabaseAdmin
+        .from('users')
+        .insert([adminData])
+        .select();
+
+      if (error) {
+        console.error('Supabase insert error:', error);
+        throw error;
+      }
+      
+      message.success('Admin created successfully!');
+      
+      // Email sending logic remains the same
+      try {
+        const emailResult = await sendEmployeeWelcomeEmail({
+          name: values.name,
+          email: values.email,
+          password: password,
+          role: 'admin'
+        });
+
+        if (emailResult.success) {
+          message.success('Welcome email sent to admin!');
+        } else {
+          message.warning('Admin created but email could not be sent. Please share credentials manually.');
+        }
+      } catch (emailError) {
+        console.error('Email send failed:', emailError);
+        message.warning('Admin created but email could not be sent.');
+      }
     }
-  }, [editingAdmin, generatePassword, onSuccess, onClose, form]);
+
+    form.resetFields();
+    setProfileImage(null);
+    onSuccess();
+    onClose();
+  } catch (error) {
+    console.error('Error saving admin:', error);
+    
+    if (error.code === '23505') {
+      message.error('An admin with this email already exists.');
+    } else {
+      message.error(`Error saving admin: ${error.message || 'Unknown error'}`);
+    }
+  } finally {
+    setLoading(false);
+  }
+}, [editingAdmin, generatePassword, onSuccess, onClose, form, profileImage]);
 
   return (
     <Modal
@@ -191,8 +313,44 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
         form={form}
         layout="vertical"
         onFinish={handleSubmit}
-        initialValues={{ role: 'admin', isActive: true }}
+        initialValues={{ role: 'admin' }}
       >
+        {/* Profile Image Upload */}
+        <Form.Item
+          label="Profile Image"
+          extra="Upload JPG/PNG files, max 2MB"
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <Avatar 
+              size={64} 
+              src={profileImage}
+              style={{ backgroundColor: '#1F4842' }}
+              icon={!profileImage && <UserOutlined />}
+            >
+              {!profileImage && form.getFieldValue('name')?.charAt(0)?.toUpperCase()}
+            </Avatar>
+            <Upload
+              showUploadList={false}
+              beforeUpload={handleImageUpload}
+              accept="image/*"
+            >
+              <Button icon={<UploadOutlined />}>
+                {profileImage ? 'Change Image' : 'Upload Image'}
+              </Button>
+            </Upload>
+            {profileImage && (
+              <Button 
+                type="link" 
+                danger 
+                onClick={() => setProfileImage(null)}
+                size="small"
+              >
+                Remove
+              </Button>
+            )}
+          </div>
+        </Form.Item>
+
         <Form.Item
           name="name"
           label="Name"
@@ -213,14 +371,20 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
         </Form.Item>
 
         <Form.Item
-          name="isActive"
-          label="Active Status"
-          valuePropName="checked"
+          name="adminId"
+          label="Admin ID"
+          rules={[
+            { required: true, message: 'Please enter admin ID' },
+            { pattern: /^[A-Z0-9]+$/, message: 'Admin ID should contain only uppercase letters and numbers' }
+          ]}
         >
-          <Switch 
-            checkedChildren="Active" 
-            unCheckedChildren="Inactive"
-            defaultChecked={true}
+          <Input 
+            placeholder="Enter admin ID (e.g., ADM001)" 
+            style={{ textTransform: 'uppercase' }}
+            onChange={(e) => {
+              // Auto-convert to uppercase
+              e.target.value = e.target.value.toUpperCase();
+            }}
           />
         </Form.Item>
 
@@ -275,56 +439,75 @@ const AdminManagement = ({ userRole }) => {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-
+useEffect(() => {
+  // Prevent horizontal scroll on mobile
+  if (isMobile) {
+    document.body.style.overflowX = 'hidden';
+    return () => {
+      document.body.style.overflowX = 'auto';
+    };
+  }
+}, [isMobile]);
   // Fetch all admins
   const fetchAllAdmins = useCallback(async () => {
-    try {
-      const q = query(
-        collection(db, 'users'),
-        where('role', '==', 'admin'),
-        orderBy('createdAt', 'desc')
-      );
-      
-      const querySnapshot = await getDocs(q);
-      const adminList = querySnapshot.docs.map(doc => ({ 
-        id: doc.id, 
-        ...doc.data() 
-      }));
-      
-      setAllAdmins(adminList);
-      return adminList;
-    } catch (error) {
-      console.error('Error fetching admins:', error);
-      message.error(`Error loading admins: ${error.message}`);
-      return [];
+  try {
+    // Use supabaseAdmin to bypass RLS
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .select(`
+        id,
+        name,
+        email,
+        role,
+        employeeid,
+        isactive,
+        profileimage,
+        createdat,
+        updatedat
+      `)
+      .eq('role', 'admin')
+      .order('createdat', { ascending: false });
+    
+    if (error) {
+      console.error('Fetch error:', error);
+      throw error;
     }
-  }, []);
+    
+    setAllAdmins(data || []);
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching admins:', error);
+    message.error(`Error loading admins: ${error.message}`);
+    return [];
+  }
+}, []);
 
   // Apply filters and pagination
   const applyFiltersAndPagination = useCallback((adminList, search = '', page = 1, pageSize = 10) => {
-    let filteredAdmins = [...adminList];
-    
-    if (search) {
-      const searchLower = search.toLowerCase();
-      filteredAdmins = filteredAdmins.filter(admin =>
-        admin.name.toLowerCase().includes(searchLower) ||
-        admin.email.toLowerCase().includes(searchLower)
-      );
-    }
-    
-    const total = filteredAdmins.length;
-    const startIndex = (page - 1) * pageSize;
-    const paginatedAdmins = filteredAdmins.slice(startIndex, startIndex + pageSize);
-    
-    setAdmins(paginatedAdmins);
-    setPagination({
-      current: page,
-      pageSize: pageSize,
-      total: total
-    });
-    
-    return paginatedAdmins;
-  }, []);
+  let filteredAdmins = [...adminList];
+  
+  if (search) {
+    const searchLower = search.toLowerCase();
+    filteredAdmins = filteredAdmins.filter(admin =>
+      admin.name.toLowerCase().includes(searchLower) ||
+      admin.email.toLowerCase().includes(searchLower) ||
+      (admin.adminId && admin.adminId.toLowerCase().includes(searchLower))  // Add this line
+    );
+  }
+  
+  const total = filteredAdmins.length;
+  const startIndex = (page - 1) * pageSize;
+  const paginatedAdmins = filteredAdmins.slice(startIndex, startIndex + pageSize);
+  
+  setAdmins(paginatedAdmins);
+  setPagination({
+    current: page,
+    pageSize: pageSize,
+    total: total
+  });
+  
+  return paginatedAdmins;
+}, []);
 
   // Fetch admins with pagination
   const fetchAdmins = useCallback(async (page = 1, pageSize = 10, search = '') => {
@@ -386,18 +569,30 @@ const AdminManagement = ({ userRole }) => {
   }, []);
 
   const handleDelete = useCallback(async (adminId) => {
-    try {
-      setLoading(true);
-      await deleteDoc(doc(db, 'users', adminId));
-      message.success('Admin deleted successfully');
-      await refreshData();
-    } catch (error) {
-      console.error('Error deleting admin:', error);
-      message.error('Error deleting admin');
-    } finally {
-      setLoading(false);
+  try {
+    setLoading(true);
+    
+    // Use supabaseAdmin to bypass RLS
+    const { error } = await supabaseAdmin
+      .from('users')
+      .delete()
+      .eq('id', adminId)
+      .eq('role', 'admin');
+
+    if (error) {
+      console.error('Delete error:', error);
+      throw error;
     }
-  }, [refreshData]);
+    
+    message.success('Admin deleted successfully');
+    await refreshData();
+  } catch (error) {
+    console.error('Error deleting admin:', error);
+    message.error('Error deleting admin: ' + (error.message || 'Unknown error'));
+  } finally {
+    setLoading(false);
+  }
+}, [refreshData]);
 
   const handleFormClose = useCallback(() => {
     setShowFormModal(false);
@@ -410,55 +605,80 @@ const AdminManagement = ({ userRole }) => {
 
   // Table columns with memoization
   const columns = useMemo(() => [
-    {
-      title: 'Admin',
-      dataIndex: 'name',
-      key: 'name',
-      fixed: 'left',
-      width: isMobile ? 200 : 250,
-      render: (text, record) => (
-        <div className={isMobile ? 'mobile-admin-info' : 'admin-info'}>
-          <div className={isMobile ? 'mobile-admin-main' : 'admin-main'}>
-            <Avatar 
-              style={{ backgroundColor: '#1F4842' }}
-              size={isMobile ? "default" : "large"}
-            >
-              {text.charAt(0).toUpperCase()}
-            </Avatar>
-            <div className="admin-details">
-              <div style={{ fontWeight: 600, fontSize: isMobile ? '12px' : '14px' }}>{text}</div>
-              <Text type="secondary" style={{ fontSize: isMobile ? '10px' : '12px' }}>
-                <MailOutlined /> {record.email}
-              </Text>
-              {isMobile && (
-                <div className="mobile-admin-tags">
-                  <Tag color="blue" size="small">{record.role}</Tag>
-                  <Tag color={record.isActive ? 'green' : 'red'} size="small">
-                    {record.isActive ? 'Active' : 'Inactive'}
-                  </Tag>
-                </div>
+  {
+    title: 'Admin',
+    dataIndex: 'name',
+    key: 'name',
+    fixed: 'left',
+    width: isMobile ? 200 : 250,
+    render: (text, record) => (
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'flex-start',
+        gap: '12px',
+        width: '100%'
+      }}>
+        <Avatar 
+          style={{ 
+            backgroundColor: '#1F4842',
+            flexShrink: 0
+          }}
+          size={isMobile ? "default" : "large"}
+          src={record.profileImage}
+          icon={!record.profileImage && <UserOutlined />}
+        >
+          {!record.profileImage && text.charAt(0).toUpperCase()}
+        </Avatar>
+        <div style={{ 
+          flex: 1,
+          minWidth: 0,
+          textAlign: 'left'
+        }}>
+          <div style={{ 
+            fontWeight: 600, 
+            fontSize: isMobile ? '12px' : '14px',
+            marginBottom: '4px',
+            textAlign: 'left'
+          }}>
+            {text}
+          </div>
+          <div style={{ 
+            fontSize: isMobile ? '10px' : '12px',
+            color: '#666',
+            textAlign: 'left'
+          }}>
+            <MailOutlined style={{ marginRight: '4px' }} /> 
+            {record.email}
+          </div>
+          {isMobile && (
+            <div style={{ 
+              marginTop: '8px',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '4px',
+              justifyContent: 'flex-start'
+            }}>
+              <Tag color="blue" size="small">{record.role}</Tag>
+              {record.adminId && (
+                <Tag color="geekblue" size="small">{record.adminId}</Tag>
               )}
             </div>
-          </div>
+          )}
         </div>
-      ),
-    },
-    {
-      title: 'Email',
-      dataIndex: 'email',
-      key: 'email',
-      width: 200,
-      responsive: ['lg'],
-    },
-    {
-      title: 'Role',
-      dataIndex: 'role',
-      key: 'role',
-      width: 100,
-      render: (role) => <Tag color="blue">{role}</Tag>,
-      responsive: ['md'],
-    },
-    {
+      </div>
+    ),
+  },
+  {
+    title: 'Admin ID',
+    dataIndex: 'employeeid',
+    key: 'adminId',
+    width: 120,
+    render: (adminId) => (
+      <Tag color="geekblue">{adminId || 'N/A'}</Tag>
+    ),
+    responsive: ['md'],
+  },
+  {
       title: 'Status',
       dataIndex: 'isActive',
       key: 'isActive',
@@ -470,47 +690,47 @@ const AdminManagement = ({ userRole }) => {
       ),
       responsive: ['md'],
     },
-    {
-      title: 'Created Date',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      width: 120,
-      render: (date) => (
-        date?.toDate ? date.toDate().toLocaleDateString() : 'Unknown'
-      ),
-      responsive: ['xl'],
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      fixed: 'right',
-      width: isMobile ? 120 : 140,
-      render: (_, record) => (
-        <div className={isMobile ? 'mobile-actions' : 'actions-container'}>
+  {
+    title: 'Created Date',
+    dataIndex: 'createdat',
+    key: 'createdAt',
+    width: 120,
+    render: (date) => (
+      date?.toDate ? date.toDate().toLocaleDateString() : 'Unknown'
+    ),
+    responsive: ['xl'],
+  },
+  {
+    title: 'Actions',
+    key: 'actions',
+    fixed: 'right',
+    width: isMobile ? 120 : 140,
+    render: (_, record) => (
+      <div className={isMobile ? 'mobile-actions' : 'actions-container'}>
+        <Button
+          type="primary"
+          icon={<EditOutlined />}
+          size={isMobile ? "small" : "middle"}
+          onClick={() => handleEdit(record)}
+          className="brand-primary"
+        />
+        <Popconfirm
+          title="Delete Admin"
+          description="Are you sure you want to delete this admin?"
+          onConfirm={() => handleDelete(record.id)}
+          okText="Yes"
+          cancelText="No"
+        >
           <Button
-            type="primary"
-            icon={<EditOutlined />}
+            danger
+            icon={<DeleteOutlined />}
             size={isMobile ? "small" : "middle"}
-            onClick={() => handleEdit(record)}
-            className="brand-primary"
           />
-          <Popconfirm
-            title="Delete Admin"
-            description="Are you sure you want to delete this admin?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button
-              danger
-              icon={<DeleteOutlined />}
-              size={isMobile ? "small" : "middle"}
-            />
-          </Popconfirm>
-        </div>
-      ),
-    },
-  ], [isMobile, handleEdit, handleDelete]);
+        </Popconfirm>
+      </div>
+    ),
+  },
+], [isMobile, handleEdit, handleDelete]);
 
   // Permission check
   if (userRole !== 'superadmin') {
@@ -590,7 +810,7 @@ const AdminManagement = ({ userRole }) => {
           {/* Search Bar */}
           <Card style={{ marginBottom: '24px' }} className={`animated-card-delayed ${isMobile ? 'mobile-search' : ''}`}>
             <Search
-              placeholder="Search admins by name or email..."
+              placeholder="Search admins by name, email or admin ID..."
               allowClear
               enterButton={
                 <Button 

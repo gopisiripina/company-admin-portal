@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Lock, Eye, EyeOff } from 'lucide-react';
-import authService from '../firebase/authService'; // Import the auth service
+import { User, Lock, Eye, EyeOff, X } from 'lucide-react';
+import authService from '../supabase/authService'; // Import the auth service
 import '../styles/login.css';
 
 const Login = ({ onLoginSuccess }) => {
@@ -13,6 +13,18 @@ const Login = ({ onLoginSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [currentImage, setCurrentImage] = useState(0);
+  
+  // Password change modal states
+  const [showPasswordChangeModal, setShowPasswordChangeModal] = useState(false);
+  const [passwordChangeData, setPasswordChangeData] = useState({
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordChangeLoading, setPasswordChangeLoading] = useState(false);
+  const [passwordChangeError, setPasswordChangeError] = useState('');
+  const [tempUserData, setTempUserData] = useState(null); // Store user data temporarily
   
   // Timer management
   const intervalRef = useRef(null);
@@ -28,6 +40,104 @@ const Login = ({ onLoginSuccess }) => {
     if (error) setError('');
   };
 
+  const handlePasswordChangeInputChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordChangeData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    // Clear error when user starts typing
+    if (passwordChangeError) setPasswordChangeError('');
+  };
+
+  const validatePassword = (password) => {
+    if (password.length < 8) {
+      return 'Password must be at least 8 characters long';
+    }
+    if (!/(?=.*[a-z])/.test(password)) {
+      return 'Password must contain at least one lowercase letter';
+    }
+    if (!/(?=.*[A-Z])/.test(password)) {
+      return 'Password must contain at least one uppercase letter';
+    }
+    if (!/(?=.*\d)/.test(password)) {
+      return 'Password must contain at least one number';
+    }
+    if (!/(?=.*[@$!%*?&])/.test(password)) {
+      return 'Password must contain at least one special character (@$!%*?&)';
+    }
+    return null;
+  };
+
+  const handlePasswordChangeSubmit = async (e) => {
+    e.preventDefault();
+    setPasswordChangeLoading(true);
+    setPasswordChangeError('');
+
+    // Validate new password
+    const passwordValidationError = validatePassword(passwordChangeData.newPassword);
+    if (passwordValidationError) {
+      setPasswordChangeError(passwordValidationError);
+      setPasswordChangeLoading(false);
+      return;
+    }
+
+    // Check if passwords match
+    if (passwordChangeData.newPassword !== passwordChangeData.confirmPassword) {
+      setPasswordChangeError('Passwords do not match');
+      setPasswordChangeLoading(false);
+      return;
+    }
+
+    // Check if new password is same as current password
+    if (passwordChangeData.newPassword === formData.password) {
+      setPasswordChangeError('New password must be different from your current password');
+      setPasswordChangeLoading(false);
+      return;
+    }
+
+    try {
+      // Call auth service to change password
+      const result = await authService.changeFirstLoginPassword(
+        tempUserData.id, 
+        passwordChangeData.newPassword
+      );
+
+      if (result.success) {
+        // Update user data to reflect that it's no longer first login
+        const updatedUserData = {
+          ...tempUserData,
+          isFirstLogin: false
+        };
+
+        // Store user data if remember me was checked
+        authService.storeUserData(updatedUserData, rememberMe);
+
+        // Close modal and redirect to dashboard
+        setShowPasswordChangeModal(false);
+        if (onLoginSuccess) {
+          onLoginSuccess(updatedUserData);
+        }
+      } else {
+        setPasswordChangeError(result.error);
+      }
+    } catch (error) {
+      console.error('Password change error:', error);
+      setPasswordChangeError('An unexpected error occurred. Please try again.');
+    } finally {
+      setPasswordChangeLoading(false);
+    }
+  };
+
+  const closePasswordChangeModal = () => {
+    setShowPasswordChangeModal(false);
+    setPasswordChangeData({ newPassword: '', confirmPassword: '' });
+    setPasswordChangeError('');
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+    setTempUserData(null);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -38,10 +148,18 @@ const Login = ({ onLoginSuccess }) => {
       const authResult = await authService.authenticate(formData.email, formData.password);
       
       if (authResult.success) {
-        // Login successful
         console.log('Login successful:', authResult.user);
         
-        // Store user data if remember me is checked
+        // Check if this is first time login
+        if (authResult.isFirstLogin) {
+          // Store user data temporarily and show password change modal
+          setTempUserData(authResult.user);
+          setShowPasswordChangeModal(true);
+          setLoading(false);
+          return;
+        }
+        
+        // Regular login - store user data and redirect
         authService.storeUserData(authResult.user, rememberMe);
         
         // Call the success callback to redirect to dashboard
@@ -168,29 +286,6 @@ const Login = ({ onLoginSuccess }) => {
 
   return (
     <div className="login-container">
-      {/* Demo Credentials Info */}
-      <div style={{
-        position: 'fixed',
-        top: '20px',
-        right: '20px',
-        background: 'rgba(255, 255, 255, 0.95)',
-        padding: '15px',
-        borderRadius: '10px',
-        boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
-        fontSize: '12px',
-        zIndex: 1000,
-        border: '1px solid #e5e7eb'
-      }}>
-        <strong>Demo Credentials:</strong><br/>
-        {demoCredentials.map((cred, index) => (
-          <div key={index}>
-            {cred.email} / {cred.password}<br/>
-          </div>
-        ))}
-        <br/>
-        <strong>Or use Firestore credentials</strong>
-      </div>
-
       <div className="login-card">
         <div className="login-content">
           {/* Left Side - Login Form */}
@@ -380,6 +475,323 @@ const Login = ({ onLoginSuccess }) => {
           </div>
         </div>
       </div>
+
+      {/* Password Change Modal */}
+      {showPasswordChangeModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '32px',
+            maxWidth: '480px',
+            width: '90%',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '24px'
+            }}>
+              <h2 style={{
+                fontSize: '24px',
+                fontWeight: '600',
+                color: '#1f2937',
+                margin: 0
+              }}>
+                Change Your Password
+              </h2>
+              <button
+                onClick={closePasswordChangeModal}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  borderRadius: '6px',
+                  color: '#6b7280',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#f3f4f6';
+                  e.target.style.color = '#374151';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = 'transparent';
+                  e.target.style.color = '#6b7280';
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Description */}
+            <p style={{
+              color: '#6b7280',
+              marginBottom: '24px',
+              lineHeight: '1.6'
+            }}>
+              This is your first time logging in. For security reasons, please create a new password.
+            </p>
+
+            {/* Password Change Form */}
+            <form onSubmit={handlePasswordChangeSubmit}>
+              {/* Error Message */}
+              {passwordChangeError && (
+                <div style={{
+                  background: '#fee2e2',
+                  border: '1px solid #fecaca',
+                  color: '#dc2626',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  marginBottom: '16px',
+                  fontSize: '14px',
+                  fontWeight: '500'
+                }}>
+                  {passwordChangeError}
+                </div>
+              )}
+
+              {/* New Password Field */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#374151',
+                  marginBottom: '6px'
+                }}>
+                  New Password
+                </label>
+                <div style={{
+                  position: 'relative',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}>
+                  <Lock 
+                    size={16} 
+                    style={{
+                      position: 'absolute',
+                      left: '12px',
+                      color: '#9ca3af',
+                      zIndex: 1
+                    }} 
+                  />
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    name="newPassword"
+                    value={passwordChangeData.newPassword}
+                    onChange={handlePasswordChangeInputChange}
+                    placeholder="Enter new password"
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '12px 12px 12px 40px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.2s',
+                      paddingRight: '40px'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                    onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#9ca3af',
+                      padding: '2px'
+                    }}
+                  >
+                    {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirm Password Field */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#374151',
+                  marginBottom: '6px'
+                }}>
+                  Confirm New Password
+                </label>
+                <div style={{
+                  position: 'relative',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}>
+                  <Lock 
+                    size={16} 
+                    style={{
+                      position: 'absolute',
+                      left: '12px',
+                      color: '#9ca3af',
+                      zIndex: 1
+                    }} 
+                  />
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    name="confirmPassword"
+                    value={passwordChangeData.confirmPassword}
+                    onChange={handlePasswordChangeInputChange}
+                    placeholder="Confirm new password"
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '12px 12px 12px 40px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.2s',
+                      paddingRight: '40px'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                    onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#9ca3af',
+                      padding: '2px'
+                    }}
+                  >
+                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Password Requirements */}
+              <div style={{
+                background: '#f9fafb',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+                padding: '16px',
+                marginBottom: '24px'
+              }}>
+                <h4 style={{
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#374151',
+                  marginBottom: '8px',
+                  margin: '0 0 8px 0'
+                }}>
+                  Password Requirements:
+                </h4>
+                <ul style={{
+                  fontSize: '12px',
+                  color: '#6b7280',
+                  margin: 0,
+                  paddingLeft: '16px',
+                  lineHeight: '1.5'
+                }}>
+                  <li>At least 8 characters long</li>
+                  <li>One uppercase letter (A-Z)</li>
+                  <li>One lowercase letter (a-z)</li>
+                  <li>One number (0-9)</li>
+                  <li>One special character (@$!%*?&)</li>
+                </ul>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{
+                display: 'flex',
+                gap: '12px',
+                justifyContent: 'flex-end'
+              }}>
+                <button
+                  type="button"
+                  onClick={closePasswordChangeModal}
+                  disabled={passwordChangeLoading}
+                  style={{
+                    padding: '12px 24px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    background: 'white',
+                    color: '#374151',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: passwordChangeLoading ? 'not-allowed' : 'pointer',
+                    opacity: passwordChangeLoading ? 0.5 : 1,
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!passwordChangeLoading) {
+                      e.target.style.backgroundColor = '#f9fafb';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!passwordChangeLoading) {
+                      e.target.style.backgroundColor = 'white';
+                    }
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={passwordChangeLoading}
+                  style={{
+                    padding: '12px 24px',
+                    border: 'none',
+                    borderRadius: '8px',
+                    background: '#3b82f6',
+                    color: 'white',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: passwordChangeLoading ? 'not-allowed' : 'pointer',
+                    opacity: passwordChangeLoading ? 0.7 : 1,
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!passwordChangeLoading) {
+                      e.target.style.backgroundColor = '#2563eb';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!passwordChangeLoading) {
+                      e.target.style.backgroundColor = '#3b82f6';
+                    }
+                  }}
+                >
+                  {passwordChangeLoading ? 'Changing Password...' : 'Change Password'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

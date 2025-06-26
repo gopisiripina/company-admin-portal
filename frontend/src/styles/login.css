@@ -631,3 +631,86 @@
     margin-bottom: 30px;
   }
 }
+
+.password-change-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.password-change-modal {
+  background: white;
+  border-radius: 12px;
+  padding: 32px;
+  width: 90%;
+  max-width: 440px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.password-change-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.password-change-header h2 {
+  color: #1f2937;
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.password-change-header p {
+  color: #6b7280;
+  font-size: 14px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.password-change-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.password-change-form .input-group {
+  margin-bottom: 0;
+}
+
+.password-change-form .signin-button {
+  margin-top: 8px;
+}
+
+/* Mobile responsiveness for password change modal */
+@media (max-width: 480px) {
+  .password-change-modal {
+    padding: 24px 20px;
+    margin: 16px;
+  }
+  
+  .password-change-header h2 {
+    font-size: 20px;
+  }
+  
+  .password-change-header p {
+    font-size: 13px;
+  }
+}
