@@ -47,7 +47,11 @@ const AppContent = () => {
   useEffect(() => {
   // Handle URL-based navigation
   const path = location.pathname;
-  if (path.includes('/job-apply')) {
+  if (path.includes('/interview-management')) {
+    setActiveSection('interview-management');
+  }else if (path.includes('/resume-list')) {
+    setActiveSection('resume-list');
+  }else if (path.includes('/job-apply')) {
     setActiveSection('job-apply');
   } else if (path.includes('/job-post')) {
     setActiveSection('job-post');
@@ -135,7 +139,11 @@ const AppContent = () => {
   } else {
     setActiveSection(itemId);
     // Update URL for specific sections
-     if (itemId === 'job-apply') {
+    if (itemId === 'interview-management') {
+      navigate('/dashboard/interview-management', { replace: true });
+    }else if (itemId === 'resume-list') {
+      navigate('/dashboard/resume-list', { replace: true });
+    }else if (itemId === 'job-apply') {
       navigate('/dashboard/job-apply', { replace: true });
     }else if (itemId === 'job-post') {
       navigate('/dashboard/job-post', { replace: true });
