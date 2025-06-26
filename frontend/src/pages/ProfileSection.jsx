@@ -1,18 +1,15 @@
 import React, { useState } from 'react';
 import { ChevronDown, User, Settings, LogOut, Bell, Shield, HelpCircle } from 'lucide-react';
+import authService from '../supabase/authService'; // Updated import path from firebase to supabase
 
 const ProfileSection = ({ userData, onLogout }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   
-  // Enhanced debug logging
-  console.log('=== ProfileSection Debug ===');
-  console.log('userData:', userData);
-  console.log('userData.profileImage:', userData?.profileImage);
-  console.log('userData.photoURL:', userData?.photoURL);
   
   // Check if it's a base64 image
   const isBase64Image = userData?.profileImage?.startsWith('data:image/');
-  console.log('Is base64 image:', isBase64Image);
+  // console.log('Is base64 image:', isBase64Image);
 
   const profileMenuItems = [
     { icon: User, label: 'My Profile', id: 'profile', color: '#3b82f6' },
@@ -20,17 +17,46 @@ const ProfileSection = ({ userData, onLogout }) => {
     { icon: Bell, label: 'Notifications', id: 'notifications', color: '#f59e0b' },
     { icon: Shield, label: 'Privacy & Security', id: 'privacy', color: '#10b981' },
     { icon: HelpCircle, label: 'Help & Support', id: 'help', color: '#8b5cf6' },
-    { icon: LogOut, label: 'Sign Out', id: 'logout', color: '#ef4444' }
+    { icon: LogOut, label: isLoggingOut ? 'Signing Out...' : 'Sign Out', id: 'logout', color: '#ef4444' }
   ];
 
-  const handleMenuItemClick = (itemId) => {
+  const handleMenuItemClick = async (itemId) => {
     console.log('Menu item clicked:', itemId);
     setIsDropdownOpen(false);
     
-    if (itemId === 'logout' && onLogout) {
-      onLogout();
+    if (itemId === 'logout') {
+      await handleLogout();
     }
     // Add your navigation logic here for other menu items
+  };
+
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      console.log('Starting logout process...');
+      
+      // Call the enhanced logout method from authService (Supabase-enabled)
+      const logoutSuccess = await authService.logout(userData);
+      
+      if (logoutSuccess) {
+        console.log('Logout successful, isActive set to false in Supabase');
+      } else {
+        console.warn('Logout completed but there may have been issues updating Supabase');
+      }
+      
+      // Call the parent component's logout handler
+      if (onLogout) {
+        onLogout();
+      }
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Still proceed with logout even if there's an error
+      if (onLogout) {
+        onLogout();
+      }
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   // Function to get initials from name
@@ -49,9 +75,9 @@ const ProfileSection = ({ userData, onLogout }) => {
     const profileImage = userData?.profileImage;
     const photoURL = userData?.photoURL;
     
-    console.log('Checking for profile image...');
-    console.log('profileImage exists:', !!profileImage);
-    console.log('photoURL exists:', !!photoURL);
+    // console.log('Checking for profile image...');
+    // console.log('profileImage exists:', !!profileImage);
+    // console.log('photoURL exists:', !!photoURL);
     
     return !!(profileImage || photoURL);
   };
@@ -62,9 +88,9 @@ const ProfileSection = ({ userData, onLogout }) => {
     const profileImage = userData?.profileImage;
     const photoURL = userData?.photoURL;
     
-    console.log('Getting profile image source...');
-    console.log('Using profileImage:', !!profileImage);
-    console.log('Using photoURL:', !!photoURL);
+    // console.log('Getting profile image source...');
+    // console.log('Using profileImage:', !!profileImage);
+    // console.log('Using photoURL:', !!photoURL);
     
     return profileImage || photoURL;
   };
@@ -75,11 +101,11 @@ const ProfileSection = ({ userData, onLogout }) => {
     const imageSource = getProfileImageSrc();
     const hasImage = hasProfileImage();
     
-    console.log(`Rendering avatar (${size}):`, {
-      hasImage,
-      imageSource: imageSource ? imageSource.substring(0, 50) + '...' : null,
-      initials
-    });
+    // console.log(`Rendering avatar (${size}):`, {
+    //   hasImage,
+    //   imageSource: imageSource ? imageSource.substring(0, 50) + '...' : null,
+    //   initials
+    // });
 
     // Define inline styles for proper sizing
     const smallAvatarStyle = {
@@ -165,12 +191,30 @@ const ProfileSection = ({ userData, onLogout }) => {
     }
     
     // Show initials if no image
-    console.log('No image found, showing initials:', initials);
+    // console.log('No image found, showing initials:', initials);
     return (
       <div style={size === 'large' ? largeInitialsStyle : smallInitialsStyle}>
         {initials}
       </div>
     );
+  };
+
+  // Status indicator for active/inactive
+  const renderStatusIndicator = () => {
+    const isActive = userData?.isActive;
+    const statusStyle = {
+      width: '8px',
+      height: '8px',
+      borderRadius: '50%',
+      backgroundColor: isActive ? '#10b981' : '#ef4444',
+      border: '2px solid white',
+      position: 'absolute',
+      bottom: '2px',
+      right: '2px',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+    };
+
+    return <div style={statusStyle} title={isActive ? 'Active' : 'Inactive'} />;
   };
 
   // Inline styles for the component
@@ -271,34 +315,45 @@ const ProfileSection = ({ userData, onLogout }) => {
     fontSize: '14px',
     color: '#6b7280',
     lineHeight: '1.2',
-    wordBreak: 'break-all'
+    wordBreak: 'break-all',
+    marginBottom: '4px'
+  };
+
+  const statusTextStyle = {
+    fontSize: '12px',
+    color: userData?.isActive ? '#10b981' : '#ef4444',
+    fontWeight: '500',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px'
   };
 
   const dropdownMenuStyle = {
     padding: '8px'
   };
 
-  const menuItemStyle = {
+  const menuItemStyle = (isDisabled = false) => ({
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
     padding: '12px 16px',
     borderRadius: '8px',
-    cursor: 'pointer',
+    cursor: isDisabled ? 'not-allowed' : 'pointer',
     transition: 'background-color 0.2s ease',
     fontSize: '14px',
-    color: '#374151'
-  };
+    color: isDisabled ? '#9ca3af' : '#374151',
+    opacity: isDisabled ? 0.6 : 1
+  });
 
-  const menuIconStyle = (color) => ({
+  const menuIconStyle = (color, isDisabled = false) => ({
     width: '36px',
     height: '36px',
     borderRadius: '8px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: `${color}15`,
-    color: color
+    backgroundColor: isDisabled ? '#f3f4f6' : `${color}15`,
+    color: isDisabled ? '#9ca3af' : color
   });
 
   const backdropStyle = {
@@ -327,8 +382,9 @@ const ProfileSection = ({ userData, onLogout }) => {
           }
         }}
       >
-        <div>
+        <div style={{ position: 'relative' }}>
           {renderAvatar('small')}
+          {renderStatusIndicator()}
         </div>
         <div style={profileInfoStyle}>
           <span style={profileNameStyle}>
@@ -347,8 +403,9 @@ const ProfileSection = ({ userData, onLogout }) => {
       {isDropdownOpen && (
         <div style={dropdownStyle}>
           <div style={dropdownHeaderStyle}>
-            <div>
+            <div style={{ position: 'relative' }}>
               {renderAvatar('large')}
+              {renderStatusIndicator()}
             </div>
             <div style={headerInfoStyle}>
               <span style={headerNameStyle}>
@@ -357,6 +414,15 @@ const ProfileSection = ({ userData, onLogout }) => {
               <span style={headerEmailStyle}>
                 {userData?.email || 'No email provided'}
               </span>
+              <span style={statusTextStyle}>
+                <div style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  backgroundColor: userData?.isActive ? '#10b981' : '#ef4444'
+                }} />
+                {userData?.isActive ? 'Active' : 'Inactive'}
+              </span>
             </div>
           </div>
           
@@ -364,16 +430,18 @@ const ProfileSection = ({ userData, onLogout }) => {
             {profileMenuItems.map((item, index) => (
               <div
                 key={item.id}
-                style={menuItemStyle}
-                onClick={() => handleMenuItemClick(item.id)}
+                style={menuItemStyle(isLoggingOut && item.id === 'logout')}
+                onClick={() => !isLoggingOut && handleMenuItemClick(item.id)}
                 onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = '#f3f4f6';
+                  if (!isLoggingOut || item.id !== 'logout') {
+                    e.target.style.backgroundColor = '#f3f4f6';
+                  }
                 }}
                 onMouseLeave={(e) => {
                   e.target.style.backgroundColor = 'transparent';
                 }}
               >
-                <div style={menuIconStyle(item.color)}>
+                <div style={menuIconStyle(item.color, isLoggingOut && item.id === 'logout')}>
                   <item.icon size={18} />
                 </div>
                 <span>{item.label}</span>
