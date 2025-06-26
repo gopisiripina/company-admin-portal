@@ -24,10 +24,8 @@ import {
   SearchOutlined,
   TeamOutlined,
   MailOutlined,
-  UploadOutlined,
-  UserOutlined
 } from '@ant-design/icons';
-import { supabase, supabaseAdmin } from '../supabase/config';
+import { db } from '../firebase/config';
 import { 
   collection, 
   addDoc, 

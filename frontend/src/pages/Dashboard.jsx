@@ -6,6 +6,15 @@ import AdminManagement from './AdminManagement'; // Import AdminManagement inste
 import EmployeeManagement from './EmployeeManagement';
 import ProjectTimeline from './ProjectTimeline';
 import ProjectBudgeting from './ProjectBudgeting';
+import HRManagement from './HRManagement';
+import JobDescriptionPage from './JobDescriptionPage';
+import JobPostPage from './JobPostPage';
+import JobApplyPage from './JobApplyPage';
+import ResumeListPage from './ResumeListpage'; // Import ResumeListPage
+import InterviewManagementPage from './InterviewManagementPage'; // Import ResumeListPage
+
+
+
 
 const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -202,6 +211,230 @@ if (activeSection === 'project-budgeting') {
       </div>
     );
   }
+  if (activeSection === 'Hr') {
+  return (
+    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+      {/* Header */}
+      <header className="dashboard-header">
+        {/* Search Bar */}
+        <div className="search-container">
+          <Search size={22} className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search HR data..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+        </div>
+
+        {/* Header Right */}
+        <div className="header-right">
+          {/* Notifications */}
+          <button className="notification-button">
+            <Bell size={22} />
+            <span className="notification-badge"></span>
+          </button>
+
+          {/* Profile Section */}
+          <ProfileSection userData={userData} onLogout={onLogout}/>
+        </div>
+      </header>
+
+      {/* HR Management Content */}
+      <main className="main-content">
+        <HRManagement userRole={userData?.role} />
+      </main>
+    </div>
+  );
+}
+if (activeSection === 'job-description') {
+  return (
+    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+      {/* Header */}
+      <header className="dashboard-header">
+        {/* Search Bar */}
+        <div className="search-container">
+          <Search size={22} className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search job descriptions..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+        </div>
+
+        {/* Header Right */}
+        <div className="header-right">
+          {/* Notifications */}
+          <button className="notification-button">
+            <Bell size={22} />
+            <span className="notification-badge"></span>
+          </button>
+
+          {/* Profile Section */}
+          <ProfileSection userData={userData} onLogout={onLogout}/>
+        </div>
+      </header>
+
+      {/* Job Description Content */}
+      <main className="main-content">
+        <JobDescriptionPage userRole={userData?.role} />
+      </main>
+    </div>
+  );
+}
+if (activeSection === 'job-post') {
+  return (
+    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+      {/* Header */}
+      <header className="dashboard-header">
+        {/* Search Bar */}
+        <div className="search-container">
+          <Search size={22} className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search job page..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+        </div>
+
+        {/* Header Right */}
+        <div className="header-right">
+          {/* Notifications */}
+          <button className="notification-button">
+            <Bell size={22} />
+            <span className="notification-badge"></span>
+          </button>
+
+          {/* Profile Section */}
+          <ProfileSection userData={userData} onLogout={onLogout}/>
+        </div>
+      </header>
+
+      {/* Job Description Content */}
+      <main className="main-content">
+        <JobPostPage userRole={userData?.role} />
+      </main>
+    </div>
+  );
+}
+if (activeSection === 'interview-management') {
+  return (
+    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+      {/* Header */}
+      <header className="dashboard-header">
+        {/* Search Bar */}
+        <div className="search-container">
+          <Search size={22} className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search interview management page..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+        </div>
+
+        {/* Header Right */}
+        <div className="header-right">
+          {/* Notifications */}
+          <button className="notification-button">
+            <Bell size={22} />
+            <span className="notification-badge"></span>
+          </button>
+
+          {/* Profile Section */}
+          <ProfileSection userData={userData} onLogout={onLogout}/>
+        </div>
+      </header>
+
+      {/* Job Description Content */}
+      <main className="main-content">
+        <InterviewManagementPage userRole={userData?.role} />
+      </main>
+    </div>
+  );
+}
+if (activeSection === 'job-apply') {
+  return (
+    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+      {/* Header */}
+      <header className="dashboard-header">
+        {/* Search Bar */}
+        <div className="search-container">
+          <Search size={22} className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search job apply..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+        </div>
+
+        {/* Header Right */}
+        <div className="header-right">
+          {/* Notifications */}
+          <button className="notification-button">
+            <Bell size={22} />
+            <span className="notification-badge"></span>
+          </button>
+
+          {/* Profile Section */}
+          <ProfileSection userData={userData} onLogout={onLogout}/>
+        </div>
+      </header>
+
+      {/* Job Description Content */}
+      <main className="main-content">
+        <JobApplyPage userRole={userData?.role} />
+      </main>
+    </div>
+  );
+}
+
+if (activeSection === 'resume-list') {
+  return (
+    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+      {/* Header */}
+      <header className="dashboard-header">
+        {/* Search Bar */}
+        <div className="search-container">
+          <Search size={22} className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search resume list..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+        </div>
+
+        {/* Header Right */}
+        <div className="header-right">
+          {/* Notifications */}
+          <button className="notification-button">
+            <Bell size={22} />
+            <span className="notification-badge"></span>
+          </button>
+
+          {/* Profile Section */}
+          <ProfileSection userData={userData} onLogout={onLogout}/>
+        </div>
+      </header>
+
+      {/* Job Description Content */}
+      <main className="main-content">
+        <ResumeListPage userRole={userData?.role} />
+      </main>
+    </div>
+  );
+}
+
 if (activeSection === 'project-timeline') {
   return (
     <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>

@@ -1,51 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { 
-  Table, 
-  Button, 
-  Modal, 
-  Form, 
-  Input, 
-  Space, 
-  Popconfirm, 
-  Card, 
-  Statistic, 
-  Row, 
-  Col,
-  message,
-  Avatar,
-  Tag,
-  Typography,
-  Switch
-} from 'antd';
-import { 
-  UserAddOutlined, 
-  EditOutlined, 
-  DeleteOutlined, 
-  SearchOutlined,
-  TeamOutlined,
-  MailOutlined,
-   UploadOutlined, UserOutlined
-} from '@ant-design/icons';
+import { Table, Button, Modal, Form, Input, Space, Popconfirm, Card, Statistic, Row, Col, message, Avatar, Tag, Typography, Switch } from 'antd';
+import { UserAddOutlined, EditOutlined, DeleteOutlined, SearchOutlined, TeamOutlined, MailOutlined, UploadOutlined, UserOutlined } from '@ant-design/icons';
 import { db } from '../firebase/config';
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  query, 
-  where, 
-  getDocs, 
-  orderBy
-} from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { sendEmployeeWelcomeEmail, initEmailJS } from './EmailService';
-import '../styles/Employee Management.css';
+import '../styles/Employee Management.css'; // Reusing the same CSS
 import { Upload, message as antMessage } from 'antd';
 const { Title, Text } = Typography;
 const { Search } = Input;
 
-// Mobile Employee Card Component
-const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete }) => (
+// Mobile HR Card Component
+const MobileHRCard = React.memo(({ hr, onEdit, onDelete }) => (
   <Card 
     size="small" 
     className="mobile-employee-card"
@@ -55,16 +20,16 @@ const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete }) => (
         type="primary" 
         icon={<EditOutlined />} 
         size="small"
-        onClick={() => onEdit(employee)}
+        onClick={() => onEdit(hr)}
         className="brand-primary"
       >
         Edit
       </Button>,
       <Popconfirm
         key="delete"
-        title="Delete Employee"
-        description="Are you sure you want to delete this employee?"
-        onConfirm={() => onDelete(employee.id)}
+        title="Delete HR"
+        description="Are you sure you want to delete this HR?"
+        onConfirm={() => onDelete(hr.id)}
         okText="Yes"
         cancelText="No"
       >
@@ -79,96 +44,96 @@ const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete }) => (
     ]}
   >
     <div className="mobile-employee-info">
-  <div style={{ 
-    display: 'flex', 
-    alignItems: 'flex-start',  // Changed alignment
-    gap: '12px',
-    marginBottom: '12px'
-  }}>
-    <Avatar 
-      style={{ 
-        backgroundColor: '#1F4842',
-        flexShrink: 0
-      }}
-      size="large"
-      src={employee.profileImage}
-      icon={!employee.profileImage && <UserOutlined />}
-    >
-      {!employee.profileImage && employee.name.charAt(0).toUpperCase()}
-    </Avatar>
-    <div style={{ 
-      flex: 1,
-      textAlign: 'left'  // Ensure left alignment
-    }}>
       <div style={{ 
-        fontWeight: 600, 
-        fontSize: '14px',
-        marginBottom: '4px'
+        display: 'flex', 
+        alignItems: 'flex-start',
+        gap: '12px',
+        marginBottom: '12px'
       }}>
-        {employee.name}
+        <Avatar 
+          style={{ 
+            backgroundColor: '#1F4842',
+            flexShrink: 0
+          }}
+          size="large"
+          src={hr.profileImage}
+          icon={!hr.profileImage && <UserOutlined />}
+        >
+          {!hr.profileImage && hr.name.charAt(0).toUpperCase()}
+        </Avatar>
+        <div style={{ 
+          flex: 1,
+          textAlign: 'left'
+        }}>
+          <div style={{ 
+            fontWeight: 600, 
+            fontSize: '14px',
+            marginBottom: '4px'
+          }}>
+            {hr.name}
+          </div>
+          <Text type="secondary" style={{ 
+            fontSize: '12px',
+            display: 'block',
+            marginBottom: '4px'
+          }}>
+            <MailOutlined /> {hr.email}
+          </Text>
+          {hr.employeeId && (
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              ID: {hr.employeeId}
+            </Text>
+          )}
+        </div>
       </div>
-      <Text type="secondary" style={{ 
-        fontSize: '12px',
-        display: 'block',
-        marginBottom: '4px'
+      <div style={{ 
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '6px',
+        justifyContent: 'flex-start'
       }}>
-        <MailOutlined /> {employee.email}
-      </Text>
-      {employee.employeeId && (
-        <Text type="secondary" style={{ fontSize: '12px' }}>
-          ID: {employee.employeeId}
-        </Text>
-      )}
+        <Tag color="orange" size="small">{hr.role}</Tag>
+        <Tag color={hr.isActive ? 'green' : 'red'} size="small">
+          {hr.isActive ? 'Active' : 'Inactive'}
+        </Tag>
+        {hr.employeeId && (
+          <Tag color="geekblue" size="small">{hr.employeeId}</Tag>
+        )}
+        {hr.createdAt && (
+          <Tag color="purple" size="small">
+            {hr.createdAt?.toDate ? hr.createdAt.toDate().toLocaleDateString() : 'Unknown'}
+          </Tag>
+        )}
+      </div>
     </div>
-  </div>
-  <div style={{ 
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '6px',
-    justifyContent: 'flex-start'  // Left align tags
-  }}>
-    <Tag color="blue" size="small">{employee.role}</Tag>
-    <Tag color={employee.isActive ? 'green' : 'red'} size="small">
-      {employee.isActive ? 'Active' : 'Inactive'}
-    </Tag>
-    {employee.employeeId && (
-      <Tag color="geekblue" size="small">{employee.employeeId}</Tag>
-    )}
-    {employee.createdAt && (
-      <Tag color="purple" size="small">
-        {employee.createdAt?.toDate ? employee.createdAt.toDate().toLocaleDateString() : 'Unknown'}
-      </Tag>
-    )}
-  </div>
-</div>
   </Card>
 ));
 
-// Employee Form Modal Component
-const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSuccess }) => {
+// HR Form Modal Component
+const HRFormModal = React.memo(({ isOpen, onClose, editingHR, onSuccess }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [profileImage, setProfileImage] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
-      if (editingEmployee) {
+      if (editingHR) {
         setTimeout(() => {
           form.setFieldsValue({
-            name: editingEmployee.name,
-            email: editingEmployee.email,
-            employeeId: editingEmployee.employeeId,
-            role: editingEmployee.role,
-            isActive: editingEmployee.isActive !== undefined ? editingEmployee.isActive : true
+            name: editingHR.name,
+            email: editingHR.email,
+            employeeId: editingHR.employeeId,
+            role: editingHR.role,
+            isActive: editingHR.isActive !== undefined ? editingHR.isActive : true
           });
-          setProfileImage(editingEmployee.profileImage || null);
+          setProfileImage(editingHR.profileImage || null);
         }, 0);
       } else {
         form.resetFields();
         setProfileImage(null);
       }
     }
-  }, [editingEmployee, form, isOpen]);
+  }, [editingHR, form, isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -206,61 +171,60 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
     };
     reader.readAsDataURL(file);
     
-    return false; // Prevent default upload
+    return false;
   }, []);
 
   const handleSubmit = useCallback(async (values) => {
     setLoading(true);
     
     try {
-      if (editingEmployee) {
-        const docRef = doc(db, 'users', editingEmployee.id);
+      if (editingHR) {
+        const docRef = doc(db, 'users', editingHR.id);
         const updateData = {
           name: values.name,
           email: values.email,
-          role: values.role || 'employee',
+          role: values.role || 'hr',
           employeeId: values.employeeId,
-          isActive: false,
+          isActive: values.isActive !== undefined ? values.isActive : true,
           profileImage: profileImage,
           updatedAt: new Date()
         };
         
         await updateDoc(docRef, updateData);
-        message.success('Employee updated successfully');
+        message.success('HR updated successfully');
       } else {
         const password = generatePassword();
-        const employeeData = {
+        const hrData = {
           name: values.name,
           email: values.email,
           employeeId: values.employeeId,
-          role: 'employee',
-          isActive: false,
-          isFirstLogin: true,
+          role: 'hr',
+          isActive: values.isActive !== undefined ? values.isActive : true,
           profileImage: profileImage,
           password,
           createdAt: new Date(),
           updatedAt: new Date()
         };
         
-        await addDoc(collection(db, 'users'), employeeData);
-        message.success('Employee created successfully!');
+        await addDoc(collection(db, 'users'), hrData);
+        message.success('HR created successfully!');
         
         try {
           const emailResult = await sendEmployeeWelcomeEmail({
             name: values.name,
             email: values.email,
             password: password,
-            role: 'employee'
+            role: 'hr'
           });
 
           if (emailResult.success) {
-            message.success('Welcome email sent to employee!');
+            message.success('Welcome email sent to HR!');
           } else {
-            message.warning('Employee created but email could not be sent. Please share credentials manually.');
+            message.warning('HR created but email could not be sent. Please share credentials manually.');
           }
         } catch (emailError) {
           console.error('Email send failed:', emailError);
-          message.warning('Employee created but email could not be sent.');
+          message.warning('HR created but email could not be sent.');
         }
       }
 
@@ -269,7 +233,7 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Error saving employee:', error);
+      console.error('Error saving HR:', error);
       
       const errorMessages = {
         'permission-denied': 'Permission denied. Check your Firestore security rules.',
@@ -277,15 +241,15 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
         'invalid-argument': 'Invalid data provided. Please check your inputs.'
       };
       
-      message.error(errorMessages[error.code] || `Error saving employee: ${error.message}`);
+      message.error(errorMessages[error.code] || `Error saving HR: ${error.message}`);
     } finally {
       setLoading(false);
     }
-  }, [editingEmployee, generatePassword, onSuccess, onClose, form, profileImage]);
+  }, [editingHR, generatePassword, onSuccess, onClose, form, profileImage]);
 
   return (
     <Modal
-      title={editingEmployee ? 'Edit Employee' : 'Add New Employee'}
+      title={editingHR ? 'Edit HR' : 'Add New HR'}
       open={isOpen}
       onCancel={onClose}
       footer={null}
@@ -296,7 +260,7 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
         form={form}
         layout="vertical"
         onFinish={handleSubmit}
-        initialValues={{ role: 'employee', isActive: true }}
+        initialValues={{ role: 'hr', isActive: true }}
       >
         {/* Profile Image Upload */}
         <Form.Item
@@ -337,9 +301,9 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
         <Form.Item
           name="name"
           label="Name"
-          rules={[{ required: true, message: 'Please enter employee name' }]}
+          rules={[{ required: true, message: 'Please enter HR name' }]}
         >
-          <Input placeholder="Enter employee name" />
+          <Input placeholder="Enter HR name" />
         </Form.Item>
 
         <Form.Item
@@ -354,23 +318,33 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
         </Form.Item>
 
         <Form.Item
-  name="employeeId"
-  label="Employee ID"
-  rules={[
-    { required: true, message: 'Please enter employee ID' },
-    { pattern: /^[A-Z0-9]+$/, message: 'Employee ID should contain only uppercase letters and numbers' }
-  ]}
->
-  <Input 
-    placeholder="Enter employee ID (e.g., EMP001)" 
-    style={{ textTransform: 'uppercase' }}
-    onChange={(e) => {
-      // Auto-convert to uppercase
-      e.target.value = e.target.value.toUpperCase();
-    }}
-  />
-</Form.Item>
+          name="employeeId"
+          label="HR ID"
+          rules={[
+            { required: true, message: 'Please enter HR ID' },
+            { pattern: /^[A-Z0-9]+$/, message: 'HR ID should contain only uppercase letters and numbers' }
+          ]}
+        >
+          <Input 
+            placeholder="Enter HR ID (e.g., HR001)" 
+            style={{ textTransform: 'uppercase' }}
+            onChange={(e) => {
+              e.target.value = e.target.value.toUpperCase();
+            }}
+          />
+        </Form.Item>
 
+        <Form.Item
+          name="isActive"
+          label="Active Status"
+          valuePropName="checked"
+        >
+          <Switch 
+            checkedChildren="Active" 
+            unCheckedChildren="Inactive"
+            defaultChecked={true}
+          />
+        </Form.Item>
 
         <Form.Item>
           <Space>
@@ -383,7 +357,7 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
               loading={loading}
               className="brand-primary"
             >
-              {editingEmployee ? 'Update' : 'Create'}
+              {editingHR ? 'Update' : 'Create'}
             </Button>
           </Space>
         </Form.Item>
@@ -392,14 +366,14 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
   );
 });
 
-// Main Employee Management Component
-const EmployeeManagement = ({ userRole }) => {
-  const [employees, setEmployees] = useState([]);
-  const [allEmployees, setAllEmployees] = useState([]);
+// Main HR Management Component
+const HRManagement = ({ userRole }) => {
+  const [hrs, setHRs] = useState([]);
+  const [allHRs, setAllHRs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFormModal, setShowFormModal] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState(null);
+  const [editingHR, setEditingHR] = useState(null);
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
@@ -407,13 +381,13 @@ const EmployeeManagement = ({ userRole }) => {
   });
 
   // Use useMemo for calculations
-  const { totalEmployees, activeEmployees, inactiveEmployees } = useMemo(() => {
-    const total = allEmployees.length;
-    const active = allEmployees.filter(employee => employee.isActive === true).length;
+  const { totalHRs, activeHRs, inactiveHRs } = useMemo(() => {
+    const total = allHRs.length;
+    const active = allHRs.filter(hr => hr.isActive === true).length;
     const inactive = total - active;
     
-    return { totalEmployees: total, activeEmployees: active, inactiveEmployees: inactive };
-  }, [allEmployees]);
+    return { totalHRs: total, activeHRs: active, inactiveHRs: inactive };
+  }, [allHRs]);
 
   // Check if mobile screen
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -424,88 +398,88 @@ const EmployeeManagement = ({ userRole }) => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Fetch all employees
-  const fetchAllEmployees = useCallback(async () => {
+  // Fetch all HRs
+  const fetchAllHRs = useCallback(async () => {
     try {
       const q = query(
         collection(db, 'users'),
-        where('role', '==', 'employee'),
-        orderBy('createdat', 'desc')
+        where('role', '==', 'hr'),
+        orderBy('createdAt', 'desc')
       );
       
       const querySnapshot = await getDocs(q);
-      const employeeList = querySnapshot.docs.map(doc => ({ 
+      const hrList = querySnapshot.docs.map(doc => ({ 
         id: doc.id, 
         ...doc.data() 
       }));
       
-      setAllEmployees(employeeList);
-      return employeeList;
+      setAllHRs(hrList);
+      return hrList;
     } catch (error) {
-      console.error('Error fetching employees:', error);
-      message.error(`Error loading employees: ${error.message}`);
+      console.error('Error fetching HRs:', error);
+      message.error(`Error loading HRs: ${error.message}`);
       return [];
     }
   }, []);
 
   // Apply filters and pagination
-  const applyFiltersAndPagination = useCallback((employeeList, search = '', page = 1, pageSize = 10) => {
-    let filteredEmployees = [...employeeList];
+  const applyFiltersAndPagination = useCallback((hrList, search = '', page = 1, pageSize = 10) => {
+    let filteredHRs = [...hrList];
     
     if (search) {
-  const searchLower = search.toLowerCase();
-  filteredEmployees = filteredEmployees.filter(employee =>
-    employee.name.toLowerCase().includes(searchLower) ||
-    employee.email.toLowerCase().includes(searchLower) ||
-    (employee.employeeId && employee.employeeId.toLowerCase().includes(searchLower))  // Add this line
-  );
-}
+      const searchLower = search.toLowerCase();
+      filteredHRs = filteredHRs.filter(hr =>
+        hr.name.toLowerCase().includes(searchLower) ||
+        hr.email.toLowerCase().includes(searchLower) ||
+        (hr.employeeId && hr.employeeId.toLowerCase().includes(searchLower))
+      );
+    }
     
-    const total = filteredEmployees.length;
+    const total = filteredHRs.length;
     const startIndex = (page - 1) * pageSize;
-    const paginatedEmployees = filteredEmployees.slice(startIndex, startIndex + pageSize);
+    const paginatedHRs = filteredHRs.slice(startIndex, startIndex + pageSize);
     
-    setEmployees(paginatedEmployees);
+    setHRs(paginatedHRs);
     setPagination({
       current: page,
       pageSize: pageSize,
       total: total
     });
     
-    return paginatedEmployees;
+    return paginatedHRs;
   }, []);
 
-  // Fetch employees with pagination
-  const fetchEmployees = useCallback(async (page = 1, pageSize = 10, search = '') => {
+  // Fetch HRs with pagination
+  const fetchHRs = useCallback(async (page = 1, pageSize = 10, search = '') => {
     try {
       setLoading(true);
       
-      let employeeList = allEmployees;
-      if (employeeList.length === 0) {
-        employeeList = await fetchAllEmployees();
+      let hrList = allHRs;
+      if (hrList.length === 0) {
+        hrList = await fetchAllHRs();
       }
       
-      applyFiltersAndPagination(employeeList, search, page, pageSize);
+      applyFiltersAndPagination(hrList, search, page, pageSize);
     } catch (error) {
-      console.error('Error in fetchEmployees:', error);
-      message.error(`Error loading employees: ${error.message}`);
+      console.error('Error in fetchHRs:', error);
+      message.error(`Error loading HRs: ${error.message}`);
     } finally {
       setLoading(false);
     }
-  }, [allEmployees, fetchAllEmployees, applyFiltersAndPagination]);
+  }, [allHRs, fetchAllHRs, applyFiltersAndPagination]);
 
   // Refresh data
   const refreshData = useCallback(async () => {
     try {
       setLoading(true);
-      const employeeList = await fetchAllEmployees();
-      applyFiltersAndPagination(employeeList, searchQuery, 1, pagination.pageSize);
+      const hrList = await fetchAllHRs();
+      applyFiltersAndPagination(hrList, searchQuery, 1, pagination.pageSize);
     } catch (error) {
       console.error('Error refreshing data:', error);
     } finally {
       setLoading(false);
     }
-  }, [fetchAllEmployees, applyFiltersAndPagination, searchQuery, pagination.pageSize]);
+  }, [fetchAllHRs, applyFiltersAndPagination, searchQuery, pagination.pageSize]);
 
   // Initialize component
   useEffect(() => {
@@ -515,34 +489,34 @@ const EmployeeManagement = ({ userRole }) => {
         console.warn('EmailJS initialization failed - emails may not work');
       }
       
-      fetchEmployees();
+      fetchHRs();
     }
-  }, [userRole, fetchEmployees]);
+  }, [userRole, fetchHRs]);
 
   // Event handlers
   const handleTableChange = useCallback((paginationInfo) => {
-    applyFiltersAndPagination(allEmployees, searchQuery, paginationInfo.current, paginationInfo.pageSize);
-  }, [allEmployees, searchQuery, applyFiltersAndPagination]);
+    applyFiltersAndPagination(allHRs, searchQuery, paginationInfo.current, paginationInfo.pageSize);
+  }, [allHRs, searchQuery, applyFiltersAndPagination]);
 
   const handleSearch = useCallback((value) => {
     setSearchQuery(value);
-    applyFiltersAndPagination(allEmployees, value, 1, pagination.pageSize);
-  }, [allEmployees, pagination.pageSize, applyFiltersAndPagination]);
+    applyFiltersAndPagination(allHRs, value, 1, pagination.pageSize);
+  }, [allHRs, pagination.pageSize, applyFiltersAndPagination]);
 
-  const handleEdit = useCallback((employee) => {
-    setEditingEmployee(employee);
+  const handleEdit = useCallback((hr) => {
+    setEditingHR(hr);
     setShowFormModal(true);
   }, []);
 
-  const handleDelete = useCallback(async (employeeId) => {
+  const handleDelete = useCallback(async (hrId) => {
     try {
       setLoading(true);
-      await deleteDoc(doc(db, 'users', employeeId));
-      message.success('Employee deleted successfully');
+      await deleteDoc(doc(db, 'users', hrId));
+      message.success('HR deleted successfully');
       await refreshData();
     } catch (error) {
-      console.error('Error deleting employee:', error);
-      message.error('Error deleting employee');
+      console.error('Error deleting HR:', error);
+      message.error('Error deleting HR');
     } finally {
       setLoading(false);
     }
@@ -550,7 +524,7 @@ const EmployeeManagement = ({ userRole }) => {
 
   const handleFormClose = useCallback(() => {
     setShowFormModal(false);
-    setEditingEmployee(null);
+    setEditingHR(null);
   }, []);
 
   const handleFormSuccess = useCallback(async () => {
@@ -558,83 +532,91 @@ const EmployeeManagement = ({ userRole }) => {
   }, [refreshData]);
 
   // Table columns with memoization
-const columns = useMemo(() => [
-  {
-  title: 'Employee',
-  dataIndex: 'name',
-  key: 'name',
-  fixed: 'left',
-  width: isMobile ? 200 : 250,
-  render: (text, record) => (
-    <div style={{ 
-      display: 'flex', 
-      alignItems: 'flex-start',  // Changed from 'center' to 'flex-start'
-      gap: '12px',
-      width: '100%'
-    }}>
-      <Avatar 
-        style={{ 
-          backgroundColor: '#1F4842',
-          flexShrink: 0  // Prevent avatar from shrinking
-        }}
-        size={isMobile ? "default" : "large"}
-        src={record.profileImage}
-        icon={!record.profileImage && <UserOutlined />}
-      >
-        {!record.profileImage && text.charAt(0).toUpperCase()}
-      </Avatar>
-      <div style={{ 
-        flex: 1,
-        minWidth: 0,  // Allow text to wrap
-        textAlign: 'left'  // Ensure left alignment
-      }}>
+  const columns = useMemo(() => [
+    {
+      title: 'HR',
+      dataIndex: 'name',
+      key: 'name',
+      fixed: 'left',
+      width: isMobile ? 200 : 250,
+      render: (text, record) => (
         <div style={{ 
-          fontWeight: 600, 
-          fontSize: isMobile ? '12px' : '14px',
-          marginBottom: '4px',
-          textAlign: 'left'  // Explicit left alignment
+          display: 'flex', 
+          alignItems: 'flex-start',
+          gap: '12px',
+          width: '100%'
         }}>
-          {text}
-        </div>
-        <div style={{ 
-          fontSize: isMobile ? '10px' : '12px',
-          color: '#666',
-          textAlign: 'left'  // Explicit left alignment
-        }}>
-          <MailOutlined style={{ marginRight: '4px' }} /> 
-          {record.email}
-        </div>
-        {isMobile && (
+          <Avatar 
+            style={{ 
+              backgroundColor: '#1F4842',
+              flexShrink: 0
+            }}
+            size={isMobile ? "default" : "large"}
+            src={record.profileImage}
+            icon={!record.profileImage && <UserOutlined />}
+          >
+            {!record.profileImage && text.charAt(0).toUpperCase()}
+          </Avatar>
           <div style={{ 
-            marginTop: '8px',
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '4px',
-            justifyContent: 'flex-start'  // Left align tags
+            flex: 1,
+            minWidth: 0,
+            textAlign: 'left'
           }}>
-            <Tag color="blue" size="small">{record.role}</Tag>
-            <Tag color={record.isActive ? 'green' : 'red'} size="small">
-              {record.isActive ? 'Active' : 'Inactive'}
-            </Tag>
-            {record.employeeId && (
-              <Tag color="geekblue" size="small">{record.employeeId}</Tag>
+            <div style={{ 
+              fontWeight: 600, 
+              fontSize: isMobile ? '12px' : '14px',
+              marginBottom: '4px',
+              textAlign: 'left'
+            }}>
+              {text}
+            </div>
+            <div style={{ 
+              fontSize: isMobile ? '10px' : '12px',
+              color: '#666',
+              textAlign: 'left'
+            }}>
+              <MailOutlined style={{ marginRight: '4px' }} /> 
+              {record.email}
+            </div>
+            {isMobile && (
+              <div style={{ 
+                marginTop: '8px',
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '4px',
+                justifyContent: 'flex-start'
+              }}>
+                <Tag color="orange" size="small">{record.role}</Tag>
+                <Tag color={record.isActive ? 'green' : 'red'} size="small">
+                  {record.isActive ? 'Active' : 'Inactive'}
+                </Tag>
+                {record.employeeId && (
+                  <Tag color="geekblue" size="small">{record.employeeId}</Tag>
+                )}
+              </div>
             )}
           </div>
-        )}
-      </div>
-    </div>
-  ),
-},
+        </div>
+      ),
+    },
     {
-  title: 'Employee ID',
-  dataIndex: 'employeeId',
-  key: 'employeeId',
-  width: 120,
-  render: (employeeId) => (
-    <Tag color="geekblue">{employeeId || 'N/A'}</Tag>
-  ),
-  responsive: ['md'],
-},
+      title: 'HR ID',
+      dataIndex: 'employeeId',
+      key: 'employeeId',
+      width: 120,
+      render: (employeeId) => (
+        <Tag color="geekblue">{employeeId || 'N/A'}</Tag>
+      ),
+      responsive: ['md'],
+    },
+    {
+      title: 'Role',
+      dataIndex: 'role',
+      key: 'role',
+      width: 100,
+      render: (role) => <Tag color="orange">{role}</Tag>,
+      responsive: ['md'],
+    },
     {
       title: 'Status',
       dataIndex: 'isActive',
@@ -672,8 +654,8 @@ const columns = useMemo(() => [
             className="brand-primary"
           />
           <Popconfirm
-            title="Delete Employee"
-            description="Are you sure you want to delete this employee?"
+            title="Delete HR"
+            description="Are you sure you want to delete this HR?"
             onConfirm={() => handleDelete(record.id)}
             okText="Yes"
             cancelText="No"
@@ -695,7 +677,7 @@ const columns = useMemo(() => [
       <div className="access-denied">
         <TeamOutlined className="access-denied-icon" />
         <Title level={3}>Access Denied</Title>
-        <Text type="secondary">You don't have permission to view employee management.</Text>
+        <Text type="secondary">You don't have permission to view HR management.</Text>
       </div>
     );
   }
@@ -709,10 +691,10 @@ const columns = useMemo(() => [
             <div className={`${isMobile ? 'mobile-header' : ''}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div>
                 <Title level={2} className={isMobile ? 'responsive-title' : ''} style={{ margin: 0 }}>
-                  Employee Management
+                  HR Management
                 </Title>
                 <Text type="secondary" className={isMobile ? 'responsive-subtitle' : ''}>
-                  Manage employee users and their access levels
+                  Manage HR users and their access levels
                 </Text>
               </div>
               <Button
@@ -722,7 +704,7 @@ const columns = useMemo(() => [
                 className="brand-primary"
                 size={isMobile ? "middle" : "large"}
               >
-                Add Employee
+                Add HR
               </Button>
             </div>
           </div>
@@ -732,8 +714,8 @@ const columns = useMemo(() => [
             <Col xs={24} sm={12} md={8} lg={6}>
               <Card className="animated-card-delayed stats-card">
                 <Statistic
-                  title="Total Employees"
-                  value={totalEmployees}
+                  title="Total HRs"
+                  value={totalHRs}
                   prefix={<TeamOutlined />}
                   valueStyle={{ color: '#1F4842' }}
                   className={isMobile ? 'responsive-stat-value' : ''}
@@ -743,8 +725,8 @@ const columns = useMemo(() => [
             <Col xs={24} sm={12} md={8} lg={6}>
               <Card className="animated-card-delayed-2 stats-card">
                 <Statistic
-                  title="Active Employees"
-                  value={activeEmployees}
+                  title="Active HRs"
+                  value={activeHRs}
                   prefix={<TeamOutlined />}
                   valueStyle={{ color: '#10b981' }}
                   className={isMobile ? 'responsive-stat-value' : ''}
@@ -754,8 +736,8 @@ const columns = useMemo(() => [
             <Col xs={24} sm={12} md={8} lg={6}>
               <Card className="animated-card-delayed-3 stats-card">
                 <Statistic
-                  title="Inactive Employees"
-                  value={inactiveEmployees}
+                  title="Inactive HRs"
+                  value={inactiveHRs}
                   prefix={<TeamOutlined />}
                   valueStyle={{ color: '#ef4444' }}
                   className={isMobile ? 'responsive-stat-value' : ''}
@@ -767,7 +749,7 @@ const columns = useMemo(() => [
           {/* Search Bar */}
           <Card style={{ marginBottom: '24px' }} className={`animated-card-delayed ${isMobile ? 'mobile-search' : ''}`}>
             <Search
-              placeholder="Search employees by name or email..."
+              placeholder="Search HRs by name or email..."
               allowClear
               enterButton={
                 <Button 
@@ -785,25 +767,25 @@ const columns = useMemo(() => [
             />
           </Card>
 
-          {/* Employee List - Mobile Cards or Table */}
+          {/* HR List - Mobile Cards or Table */}
           {isMobile ? (
             <Card className="animated-card-delayed-2" style={{ marginBottom: '24px' }}>
               <div style={{ marginBottom: '16px' }}>
-                <Title level={4} style={{ margin: 0 }}>Employee List</Title>
+                <Title level={4} style={{ margin: 0 }}>HR List</Title>
                 <Text type="secondary" style={{ fontSize: '12px' }}>
-                  {employees.length} of {pagination.total} employees
+                  {hrs.length} of {pagination.total} HRs
                 </Text>
               </div>
               {loading ? (
                 <div style={{ textAlign: 'center', padding: '40px' }}>
-                  <Text>Loading employees...</Text>
+                  <Text>Loading HRs...</Text>
                 </div>
               ) : (
                 <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
-                  {employees.map((employee) => (
-                    <MobileEmployeeCard
-                      key={employee.id}
-                      employee={employee}
+                  {hrs.map((hr) => (
+                    <MobileHRCard
+                      key={hr.id}
+                      hr={hr}
                       onEdit={handleEdit}
                       onDelete={handleDelete}
                       loading={loading}
@@ -818,7 +800,7 @@ const columns = useMemo(() => [
                   <Button 
                     size="small"
                     disabled={pagination.current === 1}
-                    onClick={() => fetchEmployees(pagination.current - 1, pagination.pageSize, searchQuery)}
+                    onClick={() => fetchHRs(pagination.current - 1, pagination.pageSize, searchQuery)}
                   >
                     Previous
                   </Button>
@@ -828,7 +810,7 @@ const columns = useMemo(() => [
                   <Button 
                     size="small"
                     disabled={pagination.current >= Math.ceil(pagination.total / pagination.pageSize)}
-                    onClick={() => fetchEmployees(pagination.current + 1, pagination.pageSize, searchQuery)}
+                    onClick={() => fetchHRs(pagination.current + 1, pagination.pageSize, searchQuery)}
                   >
                     Next
                   </Button>
@@ -840,7 +822,7 @@ const columns = useMemo(() => [
             <Card className="animated-card-delayed-2">
               <Table
                 columns={columns}
-                dataSource={employees}
+                dataSource={hrs}
                 rowKey="id"
                 loading={loading}
                 pagination={{
@@ -848,7 +830,7 @@ const columns = useMemo(() => [
                   showSizeChanger: true,
                   showQuickJumper: true,
                   showTotal: (total, range) =>
-                    `${range[0]}-${range[1]} of ${total} employees`,
+                    `${range[0]}-${range[1]} of ${total} HRs`,
                   pageSizeOptions: ['10', '20', '50', '100'],
                 }}
                 onChange={handleTableChange}
@@ -859,10 +841,10 @@ const columns = useMemo(() => [
           )}
 
           {/* Form Modal */}
-          <EmployeeFormModal
+          <HRFormModal
             isOpen={showFormModal}
             onClose={handleFormClose}
-            editingEmployee={editingEmployee}
+            editingHR={editingHR}
             onSuccess={handleFormSuccess}
           />
         </div>
@@ -871,4 +853,4 @@ const columns = useMemo(() => [
   );
 };
 
-export default EmployeeManagement;
+export default HRManagement;

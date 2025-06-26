@@ -45,18 +45,35 @@ const AppContent = () => {
   }, [location.pathname, navigate]);
 
   useEffect(() => {
-    // Handle URL-based navigation
-    const path = location.pathname;
-    if (path.includes('/project-timeline')) {
-      setActiveSection('project-timeline');
-    } else if (path.includes('/admin')) {
-      setActiveSection('admin');
-    } else if (path.includes('/employee')) {
-      setActiveSection('employee');
-    } else if (path === '/dashboard') {
-      setActiveSection('dashboard');
-    }
-  }, [location.pathname]);
+  // Handle URL-based navigation
+  const path = location.pathname;
+  if (path.includes('/interview-management')) {
+    setActiveSection('interview-management');
+  }else if (path.includes('/resume-list')) {
+    setActiveSection('resume-list');
+  }else if (path.includes('/job-apply')) {
+    setActiveSection('job-apply');
+  } else if (path.includes('/job-post')) {
+    setActiveSection('job-post');
+  } else if (path.includes('/job-description')) {
+    setActiveSection('job-description');
+  } else if (path.includes('/hr')) {
+    setActiveSection('Hr');
+  } else if (path.includes('/project-budgeting')) {
+    setActiveSection('project-budgeting');
+  } else if (path.includes('/project-timeline')) {
+    setActiveSection('project-timeline');
+  } else if (path.includes('/admin')) {
+    setActiveSection('admin');
+  } else if (path.includes('/employee')) {
+    setActiveSection('employee');
+  } else if (path === '/dashboard') {
+    setActiveSection('dashboard');
+  }
+}, [location.pathname]);
+
+
+
 
   const handleLoginSuccess = (user) => {
     console.log('=== Login Success Debug ===');
@@ -117,22 +134,36 @@ const AppContent = () => {
   };
 
   const handleSidebarItemClick = (itemId) => {
-    if (itemId === 'logout') {
-      handleLogout();
+  if (itemId === 'logout') {
+    handleLogout();
+  } else {
+    setActiveSection(itemId);
+    // Update URL for specific sections
+    if (itemId === 'interview-management') {
+      navigate('/dashboard/interview-management', { replace: true });
+    }else if (itemId === 'resume-list') {
+      navigate('/dashboard/resume-list', { replace: true });
+    }else if (itemId === 'job-apply') {
+      navigate('/dashboard/job-apply', { replace: true });
+    }else if (itemId === 'job-post') {
+      navigate('/dashboard/job-post', { replace: true });
+    }else if (itemId === 'job-description') {
+      navigate('/dashboard/job-description', { replace: true });
+    } else if (itemId === 'Hr') {
+      navigate('/dashboard/hr', { replace: true });
+    } else if (itemId === 'project-budgeting') {
+      navigate('/dashboard/project-budgeting', { replace: true });
+    } else if (itemId === 'project-timeline') {
+      navigate('/dashboard/project-timeline', { replace: true });
+    } else if (itemId === 'admin') {
+      navigate('/dashboard/admin', { replace: true });
+    } else if (itemId === 'employee') {
+      navigate('/dashboard/employee', { replace: true });
     } else {
-      setActiveSection(itemId);
-      // Update URL for specific sections
-      if (itemId === 'project-timeline') {
-        navigate('/dashboard/project-timeline', { replace: true });
-      } else if (itemId === 'admin') {
-        navigate('/dashboard/admin', { replace: true });
-      } else if (itemId === 'employee') {
-        navigate('/dashboard/employee', { replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
-      }
+      navigate('/dashboard', { replace: true });
     }
-  };
+  }
+};
 
   // Show loading while checking auth state
   if (checkingAuth) {
