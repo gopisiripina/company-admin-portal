@@ -10,6 +10,10 @@ import HRManagement from './HRManagement';
 import JobDescriptionPage from './JobDescriptionPage';
 import JobPostPage from './JobPostPage';
 import JobApplyPage from './JobApplyPage';
+import ResumeListPage from './ResumeListpage'; // Import ResumeListPage
+import InterviewManagementPage from './InterviewManagementPage'; // Import ResumeListPage
+
+
 
 
 const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout }) => {
@@ -318,6 +322,43 @@ if (activeSection === 'job-post') {
     </div>
   );
 }
+if (activeSection === 'interview-management') {
+  return (
+    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+      {/* Header */}
+      <header className="dashboard-header">
+        {/* Search Bar */}
+        <div className="search-container">
+          <Search size={22} className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search interview management page..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+        </div>
+
+        {/* Header Right */}
+        <div className="header-right">
+          {/* Notifications */}
+          <button className="notification-button">
+            <Bell size={22} />
+            <span className="notification-badge"></span>
+          </button>
+
+          {/* Profile Section */}
+          <ProfileSection userData={userData} onLogout={onLogout}/>
+        </div>
+      </header>
+
+      {/* Job Description Content */}
+      <main className="main-content">
+        <InterviewManagementPage userRole={userData?.role} />
+      </main>
+    </div>
+  );
+}
 if (activeSection === 'job-apply') {
   return (
     <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
@@ -356,6 +397,43 @@ if (activeSection === 'job-apply') {
   );
 }
 
+if (activeSection === 'resume-list') {
+  return (
+    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+      {/* Header */}
+      <header className="dashboard-header">
+        {/* Search Bar */}
+        <div className="search-container">
+          <Search size={22} className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search resume list..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+        </div>
+
+        {/* Header Right */}
+        <div className="header-right">
+          {/* Notifications */}
+          <button className="notification-button">
+            <Bell size={22} />
+            <span className="notification-badge"></span>
+          </button>
+
+          {/* Profile Section */}
+          <ProfileSection userData={userData} onLogout={onLogout}/>
+        </div>
+      </header>
+
+      {/* Job Description Content */}
+      <main className="main-content">
+        <ResumeListPage userRole={userData?.role} />
+      </main>
+    </div>
+  );
+}
 
 if (activeSection === 'project-timeline') {
   return (

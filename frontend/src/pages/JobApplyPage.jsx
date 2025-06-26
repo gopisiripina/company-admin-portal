@@ -385,9 +385,13 @@ const JobApplyPage = () => {
       ),
     },
   ];
-
-  return (
-    <div style={{ padding: '24px' }}>
+return (
+  <div style={{ 
+    padding: '24px', 
+    maxWidth: '1200px', 
+    margin: '0 auto', 
+    width: '100%' 
+  }}>
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
         <Title level={2} style={{ margin: 0, color: '#1890ff' }}>

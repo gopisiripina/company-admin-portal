@@ -62,7 +62,10 @@ const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
    ...(userRole === 'superadmin' || userRole === 'hr' ? [
   { icon: FileText, label: 'Job Description', id: 'job-description', color: '#10b981' },
   { icon: FileText, label: 'Job Post', id: 'job-post', color: '#10b981' },
-  { icon: FileText, label: 'Job Apply', id: 'job-apply', color: '#10b981' }
+  { icon: FileText, label: 'Job Apply', id: 'job-apply', color: '#10b981' },
+    { icon: FileText, label: 'Resume List', id: 'resume-list', color: '#10b981' },
+     { icon: FileText, label: 'Interview Management', id: 'interview-management', color: '#10b981' },
+
 ] : []),
     // Only show Admin button for superadmin
     ...(userRole === 'superadmin' ? [
