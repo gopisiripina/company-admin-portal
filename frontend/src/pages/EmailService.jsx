@@ -48,10 +48,10 @@ export const sendEmployeeWelcomeEmail = async (employeeData) => {
   };
 
   try {
-    console.log('Sending email with data:', employeeData);
-    console.log('Template params:', templateParams);
-    console.log('Using service:', EMAILJS_CONFIG.serviceId);
-    console.log('Using template:', EMAILJS_CONFIG.templateId);
+    // console.log('Sending email with data:', employeeData);
+    // console.log('Template params:', templateParams);
+    // console.log('Using service:', EMAILJS_CONFIG.serviceId);
+    // console.log('Using template:', EMAILJS_CONFIG.templateId);
 
     // Method 1: Use send without passing publicKey (since we initialized it)
     const response = await emailjs.send(

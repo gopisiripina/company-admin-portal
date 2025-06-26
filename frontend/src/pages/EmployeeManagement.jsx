@@ -26,7 +26,7 @@ import {
   MailOutlined,
    UploadOutlined, UserOutlined
 } from '@ant-design/icons';
-import { db } from '../firebase/config';
+import { db } from '../supabase/config';
 import { 
   collection, 
   addDoc, 
@@ -220,7 +220,7 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
           email: values.email,
           role: values.role || 'employee',
           employeeId: values.employeeId,
-          isActive: values.isActive !== undefined ? values.isActive : true,
+          isActive: false,
           profileImage: profileImage,
           updatedAt: new Date()
         };
@@ -234,7 +234,8 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
           email: values.email,
           employeeId: values.employeeId,
           role: 'employee',
-          isActive: values.isActive !== undefined ? values.isActive : true,
+          isActive: false,
+          isFirstLogin: true,
           profileImage: profileImage,
           password,
           createdAt: new Date(),
@@ -371,18 +372,6 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
 </Form.Item>
 
 
-        <Form.Item
-          name="isActive"
-          label="Active Status"
-          valuePropName="checked"
-        >
-          <Switch 
-            checkedChildren="Active" 
-            unCheckedChildren="Inactive"
-            defaultChecked={true}
-          />
-        </Form.Item>
-
         <Form.Item>
           <Space>
             <Button onClick={onClose}>
@@ -441,7 +430,7 @@ const EmployeeManagement = ({ userRole }) => {
       const q = query(
         collection(db, 'users'),
         where('role', '==', 'employee'),
-        orderBy('createdAt', 'desc')
+        orderBy('createdat', 'desc')
       );
       
       const querySnapshot = await getDocs(q);
@@ -646,14 +635,6 @@ const columns = useMemo(() => [
   ),
   responsive: ['md'],
 },
-    {
-      title: 'Role',
-      dataIndex: 'role',
-      key: 'role',
-      width: 100,
-      render: (role) => <Tag color="blue">{role}</Tag>,
-      responsive: ['md'],
-    },
     {
       title: 'Status',
       dataIndex: 'isActive',

@@ -1,4 +1,4 @@
-/* Employee Management Styles */
+/* Admin Management Styles */
 
 /* Animations */
 @keyframes slideUpFromBottom {
@@ -29,59 +29,59 @@
 }
 
 /* Main wrapper and content */
-.employee-management-wrapper {
+.admin-management-wrapper {
   width: 100%;
   overflow-x: auto;
   min-width: 320px;
 }
 
-.employee-management-content {
+.admin-management-content {
   min-width: 800px;
   width: 100%;
 }
 
-.employee-management-container {
+.admin-management-container {
   padding: 24px;
 }
 
 /* Custom scrollbar */
-.employee-management-wrapper::-webkit-scrollbar {
+.admin-management-wrapper::-webkit-scrollbar {
   height: 8px;
 }
 
-.employee-management-wrapper::-webkit-scrollbar-track {
+.admin-management-wrapper::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 4px;
 }
 
-.employee-management-wrapper::-webkit-scrollbar-thumb {
+.admin-management-wrapper::-webkit-scrollbar-thumb {
   background: #c1c1c1;
   border-radius: 4px;
 }
 
-.employee-management-wrapper::-webkit-scrollbar-thumb:hover {
+.admin-management-wrapper::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
 
-/* Employee info display */
-.employee-info {
+/* Admin info display */
+.admin-info {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.employee-main {
+.admin-main {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.employee-details {
+.admin-details {
   flex: 1;
   min-width: 0;
 }
 
-.employee-tags {
+.admin-tags {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
@@ -116,109 +116,45 @@
   border-color: #2d5a50 !important;
 }
 
-.brand-secondary {
-  background-color: #f59e0b !important;
-  border-color: #f59e0b !important;
+/* Horizontal scroll container for mobile */
+.mobile-horizontal-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  padding-bottom: 10px;
 }
 
-.brand-secondary:hover {
-  background-color: #d97706 !important;
-  border-color: #d97706 !important;
+.mobile-horizontal-scroll::-webkit-scrollbar {
+  height: 6px;
 }
 
-/* Header styles */
-.employee-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
+.mobile-horizontal-scroll::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
 }
 
-.employee-header-title {
-  margin: 0;
-  font-size: 24px;
+.mobile-horizontal-scroll::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
 }
 
-.employee-header-subtitle {
-  font-size: 14px;
+.mobile-horizontal-scroll::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 
-/* Statistics cards */
-.stats-card .ant-statistic-title {
-  font-size: 14px;
-  color: #666;
-}
-
-.stats-card .ant-statistic-content {
-  font-weight: 600;
-}
-
-/* Status tags */
-.status-active {
-  color: #10b981;
-}
-
-.status-inactive {
-  color: #ef4444;
-}
-
-.status-total {
-  color: #1F4842;
-}
-
-/* Employee list header */
-.employee-list-header {
-  margin-bottom: 16px;
-}
-
-.employee-list-title {
-  margin: 0;
-}
-
-.employee-list-subtitle {
-  font-size: 12px;
-}
-
-/* Mobile employee list container */
-.mobile-employee-list {
-  max-height: 600px;
-  overflow-y: auto;
-}
-
-/* Mobile employee card */
-.mobile-employee-card {
-  margin-bottom: 8px;
-}
-
-.mobile-pagination {
-  text-align: center;
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid #f0f0f0;
-}
-
-.mobile-pagination-text {
-  font-size: 12px;
-}
-
-/* Loading state */
-.loading-container {
-  text-align: center;
-  padding: 40px;
-}
-
-/* Form modal styles */
-.employee-form-modal .ant-form-item {
-  margin-bottom: 16px;
+/* Mobile table wrapper */
+.mobile-table-wrapper {
+  min-width: 600px; /* Ensure minimum width for horizontal scroll */
+  width: 100%;
 }
 
 /* Mobile responsive styles */
 @media (max-width: 768px) {
-  .employee-management-content {
+  .admin-management-content {
     min-width: 100%;
   }
   
-  .employee-management-container {
+  .admin-management-container {
     padding: 12px !important;
   }
   
@@ -251,55 +187,72 @@
     max-width: 100% !important;
   }
   
-  /* Mobile table styles */
+  /* Mobile table styles with horizontal scroll */
+  .mobile-table {
+    overflow-x: auto;
+    width: 100%;
+  }
+  
+  .mobile-table .ant-table-wrapper {
+    min-width: 600px; /* Force minimum width for horizontal scroll */
+  }
+  
   .mobile-table .ant-table {
     font-size: 12px !important;
+    min-width: 600px; /* Ensure table has minimum width */
   }
   
   .mobile-table .ant-table-tbody > tr > td {
     padding: 8px 4px !important;
     border-bottom: 1px solid #f0f0f0 !important;
+    white-space: nowrap; /* Prevent text wrapping */
   }
   
   .mobile-table .ant-table-thead > tr > th {
     padding: 8px 4px !important;
     font-size: 12px !important;
+    white-space: nowrap; /* Prevent header text wrapping */
   }
   
-  /* Mobile employee info */
-  .mobile-employee-info {
+  /* Mobile admin info */
+  .mobile-admin-info {
     display: flex !important;
     flex-direction: column !important;
     gap: 4px !important;
+    min-width: 180px; /* Ensure minimum width */
   }
   
-  .mobile-employee-main {
+  .mobile-admin-main {
     display: flex !important;
     align-items: center !important;
     gap: 8px !important;
   }
   
-  .mobile-employee-details {
+  .mobile-admin-details {
     font-size: 11px !important;
+    flex: 1;
+    min-width: 0;
   }
   
-  .mobile-employee-tags {
+  .mobile-admin-tags {
     display: flex !important;
     gap: 4px !important;
-    flex-wrap: wrap !important;
+    flex-wrap: nowrap !important; /* Prevent wrapping for horizontal scroll */
     margin-top: 4px !important;
   }
   
-  .mobile-employee-tags .ant-tag {
+  .mobile-admin-tags .ant-tag {
     font-size: 10px !important;
     padding: 2px 6px !important;
     margin: 0 !important;
+    white-space: nowrap !important;
   }
   
   /* Mobile actions */
   .mobile-actions {
     display: flex !important;
     gap: 4px !important;
+    min-width: 80px; /* Ensure actions don't get too cramped */
   }
   
   .mobile-actions .ant-btn {
@@ -308,27 +261,57 @@
     height: auto !important;
   }
   
-  /* Responsive text sizes */
-  .responsive-title {
-    font-size: 20px !important;
+  /* Mobile card styles */
+  .mobile-admin-card {
+    margin-bottom: 8px;
   }
   
-  .responsive-subtitle {
-    font-size: 12px !important;
+  .mobile-pagination {
+    text-align: center;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #f0f0f0;
   }
   
-  .responsive-stat-value {
-    font-size: 20px !important;
+  .mobile-pagination-text {
+    font-size: 12px;
   }
   
-  /* Mobile employee header */
-  .employee-header-title {
-    font-size: 20px !important;
+  /* Admin list container for mobile */
+  .mobile-admin-list {
+    max-height: 600px;
+    overflow-y: auto;
   }
   
-  .employee-header-subtitle {
-    font-size: 12px !important;
+  /* Mobile table scroll hint */
+  .mobile-scroll-hint {
+    text-align: center;
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 8px;
+    padding: 4px 8px;
+    background: #f5f5f5;
+    border-radius: 4px;
   }
+}
+
+/* Loading state */
+.loading-container {
+  text-align: center;
+  padding: 40px;
+}
+
+/* Admin list header */
+.admin-list-header {
+  margin-bottom: 16px;
+}
+
+.admin-list-title {
+  margin: 0;
+}
+
+.admin-list-subtitle {
+  font-size: 12px;
 }
 
 /* Debug info (development only) */
@@ -344,120 +327,45 @@
   border-radius: 4px;
 }
 
-/* Additional utility classes */
-.text-center {
-  text-align: center;
-}
-
-.flex-center {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.full-width {
-  width: 100%;
-}
-
-.margin-bottom-sm {
-  margin-bottom: 8px;
-}
-
-.margin-bottom-md {
+/* Form modal styles */
+.admin-form-modal .ant-form-item {
   margin-bottom: 16px;
 }
 
-.margin-bottom-lg {
-  margin-bottom: 24px;
-}
-
-.padding-sm {
-  padding: 8px;
-}
-
-.padding-md {
-  padding: 16px;
-}
-
-.padding-lg {
-  padding: 24px;
-}
-
-/* Employee specific utility classes */
-.employee-avatar-primary {
-  background-color: #1F4842;
-}
-
-.employee-email-text {
-  font-size: 12px;
-}
-
-.employee-name-text {
-  font-weight: 600;
+/* Statistics cards */
+.stats-card .ant-statistic-title {
   font-size: 14px;
+  color: #666;
 }
 
-/* Button variants */
-.btn-edit {
-  background-color: #f59e0b;
-  border-color: #f59e0b;
-}
-
-.btn-edit:hover {
-  background-color: #d97706;
-  border-color: #d97706;
-}
-
-.btn-primary-brand {
-  background-color: #1F4842;
-  border-color: #1F4842;
-}
-
-.btn-primary-brand:hover {
-  background-color: #2d5a50;
-  border-color: #2d5a50;
-}
-
-/* Search specific styles */
-.search-container {
-  margin-bottom: 24px;
-}
-
-.search-input {
-  max-width: 400px;
-}
-
-/* Table specific styles */
-.employee-table-container {
-  margin-bottom: 24px;
-}
-
-.employee-table .ant-table-thead > tr > th {
-  background-color: #fafafa;
+.stats-card .ant-statistic-content {
   font-weight: 600;
 }
 
-.employee-table .ant-table-tbody > tr:hover > td {
-  background-color: #f0f9ff;
+/* Status tags */
+.status-active {
+  color: #10b981;
 }
 
-/* Mobile card specific styles */
+.status-inactive {
+  color: #ef4444;
+}
+
+.status-total {
+  color: #1F4842;
+}
+
+/* Responsive text sizes */
 @media (max-width: 768px) {
-  .mobile-employee-card .ant-card-body {
-    padding: 12px;
+  .responsive-title {
+    font-size: 20px !important;
   }
   
-  .mobile-employee-card .ant-card-actions {
-    padding: 8px 12px;
+  .responsive-subtitle {
+    font-size: 12px !important;
   }
   
-  .mobile-employee-card .ant-card-actions > li {
-    margin: 4px 0;
-  }
-  
-  .mobile-employee-card .ant-card-actions .ant-btn {
-    font-size: 11px;
-    height: 28px;
-    padding: 4px 8px;
+  .responsive-stat-value {
+    font-size: 20px !important;
   }
 }
