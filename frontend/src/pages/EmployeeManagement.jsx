@@ -26,7 +26,7 @@ import {
   MailOutlined,
    UploadOutlined, UserOutlined
 } from '@ant-design/icons';
-import { db } from '../firebase/config';
+import { db } from '../supabase/config';
 import { 
   collection, 
   addDoc, 

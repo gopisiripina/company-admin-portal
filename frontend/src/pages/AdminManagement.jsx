@@ -24,19 +24,10 @@ import {
   SearchOutlined,
   TeamOutlined,
   MailOutlined,
+  UploadOutlined,
+  UserOutlined
 } from '@ant-design/icons';
-import { db } from '../firebase/config';
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  query, 
-  where, 
-  getDocs, 
-  orderBy
-} from 'firebase/firestore';
+import { supabase, supabaseAdmin } from '../supabase/config';
 import { sendEmployeeWelcomeEmail, initEmailJS } from './EmailService';
 import '../styles/AdminManagement.css';
 import { Upload, message as antMessage } from 'antd';

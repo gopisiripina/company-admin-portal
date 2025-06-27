@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Table, Button, Modal, Form, Input, Space, Popconfirm, Card, Statistic, Row, Col, message, Avatar, Tag, Typography, Switch } from 'antd';
 import { UserAddOutlined, EditOutlined, DeleteOutlined, SearchOutlined, TeamOutlined, MailOutlined, UploadOutlined, UserOutlined } from '@ant-design/icons';
-import { db } from '../firebase/config';
+import { db } from '../supabase/config';
 import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { sendEmployeeWelcomeEmail, initEmailJS } from './EmailService';
 import '../styles/Employee Management.css'; // Reusing the same CSS
