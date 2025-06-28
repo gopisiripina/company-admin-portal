@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Form, 
   Input, 
@@ -15,7 +15,8 @@ import {
   Drawer,
   Avatar,
   message,
-  InputNumber
+  InputNumber,
+  Spin
 } from 'antd';
 import { 
   PlusOutlined, 
@@ -28,12 +29,21 @@ import {
   ClockCircleOutlined,
   StarOutlined,
   FileTextOutlined,
-  BulbOutlined
+  BulbOutlined,
+  EditOutlined,
+  DeleteOutlined
 } from '@ant-design/icons';
+import { createClient } from '@supabase/supabase-js';
 
 const { TextArea } = Input;
 const { Title, Text } = Typography;
 const { Option } = Select;
+
+// Supabase configuration
+const supabaseUrl = 'https://dsvqjsnxdxlgufzwcaub.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdnFqc254ZHhsZ3VmendjYXViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4MjgyMjMsImV4cCI6MjA2NjQwNDIyM30.YHdiWzPvU6XBXFzcDZL7LKtgjU_dv5pVVpFRF8OkEz8';
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const JobDescriptionPage = ({ userRole }) => {
   const [form] = Form.useForm();
@@ -49,29 +59,75 @@ const JobDescriptionPage = ({ userRole }) => {
   const [inputVisible, setInputVisible] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
 
-  // Dummy data for dropdowns
-  const departments = [
-    'Engineering', 'Product', 'Design', 'Marketing', 
-    'Sales', 'HR', 'Finance', 'Operations'
-  ];
+  // Dynamic data states
+  const [departments, setDepartments] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [employmentTypes, setEmploymentTypes] = useState([]);
+  const [experienceLevels, setExperienceLevels] = useState([]);
 
-  const locations = [
-    'Remote', 'New York, NY', 'San Francisco, CA', 
-    'London, UK', 'Berlin, Germany', 'Bangalore, India'
-  ];
+  // Load dynamic data from Supabase on component mount
+  useEffect(() => {
+    loadDynamicData();
+  }, []);
 
-  const experienceLevels = [
-    'Entry Level (0-2 years)',
-    'Mid Level (2-5 years)', 
-    'Senior Level (5-8 years)',
-    'Lead Level (8+ years)',
-    'Executive Level'
-  ];
+  const loadDynamicData = async () => {
+    try {
+      // Load departments
+      const { data: deptData } = await supabase
+        .from('job_descriptions')
+        .select('department')
+        .not('department', 'is', null);
+      
+      const uniqueDepartments = [...new Set(deptData?.map(item => item.department).filter(Boolean))];
+      setDepartments(uniqueDepartments.length > 0 ? uniqueDepartments : [
+        'Engineering', 'Product', 'Design', 'Marketing', 'Sales', 'HR', 'Finance', 'Operations'
+      ]);
 
-  const employmentTypes = [
-    'Full-time', 'Part-time', 'Contract', 'Internship', 'Freelance'
-  ];
+      // Load locations
+      const { data: locData } = await supabase
+        .from('job_descriptions')
+        .select('location')
+        .not('location', 'is', null);
+      
+      const uniqueLocations = [...new Set(locData?.map(item => item.location).filter(Boolean))];
+      setLocations(uniqueLocations.length > 0 ? uniqueLocations : [
+        'Remote', 'New York, NY', 'San Francisco, CA', 'London, UK', 'Berlin, Germany', 'Bangalore, India'
+      ]);
+
+      // Load employment types
+      const { data: empData } = await supabase
+        .from('job_descriptions')
+        .select('employment_type')
+        .not('employment_type', 'is', null);
+      
+      const uniqueEmpTypes = [...new Set(empData?.map(item => item.employment_type).filter(Boolean))];
+      setEmploymentTypes(uniqueEmpTypes.length > 0 ? uniqueEmpTypes : [
+        'Full-time', 'Part-time', 'Contract', 'Internship', 'Freelance'
+      ]);
+
+      // Load experience levels
+      const { data: expData } = await supabase
+        .from('job_descriptions')
+        .select('experience_level')
+        .not('experience_level', 'is', null);
+      
+      const uniqueExpLevels = [...new Set(expData?.map(item => item.experience_level).filter(Boolean))];
+      setExperienceLevels(uniqueExpLevels.length > 0 ? uniqueExpLevels : [
+        'Entry Level (0-2 years)', 'Mid Level (2-5 years)', 'Senior Level (5-8 years)', 
+        'Lead Level (8+ years)', 'Executive Level'
+      ]);
+
+    } catch (error) {
+      console.error('Error loading dynamic data:', error);
+      // Set default values if error occurs
+      setDepartments(['Engineering', 'Product', 'Design', 'Marketing', 'Sales', 'HR', 'Finance', 'Operations']);
+      setLocations(['Remote', 'New York, NY', 'San Francisco, CA', 'London, UK', 'Berlin, Germany', 'Bangalore, India']);
+      setEmploymentTypes(['Full-time', 'Part-time', 'Contract', 'Internship', 'Freelance']);
+      setExperienceLevels(['Entry Level (0-2 years)', 'Mid Level (2-5 years)', 'Senior Level (5-8 years)', 'Lead Level (8+ years)', 'Executive Level']);
+    }
+  };
 
   // Handle skill addition
   const handleSkillAdd = () => {
@@ -85,6 +141,54 @@ const JobDescriptionPage = ({ userRole }) => {
   const handleSkillRemove = (removedSkill) => {
     setSkills(skills.filter(skill => skill !== removedSkill));
   };
+
+  // AI Job Description Generator
+  const generateJobDescriptionWithAI = async () => {
+  const jobTitle = form.getFieldValue('jobTitle');
+  
+  if (!jobTitle) {
+    message.warning('Please enter a job title first');
+    return;
+  }
+
+  setAiLoading(true);
+  try {
+    const response = await fetch('open api', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer chat gpt api key here'
+      },
+      body: JSON.stringify({
+        model: 'model name here',
+        messages: [
+           {"role": "system", "content": "You are a helpful assistant that writes professional job descriptions."},
+                {"role": "user", "content": `{jobTitle: "${jobTitle}"}`},
+        ],
+        max_tokens: 500,
+        temperature: 0.7
+      })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const generatedDescription = data.choices[0].message.content;
+      
+      form.setFieldsValue({
+        description: generatedDescription
+      });
+      message.success('Job description generated successfully!');
+    } else {
+      throw new Error('Failed to generate job description');
+    }
+  } catch (error) {
+    console.error('AI Generation Error:', error);
+    message.error('Failed to generate job description. Please try again.');
+  } finally {
+    setAiLoading(false);
+  }
+};
+
 
   // Handle AI chat
   const handleAiSend = () => {
@@ -144,30 +248,56 @@ What specific role would you like help with?`;
     setChatInput('');
   };
 
-  // Handle form submission
-  const handleSubmit = async (values) => {
-    setLoading(true);
-    try {
-      // Simulate API call to save to Firestore
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      message.success('Job description saved successfully!');
-      console.log('Job Description Data:', { ...values, skills });
-      
-      // Reset form
-      form.resetFields();
-      setSkills([]);
-    } catch (error) {
-      message.error('Failed to save job description. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Handle form submission to Supabase
+const handleSubmit = async (values) => {
+  setLoading(true);
+  try {
+    const jobData = {
+      job_title: values.jobTitle,
+      department: values.department,
+      location: values.location,
+      employment_type: values.employmentType,
+      experience_level: values.experienceLevel,
+      job_description: values.description,
+      key_responsibilities: values.responsibilities,
+      qualification_requirements: values.qualifications,
+      additional_benefits: values.benefits,
+      required_skills: skills.join(', '),
+      salary_range: values.salaryMin && values.salaryMax 
+        ? `$${values.salaryMin.toLocaleString()} - $${values.salaryMax.toLocaleString()}`
+        : null,
+      updated_at: new Date().toISOString()
+    };
 
+    const { data, error } = await supabase
+      .from('job_descriptions')
+      .insert([jobData])
+      .select();
+
+    if (error) {
+      throw error;
+    }
+
+    message.success('Job description saved successfully!');
+    
+    // Reset form
+    form.resetFields();
+    setSkills([]);
+    
+    // Reload dynamic data to include new entries
+    loadDynamicData();
+    
+  } catch (error) {
+    console.error('Error saving job description:', error);
+    message.error('Failed to save job description. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <div style={{ 
       padding: '24px',
-      backgroundColor: 'transparent' // Remove animated background
+      backgroundColor: 'transparent'
     }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         {/* Header */}
@@ -257,6 +387,25 @@ What specific role would you like help with?`;
                         size="large" 
                         placeholder="Select Department"
                         style={{ borderRadius: '8px' }}
+                        dropdownRender={menu => (
+                          <div>
+                            {menu}
+                            <Divider style={{ margin: '8px 0' }} />
+                            <Space style={{ padding: '0 8px 4px' }}>
+                              <Input
+                                placeholder="Add new department"
+                                onPressEnter={e => {
+                                  const value = e.target.value.trim();
+                                  if (value && !departments.includes(value)) {
+                                    setDepartments([...departments, value]);
+                                    form.setFieldsValue({ department: value });
+                                  }
+                                  e.target.value = '';
+                                }}
+                              />
+                            </Space>
+                          </div>
+                        )}
                       >
                         {departments.map(dept => (
                           <Option key={dept} value={dept}>{dept}</Option>
@@ -273,6 +422,25 @@ What specific role would you like help with?`;
                       <Select 
                         size="large" 
                         placeholder="Select Location"
+                        dropdownRender={menu => (
+                          <div>
+                            {menu}
+                            <Divider style={{ margin: '8px 0' }} />
+                            <Space style={{ padding: '0 8px 4px' }}>
+                              <Input
+                                placeholder="Add new location"
+                                onPressEnter={e => {
+                                  const value = e.target.value.trim();
+                                  if (value && !locations.includes(value)) {
+                                    setLocations([...locations, value]);
+                                    form.setFieldsValue({ location: value });
+                                  }
+                                  e.target.value = '';
+                                }}
+                              />
+                            </Space>
+                          </div>
+                        )}
                       >
                         {locations.map(loc => (
                           <Option key={loc} value={loc}>
@@ -292,7 +460,29 @@ What specific role would you like help with?`;
                       name="employmentType"
                       rules={[{ required: true, message: 'Please select employment type' }]}
                     >
-                      <Select size="large" placeholder="Select Type">
+                      <Select 
+                        size="large" 
+                        placeholder="Select Type"
+                        dropdownRender={menu => (
+                          <div>
+                            {menu}
+                            <Divider style={{ margin: '8px 0' }} />
+                            <Space style={{ padding: '0 8px 4px' }}>
+                              <Input
+                                placeholder="Add new employment type"
+                                onPressEnter={e => {
+                                  const value = e.target.value.trim();
+                                  if (value && !employmentTypes.includes(value)) {
+                                    setEmploymentTypes([...employmentTypes, value]);
+                                    form.setFieldsValue({ employmentType: value });
+                                  }
+                                  e.target.value = '';
+                                }}
+                              />
+                            </Space>
+                          </div>
+                        )}
+                      >
                         {employmentTypes.map(type => (
                           <Option key={type} value={type}>
                             <ClockCircleOutlined style={{ marginRight: '8px' }} />
@@ -308,7 +498,29 @@ What specific role would you like help with?`;
                       name="experienceLevel"
                       rules={[{ required: true, message: 'Please select experience level' }]}
                     >
-                      <Select size="large" placeholder="Select Level">
+                      <Select 
+                        size="large" 
+                        placeholder="Select Level"
+                        dropdownRender={menu => (
+                          <div>
+                            {menu}
+                            <Divider style={{ margin: '8px 0' }} />
+                            <Space style={{ padding: '0 8px 4px' }}>
+                              <Input
+                                placeholder="Add new experience level"
+                                onPressEnter={e => {
+                                  const value = e.target.value.trim();
+                                  if (value && !experienceLevels.includes(value)) {
+                                    setExperienceLevels([...experienceLevels, value]);
+                                    form.setFieldsValue({ experienceLevel: value });
+                                  }
+                                  e.target.value = '';
+                                }}
+                              />
+                            </Space>
+                          </div>
+                        )}
+                      >
                         {experienceLevels.map(level => (
                           <Option key={level} value={level}>
                             <StarOutlined style={{ marginRight: '8px' }} />
@@ -402,17 +614,42 @@ What specific role would you like help with?`;
                   Detailed Information
                 </Title>
 
-                <Form.Item
-                  label="Job Description"
-                  name="description"
-                  rules={[{ required: true, message: 'Please enter job description' }]}
-                >
-                  <TextArea
-                    rows={6}
-                    placeholder="Provide a comprehensive overview of the role, company culture, and what makes this position exciting..."
-                    style={{ borderRadius: '8px' }}
-                  />
-                </Form.Item>
+<Form.Item
+  label={
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <span>Job Description</span>
+      <Button
+        type="text"
+        size="small"
+        shape="circle"
+        icon={aiLoading ? <Spin size="small" /> : <RobotOutlined />}
+        onClick={generateJobDescriptionWithAI}
+        loading={aiLoading}
+        style={{
+          color: '#667eea',
+          width: '24px',
+          height: '24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '12px',
+          background: 'rgba(102, 126, 234, 0.1)',
+          border: '1px solid rgba(102, 126, 234, 0.3)'
+        }}
+        title="Generate with AI"
+      />
+    </div>
+  }
+  name="description"
+  rules={[{ required: true, message: 'Please enter job description' }]}
+>
+  <TextArea
+    rows={6}
+    placeholder="Click the AI button above to generate or enter your job description manually..."
+    style={{ borderRadius: '8px' }}
+  />
+</Form.Item>
+
 
                 <Form.Item
                   label="Key Responsibilities"
