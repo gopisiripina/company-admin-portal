@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import { Search, Bell, Users, DollarSign, ShoppingCart, TrendingUp, Calendar, Clock, Star, ArrowUpRight, ArrowDownRight, Activity, Zap } from 'lucide-react';
-import '../styles/Dashboard.css';
-import ProfileSection from './ProfileSection';
-import AdminManagement from './AdminManagement'; // Import AdminManagement instead of AdminPopup
-import EmployeeManagement from './EmployeeManagement';
-import ProjectTimeline from './ProjectTimeline';
-import ProjectBudgeting from './ProjectBudgeting';
-import HRManagement from './HRManagement';
-import JobDescriptionPage from './JobDescriptionPage';
-import JobPostPage from './JobPostPage';
-import JobApplyPage from './JobApplyPage';
-import ResumeListPage from './ResumeListpage'; // Import ResumeListPage
-import InterviewManagementPage from './InterviewManagementPage'; // Import ResumeListPage
+import './Dashboard.css';
+import ProfileSection from '../profile/ProfileSection';
+import AdminManagement from '../admin/AdminManagement';
+import EmployeeManagement from '../employee/EmployeeManagement';
+import ProjectTimeline from '../project/ProjectTimeline';
+import ProjectBudgeting from '../project/ProjectBudgeting';
+import HRManagement from '../hr/HRManagement';
+import JobDescriptionPage from '../job/JobDescriptionPage';
+import JobPostPage from '../job/JobPostPage';
+import JobApplyPage from '../job/JobApplyPage';
+import ResumeListPage from '../resume/ResumeListPage';
+import InterviewManagementPage from '../interview/InterviewManagementPage';// Import ResumeListPage
 
 
 

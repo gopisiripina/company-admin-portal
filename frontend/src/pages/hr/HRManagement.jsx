@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Table, Button, Modal, Form, Input, Space, Popconfirm, Card, Statistic, Row, Col, message, Avatar, Tag, Typography, Switch } from 'antd';
 import { UserAddOutlined, EditOutlined, DeleteOutlined, SearchOutlined, TeamOutlined, MailOutlined, UploadOutlined, UserOutlined } from '@ant-design/icons';
-import { db } from '../firebase/config';
-import { collection, addDoc, updateDoc, deleteDoc, doc, query, where, getDocs, orderBy } from 'firebase/firestore';
-import { sendEmployeeWelcomeEmail, initEmailJS } from './EmailService';
-import '../styles/Employee Management.css'; // Reusing the same CSS
+import { supabase, supabaseAdmin } from '../../supabase/config';
+import { sendEmployeeWelcomeEmail, initEmailJS } from '../email/EmailService';
+import '../employee/Employee Management.css';
 import { Upload, message as antMessage } from 'antd';
 const { Title, Text } = Typography;
 const { Search } = Input;
+
 
 // Mobile HR Card Component
 const MobileHRCard = React.memo(({ hr, onEdit, onDelete }) => (
@@ -56,10 +56,10 @@ const MobileHRCard = React.memo(({ hr, onEdit, onDelete }) => (
             flexShrink: 0
           }}
           size="large"
-          src={hr.profileImage}
-          icon={!hr.profileImage && <UserOutlined />}
+          src={hr.profileimage}
+          icon={!hr.profileimage && <UserOutlined />}
         >
-          {!hr.profileImage && hr.name.charAt(0).toUpperCase()}
+          {!hr.profileimage && hr.name.charAt(0).toUpperCase()}
         </Avatar>
         <div style={{ 
           flex: 1,
@@ -79,9 +79,9 @@ const MobileHRCard = React.memo(({ hr, onEdit, onDelete }) => (
           }}>
             <MailOutlined /> {hr.email}
           </Text>
-          {hr.employeeId && (
+          {hr.employeeid && (
             <Text type="secondary" style={{ fontSize: '12px' }}>
-              ID: {hr.employeeId}
+              ID: {hr.employeeid}
             </Text>
           )}
         </div>
@@ -93,15 +93,15 @@ const MobileHRCard = React.memo(({ hr, onEdit, onDelete }) => (
         justifyContent: 'flex-start'
       }}>
         <Tag color="orange" size="small">{hr.role}</Tag>
-        <Tag color={hr.isActive ? 'green' : 'red'} size="small">
-          {hr.isActive ? 'Active' : 'Inactive'}
+        <Tag color={hr.isactive ? 'green' : 'red'} size="small">
+          {hr.isactive ? 'Active' : 'Inactive'}
         </Tag>
-        {hr.employeeId && (
-          <Tag color="geekblue" size="small">{hr.employeeId}</Tag>
+        {hr.employeeid && (
+          <Tag color="geekblue" size="small">{hr.employeeid}</Tag>
         )}
-        {hr.createdAt && (
+        {hr.createdat && (
           <Tag color="purple" size="small">
-            {hr.createdAt?.toDate ? hr.createdAt.toDate().toLocaleDateString() : 'Unknown'}
+            {new Date(hr.createdat).toLocaleDateString()}
           </Tag>
         )}
       </div>
@@ -122,11 +122,11 @@ const HRFormModal = React.memo(({ isOpen, onClose, editingHR, onSuccess }) => {
           form.setFieldsValue({
             name: editingHR.name,
             email: editingHR.email,
-            employeeId: editingHR.employeeId,
+            employeeId: editingHR.employeeid,
             role: editingHR.role,
-            isActive: editingHR.isActive !== undefined ? editingHR.isActive : true
+            isactive: editingHR.isactive !== undefined ? editingHR.isactive : false
           });
-          setProfileImage(editingHR.profileImage || null);
+          setProfileImage(editingHR.profileimage || null);
         }, 0);
       } else {
         form.resetFields();
@@ -179,34 +179,52 @@ const HRFormModal = React.memo(({ isOpen, onClose, editingHR, onSuccess }) => {
     
     try {
       if (editingHR) {
-        const docRef = doc(db, 'users', editingHR.id);
         const updateData = {
           name: values.name,
           email: values.email,
           role: values.role || 'hr',
-          employeeId: values.employeeId,
-          isActive: values.isActive !== undefined ? values.isActive : true,
-          profileImage: profileImage,
-          updatedAt: new Date()
+          employeeid: values.employeeId,
+          isactive: values.isActive !== undefined ? values.isActive : false,
+          profileimage: profileImage,
+          updatedat: new Date().toISOString()
         };
         
-        await updateDoc(docRef, updateData);
+        const { data, error } = await supabaseAdmin
+          .from('users')
+          .update(updateData)
+          .eq('id', editingHR.id)
+          .select();
+
+        if (error) {
+          console.error('Supabase update error:', error);
+          throw error;
+        }
+        
         message.success('HR updated successfully');
       } else {
         const password = generatePassword();
         const hrData = {
           name: values.name,
           email: values.email,
-          employeeId: values.employeeId,
+          employeeid: values.employeeId,
           role: 'hr',
-          isActive: values.isActive !== undefined ? values.isActive : true,
-          profileImage: profileImage,
+          isactive: values.isActive !== undefined ? values.isActive : false,
+          profileimage: profileImage,
           password,
-          createdAt: new Date(),
-          updatedAt: new Date()
+          createdat: new Date().toISOString(),
+          updatedat: new Date().toISOString()
         };
         
-        await addDoc(collection(db, 'users'), hrData);
+        const { data, error } = await supabaseAdmin
+          .from('users')
+          .insert([hrData])
+          .select();
+
+        if (error) {
+          console.error('Supabase insert error:', error);
+          throw error;
+        }
+        
         message.success('HR created successfully!');
         
         try {
@@ -235,13 +253,11 @@ const HRFormModal = React.memo(({ isOpen, onClose, editingHR, onSuccess }) => {
     } catch (error) {
       console.error('Error saving HR:', error);
       
-      const errorMessages = {
-        'permission-denied': 'Permission denied. Check your Firestore security rules.',
-        'unavailable': 'Firebase service is currently unavailable. Please try again.',
-        'invalid-argument': 'Invalid data provided. Please check your inputs.'
-      };
-      
-      message.error(errorMessages[error.code] || `Error saving HR: ${error.message}`);
+      if (error.code === '23505') {
+        message.error('An HR with this email already exists.');
+      } else {
+        message.error(`Error saving HR: ${error.message || 'Unknown error'}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -260,7 +276,7 @@ const HRFormModal = React.memo(({ isOpen, onClose, editingHR, onSuccess }) => {
         form={form}
         layout="vertical"
         onFinish={handleSubmit}
-        initialValues={{ role: 'hr', isActive: true }}
+        initialValues={{ role: 'hr', isActive: false }}
       >
         {/* Profile Image Upload */}
         <Form.Item
@@ -334,17 +350,6 @@ const HRFormModal = React.memo(({ isOpen, onClose, editingHR, onSuccess }) => {
           />
         </Form.Item>
 
-        <Form.Item
-          name="isActive"
-          label="Active Status"
-          valuePropName="checked"
-        >
-          <Switch 
-            checkedChildren="Active" 
-            unCheckedChildren="Inactive"
-            defaultChecked={true}
-          />
-        </Form.Item>
 
         <Form.Item>
           <Space>
@@ -374,16 +379,19 @@ const HRManagement = ({ userRole }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingHR, setEditingHR] = useState(null);
+  const [initialFetchComplete, setInitialFetchComplete] = useState(false);
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
     total: 0
   });
 
+  
+
   // Use useMemo for calculations
   const { totalHRs, activeHRs, inactiveHRs } = useMemo(() => {
     const total = allHRs.length;
-    const active = allHRs.filter(hr => hr.isActive === true).length;
+    const active = allHRs.filter(hr => hr.isactive === true).length;
     const inactive = total - active;
     
     return { totalHRs: total, activeHRs: active, inactiveHRs: inactive };
@@ -400,38 +408,48 @@ const HRManagement = ({ userRole }) => {
 
   // Fetch all HRs
   const fetchAllHRs = useCallback(async () => {
-    try {
-      const q = query(
-        collection(db, 'users'),
-        where('role', '==', 'hr'),
-        orderBy('createdAt', 'desc')
-      );
-      
-      const querySnapshot = await getDocs(q);
-      const hrList = querySnapshot.docs.map(doc => ({ 
-        id: doc.id, 
-        ...doc.data() 
-      }));
-      
-      setAllHRs(hrList);
-      return hrList;
-    } catch (error) {
-      console.error('Error fetching HRs:', error);
-      message.error(`Error loading HRs: ${error.message}`);
-      return [];
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .select(`
+        id,
+        name,
+        email,
+        role,
+        employeeid,
+        isactive,
+        profileimage,
+        createdat,
+        updatedat
+      `)
+      .eq('role', 'hr')
+      .order('createdat', { ascending: false });
+    
+    if (error) {
+      console.error('Fetch error:', error);
+      throw error;
     }
-  }, []);
+    
+    setAllHRs(data || []);
+    setInitialFetchComplete(true); // Add this line
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching HRs:', error);
+    message.error(`Error loading HRs: ${error.message}`);
+    setInitialFetchComplete(true); // Add this line even on error
+    return [];
+  }
+}, []);
 
-  // Apply filters and pagination
-  const applyFiltersAndPagination = useCallback((hrList, search = '', page = 1, pageSize = 10) => {
+const applyFiltersAndPagination = useCallback((hrList, search = '', page = 1, pageSize = 10) => {
     let filteredHRs = [...hrList];
     
     if (search) {
       const searchLower = search.toLowerCase();
       filteredHRs = filteredHRs.filter(hr =>
-        hr.name.toLowerCase().includes(searchLower) ||
-        hr.email.toLowerCase().includes(searchLower) ||
-        (hr.employeeId && hr.employeeId.toLowerCase().includes(searchLower))
+        hr.name?.toLowerCase().includes(searchLower) ||
+        hr.email?.toLowerCase().includes(searchLower) ||
+        (hr.employeeid && hr.employeeid.toLowerCase().includes(searchLower))
       );
     }
     
@@ -449,24 +467,33 @@ const HRManagement = ({ userRole }) => {
     return paginatedHRs;
   }, []);
 
-  // Fetch HRs with pagination
-  const fetchHRs = useCallback(async (page = 1, pageSize = 10, search = '') => {
-    try {
-      setLoading(true);
-      
-      let hrList = allHRs;
-      if (hrList.length === 0) {
-        hrList = await fetchAllHRs();
-      }
-      
-      applyFiltersAndPagination(hrList, search, page, pageSize);
-    } catch (error) {
-      console.error('Error in fetchHRs:', error);
-      message.error(`Error loading HRs: ${error.message}`);
-    } finally {
-      setLoading(false);
+
+const fetchHRs = useCallback(async (page = 1, pageSize = 10, search = '') => {
+  try {
+    setLoading(true);
+    const hrList = await fetchAllHRs();
+    applyFiltersAndPagination(hrList, search, page, pageSize);
+  } catch (error) {
+    console.error('Error fetching HRs:', error);
+  } finally {
+    setLoading(false);
+  }
+}, [fetchAllHRs, applyFiltersAndPagination]);
+
+// Initialize component
+useEffect(() => {
+  if (userRole === 'superadmin' || userRole === 'admin') {
+    const emailInitialized = initEmailJS();
+    if (!emailInitialized) {
+      console.warn('EmailJS initialization failed - emails may not work');
     }
-  }, [allHRs, fetchAllHRs, applyFiltersAndPagination]);
+    
+    fetchHRs();
+  }
+}, [userRole, fetchHRs]);
+
+  // Apply filters and pagination
+  
 
   // Refresh data
   const refreshData = useCallback(async () => {
@@ -483,15 +510,15 @@ const HRManagement = ({ userRole }) => {
 
   // Initialize component
   useEffect(() => {
-    if (userRole === 'superadmin' || userRole === 'admin') {
-      const emailInitialized = initEmailJS();
-      if (!emailInitialized) {
-        console.warn('EmailJS initialization failed - emails may not work');
-      }
-      
-      fetchHRs();
+  if (userRole === 'superadmin' || userRole === 'admin') {
+    const emailInitialized = initEmailJS();
+    if (!emailInitialized) {
+      console.warn('EmailJS initialization failed - emails may not work');
     }
-  }, [userRole, fetchHRs]);
+    
+    fetchHRs(); // This is causing the error
+  }
+}, [userRole, fetchHRs]);
 
   // Event handlers
   const handleTableChange = useCallback((paginationInfo) => {
@@ -511,12 +538,22 @@ const HRManagement = ({ userRole }) => {
   const handleDelete = useCallback(async (hrId) => {
     try {
       setLoading(true);
-      await deleteDoc(doc(db, 'users', hrId));
+      const { error } = await supabaseAdmin
+        .from('users')
+        .delete()
+        .eq('id', hrId)
+        .eq('role', 'hr');
+
+      if (error) {
+        console.error('Delete error:', error);
+        throw error;
+      }
+      
       message.success('HR deleted successfully');
       await refreshData();
     } catch (error) {
       console.error('Error deleting HR:', error);
-      message.error('Error deleting HR');
+      message.error('Error deleting HR: ' + (error.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }
@@ -552,10 +589,10 @@ const HRManagement = ({ userRole }) => {
               flexShrink: 0
             }}
             size={isMobile ? "default" : "large"}
-            src={record.profileImage}
-            icon={!record.profileImage && <UserOutlined />}
+            src={record.profileimage}
+            icon={!record.profileimage && <UserOutlined />}
           >
-            {!record.profileImage && text.charAt(0).toUpperCase()}
+            {!record.profileimage && text.charAt(0).toUpperCase()}
           </Avatar>
           <div style={{ 
             flex: 1,
@@ -587,11 +624,11 @@ const HRManagement = ({ userRole }) => {
                 justifyContent: 'flex-start'
               }}>
                 <Tag color="orange" size="small">{record.role}</Tag>
-                <Tag color={record.isActive ? 'green' : 'red'} size="small">
-                  {record.isActive ? 'Active' : 'Inactive'}
+                <Tag color={record.isactive ? 'green' : 'red'} size="small">
+                  {record.isactive ? 'Active' : 'Inactive'}
                 </Tag>
-                {record.employeeId && (
-                  <Tag color="geekblue" size="small">{record.employeeId}</Tag>
+                {record.employeeid && (
+                  <Tag color="geekblue" size="small">{record.employeeid}</Tag>
                 )}
               </div>
             )}
@@ -601,7 +638,7 @@ const HRManagement = ({ userRole }) => {
     },
     {
       title: 'HR ID',
-      dataIndex: 'employeeId',
+      dataIndex: 'employeeid',
       key: 'employeeId',
       width: 120,
       render: (employeeId) => (
@@ -619,7 +656,7 @@ const HRManagement = ({ userRole }) => {
     },
     {
       title: 'Status',
-      dataIndex: 'isActive',
+      dataIndex: 'isactive',
       key: 'isActive',
       width: 100,
       render: (isActive) => (
@@ -631,11 +668,11 @@ const HRManagement = ({ userRole }) => {
     },
     {
       title: 'Created Date',
-      dataIndex: 'createdAt',
+      dataIndex: 'createdat',
       key: 'createdAt',
       width: 120,
       render: (date) => (
-        date?.toDate ? date.toDate().toLocaleDateString() : 'Unknown'
+        date ? new Date(date).toLocaleDateString() : 'Unknown'
       ),
       responsive: ['xl'],
     },
@@ -777,43 +814,47 @@ const HRManagement = ({ userRole }) => {
                 </Text>
               </div>
               {loading ? (
-                <div style={{ textAlign: 'center', padding: '40px' }}>
-                  <Text>Loading HRs...</Text>
-                </div>
-              ) : (
-                <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
-                  {hrs.map((hr) => (
-                    <MobileHRCard
-                      key={hr.id}
-                      hr={hr}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                      loading={loading}
-                    />
-                  ))}
-                </div>
-              )}
+  <div style={{ textAlign: 'center', padding: '40px' }}>
+    <Text>Loading HRs...</Text>
+  </div>
+) : hrs.length === 0 ? (
+  <div style={{ textAlign: 'center', padding: '40px' }}>
+    <Text type="secondary">No HRs found</Text>
+  </div>
+) : (
+  <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
+    {hrs.map((hr) => (
+      <MobileHRCard
+        key={hr.id}
+        hr={hr}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        loading={loading}
+      />
+    ))}
+  </div>
+)}
               
               {/* Mobile Pagination */}
               <div style={{ textAlign: 'center', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #f0f0f0' }}>
                 <Space>
                   <Button 
-                    size="small"
-                    disabled={pagination.current === 1}
-                    onClick={() => fetchHRs(pagination.current - 1, pagination.pageSize, searchQuery)}
-                  >
-                    Previous
-                  </Button>
+  size="small"
+  disabled={pagination.current === 1}
+  onClick={() => handleTableChange({ current: pagination.current - 1, pageSize: pagination.pageSize })}
+>
+  Previous
+</Button>
                   <Text style={{ fontSize: '12px' }}>
                     Page {pagination.current} of {Math.ceil(pagination.total / pagination.pageSize)}
                   </Text>
                   <Button 
-                    size="small"
-                    disabled={pagination.current >= Math.ceil(pagination.total / pagination.pageSize)}
-                    onClick={() => fetchHRs(pagination.current + 1, pagination.pageSize, searchQuery)}
-                  >
-                    Next
-                  </Button>
+  size="small"
+  disabled={pagination.current >= Math.ceil(pagination.total / pagination.pageSize)}
+  onClick={() => handleTableChange({ current: pagination.current + 1, pageSize: pagination.pageSize })}
+>
+  Next
+</Button>
                 </Space>
               </div>
             </Card>
@@ -821,22 +862,23 @@ const HRManagement = ({ userRole }) => {
             /* Desktop Table */
             <Card className="animated-card-delayed-2">
               <Table
-                columns={columns}
-                dataSource={hrs}
-                rowKey="id"
-                loading={loading}
-                pagination={{
-                  ...pagination,
-                  showSizeChanger: true,
-                  showQuickJumper: true,
-                  showTotal: (total, range) =>
-                    `${range[0]}-${range[1]} of ${total} HRs`,
-                  pageSizeOptions: ['10', '20', '50', '100'],
-                }}
-                onChange={handleTableChange}
-                scroll={{ x: 800 }}
-                size="middle"
-              />
+  columns={columns}
+  dataSource={hrs}
+  rowKey="id"
+  loading={loading}
+  locale={{ emptyText: 'No HRs found' }}
+  pagination={{
+    ...pagination,
+    showSizeChanger: true,
+    showQuickJumper: true,
+    showTotal: (total, range) =>
+      `${range[0]}-${range[1]} of ${total} HRs`,
+    pageSizeOptions: ['10', '20', '50', '100'],
+  }}
+  onChange={handleTableChange}
+  scroll={{ x: 800 }}
+  size="middle"
+/>
             </Card>
           )}
 

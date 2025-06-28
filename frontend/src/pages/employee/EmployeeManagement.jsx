@@ -15,7 +15,8 @@ import {
   Avatar,
   Tag,
   Typography,
-  Switch
+  Switch,
+  Upload
 } from 'antd';
 import { 
   UserAddOutlined, 
@@ -24,23 +25,13 @@ import {
   SearchOutlined,
   TeamOutlined,
   MailOutlined,
-   UploadOutlined, UserOutlined
+  UploadOutlined, 
+  UserOutlined
 } from '@ant-design/icons';
-import { db } from '../firebase/config';
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  query, 
-  where, 
-  getDocs, 
-  orderBy
-} from 'firebase/firestore';
-import { sendEmployeeWelcomeEmail, initEmailJS } from './EmailService';
-import '../styles/Employee Management.css';
-import { Upload, message as antMessage } from 'antd';
+import { supabase, supabaseAdmin } from '../../supabase/config';
+import { sendEmployeeWelcomeEmail, initEmailJS } from '../email/EmailService';
+import './Employee Management.css';
+
 const { Title, Text } = Typography;
 const { Search } = Input;
 
@@ -49,6 +40,7 @@ const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete }) => (
   <Card 
     size="small" 
     className="mobile-employee-card"
+    style={{ marginBottom: '12px' }}
     actions={[
       <Button 
         key="edit"
@@ -79,68 +71,68 @@ const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete }) => (
     ]}
   >
     <div className="mobile-employee-info">
-  <div style={{ 
-    display: 'flex', 
-    alignItems: 'flex-start',  // Changed alignment
-    gap: '12px',
-    marginBottom: '12px'
-  }}>
-    <Avatar 
-      style={{ 
-        backgroundColor: '#1F4842',
-        flexShrink: 0
-      }}
-      size="large"
-      src={employee.profileImage}
-      icon={!employee.profileImage && <UserOutlined />}
-    >
-      {!employee.profileImage && employee.name.charAt(0).toUpperCase()}
-    </Avatar>
-    <div style={{ 
-      flex: 1,
-      textAlign: 'left'  // Ensure left alignment
-    }}>
       <div style={{ 
-        fontWeight: 600, 
-        fontSize: '14px',
-        marginBottom: '4px'
+        display: 'flex', 
+        alignItems: 'flex-start',
+        gap: '12px',
+        marginBottom: '12px'
       }}>
-        {employee.name}
+        <Avatar 
+          style={{ 
+            backgroundColor: '#1F4842',
+            flexShrink: 0
+          }}
+          size="large"
+          src={employee.profileimage}
+          icon={!employee.profileimage && <UserOutlined />}
+        >
+          {!employee.profileimage && employee.name?.charAt(0)?.toUpperCase()}
+        </Avatar>
+        <div style={{ 
+          flex: 1,
+          textAlign: 'left'
+        }}>
+          <div style={{ 
+            fontWeight: 600, 
+            fontSize: '14px',
+            marginBottom: '4px'
+          }}>
+            {employee.name}
+          </div>
+          <Text type="secondary" style={{ 
+            fontSize: '12px',
+            display: 'block',
+            marginBottom: '4px'
+          }}>
+            <MailOutlined /> {employee.email}
+          </Text>
+          {employee.employeeid && (
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              ID: {employee.employeeid}
+            </Text>
+          )}
+        </div>
       </div>
-      <Text type="secondary" style={{ 
-        fontSize: '12px',
-        display: 'block',
-        marginBottom: '4px'
+      <div style={{ 
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '6px',
+        justifyContent: 'flex-start'
       }}>
-        <MailOutlined /> {employee.email}
-      </Text>
-      {employee.employeeId && (
-        <Text type="secondary" style={{ fontSize: '12px' }}>
-          ID: {employee.employeeId}
-        </Text>
-      )}
+        <Tag color="blue" size="small">{employee.role}</Tag>
+        <Tag color={employee.isactive ? 'green' : 'red'} size="small">
+          {employee.isactive ? 'Active' : 'Inactive'}
+        </Tag>
+        {employee.employeeid && (
+          <Tag color="geekblue" size="small">{employee.employeeid}</Tag>
+        )}
+        {employee.createdat && (
+          <Tag color="purple" size="small">
+            {new Date(employee.createdat).toLocaleDateString()}
+          </Tag>
+        )}
+      </div>
     </div>
-  </div>
-  <div style={{ 
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '6px',
-    justifyContent: 'flex-start'  // Left align tags
-  }}>
-    <Tag color="blue" size="small">{employee.role}</Tag>
-    <Tag color={employee.isActive ? 'green' : 'red'} size="small">
-      {employee.isActive ? 'Active' : 'Inactive'}
-    </Tag>
-    {employee.employeeId && (
-      <Tag color="geekblue" size="small">{employee.employeeId}</Tag>
-    )}
-    {employee.createdAt && (
-      <Tag color="purple" size="small">
-        {employee.createdAt?.toDate ? employee.createdAt.toDate().toLocaleDateString() : 'Unknown'}
-      </Tag>
-    )}
-  </div>
-</div>
   </Card>
 ));
 
@@ -157,14 +149,15 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
           form.setFieldsValue({
             name: editingEmployee.name,
             email: editingEmployee.email,
-            employeeId: editingEmployee.employeeId,
+            employeeId: editingEmployee.employeeid,
             role: editingEmployee.role,
-            isActive: editingEmployee.isActive !== undefined ? editingEmployee.isActive : true
+            isActive: editingEmployee.isactive !== undefined ? editingEmployee.isactive : true
           });
-          setProfileImage(editingEmployee.profileImage || null);
+          setProfileImage(editingEmployee.profileimage || null);
         }, 0);
       } else {
         form.resetFields();
+        form.setFieldsValue({ isActive: false });
         setProfileImage(null);
       }
     }
@@ -178,15 +171,14 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
   }, [isOpen, form]);
 
   const generatePassword = useCallback(() => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
     let password = '';
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 12; i++) {
       password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return password;
   }, []);
 
-  // Image upload handler
   const handleImageUpload = useCallback((file) => {
     const isJpgOrPng = file.type === 'image/jpeg' || file.type === 'image/png' || file.type === 'image/jpg';
     if (!isJpgOrPng) {
@@ -206,7 +198,7 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
     };
     reader.readAsDataURL(file);
     
-    return false; // Prevent default upload
+    return false;
   }, []);
 
   const handleSubmit = useCallback(async (values) => {
@@ -214,37 +206,58 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
     
     try {
       if (editingEmployee) {
-        const docRef = doc(db, 'users', editingEmployee.id);
+        // Update existing employee
         const updateData = {
           name: values.name,
           email: values.email,
           role: values.role || 'employee',
-          employeeId: values.employeeId,
-          isActive: false,
-          profileImage: profileImage,
-          updatedAt: new Date()
+          employeeid: values.employeeId,
+          isactive: values.isActive,
+          profileimage: profileImage,
+          updatedat: new Date().toISOString()
         };
         
-        await updateDoc(docRef, updateData);
+        const { data, error } = await supabaseAdmin
+          .from('users')
+          .update(updateData)
+          .eq('id', editingEmployee.id)
+          .select();
+
+        if (error) {
+          console.error('Supabase update error:', error);
+          throw error;
+        }
+        
         message.success('Employee updated successfully');
       } else {
+        // Create new employee
         const password = generatePassword();
         const employeeData = {
           name: values.name,
           email: values.email,
-          employeeId: values.employeeId,
+          employeeid: values.employeeId,
           role: 'employee',
-          isActive: false,
-          isFirstLogin: true,
-          profileImage: profileImage,
-          password,
-          createdAt: new Date(),
-          updatedAt: new Date()
+          isactive: values.isActive !== undefined ? values.isActive : false,
+          isfirstlogin: true,
+          profileimage: profileImage,
+          password: password, // In production, hash this password
+          createdat: new Date().toISOString(),
+          updatedat: new Date().toISOString()
         };
         
-        await addDoc(collection(db, 'users'), employeeData);
+        const { data, error } = await supabaseAdmin
+          .from('users')
+          .insert([employeeData])
+          .select();
+
+        if (error) {
+          console.error('Supabase insert error:', error);
+          throw error;
+        }
+        
         message.success('Employee created successfully!');
         
+        // Send welcome email
         try {
           const emailResult = await sendEmployeeWelcomeEmail({
             name: values.name,
@@ -271,13 +284,11 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
     } catch (error) {
       console.error('Error saving employee:', error);
       
-      const errorMessages = {
-        'permission-denied': 'Permission denied. Check your Firestore security rules.',
-        'unavailable': 'Firebase service is currently unavailable. Please try again.',
-        'invalid-argument': 'Invalid data provided. Please check your inputs.'
-      };
-      
-      message.error(errorMessages[error.code] || `Error saving employee: ${error.message}`);
+      if (error.code === '23505') {
+        message.error('An employee with this email already exists.');
+      } else {
+        message.error(`Error saving employee: ${error.message || 'Unknown error'}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -289,16 +300,15 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
       open={isOpen}
       onCancel={onClose}
       footer={null}
-      destroyOnClose
+      destroyOnHidden
       className="employee-form-modal"
     >
       <Form
         form={form}
         layout="vertical"
         onFinish={handleSubmit}
-        initialValues={{ role: 'employee', isActive: true }}
+        initialValues={{ role: 'employee', isActive: false }}
       >
-        {/* Profile Image Upload */}
         <Form.Item
           label="Profile Image"
           extra="Upload JPG/PNG files, max 2MB"
@@ -354,22 +364,21 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
         </Form.Item>
 
         <Form.Item
-  name="employeeId"
-  label="Employee ID"
-  rules={[
-    { required: true, message: 'Please enter employee ID' },
-    { pattern: /^[A-Z0-9]+$/, message: 'Employee ID should contain only uppercase letters and numbers' }
-  ]}
->
-  <Input 
-    placeholder="Enter employee ID (e.g., EMP001)" 
-    style={{ textTransform: 'uppercase' }}
-    onChange={(e) => {
-      // Auto-convert to uppercase
-      e.target.value = e.target.value.toUpperCase();
-    }}
-  />
-</Form.Item>
+          name="employeeId"
+          label="Employee ID"
+          rules={[
+            { required: true, message: 'Please enter employee ID' },
+            { pattern: /^[A-Z0-9]+$/, message: 'Employee ID should contain only uppercase letters and numbers' }
+          ]}
+        >
+          <Input 
+            placeholder="Enter employee ID (e.g., EMP001)" 
+            style={{ textTransform: 'uppercase' }}
+            onChange={(e) => {
+              e.target.value = e.target.value.toUpperCase();
+            }}
+          />
+        </Form.Item>
 
 
         <Form.Item>
@@ -406,16 +415,14 @@ const EmployeeManagement = ({ userRole }) => {
     total: 0
   });
 
-  // Use useMemo for calculations
   const { totalEmployees, activeEmployees, inactiveEmployees } = useMemo(() => {
     const total = allEmployees.length;
-    const active = allEmployees.filter(employee => employee.isActive === true).length;
+    const active = allEmployees.filter(employee => employee.isactive === true).length;
     const inactive = total - active;
     
     return { totalEmployees: total, activeEmployees: active, inactiveEmployees: inactive };
   }, [allEmployees]);
 
-  // Check if mobile screen
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
   useEffect(() => {
@@ -424,23 +431,31 @@ const EmployeeManagement = ({ userRole }) => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Fetch all employees
   const fetchAllEmployees = useCallback(async () => {
     try {
-      const q = query(
-        collection(db, 'users'),
-        where('role', '==', 'employee'),
-        orderBy('createdat', 'desc')
-      );
+      const { data, error } = await supabaseAdmin
+        .from('users')
+        .select(`
+          id,
+          name,
+          email,
+          role,
+          employeeid,
+          isactive,
+          profileimage,
+          createdat,
+          updatedat
+        `)
+        .eq('role', 'employee')
+        .order('createdat', { ascending: false });
       
-      const querySnapshot = await getDocs(q);
-      const employeeList = querySnapshot.docs.map(doc => ({ 
-        id: doc.id, 
-        ...doc.data() 
-      }));
+      if (error) {
+        console.error('Fetch error:', error);
+        throw error;
+      }
       
-      setAllEmployees(employeeList);
-      return employeeList;
+      setAllEmployees(data || []);
+      return data || [];
     } catch (error) {
       console.error('Error fetching employees:', error);
       message.error(`Error loading employees: ${error.message}`);
@@ -448,18 +463,17 @@ const EmployeeManagement = ({ userRole }) => {
     }
   }, []);
 
-  // Apply filters and pagination
   const applyFiltersAndPagination = useCallback((employeeList, search = '', page = 1, pageSize = 10) => {
     let filteredEmployees = [...employeeList];
     
     if (search) {
-  const searchLower = search.toLowerCase();
-  filteredEmployees = filteredEmployees.filter(employee =>
-    employee.name.toLowerCase().includes(searchLower) ||
-    employee.email.toLowerCase().includes(searchLower) ||
-    (employee.employeeId && employee.employeeId.toLowerCase().includes(searchLower))  // Add this line
-  );
-}
+      const searchLower = search.toLowerCase();
+      filteredEmployees = filteredEmployees.filter(employee =>
+        employee.name?.toLowerCase().includes(searchLower) ||
+        employee.email?.toLowerCase().includes(searchLower) ||
+        (employee.employeeid && employee.employeeid.toLowerCase().includes(searchLower))
+      );
+    }
     
     const total = filteredEmployees.length;
     const startIndex = (page - 1) * pageSize;
@@ -475,7 +489,6 @@ const EmployeeManagement = ({ userRole }) => {
     return paginatedEmployees;
   }, []);
 
-  // Fetch employees with pagination
   const fetchEmployees = useCallback(async (page = 1, pageSize = 10, search = '') => {
     try {
       setLoading(true);
@@ -494,7 +507,6 @@ const EmployeeManagement = ({ userRole }) => {
     }
   }, [allEmployees, fetchAllEmployees, applyFiltersAndPagination]);
 
-  // Refresh data
   const refreshData = useCallback(async () => {
     try {
       setLoading(true);
@@ -507,7 +519,6 @@ const EmployeeManagement = ({ userRole }) => {
     }
   }, [fetchAllEmployees, applyFiltersAndPagination, searchQuery, pagination.pageSize]);
 
-  // Initialize component
   useEffect(() => {
     if (userRole === 'superadmin' || userRole === 'admin') {
       const emailInitialized = initEmailJS();
@@ -519,7 +530,6 @@ const EmployeeManagement = ({ userRole }) => {
     }
   }, [userRole, fetchEmployees]);
 
-  // Event handlers
   const handleTableChange = useCallback((paginationInfo) => {
     applyFiltersAndPagination(allEmployees, searchQuery, paginationInfo.current, paginationInfo.pageSize);
   }, [allEmployees, searchQuery, applyFiltersAndPagination]);
@@ -537,12 +547,22 @@ const EmployeeManagement = ({ userRole }) => {
   const handleDelete = useCallback(async (employeeId) => {
     try {
       setLoading(true);
-      await deleteDoc(doc(db, 'users', employeeId));
+      const { error } = await supabaseAdmin
+        .from('users')
+        .delete()
+        .eq('id', employeeId)
+        .eq('role', 'employee');
+
+      if (error) {
+        console.error('Delete error:', error);
+        throw error;
+      }
+      
       message.success('Employee deleted successfully');
       await refreshData();
     } catch (error) {
       console.error('Error deleting employee:', error);
-      message.error('Error deleting employee');
+      message.error('Error deleting employee: ' + (error.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }
@@ -557,87 +577,86 @@ const EmployeeManagement = ({ userRole }) => {
     await refreshData();
   }, [refreshData]);
 
-  // Table columns with memoization
-const columns = useMemo(() => [
-  {
-  title: 'Employee',
-  dataIndex: 'name',
-  key: 'name',
-  fixed: 'left',
-  width: isMobile ? 200 : 250,
-  render: (text, record) => (
-    <div style={{ 
-      display: 'flex', 
-      alignItems: 'flex-start',  // Changed from 'center' to 'flex-start'
-      gap: '12px',
-      width: '100%'
-    }}>
-      <Avatar 
-        style={{ 
-          backgroundColor: '#1F4842',
-          flexShrink: 0  // Prevent avatar from shrinking
-        }}
-        size={isMobile ? "default" : "large"}
-        src={record.profileImage}
-        icon={!record.profileImage && <UserOutlined />}
-      >
-        {!record.profileImage && text.charAt(0).toUpperCase()}
-      </Avatar>
-      <div style={{ 
-        flex: 1,
-        minWidth: 0,  // Allow text to wrap
-        textAlign: 'left'  // Ensure left alignment
-      }}>
+  const columns = useMemo(() => [
+    {
+      title: 'Employee',
+      dataIndex: 'name',
+      key: 'name',
+      fixed: 'left',
+      width: isMobile ? 200 : 250,
+      render: (text, record) => (
         <div style={{ 
-          fontWeight: 600, 
-          fontSize: isMobile ? '12px' : '14px',
-          marginBottom: '4px',
-          textAlign: 'left'  // Explicit left alignment
+          display: 'flex', 
+          alignItems: 'flex-start',
+          gap: '12px',
+          width: '100%'
         }}>
-          {text}
-        </div>
-        <div style={{ 
-          fontSize: isMobile ? '10px' : '12px',
-          color: '#666',
-          textAlign: 'left'  // Explicit left alignment
-        }}>
-          <MailOutlined style={{ marginRight: '4px' }} /> 
-          {record.email}
-        </div>
-        {isMobile && (
+          <Avatar 
+            style={{ 
+              backgroundColor: '#1F4842',
+              flexShrink: 0
+            }}
+            size={isMobile ? "default" : "large"}
+            src={record.profileimage}
+            icon={!record.profileimage && <UserOutlined />}
+          >
+            {!record.profileimage && text?.charAt(0)?.toUpperCase()}
+          </Avatar>
           <div style={{ 
-            marginTop: '8px',
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '4px',
-            justifyContent: 'flex-start'  // Left align tags
+            flex: 1,
+            minWidth: 0,
+            textAlign: 'left'
           }}>
-            <Tag color="blue" size="small">{record.role}</Tag>
-            <Tag color={record.isActive ? 'green' : 'red'} size="small">
-              {record.isActive ? 'Active' : 'Inactive'}
-            </Tag>
-            {record.employeeId && (
-              <Tag color="geekblue" size="small">{record.employeeId}</Tag>
+            <div style={{ 
+              fontWeight: 600, 
+              fontSize: isMobile ? '12px' : '14px',
+              marginBottom: '4px',
+              textAlign: 'left'
+            }}>
+              {text}
+            </div>
+            <div style={{ 
+              fontSize: isMobile ? '10px' : '12px',
+              color: '#666',
+              textAlign: 'left'
+            }}>
+              <MailOutlined style={{ marginRight: '4px' }} /> 
+              {record.email}
+            </div>
+            {isMobile && (
+              <div style={{ 
+                marginTop: '8px',
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '4px',
+                justifyContent: 'flex-start'
+              }}>
+                <Tag color="blue" size="small">{record.role}</Tag>
+                <Tag color={record.isactive ? 'green' : 'red'} size="small">
+                  {record.isactive ? 'Active' : 'Inactive'}
+                </Tag>
+                {record.employeeid && (
+                  <Tag color="geekblue" size="small">{record.employeeid}</Tag>
+                )}
+              </div>
             )}
           </div>
-        )}
-      </div>
-    </div>
-  ),
-},
+        </div>
+      ),
+    },
     {
-  title: 'Employee ID',
-  dataIndex: 'employeeId',
-  key: 'employeeId',
-  width: 120,
-  render: (employeeId) => (
-    <Tag color="geekblue">{employeeId || 'N/A'}</Tag>
-  ),
-  responsive: ['md'],
-},
+      title: 'Employee ID',
+      dataIndex: 'employeeid',
+      key: 'employeeId',
+      width: 120,
+      render: (employeeId) => (
+        <Tag color="geekblue">{employeeId || 'N/A'}</Tag>
+      ),
+      responsive: ['md'],
+    },
     {
       title: 'Status',
-      dataIndex: 'isActive',
+      dataIndex: 'isactive',
       key: 'isActive',
       width: 100,
       render: (isActive) => (
@@ -649,11 +668,11 @@ const columns = useMemo(() => [
     },
     {
       title: 'Created Date',
-      dataIndex: 'createdAt',
+      dataIndex: 'createdat',
       key: 'createdAt',
       width: 120,
       render: (date) => (
-        date?.toDate ? date.toDate().toLocaleDateString() : 'Unknown'
+        date ? new Date(date).toLocaleDateString() : 'Unknown'
       ),
       responsive: ['xl'],
     },
@@ -689,7 +708,6 @@ const columns = useMemo(() => [
     },
   ], [isMobile, handleEdit, handleDelete]);
 
-  // Permission check - Allow both superadmin and admin
   if (userRole !== 'superadmin' && userRole !== 'admin') {
     return (
       <div className="access-denied">
@@ -704,7 +722,6 @@ const columns = useMemo(() => [
     <div className="employee-management-wrapper">
       <div className="employee-management-content">
         <div className={`employee-management-container ${isMobile ? 'mobile-table' : ''}`}>
-          {/* Header */}
           <div className="animated-card" style={{ marginBottom: '24px' }}>
             <div className={`${isMobile ? 'mobile-header' : ''}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div>
@@ -727,7 +744,6 @@ const columns = useMemo(() => [
             </div>
           </div>
 
-          {/* Stats Cards */}
           <Row gutter={[16, 16]} style={{ marginBottom: '24px' }} className={isMobile ? 'mobile-stats' : ''}>
             <Col xs={24} sm={12} md={8} lg={6}>
               <Card className="animated-card-delayed stats-card">
@@ -764,10 +780,9 @@ const columns = useMemo(() => [
             </Col>
           </Row>
 
-          {/* Search Bar */}
           <Card style={{ marginBottom: '24px' }} className={`animated-card-delayed ${isMobile ? 'mobile-search' : ''}`}>
             <Search
-              placeholder="Search employees by name or email..."
+              placeholder="Search employees by name, email or employee ID..."
               allowClear
               enterButton={
                 <Button 
@@ -785,7 +800,6 @@ const columns = useMemo(() => [
             />
           </Card>
 
-          {/* Employee List - Mobile Cards or Table */}
           {isMobile ? (
             <Card className="animated-card-delayed-2" style={{ marginBottom: '24px' }}>
               <div style={{ marginBottom: '16px' }}>
@@ -812,7 +826,6 @@ const columns = useMemo(() => [
                 </div>
               )}
               
-              {/* Mobile Pagination */}
               <div style={{ textAlign: 'center', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #f0f0f0' }}>
                 <Space>
                   <Button 
@@ -836,7 +849,6 @@ const columns = useMemo(() => [
               </div>
             </Card>
           ) : (
-            /* Desktop Table */
             <Card className="animated-card-delayed-2">
               <Table
                 columns={columns}
@@ -858,7 +870,6 @@ const columns = useMemo(() => [
             </Card>
           )}
 
-          {/* Form Modal */}
           <EmployeeFormModal
             isOpen={showFormModal}
             onClose={handleFormClose}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { User, Lock, Eye, EyeOff, X } from 'lucide-react';
-import authService from '../supabase/authService'; // Import the auth service
-import '../styles/login.css';
+import authService from '../../supabase/authService';
+import './login.css';
 
 const Login = ({ onLoginSuccess }) => {
   const [formData, setFormData] = useState({

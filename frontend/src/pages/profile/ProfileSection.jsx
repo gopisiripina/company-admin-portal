@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronDown, User, Settings, LogOut, Bell, Shield, HelpCircle } from 'lucide-react';
-import authService from '../supabase/authService'; // Updated import path from firebase to supabase
+import authService from '../../supabase/authService';
 
 const ProfileSection = ({ userData, onLogout }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);

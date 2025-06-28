@@ -24,21 +24,12 @@ import {
   SearchOutlined,
   TeamOutlined,
   MailOutlined,
+  UploadOutlined,
+  UserOutlined
 } from '@ant-design/icons';
-import { db } from '../firebase/config';
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  query, 
-  where, 
-  getDocs, 
-  orderBy
-} from 'firebase/firestore';
-import { sendEmployeeWelcomeEmail, initEmailJS } from './EmailService';
-import '../styles/AdminManagement.css';
+import { supabase, supabaseAdmin } from '../../supabase/config';
+import { sendEmployeeWelcomeEmail, initEmailJS } from '../email/EmailService';
+import './AdminManagement.css';
 import { Upload, message as antMessage } from 'antd';
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -85,16 +76,16 @@ const MobileAdminCard = React.memo(({ admin, onEdit, onDelete }) => (
         marginBottom: '12px'
       }}>
         <Avatar 
-          style={{ 
-            backgroundColor: '#1F4842',
-            flexShrink: 0
-          }}
-          size="large"
-          src={admin.profileImage}
-          icon={!admin.profileImage && <UserOutlined />}
-        >
-          {!admin.profileImage && admin.name.charAt(0).toUpperCase()}
-        </Avatar>
+  style={{ 
+    backgroundColor: '#1F4842',
+    flexShrink: 0
+  }}
+  size="large"
+  src={admin.profileimage}  // Changed from admin.profileImage to admin.profileimage
+  icon={!admin.profileimage && <UserOutlined />}  // Changed condition too
+>
+  {!admin.profileimage && admin.name.charAt(0).toUpperCase()}  // Changed condition
+</Avatar>
         <div style={{ 
           flex: 1,
           textAlign: 'left'
@@ -130,11 +121,11 @@ const MobileAdminCard = React.memo(({ admin, onEdit, onDelete }) => (
         {admin.adminId && (
           <Tag color="geekblue" size="small">{admin.adminId}</Tag>
         )}
-        {admin.createdAt && (
-          <Tag color="purple" size="small">
-            {admin.createdAt?.toDate ? admin.createdAt.toDate().toLocaleDateString() : 'Unknown'}
-          </Tag>
-        )}
+        {admin.createdat && (
+  <Tag color="purple" size="small">
+    {new Date(admin.createdat).toLocaleDateString()} 
+  </Tag>
+)}
       </div>
     </div>
   </Card>
@@ -153,10 +144,10 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
           form.setFieldsValue({
             name: editingAdmin.name,
             email: editingAdmin.email,
-            adminId: editingAdmin.adminId,
+            adminId: editingAdmin.employeeid,
             role: editingAdmin.role
           });
-          setProfileImage(editingAdmin.profileImage || null);
+          setProfileImage(editingAdmin.profileimage || null);
         }, 0);
       } else {
         form.resetFields();
@@ -425,7 +416,7 @@ const AdminManagement = ({ userRole }) => {
   // Use useMemo for calculations
   const { totalAdmins, activeAdmins, inactiveAdmins } = useMemo(() => {
     const total = allAdmins.length;
-    const active = allAdmins.filter(admin => admin.isActive === true).length;
+    const active = allAdmins.filter(admin => admin.isactive === true).length;
     const inactive = total - active;
     
     return { totalAdmins: total, activeAdmins: active, inactiveAdmins: inactive };
@@ -491,7 +482,7 @@ useEffect(() => {
     filteredAdmins = filteredAdmins.filter(admin =>
       admin.name.toLowerCase().includes(searchLower) ||
       admin.email.toLowerCase().includes(searchLower) ||
-      (admin.adminId && admin.adminId.toLowerCase().includes(searchLower))  // Add this line
+      (admin.employeeid && admin.employeeid.toLowerCase().includes(searchLower))  // Changed from adminId to employeeid
     );
   }
   
@@ -612,23 +603,23 @@ useEffect(() => {
     fixed: 'left',
     width: isMobile ? 200 : 250,
     render: (text, record) => (
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'flex-start',
-        gap: '12px',
-        width: '100%'
-      }}>
-        <Avatar 
-          style={{ 
-            backgroundColor: '#1F4842',
-            flexShrink: 0
-          }}
-          size={isMobile ? "default" : "large"}
-          src={record.profileImage}
-          icon={!record.profileImage && <UserOutlined />}
-        >
-          {!record.profileImage && text.charAt(0).toUpperCase()}
-        </Avatar>
+  <div style={{ 
+    display: 'flex', 
+    alignItems: 'flex-start',
+    gap: '12px',
+    width: '100%'
+  }}>
+    <Avatar 
+      style={{ 
+        backgroundColor: '#1F4842',
+        flexShrink: 0
+      }}
+      size={isMobile ? "default" : "large"}
+      src={record.profileimage}  // Changed from record.profileImage
+      icon={!record.profileimage && <UserOutlined />}  // Changed condition
+    >
+      {!record.profileimage && text.charAt(0).toUpperCase()}  // Changed condition
+    </Avatar>
         <div style={{ 
           flex: 1,
           minWidth: 0,
@@ -680,7 +671,7 @@ useEffect(() => {
   },
   {
       title: 'Status',
-      dataIndex: 'isActive',
+      dataIndex: 'isactive',
       key: 'isActive',
       width: 100,
       render: (isActive) => (
@@ -691,15 +682,15 @@ useEffect(() => {
       responsive: ['md'],
     },
   {
-    title: 'Created Date',
-    dataIndex: 'createdat',
-    key: 'createdAt',
-    width: 120,
-    render: (date) => (
-      date?.toDate ? date.toDate().toLocaleDateString() : 'Unknown'
-    ),
-    responsive: ['xl'],
-  },
+  title: 'Created Date',
+  dataIndex: 'createdat',
+  key: 'createdAt',
+  width: 120,
+  render: (date) => (
+    date ? new Date(date).toLocaleDateString() : 'Unknown'  // Changed from date?.toDate()
+  ),
+  responsive: ['xl'],
+},
   {
     title: 'Actions',
     key: 'actions',

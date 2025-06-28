@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Home, User, ChevronLeft, ChevronRight, Zap, LogOut, UserCheck, FolderKanban, ChevronDown, ChevronUp, Calendar, DollarSign, BarChart3, GitBranch, ClipboardList, AlertTriangle, FileText, BookOpen } from 'lucide-react';
-import '../styles/Sidebar.css';
+import './Sidebar.css';
 
 const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
   const [hoveredItem, setHoveredItem] = useState(null);
