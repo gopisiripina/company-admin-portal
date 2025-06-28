@@ -3,15 +3,16 @@ import { Search, Bell, Users, DollarSign, ShoppingCart, TrendingUp, Calendar, Cl
 import './Dashboard.css';
 import ProfileSection from '../profile/ProfileSection';
 import AdminManagement from '../admin/AdminManagement';
-import EmployeeManagement from '../employee/EmployeeManagement';
+import EmployeeManagement from '../admin/EmployeeManagement';
 import ProjectTimeline from '../project/ProjectTimeline';
 import ProjectBudgeting from '../project/ProjectBudgeting';
-import HRManagement from '../hr/HRManagement';
+import HRManagement from '../admin/HRManagement';
 import JobDescriptionPage from '../job/JobDescriptionPage';
 import JobPostPage from '../job/JobPostPage';
 import JobApplyPage from '../job/JobApplyPage';
-import ResumeListPage from '../resume/ResumeListPage';
-import InterviewManagementPage from '../interview/InterviewManagementPage';// Import ResumeListPage
+import ResumeListPage from '../job/ResumeListPage';
+import InterviewManagementPage from '../job/InterviewManagementPage';// Import ResumeListPage
+import JobApplicationPage from '../job/JobApplicationPage';
 
 
 
@@ -318,6 +319,43 @@ if (activeSection === 'job-post') {
       {/* Job Description Content */}
       <main className="main-content">
         <JobPostPage userRole={userData?.role} />
+      </main>
+    </div>
+  );
+}
+if (activeSection === 'job-application') {
+  return (
+    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+      {/* Header */}
+      <header className="dashboard-header">
+        {/* Search Bar */}
+        <div className="search-container">
+          <Search size={22} className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search job page..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+        </div>
+
+        {/* Header Right */}
+        <div className="header-right">
+          {/* Notifications */}
+          <button className="notification-button">
+            <Bell size={22} />
+            <span className="notification-badge"></span>
+          </button>
+
+          {/* Profile Section */}
+          <ProfileSection userData={userData} onLogout={onLogout}/>
+        </div>
+      </header>
+
+      {/* Job Description Content */}
+      <main className="main-content">
+        <JobApplicationPage userRole={userData?.role} />
       </main>
     </div>
   );

@@ -65,6 +65,7 @@ const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
   { icon: FileText, label: 'Job Apply', id: 'job-apply', color: '#10b981' },
     { icon: FileText, label: 'Resume List', id: 'resume-list', color: '#10b981' },
      { icon: FileText, label: 'Interview Management', id: 'interview-management', color: '#10b981' },
+      { icon: FileText, label: 'Job Application', id: 'job-application', color: '#10b981' },
 
 ] : []),
     // Only show Admin button for superadmin

@@ -3,7 +3,7 @@ import { Table, Button, Modal, Form, Input, Space, Popconfirm, Card, Statistic, 
 import { UserAddOutlined, EditOutlined, DeleteOutlined, SearchOutlined, TeamOutlined, MailOutlined, UploadOutlined, UserOutlined } from '@ant-design/icons';
 import { supabase, supabaseAdmin } from '../../supabase/config';
 import { sendEmployeeWelcomeEmail, initEmailJS } from '../email/EmailService';
-import '../employee/Employee Management.css';
+import './Employee Management.css';
 import { Upload, message as antMessage } from 'antd';
 const { Title, Text } = Typography;
 const { Search } = Input;

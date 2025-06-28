@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import {
   Table,
   Card,
@@ -17,7 +18,9 @@ import {
   Typography,
   Divider,
   Tooltip,
-  message
+  message,
+  Spin,
+  Alert
 } from 'antd';
 import {
   SearchOutlined,
@@ -29,121 +32,32 @@ import {
   CalendarOutlined,
   ToolOutlined,
   TagsOutlined,
-  ReloadOutlined
+  ReloadOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  StarOutlined
 } from '@ant-design/icons';
+import { MailOutlined } from '@ant-design/icons';
+import { LinkOutlined } from '@ant-design/icons';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 const { Title, Text } = Typography;
 
-// Dummy data for job postings
-const jobPostings = [
-  { id: 1, title: 'Senior React Developer', department: 'Engineering' },
-  { id: 2, title: 'Product Manager', department: 'Product' },
-  { id: 3, title: 'UX Designer', department: 'Design' },
-  { id: 4, title: 'Data Scientist', department: 'Analytics' },
-  { id: 5, title: 'DevOps Engineer', department: 'Engineering' }
-];
+// Supabase configuration (same as JobApplicationPage)
+const supabaseUrl = 'https://dsvqjsnxdxlgufzwcaub.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdnFqc254ZHhsZ3VmendjYXViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4MjgyMjMsImV4cCI6MjA2NjQwNDIyM30.YHdiWzPvU6XBXFzcDZL7LKtgjU_dv5pVVpFRF8OkEz8';
 
-// Dummy data for applicants
-const applicantsData = [
-  {
-    id: 1,
-    jobId: 1,
-    name: 'Sarah Johnson',
-    email: 'sarah.johnson@email.com',
-    phone: '+1 (555) 123-4567',
-    appliedDate: '2024-06-20',
-    experience: 5,
-    skills: ['React', 'JavaScript', 'TypeScript', 'Node.js'],
-    status: 'pending',
-    resumeUrl: 'https://example.com/resume1.pdf',
-    location: 'New York, NY',
-    expectedSalary: '$120,000',
-    avatar: null
-  },
-  {
-    id: 2,
-    jobId: 1,
-    name: 'Michael Chen',
-    email: 'michael.chen@email.com',
-    phone: '+1 (555) 234-5678',
-    appliedDate: '2024-06-19',
-    experience: 7,
-    skills: ['React', 'Vue.js', 'Python', 'AWS'],
-    status: 'shortlisted',
-    resumeUrl: 'https://example.com/resume2.pdf',
-    location: 'San Francisco, CA',
-    expectedSalary: '$140,000',
-    avatar: null
-  },
-  {
-    id: 3,
-    jobId: 2,
-    name: 'Emily Rodriguez',
-    email: 'emily.rodriguez@email.com',
-    phone: '+1 (555) 345-6789',
-    appliedDate: '2024-06-18',
-    experience: 4,
-    skills: ['Product Management', 'Agile', 'Analytics', 'SQL'],
-    status: 'pending',
-    resumeUrl: 'https://example.com/resume3.pdf',
-    location: 'Austin, TX',
-    expectedSalary: '$95,000',
-    avatar: null
-  },
-  {
-    id: 4,
-    jobId: 1,
-    name: 'David Kim',
-    email: 'david.kim@email.com',
-    phone: '+1 (555) 456-7890',
-    appliedDate: '2024-06-17',
-    experience: 3,
-    skills: ['React', 'JavaScript', 'MongoDB', 'Express'],
-    status: 'rejected',
-    resumeUrl: 'https://example.com/resume4.pdf',
-    location: 'Seattle, WA',
-    expectedSalary: '$85,000',
-    avatar: null
-  },
-  {
-    id: 5,
-    jobId: 3,
-    name: 'Jessica Wilson',
-    email: 'jessica.wilson@email.com',
-    phone: '+1 (555) 567-8901',
-    appliedDate: '2024-06-16',
-    experience: 6,
-    skills: ['Figma', 'Adobe XD', 'Prototyping', 'User Research'],
-    status: 'shortlisted',
-    resumeUrl: 'https://example.com/resume5.pdf',
-    location: 'Los Angeles, CA',
-    expectedSalary: '$105,000',
-    avatar: null
-  },
-  {
-    id: 6,
-    jobId: 4,
-    name: 'Robert Taylor',
-    email: 'robert.taylor@email.com',
-    phone: '+1 (555) 678-9012',
-    appliedDate: '2024-06-15',
-    experience: 8,
-    skills: ['Python', 'Machine Learning', 'TensorFlow', 'SQL'],
-    status: 'pending',
-    resumeUrl: 'https://example.com/resume6.pdf',
-    location: 'Boston, MA',
-    expectedSalary: '$130,000',
-    avatar: null
-  }
-];
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const JobApplyPage = () => {
   const [selectedJob, setSelectedJob] = useState(null);
+  const [jobPostings, setJobPostings] = useState([]);
   const [applicants, setApplicants] = useState([]);
   const [filteredApplicants, setFilteredApplicants] = useState([]);
+  const [shortlistedApplicants, setShortlistedApplicants] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [jobsLoading, setJobsLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [experienceFilter, setExperienceFilter] = useState('all');
@@ -152,15 +66,175 @@ const JobApplyPage = () => {
   const [resumeModalVisible, setResumeModalVisible] = useState(false);
   const [selectedApplicant, setSelectedApplicant] = useState(null);
 
-  // Simulate API call to fetch applicants
-  const fetchApplicants = (jobId) => {
+  // Fetch all unique job postings from applications
+  const fetchJobPostings = async () => {
+    setJobsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('job_applications')
+        .select('job_id, job_title')
+        .order('job_id');
+
+      if (error) throw error;
+
+      // Get unique job postings
+      const uniqueJobs = [];
+      const seenJobIds = new Set();
+      
+      data.forEach(item => {
+        if (!seenJobIds.has(item.job_id)) {
+          seenJobIds.add(item.job_id);
+          uniqueJobs.push({
+            id: item.job_id,
+            title: item.job_title
+          });
+        }
+      });
+
+      setJobPostings(uniqueJobs);
+    } catch (error) {
+      console.error('Error fetching job postings:', error);
+      message.error('Failed to load job postings');
+    } finally {
+      setJobsLoading(false);
+    }
+  };
+
+  // Fetch applicants for selected job
+  const fetchApplicants = async (jobId) => {
     setLoading(true);
-    setTimeout(() => {
-      const jobApplicants = applicantsData.filter(app => app.jobId === jobId);
-      setApplicants(jobApplicants);
-      setFilteredApplicants(jobApplicants);
+    try {
+      const { data, error } = await supabase
+        .from('job_applications')
+        .select('*')
+        .eq('job_id', jobId)
+        .order('applied_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Transform data to match your existing format
+      const transformedApplicants = data.map(app => ({
+        id: app.id,
+        jobId: app.job_id,
+        name: app.full_name,
+        email: app.email,
+        phone: app.phone,
+        appliedDate: app.applied_at ? new Date(app.applied_at).toISOString().split('T')[0] : '',
+        experience: app.experience_years || 'Not specified',
+        skills: app.skills ? app.skills.split(',').map(s => s.trim()) : [],
+        status: app.status || 'pending',
+        resumeUrl: app.resume_url,
+        location: app.location || 'Not specified',
+        expectedSalary: app.expected_salary || 'Not specified',
+        currentPosition: app.current_position,
+        currentCompany: app.current_company,
+        education: app.education,
+        availability: app.availability,
+        portfolioUrl: app.portfolio_url,
+        linkedinUrl: app.linkedin_url,
+        coverLetter: app.cover_letter,
+        avatar: null
+      }));
+
+      setApplicants(transformedApplicants);
+      setFilteredApplicants(transformedApplicants);
+    } catch (error) {
+      console.error('Error fetching applicants:', error);
+      message.error('Failed to load applicants');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
+  };
+
+  // Fetch shortlisted applicants
+  const fetchShortlistedApplicants = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('shortlisted_candidates')
+        .select('*')
+        .order('shortlisted_at', { ascending: false });
+
+      if (error) throw error;
+      setShortlistedApplicants(data || []);
+    } catch (error) {
+      console.error('Error fetching shortlisted applicants:', error);
+    }
+  };
+
+  // Update applicant status in database
+  const handleStatusChange = async (applicantId, newStatus) => {
+    try {
+      const { error } = await supabase
+        .from('job_applications')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', applicantId);
+
+      if (error) throw error;
+
+      // If shortlisted, also add to shortlisted_candidates table
+      if (newStatus === 'shortlisted') {
+        const applicant = applicants.find(app => app.id === applicantId);
+        if (applicant) {
+          await addToShortlisted(applicant);
+        }
+      }
+
+      // Update local state
+      const updatedApplicants = applicants.map(app =>
+        app.id === applicantId ? { ...app, status: newStatus } : app
+      );
+      setApplicants(updatedApplicants);
+      setFilteredApplicants(updatedApplicants.filter(app => 
+        selectedJob === null || app.jobId === selectedJob
+      ));
+
+      message.success(`Status updated to ${newStatus}`);
+    } catch (error) {
+      console.error('Error updating status:', error);
+      message.error('Failed to update status');
+    }
+  };
+
+  // Add candidate to shortlisted table
+  const addToShortlisted = async (applicant) => {
+    try {
+      // First check if already shortlisted
+      const { data: existing } = await supabase
+        .from('shortlisted_candidates')
+        .select('id')
+        .eq('application_id', applicant.id)
+        .single();
+
+      if (existing) {
+        return; // Already shortlisted
+      }
+
+      const shortlistedData = {
+        application_id: applicant.id,
+        job_id: applicant.jobId,
+        job_title: jobPostings.find(job => job.id === applicant.jobId)?.title || 'Unknown',
+        candidate_name: applicant.name,
+        candidate_email: applicant.email,
+        candidate_phone: applicant.phone,
+        experience_years: applicant.experience,
+        skills: applicant.skills.join(', '),
+        resume_url: applicant.resumeUrl,
+        expected_salary: applicant.expectedSalary,
+        location: applicant.location,
+        shortlisted_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('shortlisted_candidates')
+        .insert([shortlistedData]);
+
+      if (error) throw error;
+
+      fetchShortlistedApplicants(); // Refresh shortlisted list
+    } catch (error) {
+      console.error('Error adding to shortlisted:', error);
+      message.error('Failed to add to shortlisted candidates');
+    }
   };
 
   const handleJobSelect = (jobId) => {
@@ -171,15 +245,6 @@ const JobApplyPage = () => {
       setApplicants([]);
       setFilteredApplicants([]);
     }
-  };
-
-  const handleStatusChange = (applicantId, newStatus) => {
-    const updatedApplicants = applicants.map(app =>
-      app.id === applicantId ? { ...app, status: newStatus } : app
-    );
-    setApplicants(updatedApplicants);
-    setFilteredApplicants(updatedApplicants);
-    message.success(`Status updated to ${newStatus}`);
   };
 
   const applyFilters = () => {
@@ -200,20 +265,28 @@ const JobApplyPage = () => {
 
     // Experience filter
     if (experienceFilter !== 'all') {
-      const [min, max] = experienceFilter.split('-').map(Number);
       filtered = filtered.filter(app => {
-        if (max) {
-          return app.experience >= min && app.experience <= max;
-        } else {
-          return app.experience >= min;
+        if (experienceFilter === '0-2') {
+          return app.experience.includes('0-1') || app.experience.includes('1-3');
+        } else if (experienceFilter === '3-5') {
+          return app.experience.includes('3-5');
+        } else if (experienceFilter === '6-10') {
+          return app.experience.includes('5-10');
+        } else if (experienceFilter === '10+') {
+          return app.experience.includes('10+');
         }
+        return true;
       });
     }
 
     // Skills filter
     if (skillsFilter.length > 0) {
       filtered = filtered.filter(app =>
-        skillsFilter.some(skill => app.skills.includes(skill))
+        skillsFilter.some(skill => 
+          app.skills.some(appSkill => 
+            appSkill.toLowerCase().includes(skill.toLowerCase())
+          )
+        )
       );
     }
 
@@ -228,6 +301,11 @@ const JobApplyPage = () => {
 
     setFilteredApplicants(filtered);
   };
+
+  useEffect(() => {
+    fetchJobPostings();
+    fetchShortlistedApplicants();
+  }, []);
 
   useEffect(() => {
     applyFilters();
@@ -246,14 +324,10 @@ const JobApplyPage = () => {
     return status.charAt(0).toUpperCase() + status.slice(1);
   };
 
-  const statusMenuItems = [
-    { key: 'pending', label: 'Pending', onClick: () => handleStatusChange(selectedApplicant?.id, 'pending') },
-    { key: 'shortlisted', label: 'Shortlisted', onClick: () => handleStatusChange(selectedApplicant?.id, 'shortlisted') },
-    { key: 'rejected', label: 'Rejected', onClick: () => handleStatusChange(selectedApplicant?.id, 'rejected') }
-  ];
+  // Get all unique skills from current applicants
+  const allSkills = [...new Set(applicants.flatMap(app => app.skills))];
 
-  const allSkills = [...new Set(applicantsData.flatMap(app => app.skills))];
-
+  // Updated columns array - Remove the Actions column and Status dropdown
   const columns = [
     {
       title: 'Applicant',
@@ -264,6 +338,11 @@ const JobApplyPage = () => {
           <div>
             <div style={{ fontWeight: 500 }}>{record.name}</div>
             <Text type="secondary" style={{ fontSize: '12px' }}>{record.email}</Text>
+            {record.currentPosition && (
+              <div style={{ fontSize: '11px', color: '#666' }}>
+                {record.currentPosition} {record.currentCompany && `at ${record.currentCompany}`}
+              </div>
+            )}
           </div>
         </Space>
       ),
@@ -275,7 +354,7 @@ const JobApplyPage = () => {
       render: (date) => (
         <Space>
           <CalendarOutlined style={{ color: '#1890ff' }} />
-          {new Date(date).toLocaleDateString()}
+          {date ? new Date(date).toLocaleDateString() : 'N/A'}
         </Space>
       ),
     },
@@ -286,7 +365,7 @@ const JobApplyPage = () => {
       render: (exp) => (
         <Space>
           <ToolOutlined style={{ color: '#52c41a' }} />
-          {exp} years
+          {exp}
         </Space>
       ),
     },
@@ -308,26 +387,21 @@ const JobApplyPage = () => {
       ),
     },
     {
+      title: 'Expected Salary',
+      dataIndex: 'expectedSalary',
+      key: 'expectedSalary',
+      render: (salary) => (
+        <Text>{salary || 'Not specified'}</Text>
+      ),
+    },
+    {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      render: (status, record) => (
-        <Select
-          value={status}
-          onChange={(value) => handleStatusChange(record.id, value)}
-          style={{ width: 120 }}
-          size="small"
-        >
-          <Option value="pending">
-            <Badge status="processing" text="Pending" />
-          </Option>
-          <Option value="shortlisted">
-            <Badge status="success" text="Shortlisted" />
-          </Option>
-          <Option value="rejected">
-            <Badge status="error" text="Rejected" />
-          </Option>
-        </Select>
+      render: (status) => (
+        <Tag color={getStatusColor(status)}>
+          {getStatusText(status)}
+        </Tag>
       ),
     },
     {
@@ -335,7 +409,7 @@ const JobApplyPage = () => {
       key: 'resume',
       render: (_, record) => (
         <Space>
-          <Tooltip title="View Resume">
+          <Tooltip title="View Details">
             <Button 
               type="text" 
               icon={<EyeOutlined />} 
@@ -345,57 +419,47 @@ const JobApplyPage = () => {
               }}
             />
           </Tooltip>
-          <Tooltip title="Download Resume">
-            <Button 
-              type="text" 
-              icon={<DownloadOutlined />}
-              onClick={() => window.open(record.resumeUrl, '_blank')}
-            />
-          </Tooltip>
+          {record.resumeUrl && (
+            <Tooltip title="Download Resume">
+              <Button 
+                type="text" 
+                icon={<DownloadOutlined />}
+                onClick={() => window.open(record.resumeUrl, '_blank')}
+              />
+            </Tooltip>
+          )}
         </Space>
       ),
     },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (_, record) => (
-        <Dropdown
-          menu={{
-            items: [
-              {
-                key: 'view',
-                label: 'View Details',
-                icon: <EyeOutlined />,
-                onClick: () => {
-                  setSelectedApplicant(record);
-                  setResumeModalVisible(true);
-                }
-              },
-              {
-                key: 'contact',
-                label: 'Contact',
-                onClick: () => window.open(`mailto:${record.email}`)
-              }
-            ]
-          }}
-          trigger={['click']}
-        >
-          <Button type="text" icon={<MoreOutlined />} />
-        </Dropdown>
-      ),
-    },
   ];
-return (
-  <div style={{ 
-    padding: '24px', 
-    maxWidth: '1200px', 
-    margin: '0 auto', 
-    width: '100%' 
-  }}>
+
+  if (jobsLoading) {
+    return (
+      <div style={{ 
+        padding: '24px', 
+        maxWidth: '1200px', 
+        margin: '0 auto',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '400px'
+      }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ 
+      padding: '24px', 
+      maxWidth: '1200px', 
+      margin: '0 auto', 
+      width: '100%' 
+    }}>
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
         <Title level={2} style={{ margin: 0, color: '#1890ff' }}>
-          Job Applications
+          Job Applications Management
         </Title>
         <Text type="secondary">
           Manage and review job applications from candidates
@@ -416,10 +480,11 @@ return (
               onChange={handleJobSelect}
               showSearch
               optionFilterProp="children"
+              loading={jobsLoading}
             >
               {jobPostings.map(job => (
                 <Option key={job.id} value={job.id}>
-                  {job.title} - {job.department}
+                  {job.title} (ID: {job.id})
                 </Option>
               ))}
             </Select>
@@ -431,6 +496,10 @@ return (
                   <div>
                     <Text strong>{filteredApplicants.length}</Text>
                     <Text type="secondary"> applications found</Text>
+                  </div>
+                  <div>
+                    <Text strong>{shortlistedApplicants.length}</Text>
+                    <Text type="secondary"> total shortlisted</Text>
                   </div>
                   <Button
                     icon={<ReloadOutlined />}
@@ -445,6 +514,17 @@ return (
           </Col>
         </Row>
       </Card>
+
+      {/* Show message if no job postings found */}
+      {jobPostings.length === 0 && (
+        <Alert
+          message="No Job Applications Found"
+          description="No applications have been submitted yet. Applications will appear here once candidates start applying through the job application form."
+          type="info"
+          showIcon
+          style={{ marginBottom: '24px' }}
+        />
+      )}
 
       {/* Filters */}
       {selectedJob && (
@@ -490,7 +570,7 @@ return (
                 <Option value="0-2">0-2 years</Option>
                 <Option value="3-5">3-5 years</Option>
                 <Option value="6-10">6-10 years</Option>
-                <Option value="10">10+ years</Option>
+                <Option value="10+">10+ years</Option>
               </Select>
             </Col>
             <Col span={6}>
@@ -542,7 +622,7 @@ return (
         </Card>
       )}
 
-      {/* Resume Modal */}
+      {/* Application Details Modal */}
       <Modal
         title={selectedApplicant ? `${selectedApplicant.name} - Application Details` : 'Application Details'}
         open={resumeModalVisible}
@@ -551,16 +631,18 @@ return (
           <Button key="close" onClick={() => setResumeModalVisible(false)}>
             Close
           </Button>,
-          <Button 
-            key="download" 
-            type="primary" 
-            icon={<DownloadOutlined />}
-            onClick={() => selectedApplicant && window.open(selectedApplicant.resumeUrl, '_blank')}
-          >
-            Download Resume
-          </Button>
+          selectedApplicant?.resumeUrl && (
+            <Button 
+              key="download" 
+              type="primary" 
+              icon={<DownloadOutlined />}
+              onClick={() => window.open(selectedApplicant.resumeUrl, '_blank')}
+            >
+              Download Resume
+            </Button>
+          )
         ]}
-        width={800}
+        width={900}
       >
         {selectedApplicant && (
           <div>
@@ -570,17 +652,22 @@ return (
                   <div>
                     <Text strong>Email:</Text>
                     <br />
-                    <Text>{selectedApplicant.email}</Text>
+                    <Text copyable>{selectedApplicant.email}</Text>
                   </div>
                   <div>
                     <Text strong>Phone:</Text>
                     <br />
-                    <Text>{selectedApplicant.phone}</Text>
+                    <Text copyable>{selectedApplicant.phone}</Text>
                   </div>
                   <div>
                     <Text strong>Location:</Text>
                     <br />
                     <Text>{selectedApplicant.location}</Text>
+                  </div>
+                  <div>
+                    <Text strong>Current Position:</Text>
+                    <br />
+                    <Text>{selectedApplicant.currentPosition || 'Not specified'}</Text>
                   </div>
                 </Space>
               </Col>
@@ -589,7 +676,7 @@ return (
                   <div>
                     <Text strong>Experience:</Text>
                     <br />
-                    <Text>{selectedApplicant.experience} years</Text>
+                    <Text>{selectedApplicant.experience}</Text>
                   </div>
                   <div>
                     <Text strong>Expected Salary:</Text>
@@ -601,10 +688,17 @@ return (
                     <br />
                     <Text>{new Date(selectedApplicant.appliedDate).toLocaleDateString()}</Text>
                   </div>
+                  <div>
+                    <Text strong>Education:</Text>
+                    <br />
+                    <Text>{selectedApplicant.education || 'Not specified'}</Text>
+                  </div>
                 </Space>
               </Col>
             </Row>
+            
             <Divider />
+            
             <div>
               <Text strong>Skills:</Text>
               <br />
@@ -616,13 +710,107 @@ return (
                 ))}
               </div>
             </div>
+
+            {selectedApplicant.portfolioUrl && (
+              <>
+                <Divider />
+                <div>
+                  <Text strong>Portfolio:</Text>
+                  <br />
+                  <Button 
+                    type="link" 
+                    icon={<LinkOutlined />}
+                    onClick={() => window.open(selectedApplicant.portfolioUrl, '_blank')}
+                  >
+                    View Portfolio
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {selectedApplicant.linkedinUrl && (
+              <>
+                <Divider />
+                <div>
+                  <Text strong>LinkedIn:</Text>
+                  <br />
+                  <Button 
+                    type="link" 
+                    icon={<LinkOutlined />}
+                    onClick={() => window.open(selectedApplicant.linkedinUrl, '_blank')}
+                  >
+                    View LinkedIn Profile
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {selectedApplicant.coverLetter && (
+              <>
+                <Divider />
+                <div>
+                  <Text strong>Cover Letter:</Text>
+                  <br />
+                  <div style={{ 
+                    marginTop: '8px', 
+                    padding: '12px', 
+                    background: '#f5f5f5', 
+                    borderRadius: '6px',
+                    whiteSpace: 'pre-wrap'
+                  }}>
+                    {selectedApplicant.coverLetter}
+                  </div>
+                </div>
+              </>
+            )}
+            
             <Divider />
+            
             <div>
               <Text strong>Current Status:</Text>
               <br />
               <Tag color={getStatusColor(selectedApplicant.status)} style={{ marginTop: '8px' }}>
                 {getStatusText(selectedApplicant.status)}
               </Tag>
+            </div>
+
+            <Divider />
+
+            <div>
+              <Text strong>Update Status:</Text>
+              <br />
+              <Space style={{ marginTop: '8px' }}>
+                <Button 
+                  type="primary" 
+                  icon={<CheckCircleOutlined />}
+                  onClick={() => {
+                    handleStatusChange(selectedApplicant.id, 'shortlisted');
+                    // Update the selectedApplicant state to reflect the change immediately
+                    setSelectedApplicant(prev => ({ ...prev, status: 'shortlisted' }));
+                  }}
+                  disabled={selectedApplicant.status === 'shortlisted'}
+                >
+                  Shortlist
+                </Button>
+                <Button 
+                  danger
+                  icon={<CloseCircleOutlined />}
+                  onClick={() => {
+                    handleStatusChange(selectedApplicant.id, 'rejected');
+                    // Update the selectedApplicant state to reflect the change immediately
+                    setSelectedApplicant(prev => ({ ...prev, status: 'rejected' }));
+                  }}
+                  disabled={selectedApplicant.status === 'rejected'}
+                >
+                  Reject
+                </Button>
+                <Button 
+                  icon={<MailOutlined />}
+                  onClick={() => window.open(`mailto:${selectedApplicant.email}`)}
+                >
+                  Send Email
+                </Button>
+              </Space>
             </div>
           </div>
         )}
