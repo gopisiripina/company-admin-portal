@@ -21,7 +21,8 @@ import {
   Badge,
   Avatar,
   Timeline,
-  Descriptions
+  Descriptions,
+  List
 } from 'antd';
 import { 
   SendOutlined, 
@@ -38,16 +39,23 @@ import {
   DollarOutlined,
   StarOutlined,
   FileTextOutlined,
-  BellOutlined
+  BellOutlined,
+  SettingOutlined
 } from '@ant-design/icons';
+import { createClient } from '@supabase/supabase-js';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
+const supabaseUrl = 'https://dsvqjsnxdxlgufzwcaub.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdnFqc254ZHhsZ3VmendjYXViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4MjgyMjMsImV4cCI6MjA2NjQwNDIyM30.YHdiWzPvU6XBXFzcDZL7LKtgjU_dv5pVVpFRF8OkEz8';
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const JobPostPage = ({ userRole }) => {
   const [form] = Form.useForm();
   const [selectedJob, setSelectedJob] = useState(null);
   const [previewVisible, setPreviewVisible] = useState(false);
+  const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [posting, setPosting] = useState(false);
   const [postingPlatforms, setPostingPlatforms] = useState({
     linkedin: false,
@@ -55,101 +63,155 @@ const JobPostPage = ({ userRole }) => {
     internal: true
   });
 
-  // Dummy job descriptions data (replace with Firestore data)
-  const [jobDescriptions] = useState([
-    {
-      id: 1,
-      jobTitle: 'Senior Frontend Developer',
-      department: 'Engineering',
-      location: 'Remote',
-      employmentType: 'Full-time',
-      experienceLevel: 'Senior Level (5-8 years)',
-      skills: ['React', 'JavaScript', 'TypeScript', 'Node.js', 'CSS3'],
-      salaryMin: 80000,
-      salaryMax: 120000,
-      description: 'We are looking for a talented Senior Frontend Developer to join our dynamic engineering team. You will be responsible for building cutting-edge web applications using modern technologies.',
-      responsibilities: '• Develop responsive web applications using React and TypeScript\n• Collaborate with designers and backend developers\n• Optimize applications for maximum speed and scalability\n• Mentor junior developers and conduct code reviews\n• Participate in architectural decisions',
-      qualifications: '• Bachelor\'s degree in Computer Science or related field\n• 5+ years of experience with React and JavaScript\n• Strong understanding of modern frontend technologies\n• Experience with state management (Redux, Context API)\n• Excellent problem-solving and communication skills',
-      benefits: '• Competitive salary and equity package\n• Comprehensive health insurance\n• Flexible working hours and remote work options\n• Professional development budget\n• Modern equipment and tools',
-      createdAt: '2024-06-20',
-      status: 'Active'
-    },
-    {
-      id: 2,
-      jobTitle: 'Data Scientist',
-      department: 'Product',
-      location: 'San Francisco, CA',
-      employmentType: 'Full-time',
-      experienceLevel: 'Mid Level (2-5 years)',
-      skills: ['Python', 'Machine Learning', 'SQL', 'TensorFlow', 'Statistics'],
-      salaryMin: 100000,
-      salaryMax: 140000,
-      description: 'Join our data science team to drive insights and build intelligent solutions that impact millions of users worldwide.',
-      responsibilities: '• Develop machine learning models and algorithms\n• Analyze large datasets to extract actionable insights\n• Collaborate with product teams to define metrics\n• Build data pipelines and automated reporting systems\n• Present findings to stakeholders',
-      qualifications: '• Master\'s degree in Data Science, Statistics, or related field\n• 3+ years of experience in data science or analytics\n• Proficiency in Python and SQL\n• Experience with ML frameworks (TensorFlow, PyTorch)\n• Strong statistical analysis skills',
-      benefits: '• Competitive compensation package\n• Stock options\n• Health, dental, and vision insurance\n• Learning and development opportunities\n• Flexible PTO policy',
-      createdAt: '2024-06-18',
-      status: 'Active'
-    },
-    {
-      id: 3,
-      jobTitle: 'UX Designer',
-      department: 'Design',
-      location: 'New York, NY',
-      employmentType: 'Full-time',
-      experienceLevel: 'Mid Level (2-5 years)',
-      skills: ['Figma', 'Sketch', 'Prototyping', 'User Research', 'Wireframing'],
-      salaryMin: 70000,
-      salaryMax: 95000,
-      description: 'We\'re seeking a creative UX Designer to help shape the future of our digital products through user-centered design.',
-      responsibilities: '• Design intuitive user interfaces and experiences\n• Conduct user research and usability testing\n• Create wireframes, prototypes, and design systems\n• Collaborate with product managers and developers\n• Advocate for user needs throughout the design process',
-      qualifications: '• Bachelor\'s degree in Design, HCI, or related field\n• 3+ years of UX/UI design experience\n• Proficiency in design tools (Figma, Sketch, Adobe Creative Suite)\n• Strong portfolio demonstrating design thinking\n• Experience with user research methodologies',
-      benefits: '• Competitive salary\n• Creative workspace and tools\n• Health and wellness benefits\n• Professional conference attendance\n• Collaborative team environment',
-      createdAt: '2024-06-15',
-      status: 'Draft'
-    }
-  ]);
+  // Job descriptions data from Supabase
+  const [jobDescriptions, setJobDescriptions] = useState([]);
+  const [postingLogs, setPostingLogs] = useState([]);
 
-  // Dummy posting logs data
-  const [postingLogs] = useState([
-    {
-      id: 1,
-      jobTitle: 'Senior Frontend Developer',
-      platform: 'LinkedIn',
-      status: 'Success',
-      timestamp: '2024-06-22 10:30 AM',
-      postId: 'LI_12345',
-      views: 245,
-      applications: 12
-    },
-    {
-      id: 2,
-      jobTitle: 'Data Scientist',
-      platform: 'Company Portal',
-      status: 'Success',
-      timestamp: '2024-06-21 2:15 PM',
-      postId: 'CP_67890',
-      views: 156,
-      applications: 8
-    },
-    {
-      id: 3,
-      jobTitle: 'UX Designer',
-      platform: 'LinkedIn',
-      status: 'Failed',
-      timestamp: '2024-06-20 11:45 AM',
-      postId: null,
-      error: 'API rate limit exceeded',
-      views: 0,
-      applications: 0
+  useEffect(() => {
+    fetchJobDescriptions();
+    fetchPostingLogs();
+  }, []);
+
+  const fetchJobDescriptions = async () => {
+    const { data, error } = await supabase
+      .from('job_descriptions')
+      .select('*')
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      console.error('Failed to fetch job descriptions:', error);
+    } else {
+      // Map database fields to component expectations and ensure proper data types
+      const jobsWithStatus = data.map(job => ({
+        ...job,
+        status: job.status || 'Active',
+        // Map database field names to component field names
+        description: job.job_description,
+        responsibilities: job.key_responsibilities,
+        qualifications: job.qualification_requirements,
+        benefits: job.additional_benefits,
+        skills: job.required_skills ? 
+          (Array.isArray(job.required_skills) ? 
+            job.required_skills : 
+            job.required_skills.split(',').map(s => s.trim())
+          ) : [],
+        // Parse salary range if it exists
+        salary_min: job.salary_range ? extractSalaryMin(job.salary_range) : null,
+        salary_max: job.salary_range ? extractSalaryMax(job.salary_range) : null
+      }));
+
+      setJobDescriptions(jobsWithStatus);
     }
-  ]);
+  };
+
+  const fetchPostingLogs = async () => {
+    // You'll need to create a job_postings table for real data
+    // For now, I'll create a query that checks if you have this table
+    try {
+      const { data, error } = await supabase
+        .from('job_postings')
+        .select(`
+          *,
+          job_descriptions(job_title)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.log('Job postings table not found, using sample data');
+        // Use sample data if table doesn't exist
+        setPostingLogs([
+          {
+            id: 1,
+            jobTitle: 'Senior Frontend Developer',
+            platform: 'LinkedIn',
+            status: 'Success',
+            timestamp: new Date().toISOString(),
+            postId: 'LI_12345',
+            views: 245,
+            applications: 12
+          },
+          {
+            id: 2,
+            jobTitle: 'Data Scientist',
+            platform: 'Company Portal',
+            status: 'Success',
+            timestamp: new Date(Date.now() - 86400000).toISOString(),
+            postId: 'CP_67890',
+            views: 156,
+            applications: 8
+          }
+        ]);
+      } else {
+        // Map real data
+        const mappedLogs = data.map(log => ({
+          id: log.id,
+          jobTitle: log.job_descriptions?.job_title || 'Unknown Job',
+          platform: log.platform,
+          status: log.status,
+          timestamp: new Date(log.created_at).toLocaleString(),
+          postId: log.post_id,
+          views: log.views || 0,
+          applications: log.applications || 0,
+          error: log.error_message
+        }));
+        setPostingLogs(mappedLogs);
+      }
+    } catch (error) {
+      console.log('Using sample posting data');
+    }
+  };
+
+  // Helper functions to extract salary from range string
+  const extractSalaryMin = (salaryRange) => {
+    if (!salaryRange) return null;
+    const match = salaryRange.match(/(\d+)/);
+    return match ? parseInt(match[1]) * 1000 : null;
+  };
+
+  const extractSalaryMax = (salaryRange) => {
+    if (!salaryRange) return null;
+    const matches = salaryRange.match(/(\d+)/g);
+    return matches && matches.length > 1 ? parseInt(matches[1]) * 1000 : null;
+  };
+
+  // Update job status
+  const updateJobStatus = async (jobId, newStatus) => {
+    const { error } = await supabase
+      .from('job_descriptions')
+      .update({ 
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', jobId);
+
+    if (error) {
+      message.error('Failed to update job status');
+      console.error(error);
+    } else {
+      message.success(`Job status updated to ${newStatus}`);
+      fetchJobDescriptions(); // Refresh the data
+    }
+  };
+
+  // Get counts for badges
+  const getActiveJobsCount = () => {
+    return jobDescriptions.filter(j => j.status === 'Active').length;
+  };
+
+  const getPostedTodayCount = () => {
+    const today = new Date().toDateString();
+    return postingLogs.filter(log => {
+      const logDate = new Date(log.timestamp).toDateString();
+      return logDate === today && log.status === 'Success';
+    }).length;
+  };
 
   // Table columns for job descriptions
   const jobColumns = [
     {
       title: 'Job Title',
-      dataIndex: 'jobTitle',
+      dataIndex: 'job_title',
       key: 'jobTitle',
       render: (text, record) => (
         <div>
@@ -163,18 +225,20 @@ const JobPostPage = ({ userRole }) => {
     },
     {
       title: 'Type',
-      dataIndex: 'employmentType',
+      dataIndex: 'employment_type',
       key: 'employmentType',
       render: (text) => (
-        <Tag color="blue">{text}</Tag>
+        <Tag color="blue">{text || 'N/A'}</Tag>
       )
     },
     {
       title: 'Experience',
-      dataIndex: 'experienceLevel',
+      dataIndex: 'experience_level',
       key: 'experienceLevel',
       render: (text) => (
-        <Tag color="purple">{text.split(' ')[0]} Level</Tag>
+        <Tag color="purple">
+          {text ? `${text.split(' ')[0]} Level` : 'N/A'}
+        </Tag>
       )
     },
     {
@@ -190,7 +254,7 @@ const JobPostPage = ({ userRole }) => {
     },
     {
       title: 'Created',
-      dataIndex: 'createdAt',
+      dataIndex: 'created_at',
       key: 'createdAt',
       render: (date) => new Date(date).toLocaleDateString()
     },
@@ -267,7 +331,7 @@ const JobPostPage = ({ userRole }) => {
           </Space>
         ) : (
           <Text type="danger" style={{ fontSize: '12px' }}>
-            {record.error}
+            {record.error || 'Posting failed'}
           </Text>
         )
       )
@@ -281,7 +345,7 @@ const JobPostPage = ({ userRole }) => {
 
   const handleJobSelect = (job) => {
     setSelectedJob(job);
-    message.success(`Selected: ${job.jobTitle}`);
+    message.success(`Selected: ${job.job_title}`);
   };
 
   const handleJobPreview = (job) => {
@@ -316,6 +380,25 @@ const JobPostPage = ({ userRole }) => {
       // Simulate API calls to different platforms
       await new Promise(resolve => setTimeout(resolve, 3000));
       
+      // Here you would insert into job_postings table
+      for (const platform of selectedPlatforms) {
+        try {
+          await supabase
+            .from('job_postings')
+            .insert({
+              job_id: selectedJob.id,
+              platform: platform.charAt(0).toUpperCase() + platform.slice(1),
+              status: 'Success',
+              post_id: `${platform.toUpperCase()}_${Date.now()}`,
+              views: 0,
+              applications: 0,
+              created_at: new Date().toISOString()
+            });
+        } catch (error) {
+          console.log('Job postings table not available, skipping insert');
+        }
+      }
+      
       message.success({
         content: `Job posted successfully to ${selectedPlatforms.join(', ')}!`,
         duration: 5
@@ -328,6 +411,9 @@ const JobPostPage = ({ userRole }) => {
         company: false,
         internal: true
       });
+
+      // Refresh posting logs
+      fetchPostingLogs();
     } catch (error) {
       message.error('Failed to post job. Please try again.');
     } finally {
@@ -335,10 +421,18 @@ const JobPostPage = ({ userRole }) => {
     }
   };
 
+  const handleActiveJobsClick = () => {
+    message.info(`You have ${getActiveJobsCount()} active jobs`);
+  };
+
+  const handlePostedTodayClick = () => {
+    message.info(`${getPostedTodayCount()} jobs were posted today`);
+  };
+
   return (
     <div style={{ 
       padding: '24px',
-      backgroundColor: 'transparent' // Use animated background
+      backgroundColor: 'transparent'
     }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
         {/* Header */}
@@ -364,16 +458,28 @@ const JobPostPage = ({ userRole }) => {
             </Col>
             <Col>
               <Space>
-                <Badge count={jobDescriptions.filter(j => j.status === 'Active').length}>
-                  <Button icon={<FileTextOutlined />}>
+                <Badge count={getActiveJobsCount()}>
+                  <Button 
+                    icon={<FileTextOutlined />}
+                    onClick={handleActiveJobsClick}
+                  >
                     Active Jobs
                   </Button>
                 </Badge>
-                <Badge count={postingLogs.filter(l => l.status === 'Success').length}>
-                  <Button icon={<BellOutlined />}>
+                <Badge count={getPostedTodayCount()}>
+                  <Button 
+                    icon={<BellOutlined />}
+                    onClick={handlePostedTodayClick}
+                  >
                     Posted Today
                   </Button>
                 </Badge>
+                <Button 
+                  icon={<SettingOutlined />}
+                  onClick={() => setStatusModalVisible(true)}
+                >
+                  Status Jobs
+                </Button>
               </Space>
             </Col>
           </Row>
@@ -443,7 +549,7 @@ const JobPostPage = ({ userRole }) => {
                   <Col xs={24} sm={12}>
                     <div>
                       <Title level={4} style={{ marginBottom: '8px' }}>
-                        {selectedJob.jobTitle}
+                        {selectedJob.job_title}
                       </Title>
                       <Space wrap>
                         <Tag icon={<TeamOutlined />} color="blue">
@@ -453,7 +559,7 @@ const JobPostPage = ({ userRole }) => {
                           {selectedJob.location}
                         </Tag>
                         <Tag icon={<StarOutlined />} color="purple">
-                          {selectedJob.experienceLevel.split(' ')[0]} Level
+                          {selectedJob.experience_level ? selectedJob.experience_level.split(' ')[0] + ' Level' : 'N/A'}
                         </Tag>
                       </Space>
                     </div>
@@ -462,13 +568,19 @@ const JobPostPage = ({ userRole }) => {
                     <div>
                       <Text type="secondary">Skills Required:</Text>
                       <div style={{ marginTop: '8px' }}>
-                        {selectedJob.skills.slice(0, 3).map(skill => (
-                          <Tag key={skill} style={{ marginBottom: '4px' }}>
-                            {skill}
-                          </Tag>
-                        ))}
-                        {selectedJob.skills.length > 3 && (
-                          <Tag>+{selectedJob.skills.length - 3} more</Tag>
+                        {selectedJob.skills && Array.isArray(selectedJob.skills) && selectedJob.skills.length > 0 ? (
+                          <>
+                            {selectedJob.skills.slice(0, 3).map((skill, index) => (
+                              <Tag key={index} style={{ marginBottom: '4px' }}>
+                                {skill}
+                              </Tag>
+                            ))}
+                            {selectedJob.skills.length > 3 && (
+                              <Tag>+{selectedJob.skills.length - 3} more</Tag>
+                            )}
+                          </>
+                        ) : (
+                          <Text type="secondary">No skills listed</Text>
                         )}
                       </div>
                     </div>
@@ -476,7 +588,7 @@ const JobPostPage = ({ userRole }) => {
                 </Row>
                 <Divider />
                 <Paragraph ellipsis={{ rows: 2, expandable: true }}>
-                  {selectedJob.description}
+                  {selectedJob.description || 'No description available'}
                 </Paragraph>
               </Card>
             )}
@@ -670,55 +782,12 @@ const JobPostPage = ({ userRole }) => {
                 {posting ? 'Posting Job...' : 'Post to Selected Platforms'}
               </Button>
             </Card>
-
-            {/* Quick Stats */}
-            <Card 
-              title="Quick Stats"
-              style={{ 
-                background: 'rgba(255, 255, 255, 0.95)',
-                backdropFilter: 'blur(10px)',
-                border: 'none',
-                borderRadius: '16px',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
-              }}
-            >
-              <Row gutter={[16, 16]}>
-                <Col xs={24}>
-                  <div style={{ textAlign: 'center' }}>
-                    <Title level={3} style={{ color: '#1890ff', margin: 0 }}>
-                      {postingLogs.filter(l => l.status === 'Success').length}
-                    </Title>
-                    <Text type="secondary">Successful Posts</Text>
-                  </div>
-                </Col>
-                <Col xs={12}>
-                  <div style={{ textAlign: 'center' }}>
-                    <Title level={4} style={{ color: '#52c41a', margin: 0 }}>
-                      {postingLogs.reduce((sum, log) => sum + (log.views || 0), 0)}
-                    </Title>
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                      Total Views
-                    </Text>
-                  </div>
-                </Col>
-                <Col xs={12}>
-                  <div style={{ textAlign: 'center' }}>
-                    <Title level={4} style={{ color: '#722ed1', margin: 0 }}>
-                      {postingLogs.reduce((sum, log) => sum + (log.applications || 0), 0)}
-                    </Title>
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                      Applications
-                    </Text>
-                  </div>
-                </Col>
-              </Row>
-            </Card>
           </Col>
         </Row>
 
         {/* Job Preview Modal */}
         <Modal
-          title={selectedJob?.jobTitle}
+          title={selectedJob?.job_title}
           open={previewVisible}
           onCancel={() => setPreviewVisible(false)}
           width={800}
@@ -742,42 +811,46 @@ const JobPostPage = ({ userRole }) => {
             <div>
               <Descriptions column={2} style={{ marginBottom: '24px' }}>
                 <Descriptions.Item label="Department">
-                  {selectedJob.department}
+                  {selectedJob.department || 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Location">
-                  {selectedJob.location}
+                  {selectedJob.location || 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Employment Type">
-                  {selectedJob.employmentType}
+                  {selectedJob.employment_type || 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Experience Level">
-                  {selectedJob.experienceLevel}
+                  {selectedJob.experience_level || 'N/A'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Salary Range">
-                  ${selectedJob.salaryMin?.toLocaleString()} - ${selectedJob.salaryMax?.toLocaleString()}
+                  {selectedJob.salary_range || 'Not specified'}
                 </Descriptions.Item>
               </Descriptions>
 
               <Divider orientation="left">Skills Required</Divider>
               <div style={{ marginBottom: '24px' }}>
-                {selectedJob.skills.map(skill => (
-                  <Tag key={skill} color="blue" style={{ marginBottom: '8px' }}>
-                    {skill}
-                  </Tag>
-                ))}
+                {selectedJob.skills && Array.isArray(selectedJob.skills) && selectedJob.skills.length > 0 ? (
+                  selectedJob.skills.map((skill, index) => (
+                    <Tag key={index} color="blue" style={{ marginBottom: '8px' }}>
+                      {skill}
+                    </Tag>
+                  ))
+                ) : (
+                  <Text type="secondary">No skills listed</Text>
+                )}
               </div>
 
               <Divider orientation="left">Job Description</Divider>
-              <Paragraph>{selectedJob.description}</Paragraph>
+              <Paragraph>{selectedJob.description || 'No description available'}</Paragraph>
 
               <Divider orientation="left">Key Responsibilities</Divider>
               <Paragraph style={{ whiteSpace: 'pre-line' }}>
-                {selectedJob.responsibilities}
+                {selectedJob.responsibilities || 'No responsibilities listed'}
               </Paragraph>
 
               <Divider orientation="left">Qualifications</Divider>
               <Paragraph style={{ whiteSpace: 'pre-line' }}>
-                {selectedJob.qualifications}
+                {selectedJob.qualifications || 'No qualifications listed'}
               </Paragraph>
 
               {selectedJob.benefits && (
@@ -790,6 +863,60 @@ const JobPostPage = ({ userRole }) => {
               )}
             </div>
           )}
+        </Modal>
+
+        {/* Status Jobs Modal */}
+        <Modal
+          title="Manage Job Status"
+          open={statusModalVisible}
+          onCancel={() => setStatusModalVisible(false)}
+          width={600}
+          footer={[
+            <Button key="close" onClick={() => setStatusModalVisible(false)}>
+              Close
+            </Button>
+          ]}
+        >
+          <List
+            dataSource={jobDescriptions}
+            renderItem={(job) => (
+              <List.Item
+                actions={[
+                  <Button
+                    key="active"
+                    type={job.status === 'Active' ? 'primary' : 'default'}
+                    size="small"
+                    onClick={() => updateJobStatus(job.id, 'Active')}
+                    disabled={job.status === 'Active'}
+                  >
+                    Active
+                  </Button>,
+                  <Button
+                    key="inactive"
+                    type={job.status === 'Inactive' ? 'primary' : 'default'}
+                    size="small"
+                    onClick={() => updateJobStatus(job.id, 'Inactive')}
+                    disabled={job.status === 'Inactive'}
+                  >
+                    Inactive
+                  </Button>
+                ]}
+              >
+                <List.Item.Meta
+                  title={
+                    <Space>
+                      <Text strong>{job.job_title}</Text>
+                      <Badge 
+                        status={job.status === 'Active' ? 'success' : 'default'} 
+                        text={job.status}
+                      />
+                    </Space>
+                  }
+                  description={`${job.department} • ${job.location} • ${job.employment_type}`}
+                />
+              </List.Item>
+            )}
+          />
         </Modal>
       </div>
     </div>
