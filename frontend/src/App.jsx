@@ -205,22 +205,22 @@ const AppContent = () => {
           )
         } 
       />
-       <Route 
-      path="/dashboard/job-application" 
-      element={
-        <AnimatedBackground>
-          <div style={{ display: 'flex', height: '100vh', width: '100vw' }}>
-            <Dashboard
-              sidebarOpen={false}
-              activeSection="job-application"
-              userData={null}
-              onLogout={null}
-              isPublicAccess={true}
-            />
-          </div>
-        </AnimatedBackground>
-      } 
-    />
+    <Route 
+  path="/job-application" 
+  element={
+    <AnimatedBackground>
+      <div style={{ display: 'flex', height: '100vh', width: '100vw' }}>
+        <Dashboard
+          sidebarOpen={false}
+          activeSection="job-application"
+          userData={null}
+          onLogout={null}
+          isPublicAccess={true}
+        />
+      </div>
+    </AnimatedBackground>
+  } 
+/>
       {/* Dashboard Route */}
       <Route 
         path="/dashboard/*" 
