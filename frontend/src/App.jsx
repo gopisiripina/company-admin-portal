@@ -47,6 +47,9 @@ const AppContent = () => {
   useEffect(() => {
   // Handle URL-based navigation
   const path = location.pathname;
+   if (path === '/dashboard/job-application' && !isLoggedIn) {
+    return;
+  }
   if (path.includes('/selected-list')) {
     setActiveSection('selected-list');
   }else if (path.includes('/job-application')) {
@@ -190,6 +193,7 @@ const AppContent = () => {
 
   return (
     <Routes>
+       <Route path='/job-apply' element={<Navigate to='/dashboard/job-apply' replace />} />
       {/* Login Route */}
       <Route 
         path="/" 
@@ -201,7 +205,22 @@ const AppContent = () => {
           )
         } 
       />
-      
+       <Route 
+      path="/dashboard/job-application" 
+      element={
+        <AnimatedBackground>
+          <div style={{ display: 'flex', height: '100vh', width: '100vw' }}>
+            <Dashboard
+              sidebarOpen={false}
+              activeSection="job-application"
+              userData={null}
+              onLogout={null}
+              isPublicAccess={true}
+            />
+          </div>
+        </AnimatedBackground>
+      } 
+    />
       {/* Dashboard Route */}
       <Route 
         path="/dashboard/*" 
