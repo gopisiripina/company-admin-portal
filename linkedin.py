@@ -14,8 +14,10 @@ def post_job():
         
         job_data = data.get('jobData')
         access_token = data.get('accessToken')
+        application_url = data.get('applicationUrl')  # Get the dynamic URL
         
         print("Job data:", job_data)  # Debug print
+        print("Application URL:", application_url)  # Debug print
         print("Access token length:", len(access_token) if access_token else "None")  # Debug print
 
         if not job_data or not access_token:
@@ -24,7 +26,7 @@ def post_job():
                 "error": "Missing jobData or accessToken"
             }), 400
 
-        def format_job_post(job):
+        def format_job_post(job, app_url):
             post_text = f"🚀 We're Hiring: {job.get('job_title')}\n\n"
             post_text += f"📍 Location: {job.get('location', 'Not specified')}\n"
             post_text += f"🏢 Department: {job.get('department', 'Not specified')}\n"
@@ -34,26 +36,34 @@ def post_job():
             if job.get('salary_range'):
                 post_text += f"💰 Salary Range: {job['salary_range']}\n"
 
-            post_text += f"\n📋 Job Description:\n{job.get('description', 'No description available')}\n\n"
+            post_text += f"\n📋 Job Description:\n{job.get('job_description', 'No description available')}\n\n"
 
-            if job.get('responsibilities'):
-                post_text += f"🎯 Key Responsibilities:\n{job['responsibilities']}\n\n"
+            if job.get('key_responsibilities'):
+                post_text += f"🎯 Key Responsibilities:\n{job['key_responsibilities']}\n\n"
 
-            if job.get('qualifications'):
-                post_text += f"✅ Qualifications:\n{job['qualifications']}\n\n"
+            if job.get('qualification_requirements'):
+                post_text += f"✅ Qualifications:\n{job['qualification_requirements']}\n\n"
 
-            if job.get('skills') and isinstance(job['skills'], list):
-                post_text += f"🛠️ Skills Required:\n{', '.join(job['skills'])}\n\n"
+            if job.get('required_skills'):
+                skills = job['required_skills']
+                if isinstance(skills, list):
+                    skills_text = ', '.join(skills)
+                else:
+                    skills_text = skills
+                post_text += f"🛠️ Skills Required:\n{skills_text}\n\n"
 
-            if job.get('benefits'):
-                post_text += f"🎁 Benefits:\n{job['benefits']}\n\n"
+            if job.get('additional_benefits'):
+                post_text += f"🎁 Benefits:\n{job['additional_benefits']}\n\n"
 
-            post_text += "📧 Ready to join our team? Apply now!\n\n"
+            # Add the dynamic application URL
+            post_text += f"📧 Ready to join our team? Apply now: {app_url}\n\n"
             post_text += f"#Hiring #Jobs #{job.get('department', '').replace(' ', '')} #{job.get('job_title', '').replace(' ', '')}"
 
             return post_text
 
-        post_content = format_job_post(job_data)
+        # Use the dynamic application URL or fallback to generic
+        final_app_url = application_url or "http://localhost:5173/job-application"
+        post_content = format_job_post(job_data, final_app_url)
         print("Post content length:", len(post_content))  # Debug print
 
         linkedin_payload = {
@@ -89,7 +99,8 @@ def post_job():
             return jsonify({
                 "success": True,
                 "postId": response.json().get('id'),
-                "message": "Successfully posted to LinkedIn"
+                "message": "Successfully posted to LinkedIn",
+                "applicationUrl": final_app_url  # Return the URL that was used
             }), 200
         else:
             # Return the actual LinkedIn error

@@ -67,8 +67,17 @@ const JobPostPage = ({ userRole }) => {
   const [jobDescriptions, setJobDescriptions] = useState([]);
   const [postingLogs, setPostingLogs] = useState([]);
 
-  const postToLinkedIn = async (jobData) => {
+const postToLinkedIn = async (jobData) => {
   try {
+    // Generate dynamic application URL with job parameters
+    const applicationUrl = `http://localhost:5173/job-application/${jobData.id}?` + 
+      `title=${encodeURIComponent(jobData.job_title || '')}&` +
+      `company=${encodeURIComponent(jobData.company_name || 'Your Company Name')}&` +
+      `location=${encodeURIComponent(jobData.location || '')}&` +
+      `type=${encodeURIComponent(jobData.employment_type || '')}&` +
+      `salary=${encodeURIComponent(jobData.salary_range || 'Competitive')}&` +
+      `description=${encodeURIComponent(jobData.job_description || '')}`;
+
     const response = await fetch('http://127.0.0.1:5000/api/post-job', {
       method: 'POST',
       headers: {
@@ -76,26 +85,26 @@ const JobPostPage = ({ userRole }) => {
       },
       body: JSON.stringify({
         accessToken: 'AQXRbDwBQ3o1RgOSPhIuWBxML2dsqW9g8AcVZBb-e5A--YBqheu0oHtbjqUkoHAfelpwAnkNWnDczfIk8sGdyidWe_d2ejNlgR8mrQbP3pvif9mBMW-uxp_y7jMfJ3Ry0lQGhe0fcJKcYNvpMyFL5i7QCXmVeYOl1inWJnBOh0qBmnk-iB2nl9p28ctlALbjnuY4FRkf2TB64qgkdALXMFFA7pySUchl9oZ1CJTr1n85o9X4CsTKcCdgXRZ_n2KVoyABGDM3DB-SmqYit9OJnklMMx6T3JgKC7bClH8PPJ5eVzTw_Vt6_VwiBTuhgstnmTD5XY1P9GbdkgtgR9YtRAOMBzvIeQ',
-        jobData: jobData  // Send the entire jobData object
+        jobData: jobData,
+        applicationUrl: applicationUrl  // Pass the dynamic URL to the backend
       })
     });
 
     if (!response.ok) {
-  const errorText = await response.text();
-  let errorData;
-  try {
-    errorData = JSON.parse(errorText);
-    // Fix: properly extract the error message
-    const errorMessage = errorData.error?.message || 
-                        errorData.error?.error || 
-                        errorData.message || 
-                        JSON.stringify(errorData.error) || 
-                        'Unknown error';
-    throw new Error(`API Error: ${response.status} - ${errorMessage}`);
-  } catch (parseError) {
-    throw new Error(`API Error: ${response.status} - ${errorText}`);
-  }
-}
+      const errorText = await response.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+        const errorMessage = errorData.error?.message || 
+                            errorData.error?.error || 
+                            errorData.message || 
+                            JSON.stringify(errorData.error) || 
+                            'Unknown error';
+        throw new Error(`API Error: ${response.status} - ${errorMessage}`);
+      } catch (parseError) {
+        throw new Error(`API Error: ${response.status} - ${errorText}`);
+      }
+    }
 
     const result = await response.json();
     return {
@@ -111,7 +120,6 @@ const JobPostPage = ({ userRole }) => {
     };
   }
 };
-
   useEffect(() => {
     fetchJobDescriptions();
     fetchPostingLogs();
