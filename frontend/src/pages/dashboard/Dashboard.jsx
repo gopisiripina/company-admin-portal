@@ -13,7 +13,6 @@ import JobApplyPage from '../job/JobApplyPage';
 import ResumeListPage from '../job/ResumeListPage';
 import InterviewManagementPage from '../job/InterviewManagementPage';// Import ResumeListPage
 import JobApplicationPage from '../job/JobApplicationPage';
-import SelectedCandidatePage from '../job/SelectedCandidatespage'; // Import SelectedListPage
 import SelectedCandidatesPage from '../job/SelectedCandidatespage';
 
 
