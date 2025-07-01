@@ -268,169 +268,177 @@ const sendOfferLetter = async (offerData) => {
 };
 
   const columns = [
-    {
-      title: 'Candidate',
-      key: 'candidate',
-      fixed: 'left',
-      width: 200,
-      render: (_, record) => (
-        <Space>
-          <Badge dot={!record.offerSent} status="processing">
-            <Avatar size={40} icon={<UserOutlined />} />
-          </Badge>
+  {
+    title: 'Candidate',
+    key: 'candidate',
+    fixed: 'left',
+    width: 180, // Reduced from 200
+    render: (_, record) => (
+      <Space>
+        <Badge dot={!record.offerSent} status="processing">
+          <Avatar size={32} icon={<UserOutlined />} /> {/* Reduced from 40 */}
+        </Badge>
+        <div>
+          <div style={{ fontWeight: 500, fontSize: '13px' }}>{record.name}</div> {/* Reduced font */}
+          <Text type="secondary" style={{ fontSize: '11px' }}>{record.email}</Text>
+          <div style={{ fontSize: '10px', color: '#1890ff' }}>
+            <StarOutlined /> Selected
+          </div>
+        </div>
+      </Space>
+    ),
+  },
+  {
+    title: 'Job Details',
+    key: 'jobDetails',
+    width: 150, // Reduced from 180
+    render: (_, record) => (
+      <div>
+        <div style={{ fontWeight: 500, fontSize: '12px' }}>{record.jobTitle}</div>
+        <Text type="secondary" style={{ fontSize: '11px' }}>{record.department}</Text>
+        <div style={{ fontSize: '10px', color: '#52c41a' }}>
+          <TrophyOutlined /> Exp: {record.experience} years
+        </div>
+      </div>
+    ),
+  },
+  {
+    title: 'Ratings',
+    key: 'ratings',
+    width: 120, // Reduced from 150
+    render: (_, record) => (
+      <div>
+        <div style={{ marginBottom: '2px' }}>
+          <Text style={{ fontSize: '10px' }}>Tech: </Text>
+          <Tag color={record.technicalRating >= 4 ? 'green' : record.technicalRating >= 3 ? 'orange' : 'red'} 
+               size="small">
+            {record.technicalRating || 'N/A'}/5
+          </Tag>
+        </div>
+        <div>
+          <Text style={{ fontSize: '10px' }}>Comm: </Text>
+          <Tag color={record.communicationRating >= 4 ? 'green' : record.communicationRating >= 3 ? 'orange' : 'red'} 
+               size="small">
+            {record.communicationRating || 'N/A'}/5
+          </Tag>
+        </div>
+      </div>
+    ),
+  },
+  {
+    title: 'Selected Date',
+    dataIndex: 'selectedDate',
+    key: 'selectedDate',
+    width: 100, // Reduced from 120
+    render: (date) => (
+      <div style={{ fontSize: '11px' }}>
+        <CalendarOutlined style={{ color: '#1890ff', marginRight: '4px' }} />
+        {new Date(date).toLocaleDateString('en-US', { 
+          month: 'short', day: 'numeric'
+        })}
+      </div>
+    ),
+  },
+  {
+    title: 'Offer Status',
+    key: 'offerStatus',
+    width: 110, // Reduced from 130
+    render: (_, record) => (
+      <div>
+        {record.offerSent ? (
           <div>
-            <div style={{ fontWeight: 500 }}>{record.name}</div>
-            <Text type="secondary" style={{ fontSize: '12px' }}>{record.email}</Text>
-            <div style={{ fontSize: '11px', color: '#1890ff' }}>
-              <StarOutlined /> Selected Candidate
+            <Tag color="green" icon={<CheckCircleOutlined />} size="small">
+              Sent
+            </Tag>
+            <div style={{ fontSize: '9px', color: '#666' }}>
+              {new Date(record.offerSentDate).toLocaleDateString()}
             </div>
           </div>
-        </Space>
-      ),
-    },
-    {
-      title: 'Job Details',
-      key: 'jobDetails',
-      width: 180,
-      render: (_, record) => (
-        <div>
-          <div style={{ fontWeight: 500 }}>{record.jobTitle}</div>
-          <Text type="secondary" style={{ fontSize: '12px' }}>{record.department}</Text>
-          <div style={{ fontSize: '11px', color: '#52c41a' }}>
-            <TrophyOutlined /> Exp: {record.experience} years
-          </div>
-        </div>
-      ),
-    },
-    {
-      title: 'Interview Ratings',
-      key: 'ratings',
-      width: 150,
-      render: (_, record) => (
-        <div>
-          <div style={{ marginBottom: '4px' }}>
-            <Text style={{ fontSize: '11px' }}>Technical: </Text>
-            <Tag color={record.technicalRating >= 4 ? 'green' : record.technicalRating >= 3 ? 'orange' : 'red'}>
-              {record.technicalRating || 'N/A'}/5
-            </Tag>
-          </div>
-          <div>
-            <Text style={{ fontSize: '11px' }}>Communication: </Text>
-            <Tag color={record.communicationRating >= 4 ? 'green' : record.communicationRating >= 3 ? 'orange' : 'red'}>
-              {record.communicationRating || 'N/A'}/5
-            </Tag>
-          </div>
-        </div>
-      ),
-    },
-    {
-      title: 'Selection Date',
-      dataIndex: 'selectedDate',
-      key: 'selectedDate',
-      width: 120,
-      render: (date) => (
-        <div>
-          <CalendarOutlined style={{ color: '#1890ff', marginRight: '4px' }} />
-          <div style={{ fontSize: '11px' }}>
-            {new Date(date).toLocaleDateString('en-US', { 
-              month: 'short', day: 'numeric', year: 'numeric'
-            })}
-          </div>
-        </div>
-      ),
-    },
-    {
-      title: 'Offer Status',
-      key: 'offerStatus',
-      width: 130,
-      render: (_, record) => (
-        <div>
-          {record.offerSent ? (
-            <div>
-              <Tag color="green" icon={<CheckCircleOutlined />}>
-                Offer Sent
-              </Tag>
-              <div style={{ fontSize: '10px', color: '#666' }}>
-                {new Date(record.offerSentDate).toLocaleDateString()}
-              </div>
-            </div>
-          ) : (
-            <Tag color="orange" icon={<ClockCircleOutlined />}>
-              Pending
-            </Tag>
-          )}
-        </div>
-      ),
-    },
-    {
-      title: 'Resume',
-      key: 'resume',
-      width: 100,
-      render: (_, record) => (
-        <Space size="small">
-          <Tooltip title="View Details">
-            <Button 
-              type="text" 
-              size="small"
-              icon={<EyeOutlined />} 
-              onClick={() => {
-                setSelectedCandidate(record);
-                setCandidateModalVisible(true);
-              }}
-            />
-          </Tooltip>
-          <Tooltip title="Download Resume">
-            <Button 
-              type="text" 
-              size="small"
-              icon={<DownloadOutlined />}
-              onClick={() => window.open(record.resumeUrl, '_blank')}
-            />
-          </Tooltip>
-        </Space>
-      ),
-    },
-    {
-      title: 'Send Offer',
-      key: 'sendOffer',
-      width: 120,
-      render: (_, record) => (
-        <Button
-          type={record.offerSent ? "default" : "primary"}
-          size="small"
-          icon={<SendOutlined />}
-          onClick={() => {
-            setSelectedCandidate(record);
-            setOfferModalVisible(true);
-          }}
-          disabled={record.offerSent}
-        >
-          {record.offerSent ? 'Sent' : 'Send Offer'}
-        </Button>
-      ),
-    },
-    {
-      title: 'History',
-      key: 'history',
-      width: 80,
-      render: (_, record) => (
-        <Button
-          type="link"
-          size="small"
-          icon={<HistoryOutlined />}
-          onClick={() => {
-            setSelectedCandidate(record);
-            setHistoryDrawerVisible(true);
-          }}
-        >
-          View
-        </Button>
-      ),
-    }
-  ];
+        ) : (
+          <Tag color="orange" icon={<ClockCircleOutlined />} size="small">
+            Pending
+          </Tag>
+        )}
+      </div>
+    ),
+  },
+  {
+    title: 'Actions',
+    key: 'actions',
+    width: 80, // Reduced from 100
+    render: (_, record) => (
+      <Space size="small">
+        <Tooltip title="View Details">
+          <Button 
+            type="text" 
+            size="small"
+            icon={<EyeOutlined />} 
+            onClick={() => {
+              setSelectedCandidate(record);
+              setCandidateModalVisible(true);
+            }}
+          />
+        </Tooltip>
+        <Tooltip title="Download Resume">
+          <Button 
+            type="text" 
+            size="small"
+            icon={<DownloadOutlined />}
+            onClick={() => window.open(record.resumeUrl, '_blank')}
+          />
+        </Tooltip>
+      </Space>
+    ),
+  },
+  {
+    title: 'Send Offer',
+    key: 'sendOffer',
+    width: 100, // Reduced from 120
+    render: (_, record) => (
+      <Button
+        type={record.offerSent ? "default" : "primary"}
+        size="small"
+        icon={<SendOutlined />}
+        onClick={() => {
+          setSelectedCandidate(record);
+          setOfferModalVisible(true);
+        }}
+        disabled={record.offerSent}
+        style={{ fontSize: '11px' }}
+      >
+        {record.offerSent ? 'Sent' : 'Send'}
+      </Button>
+    ),
+  },
+  {
+    title: 'History',
+    key: 'history',
+    width: 70, // Reduced from 80
+    render: (_, record) => (
+      <Button
+        type="link"
+        size="small"
+        icon={<HistoryOutlined />}
+        onClick={() => {
+          setSelectedCandidate(record);
+          setHistoryDrawerVisible(true);
+        }}
+        style={{ fontSize: '11px' }}
+      >
+        View
+      </Button>
+    ),
+  }
+];
+
 
   return (
-    <div style={{ padding: '24px', maxWidth: '100%', margin: '0 auto' }}>
+    <div style={{ 
+  padding: '16px', // Reduced from '24px'
+  maxWidth: '100%', // Changed from '1200px' 
+  margin: '0 auto', 
+  width: '100%' 
+}}>
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
         <Title level={2} style={{ margin: 0, color: '#1890ff' }}>
@@ -442,132 +450,134 @@ const sendOfferLetter = async (offerData) => {
       </div>
 
       {/* Statistics Cards */}
-      <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="Total Selected"
-              value={candidates.length}
-              prefix={<TeamOutlined />}
-              valueStyle={{ color: '#3f8600' }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="Offers Sent"
-              value={candidates.filter(c => c.offerSent).length}
-              prefix={<SendOutlined />}
-              valueStyle={{ color: '#1890ff' }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="Pending Offers"
-              value={candidates.filter(c => !c.offerSent).length}
-              prefix={<ClockCircleOutlined />}
-              valueStyle={{ color: '#cf1322' }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="Completion Rate"
-              value={candidates.length > 0 ? Math.round((candidates.filter(c => c.offerSent).length / candidates.length) * 100) : 0}
-              suffix="%"
-              prefix={<CheckCircleOutlined />}
-              valueStyle={{ color: '#722ed1' }}
-            />
-          </Card>
-        </Col>
-      </Row>
+<Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
+  <Col xs={12} sm={12} md={6} lg={6} xl={6}> {/* Added responsive breakpoints */}
+    <Card>
+      <Statistic
+        title="Total Selected"
+        value={candidates.length}
+        prefix={<TeamOutlined />}
+        valueStyle={{ color: '#3f8600' }}
+      />
+    </Card>
+  </Col>
+  <Col xs={12} sm={12} md={6} lg={6} xl={6}>
+    <Card>
+      <Statistic
+        title="Offers Sent"
+        value={candidates.filter(c => c.offerSent).length}
+        prefix={<SendOutlined />}
+        valueStyle={{ color: '#1890ff' }}
+      />
+    </Card>
+  </Col>
+  <Col xs={12} sm={12} md={6} lg={6} xl={6}>
+    <Card>
+      <Statistic
+        title="Pending Offers"
+        value={candidates.filter(c => !c.offerSent).length}
+        prefix={<ClockCircleOutlined />}
+        valueStyle={{ color: '#cf1322' }}
+      />
+    </Card>
+  </Col>
+  <Col xs={12} sm={12} md={6} lg={6} xl={6}>
+    <Card>
+      <Statistic
+        title="Completion Rate"
+        value={candidates.length > 0 ? Math.round((candidates.filter(c => c.offerSent).length / candidates.length) * 100) : 0}
+        suffix="%"
+        prefix={<CheckCircleOutlined />}
+        valueStyle={{ color: '#722ed1' }}
+      />
+    </Card>
+  </Col>
+</Row>
 
       {/* Filters */}
-      <Card style={{ marginBottom: '24px' }}>
-        <Row gutter={[16, 16]}>
-          <Col span={6}>
-            <div style={{ marginBottom: '8px' }}>
-              <Text strong>Search</Text>
-            </div>
-            <Input
-              placeholder="Search by name or email"
-              prefix={<SearchOutlined />}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              allowClear
-            />
-          </Col>
-          <Col span={5}>
-            <div style={{ marginBottom: '8px' }}>
-              <Text strong>Job Title</Text>
-            </div>
-            <Select
-              value={jobTitleFilter}
-              onChange={setJobTitleFilter}
-              style={{ width: '100%' }}
-            >
-              <Option value="all">All Job Titles</Option>
-              {jobTitles.map(title => (
-                <Option key={title} value={title}>{title}</Option>
-              ))}
-            </Select>
-          </Col>
-          <Col span={5}>
-            <div style={{ marginBottom: '8px' }}>
-              <Text strong>Offer Status</Text>
-            </div>
-            <Select
-              value={statusFilter}
-              onChange={setStatusFilter}
-              style={{ width: '100%' }}
-            >
-              <Option value="all">All Status</Option>
-              <Option value="offer_sent">Offer Sent</Option>
-              <Option value="offer_pending">Offer Pending</Option>
-            </Select>
-          </Col>
-          <Col span={6}>
-            <div style={{ marginBottom: '8px' }}>
-              <Text strong>Date Range</Text>
-            </div>
-            <RangePicker
-              style={{ width: '100%' }}
-              onChange={setDateRange}
-            />
-          </Col>
-          <Col span={2}>
-            <div style={{ marginBottom: '8px', opacity: 0 }}>
-              <Text>Action</Text>
-            </div>
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={fetchSelectedCandidates}
-              title="Refresh Data"
-            />
-          </Col>
-        </Row>
-      </Card>
+<Card style={{ marginBottom: '24px' }}>
+  <Row gutter={[12, 12]}> {/* Reduced from [16, 16] */}
+    <Col xs={24} sm={12} md={6} lg={6} xl={6}> {/* Made responsive */}
+      <div style={{ marginBottom: '8px' }}>
+        <Text strong>Search</Text>
+      </div>
+      <Input
+        placeholder="Search by name or email"
+        prefix={<SearchOutlined />}
+        value={searchText}
+        onChange={(e) => setSearchText(e.target.value)}
+        allowClear
+      />
+    </Col>
+    <Col xs={12} sm={6} md={4} lg={4} xl={4}> {/* Reduced width */}
+      <div style={{ marginBottom: '8px' }}>
+        <Text strong>Job Title</Text>
+      </div>
+      <Select
+        value={jobTitleFilter}
+        onChange={setJobTitleFilter}
+        style={{ width: '100%' }}
+      >
+        <Option value="all">All Job Titles</Option>
+        {jobTitles.map(title => (
+          <Option key={title} value={title}>{title}</Option>
+        ))}
+      </Select>
+    </Col>
+    <Col xs={12} sm={6} md={4} lg={4} xl={4}> {/* Reduced width */}
+      <div style={{ marginBottom: '8px' }}>
+        <Text strong>Offer Status</Text>
+      </div>
+      <Select
+        value={statusFilter}
+        onChange={setStatusFilter}
+        style={{ width: '100%' }}
+      >
+        <Option value="all">All Status</Option>
+        <Option value="offer_sent">Offer Sent</Option>
+        <Option value="offer_pending">Offer Pending</Option>
+      </Select>
+    </Col>
+    <Col xs={24} sm={12} md={6} lg={6} xl={6}> {/* Made responsive */}
+      <div style={{ marginBottom: '8px' }}>
+        <Text strong>Date Range</Text>
+      </div>
+      <RangePicker
+        style={{ width: '100%' }}
+        onChange={setDateRange}
+      />
+    </Col>
+    <Col xs={24} sm={12} md={4} lg={4} xl={4}> {/* Reduced width */}
+      <div style={{ marginBottom: '8px', opacity: 0 }}>
+        <Text>Action</Text>
+      </div>
+      <Button
+        icon={<ReloadOutlined />}
+        onClick={fetchSelectedCandidates}
+        title="Refresh Data"
+        style={{ width: '100%' }} // Full width on mobile
+      />
+    </Col>
+  </Row>
+</Card>
 
       {/* Selected Candidates Table */}
       <Card>
         <Table
-          columns={columns}
-          dataSource={filteredCandidates}
-          rowKey="id"
-          loading={loading}
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) =>
-              `${range[0]}-${range[1]} of ${total} selected candidates`,
-          }}
-          scroll={{ x: 1200 }}
-        />
+  columns={columns}
+  dataSource={filteredCandidates}
+  rowKey="id"
+  loading={loading}
+  pagination={{
+    pageSize: 10,
+    showSizeChanger: true,
+    showQuickJumper: true,
+    showTotal: (total, range) =>
+      `${range[0]}-${range[1]} of ${total} candidates`,
+  }}
+  scroll={{ x: 900 }} // Reduced from 1200
+  size="small" // Add this for more compact table
+/>
       </Card>
 
       {/* Candidate Details Modal */}
@@ -725,23 +735,23 @@ const sendOfferLetter = async (offerData) => {
               </Col>
             </Row>
 
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item label="Work Location" name="workLocation" rules={[{ required: true }]}>
-                  <Select>
-                    <Option value="office">Office</Option>
-                    <Option value="remote">Remote</Option>
-                    <Option value="hybrid">Hybrid</Option>
-                    <Option value="onsite">On-site</Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item label="Reporting Manager" name="reportingManager" rules={[{ required: true }]}>
-                  <Input placeholder="Manager's name and designation" />
-                </Form.Item>
-              </Col>
-            </Row>
+          <Row gutter={16}>
+  <Col xs={24} sm={12} md={12} lg={12} xl={12}> {/* Made responsive */}
+    <Form.Item label="Joining Date" name="joiningDate" rules={[{ required: true }]}>
+      <DatePicker style={{ width: '100%' }} />
+    </Form.Item>
+  </Col>
+  <Col xs={24} sm={12} md={12} lg={12} xl={12}> {/* Made responsive */}
+    <Form.Item label="Work Location" name="workLocation" rules={[{ required: true }]}>
+      <Select>
+        <Option value="office">Office</Option>
+        <Option value="remote">Remote</Option>
+        <Option value="hybrid">Hybrid</Option>
+        <Option value="onsite">On-site</Option>
+      </Select>
+    </Form.Item>
+  </Col>
+</Row>
 
             <Form.Item label="Additional Benefits" name="additionalBenefits">
               <TextArea 
