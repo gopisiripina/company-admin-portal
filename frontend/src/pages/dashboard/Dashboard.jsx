@@ -13,15 +13,207 @@ import JobApplyPage from '../job/JobApplyPage';
 import ResumeListPage from '../job/ResumeListPage';
 import InterviewManagementPage from '../job/InterviewManagementPage';// Import ResumeListPage
 import JobApplicationPage from '../job/JobApplicationPage';
-import SelectedCandidatePage from '../job/SelectedCandidatespage';
 
 
 
 
-
-const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout }) => {
+const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionChange }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const fuzzySearch = (query, options) => {
+  if (!query) return [];
+  
+  const normalizedQuery = query.toLowerCase().trim();
+  
+  return options
+    .map(option => {
+      const normalizedName = option.name.toLowerCase();
+      const keywords = option.keywords || [];
+      let score = 0;
+      
+      // Check exact match with name
+      if (normalizedName === normalizedQuery) {
+        score = 100;
+      }
+      // Check if name starts with query
+      else if (normalizedName.startsWith(normalizedQuery)) {
+        score = 90;
+      }
+      // Check if name contains query
+      else if (normalizedName.includes(normalizedQuery)) {
+        score = 80;
+      }
+      
+      // Check keywords for exact matches
+      for (const keyword of keywords) {
+        const normalizedKeyword = keyword.toLowerCase();
+        if (normalizedKeyword === normalizedQuery) {
+          score = Math.max(score, 95); // High score for exact keyword match
+        }
+        else if (normalizedKeyword.startsWith(normalizedQuery)) {
+          score = Math.max(score, 85);
+        }
+        else if (normalizedKeyword.includes(normalizedQuery)) {
+          score = Math.max(score, 75);
+        }
+      }
+      
+      // Fuzzy matching - check if all characters exist in order (only if no other matches)
+      if (score === 0) {
+        let queryIndex = 0;
+        for (let i = 0; i < normalizedName.length && queryIndex < normalizedQuery.length; i++) {
+          if (normalizedName[i] === normalizedQuery[queryIndex]) {
+            queryIndex++;
+          }
+        }
+        if (queryIndex === normalizedQuery.length) {
+          score = 40;
+        }
+      }
+      
+      return { ...option, score };
+    })
+    .filter(option => option.score > 0)
+    .sort((a, b) => b.score - a.score);
+};
+const searchableSections = [
+  { 
+    name: 'admin', 
+    section: 'admin', 
+    keywords: ['admin', 'administrator', 'management', 'manage admin'] 
+  },
+  { 
+    name: 'employee', 
+    section: 'employee', 
+    keywords: ['employee', 'staff', 'worker', 'manage employee'] 
+  },
+  { 
+    name: 'hr', 
+    section: 'Hr', 
+    keywords: ['hr', 'human resources', 'recruitment', 'hiring'] 
+  },
+  { 
+    name: 'job description', 
+    section: 'job-description', 
+    keywords: ['job description', 'jd', 'description', 'job desc'] 
+  },
+  { 
+    name: 'job post', 
+    section: 'job-post', 
+    keywords: ['job post', 'posting', 'vacancy', 'post job', 'job posting'] 
+  },
+  { 
+    name: 'job application', 
+    section: 'job-application', 
+    keywords: ['job application', 'application', 'apply job', 'applications'] 
+  },
+  { 
+    name: 'job apply', 
+    section: 'job-apply', 
+    keywords: ['job apply', 'apply', 'apply for job', 'job applications'] 
+  },
+  { 
+    name: 'interview', 
+    section: 'interview-management', 
+    keywords: ['interview', 'screening', 'interview management', 'interviews'] 
+  },
+  { 
+    name: 'resume', 
+    section: 'resume-list', 
+    keywords: ['resume', 'cv', 'curriculum', 'resume list', 'resumes'] 
+  },
+  { 
+    name: 'project timeline', 
+    section: 'project-timeline', 
+    keywords: ['project timeline', 'timeline', 'schedule', 'project schedule'] 
+  },
+  { 
+    name: 'project budget', 
+    section: 'project-budgeting', 
+    keywords: ['project budget', 'budget', 'budgeting', 'finance', 'project finance'] 
+  }
+];
+const handleSearch = (e) => {
+  if (e.key === 'Enter' && searchQuery.trim()) {
+    console.log('Searching for:', searchQuery);
+    
+    const results = fuzzySearch(searchQuery, searchableSections);
+    console.log('Search results:', results);
+    
+    if (results.length > 0) {
+      console.log('Navigating to:', results[0].section);
+      console.log('Match details:', {
+        name: results[0].name,
+        section: results[0].section,
+        score: results[0].score
+      });
+      
+      // Use the onSectionChange prop passed from App.jsx
+      if (onSectionChange) {
+        onSectionChange(results[0].section);
+      }
+      setSearchQuery(''); // Clear search after navigation
+    } else {
+      console.log('No results found for:', searchQuery);
+      // Optional: Show user feedback
+      alert(`No results found for "${searchQuery}"`);
+    }
+  }
+};
+const [searchSuggestions, setSearchSuggestions] = useState([]);
+const [showSuggestions, setShowSuggestions] = useState(false);
 
+const handleSearchInputChange = (e) => {
+  const value = e.target.value;
+  setSearchQuery(value);
+  
+  if (value.trim()) {
+    const suggestions = fuzzySearch(value, searchableSections).slice(0, 5);
+    setSearchSuggestions(suggestions);
+    setShowSuggestions(true);
+  } else {
+    setShowSuggestions(false);
+  }
+};
+
+const handleSuggestionClick = (section) => {
+  if (onSectionChange) {
+    onSectionChange(section);
+  }
+  setSearchQuery('');
+  setShowSuggestions(false);
+};
+const handleSidebarItemClick = (itemId) => {
+  // This function should be passed from App.jsx or use the existing navigation logic
+  // For now, we'll use a workaround with the existing navigation
+  if (typeof window !== 'undefined' && window.location) {
+    // Navigate using window.location as a fallback
+    if (itemId === 'admin') {
+      window.history.pushState(null, '', '/dashboard/admin');
+    } else if (itemId === 'employee') {
+      window.history.pushState(null, '', '/dashboard/employee');
+    } else if (itemId === 'Hr') {
+      window.history.pushState(null, '', '/dashboard/hr');
+    } else if (itemId === 'job-description') {
+      window.history.pushState(null, '', '/dashboard/job-description');
+    } else if (itemId === 'job-post') {
+      window.history.pushState(null, '', '/dashboard/job-post');
+    } else if (itemId === 'job-application') {
+      window.history.pushState(null, '', '/dashboard/job-application');
+    } else if (itemId === 'interview-management') {
+      window.history.pushState(null, '', '/dashboard/interview-management');
+    } else if (itemId === 'resume-list') {
+      window.history.pushState(null, '', '/dashboard/resume-list');
+    } else if (itemId === 'project-timeline') {
+      window.history.pushState(null, '', '/dashboard/project-timeline');
+    } else if (itemId === 'project-budgeting') {
+      window.history.pushState(null, '', '/dashboard/project-budgeting');
+    } else {
+      window.history.pushState(null, '', '/dashboard');
+    }
+    // Trigger a page refresh to update the route
+    window.location.reload();
+  }
+};
   const statsData = [
     { 
       title: 'Total Users', 
@@ -109,15 +301,31 @@ const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout }) => {
         <header className="dashboard-header">
           {/* Search Bar */}
           <div className="search-container">
-            <Search size={22} className="search-icon" />
-            <input
-              type="text"
-              placeholder="Search admins..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="search-input"
-            />
-          </div>
+  <Search size={22} className="search-icon" />
+  <input
+    type="text"
+    placeholder="Search projects, users, or documents..."
+    value={searchQuery}
+    onChange={handleSearchInputChange}
+    onKeyPress={handleSearch}
+    className="search-input"
+  />
+  
+  {/* Add search suggestions dropdown */}
+  {showSuggestions && searchSuggestions.length > 0 && (
+    <div className="search-suggestions">
+      {searchSuggestions.map((suggestion, index) => (
+        <div
+          key={index}
+          className="search-suggestion-item"
+          onClick={() => handleSuggestionClick(suggestion.section)}
+        >
+          {suggestion.name}
+        </div>
+      ))}
+    </div>
+  )}
+</div>
 
           {/* Header Right */}
           <div className="header-right">
@@ -288,43 +496,6 @@ if (activeSection === 'job-description') {
     </div>
   );
 }
-if (activeSection === 'selected-list') {
-  return (
-    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-      {/* Header */}
-      <header className="dashboard-header">
-        {/* Search Bar */}
-        <div className="search-container">
-          <Search size={22} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search job page..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
-        </div>
-
-        {/* Header Right */}
-        <div className="header-right">
-          {/* Notifications */}
-          <button className="notification-button">
-            <Bell size={22} />
-            <span className="notification-badge"></span>
-          </button>
-
-          {/* Profile Section */}
-          <ProfileSection userData={userData} onLogout={onLogout}/>
-        </div>
-      </header>
-
-      {/* Job Description Content */}
-      <main className="main-content">
-        <SelectedCandidatePage userRole={userData?.role} />
-      </main>
-    </div>
-  );
-}
 if (activeSection === 'job-post') {
   return (
     <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
@@ -366,9 +537,9 @@ if (activeSection === 'job-application') {
   return (
     <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
       {/* Header */}
-      <header className="">
+      <header className="dashboard-header">
         {/* Search Bar */}
-        {/* <div className="search-container">
+        <div className="search-container">
           <Search size={22} className="search-icon" />
           <input
             type="text"
@@ -377,18 +548,18 @@ if (activeSection === 'job-application') {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="search-input"
           />
-        </div> */}
+        </div>
 
         {/* Header Right */}
         <div className="header-right">
           {/* Notifications */}
-          {/* <button className="notification-button">
+          <button className="notification-button">
             <Bell size={22} />
             <span className="notification-badge"></span>
-          </button> */}
+          </button>
 
           {/* Profile Section */}
-          {/* <ProfileSection userData={userData} onLogout={onLogout}/> */}
+          <ProfileSection userData={userData} onLogout={onLogout}/>
         </div>
       </header>
 
@@ -558,12 +729,13 @@ if (activeSection === 'project-timeline') {
         <div className="search-container">
           <Search size={22} className="search-icon" />
           <input
-            type="text"
-            placeholder="Search projects, users, or documents..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
+  type="text"
+  placeholder="Search projects, users, or documents..."
+  value={searchQuery}
+  onChange={(e) => setSearchQuery(e.target.value)}
+  onKeyPress={handleSearch}
+  className="search-input"
+/>
         </div>
 
         {/* Header Right */}

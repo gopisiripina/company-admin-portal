@@ -216,6 +216,7 @@ const AppContent = () => {
           userData={null}
           onLogout={null}
           isPublicAccess={true}
+           onSectionChange={handleSidebarItemClick}
         />
       </div>
     </AnimatedBackground>
@@ -240,6 +241,7 @@ const AppContent = () => {
                   activeSection={activeSection}
                   userData={userData}
                   onLogout={handleLogout}
+                   onSectionChange={handleSidebarItemClick}
                 />
               </div>
             </AnimatedBackground>
