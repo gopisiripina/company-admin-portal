@@ -1,439 +1,434 @@
-import React, { useState } from 'react';
-import { 
-  Table, 
-  Button, 
-  Input, 
-  Select, 
-  Space, 
-  Tag, 
-  Modal, 
-  Form, 
-  DatePicker, 
-  TimePicker,
-  message,
-  Card,
-  Row,
-  Col,
-  Divider,
-  Badge,
-  Tooltip,
-  Typography
+import React, { useState, useEffect } from 'react';
+import {
+  Table, Card, Select, Input, DatePicker, Button, Tag, Form, TimePicker, Space, Modal, Avatar, Badge, Row, Col, Typography, Divider, message, Drawer, Steps, Timeline, Tooltip, Radio, Rate, Popconfirm
 } from 'antd';
-import { 
-  SearchOutlined, 
-  CalendarOutlined, 
-  ClockCircleOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  MailOutlined,
-  UserOutlined,
-  EyeOutlined
+import {
+  SearchOutlined, EyeOutlined, EditOutlined, CheckCircleOutlined, CloseCircleOutlined, CalendarOutlined, UserOutlined, FileTextOutlined, VideoCameraOutlined, ClockCircleOutlined, SendOutlined, PhoneOutlined, EnvironmentOutlined, DollarOutlined, HistoryOutlined, ReloadOutlined, StarOutlined, CommentOutlined
 } from '@ant-design/icons';
+import { createClient } from '@supabase/supabase-js';
 
 const { Option } = Select;
+const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
-const { Title } = Typography;
 
-// Dummy data for interview candidates
-const dummyInterviewData = [
-  {
-    id: 1,
-    name: 'John Smith',
-    email: 'john.smith@email.com',
-    phone: '+1-234-567-8900',
-    jobTitle: 'React Developer',
-    appliedDate: '2024-01-15',
-    interviewType: 'Technical',
-    interviewStatus: 'Scheduled',
-    interviewDate: '2024-01-20',
-    interviewTime: '10:00 AM',
-    interviewer: 'Sarah Johnson',
-    outcome: null,
-    experience: '3 years',
-    currentRound: 'Technical',
-    roundsCompleted: []
-  },
-  {
-    id: 2,
-    name: 'Emily Davis',
-    email: 'emily.davis@email.com',
-    phone: '+1-234-567-8901',
-    jobTitle: 'Full Stack Developer',
-    appliedDate: '2024-01-12',
-    interviewType: 'Technical',
-    interviewStatus: 'Completed',
-    interviewDate: '2024-01-18',
-    interviewTime: '2:00 PM',
-    interviewer: 'Mike Wilson',
-    outcome: 'Selected',
-    experience: '5 years',
-    currentRound: 'HR',
-    roundsCompleted: ['Technical']
-  },
-  {
-    id: 3,
-    name: 'Robert Johnson',
-    email: 'robert.johnson@email.com',
-    phone: '+1-234-567-8902',
-    jobTitle: 'Node.js Developer',
-    appliedDate: '2024-01-10',
-    interviewType: 'HR',
-    interviewStatus: 'Completed',
-    interviewDate: '2024-01-17',
-    interviewTime: '11:30 AM',
-    interviewer: 'Lisa Brown',
-    outcome: 'Selected',
-    experience: '4 years',
-    currentRound: 'Final',
-    roundsCompleted: ['Technical', 'HR']
-  },
-  {
-    id: 4,
-    name: 'Sarah Wilson',
-    email: 'sarah.wilson@email.com',
-    phone: '+1-234-567-8903',
-    jobTitle: 'Frontend Developer',
-    appliedDate: '2024-01-14',
-    interviewType: 'Technical',
-    interviewStatus: 'Completed',
-    interviewDate: '2024-01-19',
-    interviewTime: '3:30 PM',
-    interviewer: 'David Lee',
-    outcome: 'Rejected',
-    experience: '2 years',
-    currentRound: 'Technical',
-    roundsCompleted: []
-  },
-  {
-    id: 5,
-    name: 'Michael Brown',
-    email: 'michael.brown@email.com',
-    phone: '+1-234-567-8904',
-    jobTitle: 'React Developer',
-    appliedDate: '2024-01-13',
-    interviewType: 'HR',
-    interviewStatus: 'Scheduled',
-    interviewDate: '2024-01-22',
-    interviewTime: '1:00 PM',
-    interviewer: 'Jennifer Taylor',
-    outcome: null,
-    experience: '6 years',
-    currentRound: 'HR',
-    roundsCompleted: ['Technical']
+const supabaseUrl = 'https://dsvqjsnxdxlgufzwcaub.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdnFqc254ZHhsZ3VmendjYXViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4MjgyMjMsImV4cCI6MjA2NjQwNDIyM30.YHdiWzPvU6XBXFzcDZL7LKtgjU_dv5pVVpFRF8OkEz8';
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Fetch candidates with scheduled interviews
+const fetchInterviewCandidates = async (jobId) => {
+  const { data, error } = await supabase
+    .from('job_applications')
+    .select('*')
+    .eq('job_id', jobId)
+    .in('status', ['technical', 'hr', 'reschedule'])
+    .not('interview_date', 'is', null)
+    .order('interview_date', { ascending: true });
+  
+  if (error) {
+    console.error('Error fetching interview candidates:', error);
+    return [];
   }
-];
+  return data;
+};
 
-const InterviewPage = () => {
-  const [interviewData, setInterviewData] = useState(dummyInterviewData);
-  const [filteredData, setFilteredData] = useState(dummyInterviewData);
+// Update candidate interview status
+const updateCandidateStatus = async (candidateId, updateData) => {
+  const { data, error } = await supabase
+    .from('job_applications')
+    .update({
+      ...updateData,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', candidateId)
+    .select();
+    
+  if (error) {
+    console.error('Error updating candidate status:', error);
+    return { success: false, error };
+  }
+  return { success: true, data };
+};
+
+const InterviewManagement = () => {
+  const [candidates, setCandidates] = useState([]);
+  const [filteredCandidates, setFilteredCandidates] = useState([]);
+  const [jobId, setJobId] = useState(1);
+  const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
-  const [filterJobTitle, setFilterJobTitle] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterOutcome, setFilterOutcome] = useState('');
-  const [filterRound, setFilterRound] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [interviewTypeFilter, setInterviewTypeFilter] = useState('all');
   
   // Modal states
-  const [isScheduleModalVisible, setIsScheduleModalVisible] = useState(false);
-  const [isRejectModalVisible, setIsRejectModalVisible] = useState(false);
-  const [isViewModalVisible, setIsViewModalVisible] = useState(false);
+  const [actionModalVisible, setActionModalVisible] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
-  const [scheduleForm] = Form.useForm();
-  const [rejectForm] = Form.useForm();
+  const [detailsDrawerVisible, setDetailsDrawerVisible] = useState(false);
 
-  // Filter data based on search and filters
-  const applyFilters = () => {
-    let filtered = interviewData;
+  // Load candidates
+  useEffect(() => {
+    const loadCandidates = async () => {
+      setLoading(true);
+      try {
+        const data = await fetchInterviewCandidates(jobId);
+        const transformedData = data.map(candidate => ({
+          id: candidate.id,
+          name: candidate.full_name,
+          email: candidate.email,
+          phone: candidate.phone,
+          jobTitle: candidate.job_title,
+          status: candidate.status,
+          interviewType: candidate.interview_type,
+          interviewDate: candidate.interview_date,
+          interviewTime: candidate.interview_time,
+          interviewPlatform: candidate.interview_platform,
+          interviewLink: candidate.interview_link,
+          interviewStatus: candidate.interview_status,
+          experience: candidate.experience_years,
+          skills: candidate.skills ? candidate.skills.split(',') : [],
+          location: candidate.location,
+          expectedSalary: candidate.expected_salary,
+          resumeUrl: candidate.resume_url,
+          appliedAt: candidate.applied_at,
+          // Add new fields for interview feedback
+          technical_rating: candidate.technical_rating,
+          communication_rating: candidate.communication_rating,
+          interview_feedback: candidate.interview_feedback,
+          interviewer_name: candidate.interviewer_name
+        }));
+        setCandidates(transformedData);
+      } catch (error) {
+        console.error('Error loading candidates:', error);
+        message.error('Failed to load candidates');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCandidates();
+  }, [jobId]);
+
+  // Apply filters
+  useEffect(() => {
+    let filtered = [...candidates];
 
     if (searchText) {
-      filtered = filtered.filter(item => 
-        item.name.toLowerCase().includes(searchText.toLowerCase()) ||
-        item.email.toLowerCase().includes(searchText.toLowerCase())
+      filtered = filtered.filter(candidate =>
+        candidate.name.toLowerCase().includes(searchText.toLowerCase()) ||
+        candidate.email.toLowerCase().includes(searchText.toLowerCase())
       );
     }
 
-    if (filterJobTitle) {
-      filtered = filtered.filter(item => item.jobTitle === filterJobTitle);
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(candidate => candidate.status === statusFilter);
     }
 
-    if (filterStatus) {
-      filtered = filtered.filter(item => item.interviewStatus === filterStatus);
+    if (interviewTypeFilter !== 'all') {
+      filtered = filtered.filter(candidate => candidate.interviewType === interviewTypeFilter);
     }
 
-    if (filterOutcome) {
-      filtered = filtered.filter(item => item.outcome === filterOutcome);
-    }
+    setFilteredCandidates(filtered);
+  }, [searchText, statusFilter, interviewTypeFilter, candidates]);
 
-    if (filterRound) {
-      filtered = filtered.filter(item => item.currentRound === filterRound);
-    }
-
-    setFilteredData(filtered);
+  const handleInterviewAction = (candidate) => {
+    setSelectedCandidate(candidate);
+    setActionModalVisible(true);
   };
 
-  React.useEffect(() => {
-    applyFilters();
-  }, [searchText, filterJobTitle, filterStatus, filterOutcome, filterRound, interviewData]);
+const handleActionSubmit = async (values) => {
+  setLoading(true);
+  try {
+    const updateData = {
+      interview_status: values.action === 'reschedule' ? 'rescheduled' : 'completed',
+      technical_rating: values.technicalRating,
+      communication_rating: values.communicationRating,
+      interview_feedback: values.feedback,
+      interviewer_name: values.interviewerName
+    };
 
-  // Get unique job titles for filter
-  const jobTitles = [...new Set(interviewData.map(item => item.jobTitle))];
+    // Determine new status based on action and current interview type
+    let newStatus = selectedCandidate.status; // Keep current status by default
 
-  // Handle interview outcome
-  const handleOutcome = (candidateId, outcome) => {
-    const updatedData = interviewData.map(item => {
-      if (item.id === candidateId) {
-        const updatedItem = { ...item, outcome, interviewStatus: 'Completed' };
-        
-        // If technical round is selected, move to HR round
-        if (outcome === 'Selected' && item.currentRound === 'Technical') {
-          updatedItem.currentRound = 'HR';
-          updatedItem.roundsCompleted = [...item.roundsCompleted, 'Technical'];
-          updatedItem.interviewStatus = 'Scheduled'; // Reset for HR round
-          updatedItem.outcome = null; // Reset outcome for HR round
-        }
-        // If HR round is selected, move to final
-        else if (outcome === 'Selected' && item.currentRound === 'HR') {
-          updatedItem.currentRound = 'Final';
-          updatedItem.roundsCompleted = [...item.roundsCompleted, 'HR'];
-        }
-        
-        return updatedItem;
+    if (values.action === 'cleared') {
+      if (selectedCandidate.interviewType === 'technical') {
+        // Technical cleared -> move to HR round but keep status as 'technical' 
+        // until HR interview is scheduled
+        newStatus = 'technical'; // Keep as technical, but mark interview as completed
+      } else if (selectedCandidate.interviewType === 'hr') {
+        // HR cleared -> final selection
+        newStatus = 'selected';
       }
-      return item;
-    });
-    
-    setInterviewData(updatedData);
-    
-    if (outcome === 'Selected') {
-      message.success(`Candidate selected for ${updatedData.find(item => item.id === candidateId)?.currentRound === 'Final' ? 'final selection' : 'next round'}!`);
-    } else {
-      message.info('Candidate marked as rejected');
+    } else if (values.action === 'rejected') {
+      newStatus = 'rejected';
+    } else if (values.action === 'reschedule') {
+      newStatus = 'reschedule';
+      updateData.interview_date = values.newDate?.format('YYYY-MM-DD');
+      updateData.interview_time = values.newTime?.format('HH:mm');
     }
-  };
 
-  // Handle reject with email
-  const handleRejectWithEmail = (candidate) => {
-    setSelectedCandidate(candidate);
-    setIsRejectModalVisible(true);
-  };
+    updateData.status = newStatus;
 
-  // Handle schedule interview
-  const handleScheduleInterview = (candidate) => {
-    setSelectedCandidate(candidate);
-    setIsScheduleModalVisible(true);
-  };
-
-  // Handle view candidate details
-  const handleViewCandidate = (candidate) => {
-    setSelectedCandidate(candidate);
-    setIsViewModalVisible(true);
-  };
-
-  // Send rejection email
-  const sendRejectionEmail = () => {
-    rejectForm.validateFields().then(values => {
-      console.log('Sending rejection email:', {
-        candidate: selectedCandidate,
-        message: values.message
-      });
-      
-      // Update candidate status
-      handleOutcome(selectedCandidate.id, 'Rejected');
-      
-      message.success('Rejection email sent successfully!');
-      setIsRejectModalVisible(false);
-      rejectForm.resetFields();
-    });
-  };
-
-  // Schedule interview
-  const scheduleInterview = () => {
-    scheduleForm.validateFields().then(values => {
-      console.log('Scheduling interview:', {
-        candidate: selectedCandidate,
-        ...values
-      });
-      
-      // Update interview data
-      const updatedData = interviewData.map(item => {
-        if (item.id === selectedCandidate.id) {
-          return {
-            ...item,
-            interviewDate: values.date.format('YYYY-MM-DD'),
-            interviewTime: values.time.format('HH:mm A'),
-            interviewer: values.interviewer,
-            interviewStatus: 'Scheduled'
+    const result = await updateCandidateStatus(selectedCandidate.id, updateData);
+    
+    if (result.success) {
+      // Update local state properly
+      const updatedCandidates = candidates.map(candidate => {
+        if (candidate.id === selectedCandidate.id) {
+          return { 
+            ...candidate, 
+            status: newStatus,
+            interviewStatus: updateData.interview_status,
+            technical_rating: updateData.technical_rating,
+            communication_rating: updateData.communication_rating,
+            interview_feedback: updateData.interview_feedback,
+            interviewer_name: updateData.interviewer_name,
+            // Keep other interview details
+            interviewDate: updateData.interview_date || candidate.interviewDate,
+            interviewTime: updateData.interview_time || candidate.interviewTime
           };
         }
-        return item;
+        return candidate;
       });
       
-      setInterviewData(updatedData);
-      message.success('Interview scheduled successfully!');
-      setIsScheduleModalVisible(false);
-      scheduleForm.resetFields();
-    });
-  };
-
-  // Get status color
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Scheduled': return 'blue';
-      case 'Completed': return 'green';
-      case 'Cancelled': return 'red';
-      default: return 'default';
-    }
-  };
-
-  // Get outcome color
-  const getOutcomeColor = (outcome) => {
-    switch (outcome) {
-      case 'Selected': return 'success';
-      case 'Rejected': return 'error';
-      default: return 'default';
-    }
-  };
-
-  // Get round color
-  const getRoundColor = (round) => {
-    switch (round) {
-      case 'Technical': return 'blue';
-      case 'HR': return 'orange';
-      case 'Final': return 'green';
-      default: return 'default';
-    }
-  };
-
-  const columns = [
-    {
-      title: 'Candidate',
-      key: 'candidate',
-      render: (_, record) => (
-        <div>
-          <div style={{ fontWeight: 'bold' }}>{record.name}</div>
-          <div style={{ color: '#666', fontSize: '12px' }}>{record.email}</div>
-          <div style={{ color: '#666', fontSize: '12px' }}>{record.phone}</div>
-        </div>
-      ),
-    },
-    {
-      title: 'Job Title',
-      dataIndex: 'jobTitle',
-      key: 'jobTitle',
-      render: (text) => <Tag color="blue">{text}</Tag>
-    },
-    {
-      title: 'Experience',
-      dataIndex: 'experience',
-      key: 'experience',
-    },
-    {
-      title: 'Current Round',
-      dataIndex: 'currentRound',
-      key: 'currentRound',
-      render: (round) => <Tag color={getRoundColor(round)}>{round}</Tag>
-    },
-    {
-      title: 'Interview Details',
-      key: 'interviewDetails',
-      render: (_, record) => (
-        <div>
-          <div><CalendarOutlined /> {record.interviewDate}</div>
-          <div><ClockCircleOutlined /> {record.interviewTime}</div>
-          <div><UserOutlined /> {record.interviewer}</div>
-        </div>
-      ),
-    },
-    {
-      title: 'Status',
-      dataIndex: 'interviewStatus',
-      key: 'interviewStatus',
-      render: (status) => (
-        <Badge 
-          status={status === 'Completed' ? 'success' : status === 'Scheduled' ? 'processing' : 'default'} 
-          text={status} 
-        />
-      )
-    },
-    {
-      title: 'Outcome',
-      dataIndex: 'outcome',
-      key: 'outcome',
-      render: (outcome) => {
-        if (!outcome) return <Tag color="default">Pending</Tag>;
-        return <Tag color={getOutcomeColor(outcome)}>{outcome}</Tag>;
-      }
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (_, record) => (
-        <Space size="small" wrap>
-          <Tooltip title="View Details">
-            <Button 
-              type="text" 
-              icon={<EyeOutlined />} 
-              onClick={() => handleViewCandidate(record)}
-            />
-          </Tooltip>
-          
-          {record.interviewStatus === 'Scheduled' && (
-            <Button 
-              type="primary" 
-              size="small"
-              onClick={() => handleScheduleInterview(record)}
-            >
-              Reschedule
-            </Button>
-          )}
-          
-          {record.interviewStatus === 'Completed' && !record.outcome && (
-            <>
-              <Button 
-                type="primary" 
-                size="small"
-                icon={<CheckCircleOutlined />}
-                onClick={() => handleOutcome(record.id, 'Selected')}
-              >
-                Select
-              </Button>
-              <Button 
-                danger 
-                size="small"
-                icon={<CloseCircleOutlined />}
-                onClick={() => handleRejectWithEmail(record)}
-              >
-                Reject
-              </Button>
-            </>
-          )}
-          
-          {record.interviewStatus === 'Scheduled' && (
-            <Button 
-              type="default" 
-              size="small"
-              icon={<MailOutlined />}
-            >
-              Send Mail
-            </Button>
-          )}
-        </Space>
-      ),
-    },
-  ];
-return (
-  <div style={{ 
-    padding: '24px', 
-    maxWidth: '1200px', 
-    margin: '0 auto', 
-    width: '100%' 
-  }}>
-
-      <Title level={2}>Interview Management</Title>
+      setCandidates(updatedCandidates);
       
-      {/* Filter Panel */}
+      setActionModalVisible(false);
+      setSelectedCandidate(null);
+      
+      // Success message based on action
+      const actionMessages = {
+        cleared: selectedCandidate.interviewType === 'technical' ? 
+          'Technical interview completed! Candidate ready for HR round.' : 'Candidate selected successfully!',
+        rejected: 'Candidate status updated to rejected',
+        reschedule: 'Interview rescheduled successfully!'
+      };
+      
+      message.success(actionMessages[values.action]);
+    } else {
+      throw new Error('Failed to update status');
+    }
+  } catch (error) {
+    console.error('Error updating interview status:', error);
+    message.error('Failed to update interview status');
+  } finally {
+    setLoading(false);
+  }
+};
+const columns = [
+  {
+    title: 'Candidate',
+    key: 'candidate',
+    fixed: 'left',
+    width: 200, // Reduced from 250
+    render: (_, record) => (
+      <Space>
+        <Avatar size={32} icon={<UserOutlined />} /> {/* Reduced from 40 */}
+        <div>
+          <div style={{ fontWeight: 500, fontSize: '13px' }}>{record.name}</div> {/* Reduced font */}
+          <Text type="secondary" style={{ fontSize: '11px' }}>{record.email}</Text>
+          <div>
+            <Text type="secondary" style={{ fontSize: '10px' }}>{record.jobTitle}</Text>
+          </div>
+        </div>
+      </Space>
+    ),
+  },
+  {
+    title: 'Interview Details',
+    key: 'interviewDetails',
+    width: 160, // Reduced from 200
+    render: (_, record) => (
+      <div>
+        <Tag 
+          color={record.interviewType === 'technical' ? 'blue' : 'green'}
+          style={{ fontSize: '10px' }} // Smaller tag
+        >
+          {record.interviewType?.toUpperCase()}
+        </Tag>
+        <div style={{ fontSize: '11px', marginTop: '2px' }}>
+          <CalendarOutlined style={{ marginRight: '2px' }} />
+          {new Date(record.interviewDate).toLocaleDateString('en-US', { 
+            month: 'short', day: 'numeric' 
+          })}
+        </div>
+        <div style={{ fontSize: '11px', color: '#666' }}>
+          <ClockCircleOutlined style={{ marginRight: '2px' }} />
+          {record.interviewTime}
+        </div>
+        <div style={{ fontSize: '10px', color: '#1890ff', marginTop: '1px' }}>
+          {record.interviewPlatform?.replace('_', ' ').toUpperCase()}
+        </div>
+      </div>
+    ),
+  },
+  {
+    title: 'Status',
+    key: 'currentStatus',
+    width: 110, // Reduced from 140
+    render: (_, record) => {
+      const getDetailedStatus = () => {
+        if (record.status === 'selected') {
+          return { text: 'Selected', color: 'purple' };
+        }
+        
+        if (record.status === 'rejected') {
+          return { text: 'Rejected', color: 'red' };
+        }
+        
+        if (record.status === 'reschedule') {
+          const roundType = record.interviewType === 'technical' ? 'Tech' : 'HR';
+          return { text: `${roundType} Rescheduled`, color: 'orange' };
+        }
+        
+        if (record.status === 'hr') {
+          if (record.interviewStatus === 'completed') {
+            return { text: 'HR Done', color: 'green' };
+          } else if (record.interviewStatus === 'scheduled') {
+            return { text: 'HR Scheduled', color: 'geekblue' };
+          }
+          return { text: 'HR Round', color: 'geekblue' };
+        }
+        
+        if (record.status === 'technical') {
+          if (record.interviewType === 'technical') {
+            if (record.interviewStatus === 'completed') {
+              return { text: 'Tech Done', color: 'green' };
+            } else if (record.interviewStatus === 'scheduled') {
+              return { text: 'Tech Scheduled', color: 'blue' };
+            }
+            return { text: 'Tech Round', color: 'blue' };
+          } else if (record.interviewType === 'hr') {
+            if (record.interviewStatus === 'completed') {
+              return { text: 'HR Done', color: 'green' };
+            } else if (record.interviewStatus === 'scheduled') {
+              return { text: 'HR Scheduled', color: 'geekblue' };
+            }
+            return { text: 'HR Round', color: 'geekblue' };
+          }
+        }
+        
+        return { text: 'Pending', color: 'default' };
+      };
+
+      const statusInfo = getDetailedStatus();
+      return (
+        <Tag color={statusInfo.color} style={{ fontSize: '10px' }}>
+          {statusInfo.text}
+        </Tag>
+      );
+    },
+  },
+  {
+    title: 'Interview Status',
+    key: 'interviewStatus',
+    width: 100, // Reduced from 130
+    render: (_, record) => {
+      const getInterviewStatus = () => {
+        switch (record.interviewStatus) {
+          case 'scheduled':
+            return { text: 'Scheduled', color: 'blue', icon: <CalendarOutlined /> };
+          case 'completed':
+            return { text: 'Done', color: 'green', icon: <CheckCircleOutlined /> };
+          case 'rescheduled':
+            return { text: 'Rescheduled', color: 'orange', icon: <ClockCircleOutlined /> };
+          case 'cancelled':
+            return { text: 'Cancelled', color: 'red', icon: <CloseCircleOutlined /> };
+          default:
+            return { text: 'Pending', color: 'default', icon: <ClockCircleOutlined /> };
+        }
+      };
+
+      const statusInfo = getInterviewStatus();
+      return (
+        <Tag 
+          color={statusInfo.color} 
+          icon={statusInfo.icon}
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '2px', 
+            width: 'fit-content',
+            fontSize: '10px'
+          }}
+        >
+          {statusInfo.text}
+        </Tag>
+      );
+    },
+  },
+  {
+    title: 'Rating',
+    key: 'rating',
+    width: 90, // Reduced from 120
+    render: (_, record) => (
+      <div>
+        {record.technical_rating && (
+          <div>
+            <Text style={{ fontSize: '10px' }}>Tech: </Text>
+            <Rate disabled size="small" value={record.technical_rating} style={{ fontSize: '10px' }} />
+          </div>
+        )}
+        {record.communication_rating && (
+          <div>
+            <Text style={{ fontSize: '10px' }}>Comm: </Text>
+            <Rate disabled size="small" value={record.communication_rating} style={{ fontSize: '10px' }} />
+          </div>
+        )}
+      </div>
+    ),
+  },
+  {
+    title: 'Actions',
+    key: 'actions',
+    width: 120, // Reduced from 150
+    render: (_, record) => (
+      <Space size="small">
+        <Tooltip title="View Details">
+          <Button
+            type="text"
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => {
+              setSelectedCandidate(record);
+              setDetailsDrawerVisible(true);
+            }}
+          />
+        </Tooltip>
+        {record.interviewStatus === 'scheduled' && (
+          <Button
+            type="primary"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => handleInterviewAction(record)}
+            style={{ fontSize: '11px' }}
+          >
+            Update
+          </Button>
+        )}
+      </Space>
+    ),
+  }
+];
+
+  return (
+     <div style={{ padding: '16px', maxWidth: '100%', margin: '0 auto' }}>
+      {/* Header */}
+      <div style={{ marginBottom: '24px' }}>
+        <Title level={2} style={{ margin: 0, color: '#1890ff' }}>
+          Interview Management
+        </Title>
+        <Text type="secondary">
+          Manage candidate interviews and update their progress
+        </Text>
+      </div>
+
+      {/* Filters */}
       <Card style={{ marginBottom: '24px' }}>
         <Row gutter={[16, 16]}>
-          <Col xs={24} sm={12} md={6}>
+          <Col span={8}>
+            <div style={{ marginBottom: '8px' }}>
+              <Text strong>Search</Text>
+            </div>
             <Input
               placeholder="Search by name or email"
               prefix={<SearchOutlined />}
@@ -442,228 +437,323 @@ return (
               allowClear
             />
           </Col>
-          <Col xs={24} sm={12} md={4}>
+          <Col span={6}>
+            <div style={{ marginBottom: '8px' }}>
+              <Text strong>Status</Text>
+            </div>
             <Select
-              placeholder="Job Title"
-              value={filterJobTitle}
-              onChange={setFilterJobTitle}
-              allowClear
+              value={statusFilter}
+              onChange={setStatusFilter}
               style={{ width: '100%' }}
             >
-              {jobTitles.map(title => (
-                <Option key={title} value={title}>{title}</Option>
-              ))}
+              <Option value="all">All Status</Option>
+              <Option value="technical">Technical Round</Option>
+              <Option value="hr">HR Round</Option>
+              <Option value="reschedule">Rescheduled</Option>
             </Select>
           </Col>
-          <Col xs={24} sm={12} md={4}>
+          <Col span={6}>
+            <div style={{ marginBottom: '8px' }}>
+              <Text strong>Interview Type</Text>
+            </div>
             <Select
-              placeholder="Status"
-              value={filterStatus}
-              onChange={setFilterStatus}
-              allowClear
+              value={interviewTypeFilter}
+              onChange={setInterviewTypeFilter}
               style={{ width: '100%' }}
             >
-              <Option value="Scheduled">Scheduled</Option>
-              <Option value="Completed">Completed</Option>
-              <Option value="Cancelled">Cancelled</Option>
+              <Option value="all">All Types</Option>
+              <Option value="technical">Technical</Option>
+              <Option value="hr">HR</Option>
             </Select>
           </Col>
-          <Col xs={24} sm={12} md={4}>
-            <Select
-              placeholder="Round"
-              value={filterRound}
-              onChange={setFilterRound}
-              allowClear
-              style={{ width: '100%' }}
-            >
-              <Option value="Technical">Technical</Option>
-              <Option value="HR">HR</Option>
-              <Option value="Final">Final</Option>
-            </Select>
+          <Col span={4}>
+            <div style={{ marginBottom: '8px', opacity: 0 }}>
+              <Text>Action</Text>
+            </div>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={() => window.location.reload()}
+              title="Refresh Data"
+            />
           </Col>
-          <Col xs={24} sm={12} md={4}>
-            <Select
-              placeholder="Outcome"
-              value={filterOutcome}
-              onChange={setFilterOutcome}
-              allowClear
-              style={{ width: '100%' }}
-            >
-              <Option value="Selected">Selected</Option>
-              <Option value="Rejected">Rejected</Option>
-            </Select>
+        </Row>
+        
+        <Divider style={{ margin: '16px 0 8px 0' }} />
+        
+        <Row justify="space-between" align="middle">
+          <Col>
+            <Space>
+              <Text strong>{filteredCandidates.length}</Text>
+              <Text type="secondary">candidates scheduled for interviews</Text>
+            </Space>
+          </Col>
+          <Col>
+            <Space>
+              <Badge count={filteredCandidates.filter(c => c.interviewStatus === 'scheduled').length} showZero>
+                <Tag color="blue">Scheduled</Tag>
+              </Badge>
+              <Badge count={filteredCandidates.filter(c => c.interviewStatus === 'completed').length} showZero>
+                <Tag color="green">Completed</Tag>
+              </Badge>
+            </Space>
           </Col>
         </Row>
       </Card>
 
-      {/* Interview Table */}
+      {/* Candidates Table */}
       <Card>
-        <Table
-          columns={columns}
-          dataSource={filteredData}
-          rowKey="id"
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) => 
-              `${range[0]}-${range[1]} of ${total} candidates`
-          }}
-          scroll={{ x: 1200 }}
-        />
-      </Card>
+      <Table
+        columns={columns}
+        dataSource={filteredCandidates}
+        rowKey="id"
+        loading={loading}
+        pagination={{
+          pageSize: 10,
+          showSizeChanger: true,
+          showQuickJumper: true,
+          showTotal: (total, range) =>
+            `${range[0]}-${range[1]} of ${total} candidates`,
+        }}
+        scroll={{ x: 800 }} // Reduced from 1200
+        size="small" // Add this for more compact table
+      />
+    </Card>
 
-      {/* Schedule Interview Modal */}
+      {/* Action Modal */}
       <Modal
-        title="Schedule Interview"
-        open={isScheduleModalVisible}
-        onOk={scheduleInterview}
-        onCancel={() => setIsScheduleModalVisible(false)}
-        width={600}
-      >
-        <Form form={scheduleForm} layout="vertical">
-          <Form.Item label="Candidate" name="candidate">
-            <Input value={selectedCandidate?.name} disabled />
-          </Form.Item>
-          <Form.Item 
-            label="Interview Date" 
-            name="date" 
-            rules={[{ required: true, message: 'Please select date' }]}
-          >
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item 
-            label="Interview Time" 
-            name="time" 
-            rules={[{ required: true, message: 'Please select time' }]}
-          >
-            <TimePicker use12Hours format="h:mm A" style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item 
-            label="Interviewer" 
-            name="interviewer" 
-            rules={[{ required: true, message: 'Please enter interviewer name' }]}
-          >
-            <Input placeholder="Enter interviewer name" />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      {/* Rejection Modal */}
-      <Modal
-        title="Send Rejection Email"
-        open={isRejectModalVisible}
-        onOk={sendRejectionEmail}
-        onCancel={() => setIsRejectModalVisible(false)}
-        width={600}
-      >
-        <Form form={rejectForm} layout="vertical">
-          <Form.Item label="Candidate">
-            <Input value={`${selectedCandidate?.name} (${selectedCandidate?.email})`} disabled />
-          </Form.Item>
-          <Form.Item 
-            label="Rejection Message" 
-            name="message" 
-            rules={[{ required: true, message: 'Please enter rejection message' }]}
-          >
-            <TextArea 
-              rows={6} 
-              placeholder="Enter rejection message..."
-              defaultValue="Thank you for your interest in our company. After careful consideration, we have decided to move forward with other candidates whose experience more closely matches our current needs. We appreciate the time you invested in the interview process and wish you the best in your job search."
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      {/* View Candidate Modal */}
-      <Modal
-        title="Candidate Details"
-        open={isViewModalVisible}
-        onCancel={() => setIsViewModalVisible(false)}
+        title={`Update Interview - ${selectedCandidate?.name}`}
+        open={actionModalVisible}
+        onCancel={() => setActionModalVisible(false)}
         footer={null}
-        width={700}
+        width={600}
+      >
+        {selectedCandidate && (
+          <Form
+            layout="vertical"
+            onFinish={handleActionSubmit}
+            initialValues={{
+              action: 'cleared',
+              technicalRating: 3,
+              communicationRating: 3
+            }}
+          >
+            <div style={{ background: '#f5f5f5', padding: '12px', borderRadius: '6px', marginBottom: '16px' }}>
+              <Text strong>Interview Details:</Text>
+              <div style={{ marginTop: '8px' }}>
+                <Tag color="blue">{selectedCandidate.interviewType?.toUpperCase()}</Tag>
+                <Text style={{ marginLeft: '8px' }}>
+                  {new Date(selectedCandidate.interviewDate).toLocaleDateString()} at {selectedCandidate.interviewTime}
+                </Text>
+              </div>
+            </div>
+
+            <Form.Item
+              label="Interview Result"
+              name="action"
+              rules={[{ required: true, message: 'Please select an action' }]}
+            >
+              <Radio.Group>
+                <Radio.Button value="cleared">
+                  <CheckCircleOutlined style={{ color: '#52c41a' }} /> Cleared
+                </Radio.Button>
+                <Radio.Button value="rejected">
+                  <CloseCircleOutlined style={{ color: '#ff4d4f' }} /> Rejected
+                </Radio.Button>
+                <Radio.Button value="reschedule">
+                  <CalendarOutlined style={{ color: '#faad14' }} /> Reschedule
+                </Radio.Button>
+              </Radio.Group>
+            </Form.Item>
+
+            <Form.Item noStyle shouldUpdate={(prevValues, currentValues) => prevValues.action !== currentValues.action}>
+              {({ getFieldValue }) => {
+                const action = getFieldValue('action');
+                
+                if (action === 'reschedule') {
+                  return (
+                    <Row gutter={16}>
+                      <Col span={12}>
+                        <Form.Item
+                          label="New Interview Date"
+                          name="newDate"
+                          rules={[{ required: true, message: 'Please select new date' }]}
+                        >
+                          <DatePicker style={{ width: '100%' }} />
+                        </Form.Item>
+                      </Col>
+                      <Col span={12}>
+                        <Form.Item
+                          label="New Interview Time"
+                          name="newTime"
+                          rules={[{ required: true, message: 'Please select new time' }]}
+                        >
+                          <TimePicker style={{ width: '100%' }} format="HH:mm" />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                  );
+                }
+
+                if (action === 'cleared' || action === 'rejected') {
+                  return (
+                    <>
+                      <Row gutter={16}>
+                        <Col span={12}>
+                          <Form.Item
+                            label="Technical Rating"
+                            name="technicalRating"
+                            rules={[{ required: true, message: 'Please provide technical rating' }]}
+                          >
+                            <Rate />
+                          </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                          <Form.Item
+                            label="Communication Rating"
+                            name="communicationRating"
+                            rules={[{ required: true, message: 'Please provide communication rating' }]}
+                          >
+                            <Rate />
+                          </Form.Item>
+                        </Col>
+                      </Row>
+                      
+                      <Form.Item
+                        label="Interviewer Name"
+                        name="interviewerName"
+                        rules={[{ required: true, message: 'Please enter interviewer name' }]}
+                      >
+                        <Input placeholder="Enter interviewer name" />
+                      </Form.Item>
+                    </>
+                  );
+                }
+                
+                return null;
+              }}
+            </Form.Item>
+
+            <Form.Item
+              label="Feedback/Comments"
+              name="feedback"
+              rules={[{ required: true, message: 'Please provide feedback' }]}
+            >
+              <TextArea 
+                rows={4} 
+                placeholder="Enter detailed feedback about the interview..."
+              />
+            </Form.Item>
+
+            <div style={{ textAlign: 'right' }}>
+              <Space>
+                <Button onClick={() => setActionModalVisible(false)}>
+                  Cancel
+                </Button>
+                <Button type="primary" htmlType="submit" loading={loading}>
+                  Update Status
+                </Button>
+              </Space>
+            </div>
+          </Form>
+        )}
+      </Modal>
+
+      {/* Details Drawer */}
+      <Drawer
+        title={`${selectedCandidate?.name} - Interview Details`}
+        placement="right"
+        open={detailsDrawerVisible}
+        onClose={() => setDetailsDrawerVisible(false)}
+        width={500}
       >
         {selectedCandidate && (
           <div>
-            <Row gutter={[16, 16]}>
-              <Col span={12}>
-                <strong>Name:</strong> {selectedCandidate.name}
-              </Col>
-              <Col span={12}>
-                <strong>Email:</strong> {selectedCandidate.email}
-              </Col>
-              <Col span={12}>
-                <strong>Phone:</strong> {selectedCandidate.phone}
-              </Col>
-              <Col span={12}>
-                <strong>Job Title:</strong> {selectedCandidate.jobTitle}
-              </Col>
-              <Col span={12}>
-                <strong>Experience:</strong> {selectedCandidate.experience}
-              </Col>
-              <Col span={12}>
-                <strong>Applied Date:</strong> {selectedCandidate.appliedDate}
-              </Col>
-              <Col span={12}>
-                <strong>Current Round:</strong> 
-                <Tag color={getRoundColor(selectedCandidate.currentRound)} style={{ marginLeft: 8 }}>
-                  {selectedCandidate.currentRound}
-                </Tag>
-              </Col>
-              <Col span={12}>
-                <strong>Interview Status:</strong> 
-                <Badge 
-                  status={selectedCandidate.interviewStatus === 'Completed' ? 'success' : 'processing'} 
-                  text={selectedCandidate.interviewStatus}
-                  style={{ marginLeft: 8 }}
-                />
-              </Col>
-              <Col span={24}>
-                <strong>Rounds Completed:</strong>
-                <div style={{ marginTop: 8 }}>
-                  {selectedCandidate.roundsCompleted.length > 0 ? (
-                    selectedCandidate.roundsCompleted.map(round => (
-                      <Tag key={round} color="green" style={{ marginRight: 8 }}>
-                        ✓ {round}
-                      </Tag>
-                    ))
-                  ) : (
-                    <span style={{ color: '#666' }}>No rounds completed yet</span>
+            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+              <Avatar size={64} icon={<UserOutlined />} />
+              <div style={{ marginTop: '12px' }}>
+                <Title level={4} style={{ margin: 0 }}>{selectedCandidate.name}</Title>
+                <Text type="secondary">{selectedCandidate.jobTitle}</Text>
+              </div>
+            </div>
+
+            <Divider />
+
+            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+              <div>
+                <Text strong>Contact Information</Text>
+                <div style={{ marginTop: '8px' }}>
+                  <div><Text>Email: {selectedCandidate.email}</Text></div>
+                  <div><Text>Phone: {selectedCandidate.phone}</Text></div>
+                  <div><Text>Location: {selectedCandidate.location}</Text></div>
+                </div>
+              </div>
+
+              <div>
+                <Text strong>Interview Schedule</Text>
+                <div style={{ marginTop: '8px' }}>
+                  <div>
+                    <Tag color="blue">{selectedCandidate.interviewType?.toUpperCase()}</Tag>
+                  </div>
+                  <div style={{ marginTop: '4px' }}>
+                    <CalendarOutlined /> {new Date(selectedCandidate.interviewDate).toLocaleDateString()}
+                  </div>
+                  <div>
+                    <ClockCircleOutlined /> {selectedCandidate.interviewTime}
+                  </div>
+                  <div style={{ marginTop: '4px' }}>
+                    <Text>Platform: {selectedCandidate.interviewPlatform?.replace('_', ' ').toUpperCase()}</Text>
+                  </div>
+                </div>
+              </div>
+
+              {selectedCandidate.technical_rating && (
+                <div>
+                  <Text strong>Interview Ratings</Text>
+                  <div style={{ marginTop: '8px' }}>
+                    <div>
+                      <Text>Technical: </Text>
+                      <Rate disabled value={selectedCandidate.technical_rating} size="small" />
+                    </div>
+                    <div>
+                      <Text>Communication: </Text>
+                      <Rate disabled value={selectedCandidate.communication_rating} size="small" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedCandidate.interview_feedback && (
+                <div>
+                  <Text strong>Interview Feedback</Text>
+                  <div style={{ marginTop: '8px', padding: '12px', background: '#f5f5f5', borderRadius: '6px' }}>
+                    <Text>{selectedCandidate.interview_feedback}</Text>
+                  </div>
+                  {selectedCandidate.interviewer_name && (
+                    <div style={{ marginTop: '8px' }}>
+                      <Text type="secondary">
+                        - {selectedCandidate.interviewer_name}
+                      </Text>
+                    </div>
                   )}
                 </div>
-              </Col>
-              <Col span={24}>
-                <Divider />
-                <strong>Interview Details:</strong>
-                <div style={{ marginTop: 12, padding: 16, backgroundColor: '#f5f5f5', borderRadius: 4 }}>
-                  <Row gutter={[16, 8]}>
-                    <Col span={12}>
-                      <CalendarOutlined /> <strong>Date:</strong> {selectedCandidate.interviewDate}
-                    </Col>
-                    <Col span={12}>
-                      <ClockCircleOutlined /> <strong>Time:</strong> {selectedCandidate.interviewTime}
-                    </Col>
-                    <Col span={12}>
-                      <UserOutlined /> <strong>Interviewer:</strong> {selectedCandidate.interviewer}
-                    </Col>
-                    <Col span={12}>
-                      <strong>Outcome:</strong> {selectedCandidate.outcome ? (
-                        <Tag color={getOutcomeColor(selectedCandidate.outcome)}>
-                          {selectedCandidate.outcome}
-                        </Tag>
-                      ) : (
-                        <Tag color="default">Pending</Tag>
-                      )}
-                    </Col>
-                  </Row>
+              )}
+
+              <div>
+                <Text strong>Skills</Text>
+                <div style={{ marginTop: '8px' }}>
+                  {selectedCandidate.skills.map(skill => (
+                    <Tag key={skill} color="blue" style={{ marginBottom: '4px' }}>
+                      {skill}
+                    </Tag>
+                  ))}
                 </div>
-              </Col>
-            </Row>
+              </div>
+            </Space>
           </div>
         )}
-      </Modal>
+      </Drawer>
     </div>
   );
 };
 
-export default InterviewPage;
+export default InterviewManagement;

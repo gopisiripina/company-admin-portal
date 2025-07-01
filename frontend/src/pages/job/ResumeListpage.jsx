@@ -1,129 +1,169 @@
 import React, { useState, useEffect } from 'react';
-import {Table,Card,Select,Input,DatePicker,Button,Tag,Space,Modal,Avatar,Badge,Row,Col,Typography,Divider,message,Drawer,Steps,Timeline,Tooltip} from 'antd';
-import {SearchOutlined,EyeOutlined,DownloadOutlined,MailOutlined,UserOutlined,CalendarOutlined,CheckCircleOutlined,ClockCircleOutlined,SendOutlined,PhoneOutlined,EnvironmentOutlined,DollarOutlined,HistoryOutlined,ReloadOutlined} from '@ant-design/icons';
+import {Table,Card,Select,Input,DatePicker,Button,Tag,Form, TimePicker ,Space,Modal,Avatar,Badge,Row,Col,Typography,Divider,message,Drawer,Steps,Timeline,Tooltip} from 'antd';
+import {SearchOutlined,EyeOutlined,DownloadOutlined,MailOutlined,UserOutlined, FileTextOutlined, VideoCameraOutlined, CloseCircleOutlined ,CalendarOutlined,CheckCircleOutlined,ClockCircleOutlined,SendOutlined,PhoneOutlined,EnvironmentOutlined,DollarOutlined,HistoryOutlined,ReloadOutlined} from '@ant-design/icons';
+import { sendInterviewInvitation } from '../email/EmailService';
+import { createClient } from '@supabase/supabase-js';
+
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 const { Step } = Steps;
+const supabaseUrl = 'https://dsvqjsnxdxlgufzwcaub.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdnFqc254ZHhsZ3VmendjYXViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4MjgyMjMsImV4cCI6MjA2NjQwNDIyM30.YHdiWzPvU6XBXFzcDZL7LKtgjU_dv5pVVpFRF8OkEz8';
 
-// Dummy data for selected resumes
-const selectedResumesData = [
-  {
-    id: 1,
-    name: 'Sarah Johnson',
-    email: 'sarah.johnson@email.com',
-    phone: '+1 (555) 123-4567',
-    jobTitle: 'Senior React Developer',
-    department: 'Engineering',
-    selectedDate: '2024-06-22',
-    experience: 5,
-    skills: ['React', 'JavaScript', 'TypeScript', 'Node.js'],
-    status: 'not_sent',
-    resumeUrl: 'https://example.com/resume1.pdf',
-    location: 'New York, NY',
-    expectedSalary: '$120,000',
-    avatar: null,
-    interviewDate: null,
-    mailSentDate: null,
-    currentStep: 0
-  },
-  {
-    id: 2,
-    name: 'Michael Chen',
-    email: 'michael.chen@email.com',
-    phone: '+1 (555) 234-5678',
-    jobTitle: 'Senior React Developer',
-    department: 'Engineering',
-    selectedDate: '2024-06-21',
-    experience: 7,
-    skills: ['React', 'Vue.js', 'Python', 'AWS'],
-    status: 'mail_sent',
-    resumeUrl: 'https://example.com/resume2.pdf',
-    location: 'San Francisco, CA',
-    expectedSalary: '$140,000',
-    avatar: null,
-    interviewDate: '2024-06-25',
-    mailSentDate: '2024-06-22',
-    currentStep: 1
-  },
-  {
-    id: 3,
-    name: 'Emily Rodriguez',
-    email: 'emily.rodriguez@email.com',
-    phone: '+1 (555) 345-6789',
-    jobTitle: 'Product Manager',
-    department: 'Product',
-    selectedDate: '2024-06-20',
-    experience: 4,
-    skills: ['Product Management', 'Agile', 'Analytics', 'SQL'],
-    status: 'interview_done',
-    resumeUrl: 'https://example.com/resume3.pdf',
-    location: 'Austin, TX',
-    expectedSalary: '$95,000',
-    avatar: null,
-    interviewDate: '2024-06-23',
-    mailSentDate: '2024-06-21',
-    currentStep: 2
-  },
-  {
-    id: 4,
-    name: 'Jessica Wilson',
-    email: 'jessica.wilson@email.com',
-    phone: '+1 (555) 567-8901',
-    jobTitle: 'UX Designer',
-    department: 'Design',
-    selectedDate: '2024-06-19',
-    experience: 6,
-    skills: ['Figma', 'Adobe XD', 'Prototyping', 'User Research'],
-    status: 'selected',
-    resumeUrl: 'https://example.com/resume5.pdf',
-    location: 'Los Angeles, CA',
-    expectedSalary: '$105,000',
-    avatar: null,
-    interviewDate: '2024-06-24',
-    mailSentDate: '2024-06-20',
-    currentStep: 3
-  },
-  {
-    id: 5,
-    name: 'Robert Taylor',
-    email: 'robert.taylor@email.com',
-    phone: '+1 (555) 678-9012',
-    jobTitle: 'Data Scientist',
-    department: 'Analytics',
-    selectedDate: '2024-06-18',
-    experience: 8,
-    skills: ['Python', 'Machine Learning', 'TensorFlow', 'SQL'],
-    status: 'mail_sent',
-    resumeUrl: 'https://example.com/resume6.pdf',
-    location: 'Boston, MA',
-    expectedSalary: '$130,000',
-    avatar: null,
-    interviewDate: '2024-06-26',
-    mailSentDate: '2024-06-23',
-    currentStep: 1
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+
+const fetchShortlistedCandidates = async (jobId) => {
+  const { data, error } = await supabase
+    .from('job_applications')
+    .select(`
+      *,
+      interview_type,
+      interview_date,
+      interview_time,
+      interview_link,
+      interview_platform,
+      mail_sent_date,
+      interview_status
+    `)
+    .eq('job_id', jobId)
+    .in('status', ['shortlisted', 'technical', 'hr', 'reschedule', 'selected'])
+    .order('applied_at', { ascending: false });
+  
+  if (error) {
+    console.error('Error fetching candidates:', error);
+    return [];
   }
-];
+  return data;
+};
 
-const jobTitles = [...new Set(selectedResumesData.map(resume => resume.jobTitle))];
+const updateInterviewDetails = async (candidateId, interviewData) => {
+  const { data, error } = await supabase
+    .from('job_applications')
+    .update({
+      status: interviewData.interviewType,
+      interview_type: interviewData.interviewType,
+      interview_date: interviewData.interviewDate,
+      interview_time: interviewData.interviewTime,
+      interview_link: interviewData.interviewLink,
+      interview_platform: interviewData.interviewPlatform,
+      mail_sent_date: new Date().toISOString(),
+      interview_status: 'scheduled',
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', candidateId)
+    .select();
+    
+  if (error) {
+    console.error('Error updating interview details:', error);
+    return { success: false, error };
+  }
+  return { success: true, data };
+};
+
+const getCandidateCountByJob = async (jobId) => {
+  const { data, error } = await supabase
+    .from('job_applications')
+    .select('status, count(*)')
+    .eq('job_id', jobId)
+    .in('status', ['shortlisted', 'technical', 'hr', 'reschedule', 'selected']);
+    
+  if (error) {
+    console.error('Error getting candidate count:', error);
+    return {};
+  }
+  
+  return data.reduce((acc, item) => {
+    acc[item.status] = item.count;
+    return acc;
+  }, {});
+};
+
+
+const fetchJobTitles = async (jobId) => {
+  const { data, error } = await supabase
+    .from('job_applications')
+    .select('job_title')
+    .eq('job_id', jobId)
+    .in('status', ['shortlisted', 'technical', 'hr', 'reschedule', 'selected']);
+  
+  if (error) {
+    console.error('Error fetching job titles:', error);
+    return [];
+  }
+  
+  // Get unique job titles
+  const uniqueTitles = [...new Set(data.map(item => item.job_title))];
+  return uniqueTitles;
+};
 
 const ResumeListPage = () => {
-  const [resumes, setResumes] = useState(selectedResumesData);
-  const [filteredResumes, setFilteredResumes] = useState(selectedResumesData);
+  const [resumes, setResumes] = useState([]);
+  const [filteredResumes, setFilteredResumes] = useState([]);
+  const [jobId, setJobId] = useState(1);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [jobTitleFilter, setJobTitleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateRange, setDateRange] = useState(null);
+  const [jobTitles, setJobTitles] = useState([]);
   
   // Modal states
   const [resumeModalVisible, setResumeModalVisible] = useState(false);
   const [mailModalVisible, setMailModalVisible] = useState(false);
   const [progressDrawerVisible, setProgressDrawerVisible] = useState(false);
   const [selectedResume, setSelectedResume] = useState(null);
+// Add this useEffect after your state declarations
+useEffect(() => {
+  const loadCandidates = async () => {
+    setLoading(true);
+    try {
+      const candidates = await fetchShortlistedCandidates(jobId);
+      
+      // Fetch job titles
+      const titles = await fetchJobTitles(jobId);
+      setJobTitles(titles);
+      
+      // Transform the data to match your existing structure
+      const transformedData = candidates.map(candidate => ({
+        id: candidate.id,
+        name: candidate.full_name,
+        email: candidate.email,
+        phone: candidate.phone,
+        jobTitle: candidate.job_title,
+        department: candidate.current_company || 'Not specified',
+        selectedDate: candidate.applied_at,
+        experience: candidate.experience_years,
+        skills: candidate.skills ? candidate.skills.split(',') : [],
+        status: candidate.status,
+        resumeUrl: candidate.resume_url,
+        location: candidate.location,
+        expectedSalary: candidate.expected_salary,
+        avatar: null,
+        interviewDate: candidate.interview_date,
+        interviewTime: candidate.interview_time,
+        interviewLink: candidate.interview_link,
+        interviewPlatform: candidate.interview_platform,
+        interviewType: candidate.interview_type,
+        mailHistory: candidate.mail_history || [],
+        mailSentDate: candidate.mail_sent_date,
+        interviewStatus: candidate.interview_status,
+        currentStep: candidate.status === 'shortlisted' ? 1 : candidate.status === 'technical' || candidate.status === 'hr' ? 2 : candidate.status === 'selected' ? 3 : 0
+      }));
+      setResumes(transformedData);
+    } catch (error) {
+      console.error('Error loading candidates:', error);
+      message.error('Failed to load candidates');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  loadCandidates();
+}, [jobId]);
 
   const applyFilters = () => {
     let filtered = [...resumes];
@@ -162,214 +202,404 @@ const ResumeListPage = () => {
     applyFilters();
   }, [searchText, jobTitleFilter, statusFilter, dateRange, resumes]);
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'not_sent': return 'orange';
-      case 'mail_sent': return 'blue';
-      case 'interview_done': return 'green';
-      case 'selected': return 'purple';
-      default: return 'default';
-    }
-  };
+const getStatusColor = (status) => {
+  switch (status) {
+    case 'pending': return 'orange';
+    case 'shortlisted': return 'blue';
+    case 'technical': return 'cyan';
+    case 'hr': return 'green';
+    case 'reschedule': return 'gold';
+    case 'selected': return 'purple';
+    case 'rejected': return 'red';
+    default: return 'default';
+  }
+};
 
-  const getStatusText = (status) => {
-    switch (status) {
-      case 'not_sent': return 'Interview Not Sent';
-      case 'mail_sent': return 'Mail Sent';
-      case 'interview_done': return 'Interview Done';
-      case 'selected': return 'Selected';
-      default: return status;
-    }
-  };
+const getStatusText = (status) => {
+  switch (status) {
+    case 'pending': return 'Pending Review';
+    case 'shortlisted': return 'Shortlisted';
+    case 'technical': return 'Technical Round';
+    case 'hr': return 'HR Round';
+    case 'reschedule': return 'Rescheduled';
+    case 'selected': return 'Selected';
+    case 'rejected': return 'Rejected';
+    default: return status;
+  }
+};
 
   const handleSendMail = (resume) => {
     setSelectedResume(resume);
     setMailModalVisible(true);
   };
 
-  const sendInterviewMail = async (values) => {
-    setLoading(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Update resume status
-      const updatedResumes = resumes.map(resume =>
-        resume.id === selectedResume.id
-          ? { 
-              ...resume, 
-              status: 'mail_sent', 
-              mailSentDate: new Date().toISOString().split('T')[0],
-              currentStep: 1
-            }
-          : resume
-      );
-      
-      setResumes(updatedResumes);
-      setMailModalVisible(false);
-      message.success('Interview invitation sent successfully!');
-    } catch (error) {
-      message.error('Failed to send interview invitation');
-    } finally {
-      setLoading(false);
+// Replace your existing sendInterviewMail function with this
+const sendInterviewMail = async (values) => {
+  setLoading(true);
+  try {
+    const interviewDetails = {
+      type: values.interviewType,
+      date: values.interviewDate.format('YYYY-MM-DD'),
+      time: values.interviewTime.format('HH:mm'),
+      link: values.meetingLink,
+      platform: values.platform
+    };
+
+    // Send email using your email service
+    const emailResult = await sendInterviewInvitation(selectedResume, interviewDetails);
+    
+    if (!emailResult.success) {
+      throw new Error(emailResult.error);
     }
-  };
 
-  const getProgressSteps = (resume) => {
-    const steps = [
-      {
-        title: 'Resume Selected',
-        description: resume.selectedDate ? `Selected on ${new Date(resume.selectedDate).toLocaleDateString()}` : 'Pending',
-        icon: <CheckCircleOutlined />
-      },
-      {
-        title: 'Interview Mail Sent',
-        description: resume.mailSentDate ? `Sent on ${new Date(resume.mailSentDate).toLocaleDateString()}` : 'Pending',
-        icon: <MailOutlined />
-      },
-      {
-        title: 'Interview Scheduled',
-        description: resume.interviewDate ? `Scheduled for ${new Date(resume.interviewDate).toLocaleDateString()}` : 'Pending',
-        icon: <CalendarOutlined />
-      },
-      {
-        title: 'Final Selection',
-        description: resume.status === 'selected' ? 'Candidate Selected' : 'Pending',
-        icon: <CheckCircleOutlined />
-      }
-    ];
-    return steps;
-  };
+    // Prepare mail history entry
+    const newMailEntry = {
+      type: values.interviewType,
+      sentDate: new Date().toISOString(),
+      platform: values.platform,
+      interviewDate: values.interviewDate.format('YYYY-MM-DD'),
+      interviewTime: values.interviewTime.format('HH:mm')
+    };
 
-  const columns = [
+    // Get current mail history and add new entry
+    const currentMailHistory = selectedResume.mailHistory || [];
+    const updatedMailHistory = [...currentMailHistory, newMailEntry];
+
+    // Update resume status in Supabase with mail history
+    const updateResult = await supabase
+      .from('job_applications')
+      .update({
+        status: values.interviewType,
+        interview_type: values.interviewType,
+        interview_date: values.interviewDate.format('YYYY-MM-DD'),
+        interview_time: values.interviewTime.format('HH:mm'),
+        interview_link: values.meetingLink,
+        interview_platform: values.platform,
+        mail_sent_date: new Date().toISOString(),
+        interview_status: 'scheduled',
+        mail_history: updatedMailHistory, // Add this line
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', selectedResume.id)
+      .select();
+
+    if (updateResult.error) {
+      throw new Error('Failed to update database');
+    }
+
+    // Update local state
+    const updatedResumes = resumes.map(resume =>
+      resume.id === selectedResume.id
+        ? { 
+            ...resume, 
+            status: values.interviewType,
+            mailSentDate: new Date().toISOString().split('T')[0],
+            interviewDate: values.interviewDate.format('YYYY-MM-DD'),
+            interviewTime: values.interviewTime.format('HH:mm'),
+            interviewLink: values.meetingLink,
+            interviewPlatform: values.platform,
+            interviewType: values.interviewType,
+            interviewStatus: 'scheduled',
+            mailHistory: updatedMailHistory, // Add this line
+            currentStep: values.interviewType === 'reschedule' ? 2 : 1
+          }
+        : resume
+    );
+    
+    setResumes(updatedResumes);
+    setMailModalVisible(false);
+    
+    message.success(`${values.interviewType} interview invitation sent successfully!`);
+  } catch (error) {
+    console.error('Error sending interview invitation:', error);
+    message.error('Failed to send interview invitation: ' + error.message);
+  } finally {
+    setLoading(false);
+  }
+};
+const getProgressSteps = (resume) => {
+  const steps = [
     {
-      title: 'Candidate',
-      key: 'candidate',
-      fixed: 'left',
-      width: 280,
-      render: (_, record) => (
-        <Space>
-          <Avatar size={40} icon={<UserOutlined />} />
-          <div>
-            <div style={{ fontWeight: 500, fontSize: '14px' }}>{record.name}</div>
-            <Text type="secondary" style={{ fontSize: '12px' }}>{record.email}</Text>
+      title: 'Application Received',
+      description: resume.applied_at ? `Applied on ${new Date(resume.applied_at).toLocaleDateString()}` : 'Pending',
+      icon: <FileTextOutlined />,
+      status: 'finish'
+    },
+    {
+      title: 'Resume Shortlisted',
+      description: resume.status !== 'pending' ? `Shortlisted on ${new Date(resume.selectedDate || resume.updated_at).toLocaleDateString()}` : 'Pending',
+      icon: <CheckCircleOutlined />,
+      status: resume.status !== 'pending' ? 'finish' : 'wait'
+    },
+    {
+      title: 'Interview Scheduled',
+      description: resume.interviewDate ? (
+        <div>
+          <div>{resume.interviewType?.toUpperCase()} Round</div>
+          <div style={{ fontSize: '12px', color: '#666' }}>
+            {new Date(resume.interviewDate).toLocaleDateString()} at {resume.interviewTime}
           </div>
-        </Space>
-      ),
-    },
-    {
-      title: 'Job Title',
-      dataIndex: 'jobTitle',
-      key: 'jobTitle',
-      width: 200,
-      render: (title, record) => (
-        <div>
-          <div style={{ fontWeight: 500 }}>{title}</div>
-          <Text type="secondary" style={{ fontSize: '12px' }}>{record.department}</Text>
+          <div style={{ fontSize: '12px', color: '#666' }}>
+            Platform: {resume.interviewPlatform?.replace('_', ' ').toUpperCase()}
+          </div>
         </div>
-      ),
+      ) : 'Pending',
+      icon: <CalendarOutlined />,
+      status: resume.interviewDate ? 'finish' : 'wait'
     },
     {
-      title: 'Selected Date',
-      dataIndex: 'selectedDate',
-      key: 'selectedDate',
-      width: 150,
-      render: (date) => (
-        <Space>
-          <CalendarOutlined style={{ color: '#1890ff' }} />
-          {new Date(date).toLocaleDateString()}
-        </Space>
-      ),
+      title: 'Interview Completed',
+      description: resume.interviewStatus === 'completed' ? 'Interview completed successfully' : 'Pending',
+      icon: <VideoCameraOutlined />,
+      status: resume.interviewStatus === 'completed' ? 'finish' : 'wait'
     },
     {
-      title: 'Resume',
-      key: 'resume',
-      width: 100,
-      render: (_, record) => (
-        <Space>
-          <Tooltip title="View Resume">
-            <Button 
-              type="text" 
-              icon={<EyeOutlined />} 
-              onClick={() => {
-                setSelectedResume(record);
-                setResumeModalVisible(true);
-              }}
-            />
-          </Tooltip>
-          <Tooltip title="Download Resume">
-            <Button 
-              type="text" 
-              icon={<DownloadOutlined />}
-              onClick={() => window.open(record.resumeUrl, '_blank')}
-            />
-          </Tooltip>
-        </Space>
-      ),
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      width: 150,
-      render: (status) => (
-        <Tag color={getStatusColor(status)}>
-          {getStatusText(status)}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Interview Mail',
-      key: 'interviewMail',
-      width: 130,
-      render: (_, record) => (
-        <div>
-          {record.status === 'not_sent' ? (
-            <Button
-              type="primary"
-              size="small"
-              icon={<SendOutlined />}
-              onClick={() => handleSendMail(record)}
-            >
-              Send Mail
-            </Button>
-          ) : (
-            <div>
-              <CheckCircleOutlined style={{ color: '#52c41a', marginRight: 4 }} />
-              <Text type="secondary" style={{ fontSize: '12px' }}>
-                {record.mailSentDate && `Sent ${new Date(record.mailSentDate).toLocaleDateString()}`}
-              </Text>
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      title: 'Progress',
-      key: 'progress',
-      width: 120,
-      render: (_, record) => (
-        <Button
-          type="link"
-          icon={<HistoryOutlined />}
-          onClick={() => {
-            setSelectedResume(record);
-            setProgressDrawerVisible(true);
-          }}
-        >
-          View Steps
-        </Button>
-      ),
+      title: 'Final Decision',
+      description: resume.status === 'selected' ? 'Candidate Selected' : resume.status === 'rejected' ? 'Not Selected' : 'Pending',
+      icon: resume.status === 'selected' ? <CheckCircleOutlined /> : resume.status === 'rejected' ? <CloseCircleOutlined /> : <ClockCircleOutlined />,
+      status: resume.status === 'selected' ? 'finish' : resume.status === 'rejected' ? 'error' : 'wait'
     }
   ];
+  return steps;
+};
+
+  const columns = [
+  {
+    title: 'Candidate',
+    key: 'candidate',
+    fixed: 'left',
+    width: 160, // Reduced from 180
+    render: (_, record) => (
+      <Space>
+        <Avatar size={32} icon={<UserOutlined />} /> {/* Reduced from 40 */}
+        <div>
+          <div style={{ fontWeight: 500, fontSize: '13px' }}>{record.name}</div> {/* Reduced font */}
+          <Text type="secondary" style={{ fontSize: '11px' }}>{record.email}</Text>
+        </div>
+      </Space>
+    ),
+  },
+  {
+    title: 'Job Title',
+    dataIndex: 'jobTitle',
+    key: 'jobTitle',
+    width: 140, // Reduced from 160
+    render: (title, record) => (
+      <div>
+        <div style={{ fontWeight: 500, fontSize: '12px' }}>{title}</div> {/* Reduced font */}
+        <Text type="secondary" style={{ fontSize: '10px' }}>{record.department}</Text>
+      </div>
+    ),
+  },
+  {
+    title: 'Selected Date',
+    dataIndex: 'selectedDate',
+    key: 'selectedDate',
+    width: 100, // Reduced from 120
+    render: (date) => (
+      <div style={{ fontSize: '11px' }}> {/* Added wrapper with smaller font */}
+        <CalendarOutlined style={{ color: '#1890ff', marginRight: '4px' }} />
+        {new Date(date).toLocaleDateString('en-US', { 
+          month: 'short', day: 'numeric' 
+        })}
+      </div>
+    ),
+  },
+  {
+    title: 'Mail Type',
+    key: 'mailType',
+    width: 100, // Reduced from 120
+    render: (_, record) => (
+      <div>
+        {record.mailHistory && record.mailHistory.length > 0 ? (
+          <div>
+            {record.mailHistory.map((mail, index) => ( // Show only latest mail
+              <div key={index} style={{ marginBottom: '2px' }}>
+                <Tag 
+                  color={mail.type === 'technical' ? 'blue' : mail.type === 'hr' ? 'green' : 'orange'}
+                  style={{ fontSize: '9px', marginBottom: '1px' }}
+                >
+                  {mail.type.toUpperCase()}
+                </Tag>
+                <div style={{ fontSize: '8px', color: '#666' }}>
+                  {new Date(mail.sentDate).toLocaleDateString('en-US', { 
+                    month: 'short', day: 'numeric' ,year: 'numeric'
+                  })}
+                </div>
+              </div>
+            ))}
+            <Text type="secondary" style={{ fontSize: '9px' }}>
+              {record.mailHistory.length} mail{record.mailHistory.length > 1 ? 's' : ''}
+            </Text>
+          </div>
+        ) : (
+          <Text type="secondary" style={{ fontSize: '10px' }}>No mails sent</Text>
+        )}
+      </div>
+    ),
+  },
+  {
+    title: 'Resume',
+    key: 'resume',
+    width: 80, // Reduced from 100
+    render: (_, record) => (
+      <Space size="small"> {/* Added size="small" */}
+        <Tooltip title="View">
+          <Button 
+            type="text" 
+            size="small" // Added size="small"
+            icon={<EyeOutlined />} 
+            onClick={() => {
+              setSelectedResume(record);
+              setResumeModalVisible(true);
+            }}
+          />
+        </Tooltip>
+        <Tooltip title="Download">
+          <Button 
+            type="text" 
+            size="small" // Added size="small"
+            icon={<DownloadOutlined />}
+            onClick={() => window.open(record.resumeUrl, '_blank')}
+          />
+        </Tooltip>
+      </Space>
+    ),
+  },
+  {
+    title: 'Interview Mail',
+    key: 'interviewMail',
+    width: 100, // Reduced from 120
+    render: (_, record) => (
+      <Button
+        type="primary"
+        size="small"
+        icon={<SendOutlined />}
+        onClick={() => handleSendMail(record)}
+        style={{ fontSize: '11px' }} // Smaller font
+      >
+        Send
+      </Button>
+    ),
+  },
+  {
+    title: 'Status',
+    key: 'currentStatus',
+    width: 110, // Reduced from 120
+    render: (_, record) => {
+      const getDetailedStatus = () => {
+        switch (record.status) {
+          case 'shortlisted':
+            return { text: 'Shortlisted', color: 'blue' };
+          case 'technical':
+            if (record.interviewStatus === 'completed') {
+              return { text: 'Tech Done', color: 'green' }; // Shortened text
+            } else if (record.interviewStatus === 'scheduled') {
+              return { text: 'Tech Scheduled', color: 'cyan' };
+            }
+            return { text: 'Technical', color: 'cyan' };
+          case 'hr':
+            if (record.interviewStatus === 'completed') {
+              return { text: 'HR Done', color: 'green' }; // Shortened text
+            } else if (record.interviewStatus === 'scheduled') {
+              return { text: 'HR Scheduled', color: 'geekblue' };
+            }
+            return { text: 'HR Round', color: 'geekblue' };
+          case 'reschedule':
+            return { text: 'Rescheduled', color: 'gold' };
+          case 'selected':
+            return { text: 'Selected', color: 'purple' };
+          case 'rejected':
+            return { text: 'Rejected', color: 'red' };
+          default:
+            return { text: 'Pending', color: 'default' };
+        }
+      };
+
+      const statusInfo = getDetailedStatus();
+      return (
+        <Tag color={statusInfo.color} style={{ fontSize: '10px' }}>
+          {statusInfo.text}
+        </Tag>
+      );
+    },
+  },
+  {
+    title: 'Next Round',
+    key: 'nextRound',
+    width: 100, // Reduced from 120
+    render: (_, record) => {
+      const getNextRound = () => {
+        if (record.status === 'selected' || record.status === 'rejected') {
+          return { text: 'Final', color: 'default', icon: <CheckCircleOutlined /> };
+        }
+        
+        if (record.status === 'technical' && record.interviewStatus === 'completed') {
+          return { text: 'HR Round', color: 'green', icon: <CalendarOutlined /> };
+        }
+        
+        if (record.status === 'hr' && record.interviewStatus === 'completed') {
+          return { text: 'Decision', color: 'gold', icon: <ClockCircleOutlined /> };
+        }
+        
+        if (record.status === 'reschedule') {
+          const roundType = record.interviewType === 'technical' ? 'Tech' : 'HR';
+          return { text: `${roundType}`, color: 'orange', icon: <CalendarOutlined /> };
+        }
+        
+        if (record.interviewStatus === 'scheduled') {
+          const currentRound = record.interviewType === 'technical' ? 'Tech' : 'HR';
+          return { text: `${currentRound}`, color: 'blue', icon: <VideoCameraOutlined /> };
+        }
+        
+        return { text: 'Pending', color: 'default', icon: <ClockCircleOutlined /> };
+      };
+
+      const nextRound = getNextRound();
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          {nextRound.icon}
+          <Text style={{ 
+            fontSize: '10px', 
+            color: nextRound.color === 'default' ? '#666' : undefined,
+            fontWeight: nextRound.text.includes('Interview') ? 500 : 400
+          }}>
+            {nextRound.text}
+          </Text>
+        </div>
+      );
+    },
+  },
+  {
+    title: 'Progress',
+    key: 'progress',
+    width: 80, // Reduced from 100
+    render: (_, record) => (
+      <Button
+        type="link"
+        size="small" // Added size="small"
+        icon={<HistoryOutlined />}
+        onClick={() => {
+          setSelectedResume(record);
+          setProgressDrawerVisible(true);
+        }}
+        style={{ fontSize: '10px' }} // Smaller font
+      >
+        Steps
+      </Button>
+    ),
+  }
+];
+
 
   return (
   <div style={{ 
-    padding: '24px', 
-    maxWidth: '1200px', 
-    margin: '0 auto', 
-    width: '100%' 
-  }}>
+  padding: '16px', 
+  maxWidth: '100%', 
+  margin: '0 auto', 
+  width: '100%' 
+}}>
+
 
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
@@ -416,16 +646,17 @@ const ResumeListPage = () => {
               <Text strong>Status</Text>
             </div>
             <Select
-              value={statusFilter}
-              onChange={setStatusFilter}
-              style={{ width: '100%' }}
-            >
-              <Option value="all">All Status</Option>
-              <Option value="not_sent">Interview Not Sent</Option>
-              <Option value="mail_sent">Mail Sent</Option>
-              <Option value="interview_done">Interview Done</Option>
-              <Option value="selected">Selected</Option>
-            </Select>
+  value={statusFilter}
+  onChange={setStatusFilter}
+  style={{ width: '100%' }}
+>
+  <Option value="all">All Status</Option>
+  <Option value="shortlisted">Shortlisted</Option>
+  <Option value="technical">Technical Round</Option>
+  <Option value="hr">HR Round</Option>
+  <Option value="reschedule">Rescheduled</Option>
+  <Option value="selected">Selected</Option>
+</Select>
           </Col>
           <Col span={6}>
             <div style={{ marginBottom: '8px' }}>
@@ -454,45 +685,44 @@ const ResumeListPage = () => {
         <Divider style={{ margin: '16px 0 8px 0' }} />
         
         <Row justify="space-between" align="middle">
-          <Col>
-            <Space>
-              <Text strong>{filteredResumes.length}</Text>
-              <Text type="secondary">selected resumes found</Text>
-            </Space>
-          </Col>
-          <Col>
-            <Space>
-              <Badge count={filteredResumes.filter(r => r.status === 'not_sent').length} showZero>
-                <Tag color="orange">Pending Mails</Tag>
-              </Badge>
-              <Badge count={filteredResumes.filter(r => r.status === 'mail_sent').length} showZero>
-                <Tag color="blue">Mails Sent</Tag>
-              </Badge>
-              <Badge count={filteredResumes.filter(r => r.status === 'selected').length} showZero>
-                <Tag color="purple">Selected</Tag>
-              </Badge>
-            </Space>
-          </Col>
-        </Row>
+  <Col>
+    <Space>
+      <Text strong>{filteredResumes.length}</Text>
+      <Text type="secondary">selected resumes found</Text>
+    </Space>
+  </Col>
+  <Col>
+    <Space>
+      <Badge count={filteredResumes.filter(r => !r.mailSentDate).length} showZero>
+        <Tag color="orange">Pending Mails</Tag>
+      </Badge>
+      <Badge count={filteredResumes.filter(r => r.mailSentDate).length} showZero>
+        <Tag color="blue">Mails Sent</Tag>
+      </Badge>
+    </Space>
+  </Col>
+</Row>
       </Card>
 
       {/* Resumes Table */}
-      <Card>
-        <Table
-          columns={columns}
-          dataSource={filteredResumes}
-          rowKey="id"
-          loading={loading}
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) =>
-              `${range[0]}-${range[1]} of ${total} resumes`,
-          }}
-          scroll={{ x: 1200 }}
-        />
-      </Card>
+      <Card style={{ overflowX: 'auto' }}>
+  <Table
+    columns={columns}
+    dataSource={filteredResumes}
+    rowKey="id"
+    loading={loading}
+    pagination={{
+      pageSize: 10,
+      showSizeChanger: true,
+      showQuickJumper: true,
+      showTotal: (total, range) =>
+        `${range[0]}-${range[1]} of ${total} resumes`,
+    }}
+    scroll={{ x: 800 }} // allows natural scroll
+    size="small"
+  />
+</Card>
+
 
       {/* Resume Details Modal */}
       <Modal
@@ -587,52 +817,105 @@ const ResumeListPage = () => {
       </Modal>
 
       {/* Send Mail Modal */}
-      <Modal
-        title="Send Interview Invitation"
-        open={mailModalVisible}
-        onCancel={() => setMailModalVisible(false)}
-        footer={null}
-        width={600}
-      >
-        <div>
-          <div style={{ marginBottom: '16px' }}>
-            <Text strong>To:</Text>
-            <Input 
-              value={selectedResume?.email || ''} 
-              disabled 
-              style={{ marginTop: '4px' }}
-            />
-          </div>
-          <div style={{ marginBottom: '16px' }}>
-            <Text strong>Subject:</Text>
-            <Input 
-              placeholder="Enter subject"
-              style={{ marginTop: '4px' }}
-              defaultValue={`Interview Invitation - ${selectedResume?.jobTitle} Position`}
-            />
-          </div>
-          <div style={{ marginBottom: '24px' }}>
-            <Text strong>Message:</Text>
-            <TextArea 
-              rows={8} 
-              placeholder="Enter your message"
-              style={{ marginTop: '4px' }}
-              defaultValue={selectedResume ? `Dear ${selectedResume.name},\n\nWe are pleased to inform you that your application for the ${selectedResume.jobTitle} position has been reviewed and we would like to invite you for an interview.\n\nPlease let us know your availability for the coming week.\n\nBest regards,\nHR Team` : ''}
-            />
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <Space>
-              <Button onClick={() => setMailModalVisible(false)}>
-                Cancel
-              </Button>
-              <Button type="primary" icon={<SendOutlined />} loading={loading} onClick={() => sendInterviewMail({})}>
-                Send Interview Invitation
-              </Button>
-            </Space>
-          </div>
-        </div>
-      </Modal>
+<Modal
+  title="Send Interview Invitation"
+  open={mailModalVisible}
+  onCancel={() => setMailModalVisible(false)}
+  footer={null}
+  width={700}
+>
+  {selectedResume && (
+    <Form
+      layout="vertical"
+      onFinish={sendInterviewMail}
+      initialValues={{
+        email: selectedResume.email,
+        subject: `Interview Invitation - ${selectedResume.jobTitle} Position`,
+        interviewType: 'technical',
+        platform: 'google_meet'
+      }}
+    >
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item label="To Email" name="email">
+            <Input disabled />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item label="Interview Type" name="interviewType" rules={[{ required: true }]}>
+            <Select>
+              <Option value="technical">Technical Round</Option>
+              <Option value="hr">HR Round</Option>
+              <Option value="reschedule">Reschedule Interview</Option>
+            </Select>
+          </Form.Item>
+        </Col>
+      </Row>
 
+      <Form.Item label="Subject" name="subject" rules={[{ required: true }]}>
+        <Input />
+      </Form.Item>
+
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item label="Interview Date" name="interviewDate" rules={[{ required: true }]}>
+            <DatePicker style={{ width: '100%' }} />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item label="Interview Time" name="interviewTime" rules={[{ required: true }]}>
+            <TimePicker style={{ width: '100%' }} format="HH:mm" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item label="Platform" name="platform" rules={[{ required: true }]}>
+            <Select>
+              <Option value="google_meet">Google Meet</Option>
+              <Option value="microsoft_teams">Microsoft Teams</Option>
+              <Option value="zoom">Zoom</Option>
+              <Option value="other">Other</Option>
+            </Select>
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item label="Meeting Link" name="meetingLink" rules={[{ required: true, type: 'url' }]}>
+            <Input placeholder="https://meet.google.com/..." />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Form.Item label="Message" name="message">
+        <TextArea 
+          rows={6} 
+          placeholder="Enter your message"
+          defaultValue={`Dear ${selectedResume.name},
+
+
+Interview Details will be mentioned above.
+
+Please availablility and join the meeting at the scheduled time.
+
+Best regards,
+HR Team`}
+        />
+      </Form.Item>
+
+      <div style={{ textAlign: 'right' }}>
+        <Space>
+          <Button onClick={() => setMailModalVisible(false)}>
+            Cancel
+          </Button>
+          <Button type="primary" htmlType="submit" icon={<SendOutlined />} loading={loading}>
+            Send Interview Invitation
+          </Button>
+        </Space>
+      </div>
+    </Form>
+  )}
+</Modal>
       {/* Progress Drawer */}
       <Drawer
         title={selectedResume ? `${selectedResume.name} - Progress Timeline` : 'Progress Timeline'}

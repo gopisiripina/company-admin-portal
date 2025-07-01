@@ -106,3 +106,132 @@ export const EMAIL_TEMPLATE_VARIABLES = {
   user_role: '{{user_role}}',
   website_link: '{{website_link}}'
 };
+// Send interview invitation email
+export const sendInterviewInvitation = async (candidateData, interviewDetails) => {
+  const templateParams = {
+    // Basic email fields
+    subject: `Interview Invitation - ${candidateData.jobTitle} Position`,
+    to_email: candidateData.email,
+    from_name: 'HR Team',
+    title: 'Interview Invitation',
+    
+    // Interview specific variables
+    candidate_name: candidateData.full_name,
+    job_title: candidateData.jobTitle,
+    interview_type: interviewDetails.type,
+    interview_date: interviewDetails.date,
+    interview_time: interviewDetails.time,
+    interview_link: interviewDetails.link,
+    interview_platform: interviewDetails.platform,
+    company_name: 'My Access',
+    
+    // Message content
+message_body: `We are pleased to invite you for a ${interviewDetails.type} interview for the ${candidateData.jobTitle} position.
+...
+    
+Interview Details:
+- Date: ${interviewDetails.date}
+- Time: ${interviewDetails.time}
+- Platform: ${interviewDetails.platform}
+- Link: ${interviewDetails.link}
+
+Please available and join the meeting at the scheduled on time.
+
+Best regards,
+HR Team`
+  };
+
+  try {
+    const response = await emailjs.send(
+      EMAILJS_CONFIG.serviceId,
+      'template_c084vw7', // You'll need to create this template in EmailJS
+      templateParams
+    );
+
+    console.log('Interview invitation sent successfully:', response);
+    return { success: true, response };
+  } catch (error) {
+    console.error('Error sending interview invitation:', error);
+    
+    // Try alternative method
+    try {
+      const response = await emailjs.send(
+        EMAILJS_CONFIG.serviceId,
+        'template_c084vw7',
+        templateParams,
+        {
+          publicKey: EMAILJS_CONFIG.publicKey,
+        }
+      );
+      return { success: true, response };
+    } catch (altError) {
+      return { 
+        success: false, 
+        error: altError.text || altError.message || 'Interview invitation sending failed' 
+      };
+    }
+  }
+};
+
+// Send reschedule notification
+export const sendRescheduleNotification = async (candidateData, rescheduleDetails) => {
+  const templateParams = {
+    subject: `Interview Rescheduled - ${candidateData.jobTitle} Position`,
+    to_email: candidateData.email,
+    from_name: 'HR Team',
+    title: 'Interview Rescheduled',
+    
+    candidate_name: candidateData.full_name,
+    job_title: candidateData.jobTitle,
+    interview_type: rescheduleDetails.type,
+    new_interview_date: rescheduleDetails.newDate,
+    new_interview_time: rescheduleDetails.newTime,
+    interview_link: rescheduleDetails.link,
+    interview_platform: rescheduleDetails.platform,
+    company_name: 'My Access',
+    
+    message_body: `Your interview for the ${candidateData.jobTitle} position has been rescheduled.
+    
+New Interview Details:
+- Date: ${rescheduleDetails.newDate}
+- Time: ${rescheduleDetails.newTime}
+- Platform: ${rescheduleDetails.platform}
+- Link: ${rescheduleDetails.link}
+
+We apologize for any inconvenience caused. Please confirm your availability for the new schedule.
+
+Best regards,
+HR Team`
+  };
+
+  try {
+    const response = await emailjs.send(
+      EMAILJS_CONFIG.serviceId,
+      'template_reschedule', // You'll need to create this template in EmailJS
+      templateParams
+    );
+    return { success: true, response };
+  } catch (error) {
+    return { success: false, error: error.text || error.message };
+  }
+};
+
+// Email template variables for interview invitations
+export const INTERVIEW_EMAIL_TEMPLATE_VARIABLES = {
+  // Basic fields
+  subject: '{{subject}}',
+  to_email: '{{to_email}}',
+  from_name: '{{from_name}}',
+  title: '{{title}}',
+  
+  // Interview specific
+  candidate_name: '{{candidate_name}}',
+  job_title: '{{job_title}}',
+  interview_type: '{{interview_type}}',
+  interview_date: '{{interview_date}}',
+  interview_time: '{{interview_time}}',
+  interview_link: '{{interview_link}}',
+  interview_platform: '{{interview_platform}}',
+  company_name: '{{company_name}}',
+  message_body: '{{message_body}}'
+};
