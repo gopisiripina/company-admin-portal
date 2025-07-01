@@ -71,7 +71,7 @@ const JobApplicationPage = () => {
   const [formProgress, setFormProgress] = useState(0);
   const [fileList, setFileList] = useState([]);
   const [submitted, setSubmitted] = useState(false);
-
+  
   // Add useEffect to fetch job data dynamically
   useEffect(() => {
     fetchJobData();
