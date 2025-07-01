@@ -67,11 +67,57 @@ const JobPostPage = ({ userRole }) => {
   const [jobDescriptions, setJobDescriptions] = useState([]);
   const [postingLogs, setPostingLogs] = useState([]);
 
+  const postToLinkedIn = async (jobData) => {
+  try {
+    const response = await fetch('http://127.0.0.1:5000/api/post-job', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        accessToken: 'AQXRbDwBQ3o1RgOSPhIuWBxML2dsqW9g8AcVZBb-e5A--YBqheu0oHtbjqUkoHAfelpwAnkNWnDczfIk8sGdyidWe_d2ejNlgR8mrQbP3pvif9mBMW-uxp_y7jMfJ3Ry0lQGhe0fcJKcYNvpMyFL5i7QCXmVeYOl1inWJnBOh0qBmnk-iB2nl9p28ctlALbjnuY4FRkf2TB64qgkdALXMFFA7pySUchl9oZ1CJTr1n85o9X4CsTKcCdgXRZ_n2KVoyABGDM3DB-SmqYit9OJnklMMx6T3JgKC7bClH8PPJ5eVzTw_Vt6_VwiBTuhgstnmTD5XY1P9GbdkgtgR9YtRAOMBzvIeQ',
+        jobData: jobData  // Send the entire jobData object
+      })
+    });
+
+    if (!response.ok) {
+  const errorText = await response.text();
+  let errorData;
+  try {
+    errorData = JSON.parse(errorText);
+    // Fix: properly extract the error message
+    const errorMessage = errorData.error?.message || 
+                        errorData.error?.error || 
+                        errorData.message || 
+                        JSON.stringify(errorData.error) || 
+                        'Unknown error';
+    throw new Error(`API Error: ${response.status} - ${errorMessage}`);
+  } catch (parseError) {
+    throw new Error(`API Error: ${response.status} - ${errorText}`);
+  }
+}
+
+    const result = await response.json();
+    return {
+      success: true,
+      postId: result.postId || result.id,
+      message: 'Successfully posted to LinkedIn'
+    };
+  } catch (error) {
+    console.error('LinkedIn posting error:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+};
+
   useEffect(() => {
     fetchJobDescriptions();
     fetchPostingLogs();
   }, []);
 
+  
   const fetchJobDescriptions = async () => {
     const { data, error } = await supabase
       .from('job_descriptions')
@@ -315,27 +361,7 @@ const JobPostPage = ({ userRole }) => {
           {status}
         </Tag>
       )
-    },
-    {
-      title: 'Performance',
-      key: 'performance',
-      render: (_, record) => (
-        record.status === 'Success' ? (
-          <Space direction="vertical" size="small">
-            <Text style={{ fontSize: '12px' }}>
-              👁️ {record.views} views
-            </Text>
-            <Text style={{ fontSize: '12px' }}>
-              📝 {record.applications} applications
-            </Text>
-          </Space>
-        ) : (
-          <Text type="danger" style={{ fontSize: '12px' }}>
-            {record.error || 'Posting failed'}
-          </Text>
-        )
-      )
-    },
+    }, 
     {
       title: 'Posted At',
       dataIndex: 'timestamp',
@@ -361,66 +387,109 @@ const JobPostPage = ({ userRole }) => {
   };
 
   const handlePostJob = async () => {
-    if (!selectedJob) {
-      message.error('Please select a job description first');
-      return;
-    }
+  if (!selectedJob) {
+    message.error('Please select a job description first');
+    return;
+  }
 
-    const selectedPlatforms = Object.keys(postingPlatforms).filter(
-      platform => postingPlatforms[platform]
-    );
+  const selectedPlatforms = Object.keys(postingPlatforms).filter(
+    platform => postingPlatforms[platform]
+  );
 
-    if (selectedPlatforms.length === 0) {
-      message.error('Please select at least one platform to post');
-      return;
-    }
+  if (selectedPlatforms.length === 0) {
+    message.error('Please select at least one platform to post');
+    return;
+  }
 
-    setPosting(true);
-    try {
-      // Simulate API calls to different platforms
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // Here you would insert into job_postings table
-      for (const platform of selectedPlatforms) {
-        try {
-          await supabase
-            .from('job_postings')
-            .insert({
-              job_id: selectedJob.id,
-              platform: platform.charAt(0).toUpperCase() + platform.slice(1),
-              status: 'Success',
-              post_id: `${platform.toUpperCase()}_${Date.now()}`,
-              views: 0,
-              applications: 0,
-              created_at: new Date().toISOString()
-            });
-        } catch (error) {
-          console.log('Job postings table not available, skipping insert');
-        }
+  setPosting(true);
+  const results = [];
+
+  try {
+    // Process each selected platform
+    for (const platform of selectedPlatforms) {
+      let result = { platform, success: false, error: null, postId: null };
+
+      if (platform === 'linkedin') {
+        // Post to LinkedIn
+        const linkedInResult = await postToLinkedIn(selectedJob);
+        result.success = linkedInResult.success;
+        result.error = linkedInResult.error;
+        result.postId = linkedInResult.postId;
+      } else if (platform === 'company') {
+        // Simulate company portal posting
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        result.success = true;
+        result.postId = `COMPANY_${Date.now()}`;
+      } else if (platform === 'internal') {
+        // Simulate internal portal posting
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        result.success = true;
+        result.postId = `INTERNAL_${Date.now()}`;
       }
-      
+
+      results.push(result);
+
+      // Insert posting log into database
+      try {
+  const { data, error } = await supabase
+    .from('job_postings')
+    .insert({
+      job_id: selectedJob.id,
+      platform: platform.charAt(0).toUpperCase() + platform.slice(1),
+      status: result.success ? 'Success' : 'Failed',
+      post_id: result.postId,
+      error_message: result.error,
+      views: 0,
+      applications: 0,
+      created_at: new Date().toISOString()
+    });
+    
+  if (error) {
+    console.log('Job postings insert error:', error.message);
+  }
+} catch (error) {
+  console.log('Job postings table not available or permission denied:', error.message);
+}
+    }
+
+    // Show results
+    const successfulPosts = results.filter(r => r.success);
+    const failedPosts = results.filter(r => !r.success);
+
+    if (successfulPosts.length > 0) {
       message.success({
-        content: `Job posted successfully to ${selectedPlatforms.join(', ')}!`,
+        content: `Job posted successfully to: ${successfulPosts.map(p => p.platform).join(', ')}!`,
         duration: 5
       });
+    }
 
-      // Reset selections
+    if (failedPosts.length > 0) {
+      message.error({
+        content: `Failed to post to: ${failedPosts.map(p => `${p.platform} (${p.error})`).join(', ')}`,
+        duration: 8
+      });
+    }
+
+    // Reset selections if at least one post was successful
+    if (successfulPosts.length > 0) {
       setSelectedJob(null);
       setPostingPlatforms({
         linkedin: false,
         company: false,
         internal: true
       });
-
-      // Refresh posting logs
-      fetchPostingLogs();
-    } catch (error) {
-      message.error('Failed to post job. Please try again.');
-    } finally {
-      setPosting(false);
     }
-  };
 
+    // Refresh posting logs
+    fetchPostingLogs();
+
+  } catch (error) {
+    console.error('Posting error:', error);
+    message.error('An unexpected error occurred while posting. Please try again.');
+  } finally {
+    setPosting(false);
+  }
+};
   const handleActiveJobsClick = () => {
     message.info(`You have ${getActiveJobsCount()} active jobs`);
   };

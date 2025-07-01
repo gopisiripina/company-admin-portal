@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confidentiality and Invention Assignment Agreement</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm 2.5cm;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.4;
+            margin: 0;
+            padding: 0;
+            background-color: white;
+            color: #333;
+            font-size: 11pt;
+        }
+        
+        .document-container {
+            max-width: none;
+            width: 100%;
+            margin: 0;
+            background: white;
+            padding: 0;
+            box-shadow: none;
+            border-radius: 0;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 15px;
+            page-break-inside: avoid;
+        }
+        .company-logo {
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.logo-image {
+    max-height: 60px;  /* Adjust height as needed */
+    max-width: 200px;  /* Adjust width as needed */
+    height: auto;
+    width: auto;
+}   
+        .company-name {
+            font-size: 18pt;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        
+        .company-full {
+            font-size: 14pt;
+            color: #34495e;
+            margin-bottom: 15px;
+        }
+        
+        .document-title {
+            font-size: 13pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #2c3e50;
+        }
+        
+        .agreement-intro {
+            margin: 20px 0;
+            text-align: justify;
+            font-size: 11pt;
+        }
+        
+        .section-title {
+            font-size: 14pt;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 25px 0 15px 0;
+            color: #2c3e50;
+            text-align: center;
+            page-break-before: auto;
+            page-break-after: avoid;
+            page-break-inside: avoid;
+
+        }
+        
+        .recital-item {
+            margin: 12px 0;
+            text-align: justify;
+            padding-left: 20px;
+            font-size: 11pt;
+            page-break-inside: avoid;
+        }
+        
+        .recital-letter {
+            font-weight: bold;
+            margin-right: 10px;
+            float: left;
+            margin-left: -20px;
+        }
+        
+        .agreement-item {
+            margin: 15px 0;
+            text-align: justify;
+            font-size: 11pt;
+            page-break-inside: avoid;
+            page-break-before: auto;
+        }
+        
+        .section-number {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .subsection {
+            margin: 12px 0;
+            padding-left: 15px;
+            text-align: justify;
+            font-size: 11pt;
+            page-break-inside: avoid;
+        }
+        
+        .subsection-number {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .force-new-page {
+            page-break-before: always;
+        }
+        .keep-together {
+            page-break-inside: avoid;
+        }
+
+        .sub-subsection {
+            margin: 8px 0;
+            padding-left: 30px;
+            text-align: justify;
+            font-size: 11pt;
+        }
+        
+        .sub-subsection-marker {
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        
+        .signature-section {
+            margin-top: 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            page-break-inside: avoid;
+        }
+        
+        .signature-line {
+            border-bottom: 2px solid #333;
+            width: 200px;
+            margin-bottom: 5px;
+        }
+        
+        .signature-label {
+            font-size: 10pt;
+            color: #000000;
+            font-size: 11pt;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 10pt;
+            color: #666;
+            padding-top: 15px;
+            page-break-inside: avoid;
+        }
+        
+        .confidential-mark {
+            font-weight: bold;
+            color: #e74c3c;
+        }
+        
+        /* Ensure proper page breaks */
+        .page-break {
+            page-break-before: always;
+        }
+        
+        .avoid-break {
+            page-break-inside: avoid;
+        }
+        .signature-block {
+            display: flex;
+            flex-direction: column;
+            align-items: left;
+        }
+
+        .signature-details {
+            display: flex;
+            justify-content: space-between;
+            width: 200px;
+            margin-top: 5px;
+        }
+
+        .signature-name {
+            font-size: 10pt;
+            color: #666;
+        }
+
+        .signature-date {
+            font-size: 10pt;
+            color: #666;
+        }.candidate-signature-block {
+    width: 100%;
+}
+
+.signature-line-full {
+    border-bottom: 2px solid #333;
+    width: 100%;
+    margin-bottom: 5px;
+}
+
+.signature-label-center {
+    font-size: 11   pt;
+    color: #000000;
+    text-align: left;
+    margin-bottom: 20px;
+}
+
+.signature-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    width: 100%;
+}
+
+.left-signature, .right-signature {
+    text-align: center;
+}
+
+.candidate-name, .date-signed {
+    font-size: 11pt;
+    margin-bottom: 5px;
+    font-weight: normal;
+}
+
+.signature-line-half {
+    border-bottom: 2px solid #333;
+    width: 180px;
+    margin: 0 auto 5px auto;
+}
+
+.signature-line-short {
+    border-bottom: 2px solid #333;
+    width: 120px;
+    margin: 0 auto 5px auto;
+}
+
+.company-signature-block {
+    width: 48%;
+    text-align: center;
+}
+        /* Print-specific styles */
+        @media print {
+            body {
+                background-color: white;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            .document-container {
+                box-shadow: none;
+                border-radius: 0;
+            }
+            .subsection.short {
+        page-break-inside: avoid;
+    }
+            /* Ensure headers don't get orphaned */
+            .section-title + .agreement-item,
+            .section-title + .subsection,
+            .section-title + .recital-item {
+                page-break-before: avoid;
+            }
+        }
+        
+        /* Widow and orphan control */
+        p, .agreement-item, .subsection, .recital-item {
+            orphans: 2;
+            widows: 2;
+        }
+    </style>
+</head>
+<body>
+    <div class="document-container">
+        <div class="header avoid-break">
+            <div class="company-logo">
+    <img src="C://Users//Surya//Downloads//logo.png" alt="MyAccess Logo" class="logo-image">
+</div>
+            <div class="company-full">MyAccess Pvt. Ltd.</div>
+            <div class="document-title">Confidentiality and Invention Assignment Agreement</div>
+        </div>
+        
+        <div class="agreement-intro">
+            This Confidentiality, Noncompetition, and Invention Assignment Agreement ("Agreement") is made by and between MyAccess Pvt. Ltd., and {Employee name} ("Employee").
+        </div>
+        
+        <div class="section-title">Recitals</div>
+        
+        <div class="recital-item avoid-break">
+            <span class="recital-letter">A.</span>
+            Employee enters into this Agreement in connection with Employee's acceptance of employment with MyAccess Pvt. Ltd. or its subsidiary or affiliate, and any future employment with MyAccess Pvt. Ltd. or another of its subsidiaries or affiliates (depending on the circumstances, each an "Employer");
+        </div>
+        
+        <div class="recital-item avoid-break">
+            <span class="recital-letter">B.</span>
+            As used in this Agreement, "MyAccess" means MyAccess Pvt. Ltd. and any entity that controls, is controlled by, or is under common control with MyAccess Pvt. Ltd., including without limitation its subsidiaries and affiliates;
+        </div>
+        
+        <div class="recital-item avoid-break">
+            <span class="recital-letter">C.</span>
+            Employee's acceptance of this Agreement is an express condition of Employee's employment with Employer, and is made by Employee in consideration of such employment, including the compensation, benefits and confidential information provided now and in the future to Employee by Employer, which Employee acknowledges are of significant benefit to Employee; and
+        </div>
+        
+        <div class="recital-item avoid-break">
+            <span class="recital-letter">D.</span>
+            Employee's continued employment with Employer is expressly conditioned on Employee's good faith agreement to comply with this Agreement.
+        </div>
+        
+        <div class="section-title">Agreements</div>
+        
+        <div class="agreement-intro">
+            In consideration of the above Recitals, which are incorporated herein, the promises and covenants below, and other valuable consideration, the receipt and adequacy of which is acknowledged, the parties agree as follows:
+        </div>
+        
+        <div class="agreement-item avoid-break">
+            <span class="section-number">1. TERM.</span>
+            This Agreement, including Sections 3, 4, and 5, contains obligations that apply during Employee's employment and for specified periods after the date Employee's employment ends ("Separation Date"), regardless of the reason for separation or whether it was voluntary or involuntary.
+        </div>
+        
+        <div class="agreement-item avoid-break">
+            <span class="section-number">2. ATTENTION AND EFFORT.</span>
+            During employment, Employee will devote Employee's entire productive time, ability, attention, and effort to furthering MyAccess's best interests and will not (without MyAccess's prior written consent) carry on any separate professional or other gainful employment, including self-employment and contract work, that conflicts with these duties.
+        </div>
+        
+        <div class="agreement-item">
+            <span class="section-number">3. CONFIDENTIAL INFORMATION.</span>
+        </div>
+        
+        <div class="subsection">
+            <span class="subsection-number">3.1 Confidentiality and Confidential Information</span>
+            Employee will obtain, receive, or gain access to Confidential Information (as defined below) in connection with Employee's work for MyAccess. During employment and at all times thereafter, Employee will hold all Confidential Information in strictest confidence and will not acquire, use, publish, disclose, or communicate any Confidential Information except as required in connection with Employee's work without the prior written approval of an authorized officer of MyAccess. For purposes of this Agreement, "Confidential Information" means proprietary or confidential information of MyAccess in whatever form, tangible or intangible, whether or not marked or otherwise designated as confidential, that is not otherwise generally known to the public, relating or pertaining to MyAccess's business, projects, products, customers, suppliers, inventions, or trade secrets, including but not limited to: business and financial information; MyAccess techniques, technology, practices, operations, and methods of conducting business; information technology systems and operations; algorithms, software, and other computer code; published and unpublished know-how, whether patented or unpatented; information concerning the identities of MyAccess's business partners and clients or potential business partners and clients, including names, addresses, and contact information; customer information, including prices paid, buying history and habits, needs, and the methods of fulfilling those needs; supplier names, addresses, and pricing; and MyAccess pricing policies, marketing strategies, research projects or developments, products, legal affairs, and future plans relating to any aspect of MyAccess's present or anticipated businesses. "Confidential Information" does not include the terms and conditions of Employee's own employment.
+        </div>
+        
+        <div class="subsection">
+            <span class="subsection-number">3.2 Prevention of Unauthorized Release of Confidential Information.</span>
+            Employee will take reasonable measures to prevent unauthorized persons or entities from obtaining, receiving, or gaining access to any Confidential Information in Employee's possession or control. Nothing prohibits Employee from reporting an event that he or she reasonably believes is a legal violation to a law-enforcement agency (such as the Securities and Exchange Board of India (SEBI), the National Commission for Scheduled Castes (NCSC), the National Commission for Scheduled Tribes (NCST), the Ministry of Labour and Employment), or from cooperating in an agency investigation. Employee acknowledges that he or she is bound by confidentiality obligations under the Indian Contract Act, 1872, and other applicable legal principles. The employee will not be held criminally or civilly liable under Indian trade secret law for disclosing a trade secret in confidence to a government official, attorney, or relevant authority for the purpose of reporting or investigating a suspected legal violation, provided such disclosure is made in good faith. Additionally, an individual who initiates a lawsuit for unlawful retaliation against his or her employer for reporting a suspected legal violation may disclose the trade secret to his or her attorney and use the trade secret information in the court proceeding, provided any document containing the trade secret is filed under seal and is not disclosed unless permitted by court order.
+        </div>
+        
+        <div class="subsection avoid-break">
+            <span class="subsection-number">3.3 Confidential Information of Third Parties.</span>
+            Employee will preserve as confidential any information that Employee learns or obtains from a third party or relating to a third party (such as a client, customer, affiliate, partner, or vendor) that is not readily available to the public or that MyAccess is obligated to treat as confidential, and Employee will treat such information as Confidential Information.
+        </div>
+        
+        <div class="subsection avoid-break">
+            <span class="subsection-number">3.4 Return of Confidential Documents.</span>
+            On the Separation Date, or at any time otherwise requested by MyAccess, Employee will immediately return all Confidential Information and other things belonging to MyAccess, including tools, equipment, devices, or other property, and all documents, records, notebooks, and tangible articles containing or embodying any Confidential Information, including any copies (whether stored in paper, electronic, magnetic, or other form) then in Employee's possession or control, whether prepared by Employee or others.
+        </div>
+        
+        <div class="agreement-item">
+            <span class="section-number">4. CONFLICT OF INTEREST AND NON-SOLICITATION.</span>
+        </div>
+        
+        <div class="subsection">
+            <span class="subsection-number">4.1 Conflict of Interest</span>
+            Employee acknowledges that during the term of his or her employment with Employer (i) full-time employment with Employer is intended to be Employee's primary employment,(ii) Employee will devote Employee's best efforts on behalf of Employer,(iii) Employee owes Employer a duty of loyalty, and (iv) Employee will have access to MyAccess's Confidential Information. In order for MyAccess to protect its Confidential Information and assess any potential conflict of interest, prior to accepting any employment or consulting relationship with any third party for work during Employee's employment with Employer, Employee will provide prior written notice to Employee's manager and discuss with such manager any potential conflict of interest in performing such outside work. In addition, unless Employee receives prior written consent from a Vice President of Employer, during the period of Employee's employment with Employer, Employee will not, directly or indirectly, and whether or not for compensation, either on Employee's own behalf or as an employee, officer, agent, consultant, director, owner, partner, joint venturer, shareholder, investor, or in any other capacity (except in the capacity of an employee of Employer acting for the benefit of Employer), knowingly engage in any activity or business which is of the same nature as, or competitive with, the business of Employer.
+        </div>
+        
+        <div class="subsection">
+            <span class="subsection-number">4.2 Notice, Acknowledgment, and Injunctive Relief.</span>
+            Employee acknowledges and agrees that any unauthorized use or disclosure of Confidential Information, whether intentional or inadvertent, may cause MyAccess irreparable harm for which there is no adequate remedy at law, for which MyAccess will be entitled to the issuance by a court of competent jurisdiction of an injunction, restraining order, or other equitable relief in favour of itself, without the necessity of posting a bond, restraining Employee from committing or continuing to commit any such violation. Employee further acknowledges that, in the context of threatened or actual unauthorized use or disclosure of Confidential Information, the following actions will create a reasonable inference that Employee will not or cannot comply with the continuing obligations in this Agreement regarding confidentiality, on which such inference a request for injunctive or equitable relief by MyAccess may be based:
+            <div class="sub-subsection"><span class="sub-subsection-marker">(i)</span> failure by Employee to give Employer notice of subsequent employment with a new employer sufficient to enable Employer to assess any potential misuse or disclosure of Confidential Information;</div>
+            <div class="sub-subsection"><span class="sub-subsection-marker">(ii)</span> failure by Employee to disclose and assign inventions to the Employer as required by Section 5.2 of this Agreement;</div>
+            <div class="sub-subsection"><span class="sub-subsection-marker">(iii)</span> failure to cooperate with Employer in ensuring that Employee does not intentionally or unintentionally retain or misappropriate Confidential Information at the conclusion of employment;</div>
+            <div class="sub-subsection"><span class="sub-subsection-marker">(iv)</span> subsequent employment of Employee by a new employer where new employer requires, encourages, or fails to take reasonable steps designed to prevent the unauthorized disclosure or use of Confidential Information by Employee;</div>
+            <div class="sub-subsection"><span class="sub-subsection-marker">(v)</span> subsequent employment of Employee by a new employer in a position or capacity with substantially similar duties or responsibilities as Employee's position with Employer where additional circumstances reasonably establish the actual or threatened misappropriation of trade secrets or disclosure of Confidential Information. <br><br>Employee further acknowledges that the issuance by a court of injunctive or equitable relief designed to prevent or stop Employee's actual or threatened use of trade secrets or unauthorized disclosure of Confidential Information could limit Employee's ability to perform certain services for a subsequent employer or prevent such subsequent employment altogether.</div>
+        </div>
+        
+        <div class="subsection">
+            <span class="subsection-number">4.3 Non-Solicitation.</span>
+            During employment and for 18 months after the Separation Date, Employee will not, directly or indirectly, whether on Employee's own behalf or on behalf of any other entity (for example, as an employee, agent, partner, or consultant) use any Confidential Information to (a) solicit business from any Customer of any product or service that Employee worked on or supported, or about which Employee obtained or received Confidential Information; or (b) encourage any Customer or Business Partner to cease doing business with MyAccess or to terminate or limit an existing relationship or arrangement with MyAccess.For purposes of this Agreement, "Customer" means any individual or entity that was a customer or client of MyAccess during Employee's employment, or with which MyAccess engaged in discussions before the Separation Date related to the possibility that such party might become a customer or client of MyAccess, and "Business Partner" means any individual or entity with which, before the Separation Date, MyAccess was involved in any business arrangement or engaged in discussions regarding the possibility of entering into such an arrangement. The provisions of this Section 4.3 will not in any way limit Employee's obligations of confidentiality as set forth in Section 3.1 above.
+        </div>
+        
+        <div class="subsection">
+            <span class="subsection-number">4.4 Non-Interference.</span>
+            During employment and for 12 months after the Separation Date, Employee will not, directly or indirectly, whether on Employee's own behalf or on behalf of any other entity (for example, as an employee, agent, partner, or consultant):
+            (a) solicit or otherwise encourage any employee, contractor, or consultant of MyAccess ("MyAccess Personnel") to terminate any employment or contractual relationship with MyAccess;(b) disclose information to any other individual or entity about MyAccess Personnel that could be used to solicit or otherwise encourage MyAccess Personnel to form new business relationships with that or another individual or entity; or(c) otherwise interfere with the performance by current or former MyAccess Personnel of their obligations or responsibilities to MyAccess. Nothing in this Section 4.4 restricts Employee from exercising rights protected under the National Labor Relations Act.
+        </div>
+        
+        <div class="subsection avoid-break">
+            <span class="subsection-number">4.5 Reasonableness of Restrictions.</span>
+            Employee recognizes that the restrictions in this Section 4 may significantly limit Employee's future flexibility in many ways. For example, the restriction in Section 4.1 will bar Employee from working for certain competitive opportunities while employed by Employer. Employee further recognizes that the geographic areas for many of MyAccess's products and services - and, by extension, the geographic areas applicable to certain restrictions in this Section 4 are extremely broad and in many cases worldwide. Employee agrees and acknowledges that the restrictions in this Section 4 are reasonable in scope, area, and duration, and will not result in any undue hardship for Employee.
+        </div>
+        
+        <div class="agreement-item">
+            <span class="section-number">5. INTELLECTUAL PROPERTY.</span>
+        </div>
+        
+        <div class="subsection avoid-break">
+            <span class="subsection-number">5.1 Copyrights.</span>
+            All copyrightable works prepared by Employee within the scope of employment are works made for hire. Employer will own all rights under copyright in and to such works, and Employer will be considered the author of such works. If and to the extent that any such works are deemed not to constitute a work made for hire, and with respect to any other works that Employee prepares during working hours or using MyAccess resources, Employee hereby irrevocably assigns to Employer all right, title, and interest in and to such work. To the extent any of the Employee's right to such works, including any moral rights, are not capable of assignment under applicable law, Employee hereby irrevocably and unconditionally waives all enforcement of those rights to the maximum extent permitted under applicable law.
+        </div>
+        
+        <div class="subsection avoid-break">
+            <span class="subsection-number">5.2 Inventions.</span>
+            Employee will make prompt and full written disclosure to Employer, and hereby irrevocably assigns exclusively to Employer, all of Employee's rights, title, and interest in and to any and all inventions, discoveries, designs, developments, concepts, techniques, procedures, algorithms, products, improvements, business plans, and trade secrets (collectively, "Inventions") that Employee solely or jointly may conceive, develop, reduce to practice, or otherwise produce during Employee's employment.
+        </div>
+        
+        <div class="subsection">
+            <span class="subsection-number">5.3 NOTICE Regarding Inventions.</span>
+            Any provision in this Agreement requiring Employee to assign rights in Inventions does not and will not apply to any Invention for which no equipment, supplies, facilities, or trade secret information of Employer was used and that was developed entirely on Employee's own time, unless (a) the Invention relates (i) directly to the business of Employer, or (ii) to Employer's actual or demonstrably anticipated research or development, or (b) the Invention results from any work performed by Employee for Employer. This NOTICE Regarding Inventions will be interpreted in a manner that complies with applicable state law.
+        </div>
+        
+        <div class="subsection">
+            <span class="subsection-number">5.4 Prior Inventions.</span>
+            As to any Invention in which Employee has an interest at any time, if Employee uses or incorporates such an Invention in any released or unreleased MyAccess product, service, program, process, development, or work in progress, or if Employee permits MyAccess so to use or incorporate such an Invention, or if such an Invention pertains to MyAccess business, Employee irrevocably grants (to the extent Employee has authority to do so) a perpetual, royalty-free, fully paid up, worldwide license to exercise any and all rights with respect to such Invention, including without limitation the right to make, use, sell, reproduce, display, perform, modify, create derivative works, distribute and sublicense such Invention, including without limitation the right to protect, make, have made, import, use, and sell that Invention without restriction and the right to sublicense those rights to others (with the right to grant further sublicenses). This license will be exclusive, subject only to any preexisting non-exclusive licenses or other pre-existing rights not subject to Employee's control.
+        </div>
+        
+        <div class="subsection avoid-break">
+            <span class="subsection-number">5.5 Assistance.</span>
+            Employee will execute all documents and take all other actions reasonably requested by MyAccess in order to carry out and confirm the assignments contemplated by this Agreement, including without limitation applications for patents, registered designs, certificates of authorship, and other instruments or intellectual property protections appropriate to protect and enforce intellectual property rights throughout the world. If Employee fails to execute, acknowledge, verify, or deliver any such document reasonably requested by MyAccess, Employee irrevocably appoints MyAccess and its authorized officers and agents as Employee's agent and attorney-in-fact to act in Employee's place to execute, acknowledge, verify, and deliver any such document on Employee's behalf. Employee's obligations under this Section 5.5 apply during employment and at all times thereafter.
+        </div>
+
+        <div class="agreement-item avoid-break">
+            <span class="section-number">6. DISCLOSURE OF RESTRICTIONS.</span>
+            Employee will disclose and provide a true and correct copy of this Agreement to any prospective new employer, business partner, or investor BEFORE accepting employment or engaging in any business venture. Employee authorizes MyAccess to provide a copy of this Agreement to any new or prospective employer, business partner, or investor of Employee. Employee agrees to promptly notify Employer of any subsequent employment or business venture sufficient to enable Employer to assess any potential misuse or disclosure of Confidential Information.
+        </div>
+
+        <div class="agreement-item">
+            <span class="section-number">7. GENERAL PROVISIONS.</span>
+        </div>
+        
+        <div class="subsection avoid-break">
+            <span class="subsection-number">7.1 Third Party Beneficiaries</span>
+           All MyAccess entities, including without limitation Employer, are intended third party beneficiaries of Employee's covenants and promises in this Agreement, and have enforceable rights and remedies under this Agreement.
+        </div>
+        
+        <div class="subsection avoid-break">
+            <span class="subsection-number">7.2 Waiver.</span>
+            No waiver of any right or obligation under this Agreement will be valid unless in writing and signed by an authorized officer of MyAccess. No waiver by MyAccess of any breach of this Agreement will be a waiver of any preceding or succeeding breach. No waiver by MyAccess of any right or obligation under this Agreement will be construed as a waiver of any other right or obligation. MyAccess will not be required to give prior notice to enforce strict adherence to all terms of this Agreement.
+        </div>
+        
+        <div class="subsection avoid-break">
+            <span class="subsection-number">7.3 Governing Law and Jurisdiction.</span>
+            This Agreement will be governed by and construed in accordance with the laws of India. Each party irrevocably consents to exclusive jurisdiction and venue in the courts located in the city in which the Employee is employed with respect to any action, claim, or proceeding arising out of or in connection with this Agreement.
+        </div>
+        
+        <div class="subsection">
+            <span class="subsection-number">7.4 Remedies.</span>
+            Any breach of this Agreement may cause MyAccess irreparable harm for which there is no adequate remedy at law. As a result, MyAccess will be entitled to the issuance by a court of competent jurisdiction of an injunction, restraining order, or other equitable relief in favor of itself, without the necessity of posting a bond, restraining Employee from committing or continuing to commit any such violation. Any right to obtain an injunction, restraining order, or other equitable relief under this Agreement will not be considered a waiver of any right to assert any other remedy MyAccess may have at law or in equity. Nothing in this Agreement will limit the remedies available to MyAccess. The restrictions in this Agreement are independent of any other provision of this Agreement and will be enforceable whether or not Employee may have or purport to have any claim against MyAccess.
+        </div>
+        
+        <div class="subsection">
+            <span class="subsection-number">7.5 Modification of Restrictions.</span>
+            Severability. Should a court of competent jurisdiction find that any provision of this Agreement, or compliance by any of the parties with any provision of this Agreement, is unlawful or unenforceable, such provision will be treated as narrowed to the extent required to make it lawful and enforceable. If such modification is not possible, the unlawful or unenforceable provision will be severed from the Agreement and the remaining provisions will remain in full force and effect to the maximum extent consistent with applicable law. If Employee breaches any post-employment obligations to MyAccess set forth in Section 4 of this Agreement, the applicable duration of such obligation will be extended by a period of no less than the duration of the breaching conduct. This Agreement should be interpreted in a way that provides the maximum protection to MyAccess's Confidential Information and other business interests, and should not be interpreted against any party as its drafter.
+        </div>
+        
+        <div class="subsection avoid-break">
+            <span class="subsection-number">7.6 Survival of Covenants.</span>
+            The covenants and promises contained in Sections 3 through 7 of this Agreement will survive after the Separation Date.
+        </div>
+        
+        <div class="subsection">
+            <span class="subsection-number">7.7 Assignment.</span>
+            This Agreement will bind and inure to the benefit of Employee and MyAccess, and their respective heirs, legal representatives, and permitted successors and assigns. The covenants and promises of Employee under this Agreement are unique and personal. Accordingly, Employee may not assign any of Employee's rights or duties under this Agreement. MyAccess.com, Inc. may assign this Agreement, without notice to Employee. Employee consents to such assignment and agrees and acknowledges that all terms and conditions of this Agreement will remain in effect after any such assignment.
+        </div>
+        
+        <div class="subsection avoid-break">
+            <span class="subsection-number">7.8 Entire Agreement</span>
+            This Agreement contains the entire understanding between Employee and MyAccess with respect to the subject matter of this Agreement, with the exception of any existing obligations Employee may have to MyAccess under any other written, executed agreement(s), which obligations remain in full force and effect. No modification of or amendment to this Agreement (except by a court under Section 7.5) will be effective unless in writing and signed by both Employee and an authorized officer of MyAccess.com, Inc.
+        </div>
+
+        <div class="agreement-item">
+            <span class="section-number">8. EMPLOYEE REPRESENTATIONS REGARDING EXISTING OBLIGATIONS.</span>
+            Employee represents and certifies as follows: (a) Employee is not in possession or control of any document or other tangible thing that in any way constitutes confidential, proprietary, or trade secret information of any third party (including any former employer); (b) Employee is not subject to a non-competition agreement that precludes Employee's work for MyAccess; (c) Employee has identified all confidentiality, proprietary information, non-solicitation, or similar agreements or obligations Employee has with any third party, and Employee will not violate any such agreements or obligations in the course of Employee's work for MyAccess; and (d) Employee will not use or disclose any tangible or intangible information that constitutes a trade secret of any third party (including any former employer) in the course of Employee's employment, except pursuant to written authorization to do so (e.g., a technology license between MyAccess and the third party).
+        </div>
+
+        <div class="agreement-item">
+            <span class="section-number">9. EMPLOYEE HAS READ AND UNDERSTOOD THE TERMS OF THIS AGREEMENT; RIGHT TO SEPARATE COUNSEL</span>
+            Employee acknowledges with execution of this Agreement that: (a) Employee has carefully read all of this Agreement's terms and agrees they are necessary for the reasonable protection of the business of Employer and MyAccess; (b) Employer has been induced to employ Employee by Employee's representation that Employee will abide by and be bound by each of the covenants and restraints in this Agreement; and (c) each and every covenant and restraint in this Agreement is reasonable. Employee acknowledges that Employee has been advised by MyAccess that Employee is entitled to have this Agreement reviewed by counsel of Employee's choice, and has either done so or elected to forgo such right.
+        </div>
+        
+        <div class="signature-section avoid-break">
+    <div class="candidate-signature-block">
+        <div class="signature-line-full"></div>
+        <div class="signature-label-center">Candidate Signature</div>
+        
+        <div class="signature-details">
+            <div class="left-signature">
+                <div class="candidate-name">{Employee Name}</div>
+                <div class="signature-line-half"></div>
+                <div class="signature-label">Printed Full Candidate Name</div>
+            </div>
+            <div class="right-signature">
+                <div class="date-signed">01/07/2025</div>
+                <div class="signature-line-short"></div>
+                <div class="signature-label">Date Signed</div>
+            </div>
+        </div>
+    </div>
+</div>
+    </div>
+</body>
+</html>
