@@ -23,7 +23,7 @@ import {
   RobotOutlined, 
   SendOutlined, 
   SaveOutlined,
-  DollarOutlined,
+  BankOutlined,
   TeamOutlined,
   EnvironmentOutlined,
   ClockCircleOutlined,
@@ -62,6 +62,12 @@ const JobDescriptionPage = ({ userRole }) => {
   const [employmentTypes, setEmploymentTypes] = useState([]);
   const [experienceLevels, setExperienceLevels] = useState([]);
 
+  // Function to convert text to title case (capitalize first letter of each word)
+  const toTitleCase = (str) => {
+    if (!str) return str;
+    return str.toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+  };
+
   // Load dynamic data from Supabase on component mount
   useEffect(() => {
     loadDynamicData();
@@ -88,7 +94,7 @@ const JobDescriptionPage = ({ userRole }) => {
       
       const uniqueLocations = [...new Set(locData?.map(item => item.location).filter(Boolean))];
       setLocations(uniqueLocations.length > 0 ? uniqueLocations : [
-        'Remote', 'New York, NY', 'San Francisco, CA', 'London, UK', 'Berlin, Germany', 'Bangalore, India'
+        'Remote', 'Mumbai, Maharashtra', 'Bangalore, Karnataka', 'Delhi, NCR', 'Hyderabad, Telangana', 'Chennai, Tamil Nadu', 'Pune, Maharashtra'
       ]);
 
       // Load employment types
@@ -118,16 +124,16 @@ const JobDescriptionPage = ({ userRole }) => {
       console.error('Error loading dynamic data:', error);
       // Set default values if error occurs
       setDepartments(['Engineering', 'Product', 'Design', 'Marketing', 'Sales', 'HR', 'Finance', 'Operations']);
-      setLocations(['Remote', 'New York, NY', 'San Francisco, CA', 'London, UK', 'Berlin, Germany', 'Bangalore, India']);
+      setLocations(['Remote', 'Mumbai, Maharashtra', 'Bangalore, Karnataka', 'Delhi, NCR', 'Hyderabad, Telangana', 'Chennai, Tamil Nadu', 'Pune, Maharashtra']);
       setEmploymentTypes(['Full-time', 'Part-time', 'Contract', 'Internship', 'Freelance']);
       setExperienceLevels(['Entry Level (0-2 years)', 'Mid Level (2-5 years)', 'Senior Level (5-8 years)', 'Lead Level (8+ years)', 'Executive Level']);
     }
   };
 
-  // Handle skill addition
+  // Handle skill addition with title case
   const handleSkillAdd = () => {
-    if (inputValue && skills.indexOf(inputValue) === -1) {
-      setSkills([...skills, inputValue]);
+    if (inputValue && skills.indexOf(toTitleCase(inputValue)) === -1) {
+      setSkills([...skills, toTitleCase(inputValue)]);
     }
     setInputVisible(false);
     setInputValue('');
@@ -139,51 +145,50 @@ const JobDescriptionPage = ({ userRole }) => {
 
   // AI Job Description Generator
   const generateJobDescriptionWithAI = async () => {
-  const jobTitle = form.getFieldValue('jobTitle');
-  
-  if (!jobTitle) {
-    message.warning('Please enter a job title first');
-    return;
-  }
-
-  setAiLoading(true);
-  try {
-    const response = await fetch('open api', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer chat gpt api key here'
-      },
-      body: JSON.stringify({
-        model: 'model name here',
-        messages: [
-           {"role": "system", "content": "You are a helpful assistant that writes professional job descriptions."},
-                {"role": "user", "content": `{jobTitle: "${jobTitle}"}`},
-        ],
-        max_tokens: 500,
-        temperature: 0.7
-      })
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      const generatedDescription = data.choices[0].message.content;
-      
-      form.setFieldsValue({
-        description: generatedDescription
-      });
-      message.success('Job description generated successfully!');
-    } else {
-      throw new Error('Failed to generate job description');
+    const jobTitle = form.getFieldValue('jobTitle');
+    
+    if (!jobTitle) {
+      message.warning('Please enter a job title first');
+      return;
     }
-  } catch (error) {
-    console.error('AI Generation Error:', error);
-    message.error('Failed to generate job description. Please try again.');
-  } finally {
-    setAiLoading(false);
-  }
-};
 
+    setAiLoading(true);
+    try {
+      const response = await fetch('open api', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer chat gpt api key here'
+        },
+        body: JSON.stringify({
+          model: 'model name here',
+          messages: [
+             {"role": "system", "content": "You are a helpful assistant that writes professional job descriptions."},
+                  {"role": "user", "content": `{jobTitle: "${jobTitle}"}`},
+          ],
+          max_tokens: 500,
+          temperature: 0.7
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const generatedDescription = data.choices[0].message.content;
+        
+        form.setFieldsValue({
+          description: generatedDescription
+        });
+        message.success('Job description generated successfully!');
+      } else {
+        throw new Error('Failed to generate job description');
+      }
+    } catch (error) {
+      console.error('AI Generation Error:', error);
+      message.error('Failed to generate job description. Please try again.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   // Handle AI chat
   const handleAiSend = () => {
@@ -244,51 +249,52 @@ What specific role would you like help with?`;
   };
 
   // Handle form submission to Supabase
-const handleSubmit = async (values) => {
-  setLoading(true);
-  try {
-    const jobData = {
-      job_title: values.jobTitle,
-      department: values.department,
-      location: values.location,
-      employment_type: values.employmentType,
-      experience_level: values.experienceLevel,
-      job_description: values.description,
-      key_responsibilities: values.responsibilities,
-      qualification_requirements: values.qualifications,
-      additional_benefits: values.benefits,
-      required_skills: skills.join(', '),
-      salary_range: values.salaryMin && values.salaryMax 
-        ? `$${values.salaryMin.toLocaleString()} - $${values.salaryMax.toLocaleString()}`
-        : null,
-      updated_at: new Date().toISOString()
-    };
+  const handleSubmit = async (values) => {
+    setLoading(true);
+    try {
+      const jobData = {
+        job_title: toTitleCase(values.jobTitle),
+        department: toTitleCase(values.department),
+        location: toTitleCase(values.location),
+        employment_type: toTitleCase(values.employmentType),
+        experience_level: values.experienceLevel,
+        job_description: values.description,
+        key_responsibilities: values.responsibilities,
+        qualification_requirements: values.qualifications,
+        additional_benefits: values.benefits,
+        required_skills: skills.join(', '),
+        salary_range: values.salaryMin && values.salaryMax 
+          ? `₹${values.salaryMin.toLocaleString()} - ₹${values.salaryMax.toLocaleString()}`
+          : null,
+        updated_at: new Date().toISOString()
+      };
 
-    const { data, error } = await supabase
-      .from('job_descriptions')
-      .insert([jobData])
-      .select();
+      const { data, error } = await supabase
+        .from('job_descriptions')
+        .insert([jobData])
+        .select();
 
-    if (error) {
-      throw error;
+      if (error) {
+        throw error;
+      }
+
+      message.success('Job description saved successfully!');
+      
+      // Reset form
+      form.resetFields();
+      setSkills([]);
+      
+      // Reload dynamic data to include new entries
+      loadDynamicData();
+      
+    } catch (error) {
+      console.error('Error saving job description:', error);
+      message.error('Failed to save job description. Please try again.');
+    } finally {
+      setLoading(false);
     }
+  };
 
-    message.success('Job description saved successfully!');
-    
-    // Reset form
-    form.resetFields();
-    setSkills([]);
-    
-    // Reload dynamic data to include new entries
-    loadDynamicData();
-    
-  } catch (error) {
-    console.error('Error saving job description:', error);
-    message.error('Failed to save job description. Please try again.');
-  } finally {
-    setLoading(false);
-  }
-};
   return (
     <div style={{ 
       padding: '24px',
@@ -368,6 +374,10 @@ const handleSubmit = async (values) => {
                     size="large" 
                     placeholder="e.g., Senior Frontend Developer"
                     style={{ borderRadius: '8px' }}
+                    onChange={(e) => {
+                      const titleCaseValue = toTitleCase(e.target.value);
+                      form.setFieldsValue({ jobTitle: titleCaseValue });
+                    }}
                   />
                 </Form.Item>
 
@@ -390,7 +400,7 @@ const handleSubmit = async (values) => {
                               <Input
                                 placeholder="Add new department"
                                 onPressEnter={e => {
-                                  const value = e.target.value.trim();
+                                  const value = toTitleCase(e.target.value.trim());
                                   if (value && !departments.includes(value)) {
                                     setDepartments([...departments, value]);
                                     form.setFieldsValue({ department: value });
@@ -425,7 +435,7 @@ const handleSubmit = async (values) => {
                               <Input
                                 placeholder="Add new location"
                                 onPressEnter={e => {
-                                  const value = e.target.value.trim();
+                                  const value = toTitleCase(e.target.value.trim());
                                   if (value && !locations.includes(value)) {
                                     setLocations([...locations, value]);
                                     form.setFieldsValue({ location: value });
@@ -466,7 +476,7 @@ const handleSubmit = async (values) => {
                               <Input
                                 placeholder="Add new employment type"
                                 onPressEnter={e => {
-                                  const value = e.target.value.trim();
+                                  const value = toTitleCase(e.target.value.trim());
                                   if (value && !employmentTypes.includes(value)) {
                                     setEmploymentTypes([...employmentTypes, value]);
                                     form.setFieldsValue({ employmentType: value });
@@ -504,7 +514,7 @@ const handleSubmit = async (values) => {
                               <Input
                                 placeholder="Add new experience level"
                                 onPressEnter={e => {
-                                  const value = e.target.value.trim();
+                                  const value = toTitleCase(e.target.value.trim());
                                   if (value && !experienceLevels.includes(value)) {
                                     setExperienceLevels([...experienceLevels, value]);
                                     form.setFieldsValue({ experienceLevel: value });
@@ -573,15 +583,15 @@ const handleSubmit = async (values) => {
                   </div>
                 </Form.Item>
 
-                {/* Salary Range */}
-                <Form.Item label="Salary Range (Optional)">
+                {/* Salary Range in INR */}
+                <Form.Item label="Salary Range in INR (Optional)">
                   <Row gutter={16}>
                     <Col xs={12}>
                       <Form.Item name="salaryMin" style={{ marginBottom: 0 }}>
                         <InputNumber
                           size="large"
                           placeholder="Min"
-                          prefix={<DollarOutlined />}
+                          prefix="₹"
                           style={{ width: '100%' }}
                           formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                         />
@@ -592,7 +602,7 @@ const handleSubmit = async (values) => {
                         <InputNumber
                           size="large"
                           placeholder="Max"
-                          prefix={<DollarOutlined />}
+                          prefix="₹"
                           style={{ width: '100%' }}
                           formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                         />
@@ -609,42 +619,41 @@ const handleSubmit = async (values) => {
                   Detailed Information
                 </Title>
 
-<Form.Item
-  label={
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <span>Job Description</span>
-      <Button
-        type="text"
-        size="small"
-        shape="circle"
-        icon={aiLoading ? <Spin size="small" /> : <RobotOutlined />}
-        onClick={generateJobDescriptionWithAI}
-        loading={aiLoading}
-        style={{
-          color: '#667eea',
-          width: '24px',
-          height: '24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '12px',
-          background: 'rgba(102, 126, 234, 0.1)',
-          border: '1px solid rgba(102, 126, 234, 0.3)'
-        }}
-        title="Generate with AI"
-      />
-    </div>
-  }
-  name="description"
-  rules={[{ required: true, message: 'Please enter job description' }]}
->
-  <TextArea
-    rows={6}
-    placeholder="Click the AI button above to generate or enter your job description manually..."
-    style={{ borderRadius: '8px' }}
-  />
-</Form.Item>
-
+                <Form.Item
+                  label={
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span>Job Description</span>
+                      <Button
+                        type="text"
+                        size="small"
+                        shape="circle"
+                        icon={aiLoading ? <Spin size="small" /> : <RobotOutlined />}
+                        onClick={generateJobDescriptionWithAI}
+                        loading={aiLoading}
+                        style={{
+                          color: '#667eea',
+                          width: '24px',
+                          height: '24px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '12px',
+                          background: 'rgba(102, 126, 234, 0.1)',
+                          border: '1px solid rgba(102, 126, 234, 0.3)'
+                        }}
+                        title="Generate with AI"
+                      />
+                    </div>
+                  }
+                  name="description"
+                  rules={[{ required: true, message: 'Please enter job description' }]}
+                >
+                  <TextArea
+                    rows={6}
+                    placeholder="Click the AI button above to generate or enter your job description manually..."
+                    style={{ borderRadius: '8px' }}
+                  />
+                </Form.Item>
 
                 <Form.Item
                   label="Key Responsibilities"
@@ -673,7 +682,7 @@ const handleSubmit = async (values) => {
                 <Form.Item label="Additional Benefits" name="benefits">
                   <TextArea
                     rows={3}
-                    placeholder="• Competitive salary and equity&#10;• Health, dental, and vision insurance&#10;• Flexible working hours&#10;• Professional development opportunities..."
+                    placeholder="• Competitive salary and equity&#10;• Health insurance and medical benefits&#10;• Flexible working hours&#10;• Professional development opportunities..."
                     style={{ borderRadius: '8px' }}
                   />
                 </Form.Item>

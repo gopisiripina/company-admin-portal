@@ -22,7 +22,8 @@ import {
   Avatar,
   Timeline,
   Descriptions,
-  List
+  List,
+  Popconfirm
 } from 'antd';
 import { 
   SendOutlined, 
@@ -40,7 +41,8 @@ import {
   StarOutlined,
   FileTextOutlined,
   BellOutlined,
-  SettingOutlined
+  SettingOutlined,
+  DeleteOutlined
 } from '@ant-design/icons';
 
 const { Title, Text, Paragraph } = Typography;
@@ -155,63 +157,53 @@ const postToLinkedIn = async (jobData) => {
     }
   };
 
-  const fetchPostingLogs = async () => {
-    // You'll need to create a job_postings table for real data
-    // For now, I'll create a query that checks if you have this table
-    try {
-      const { data, error } = await supabase
-        .from('job_postings')
-        .select(`
-          *,
-          job_descriptions(job_title)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(10);
+const fetchPostingLogs = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('job_postings')
+      .select(`
+        *,
+        job_descriptions(job_title)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(10);
 
-      if (error) {
-        console.log('Job postings table not found, using sample data');
-        // Use sample data if table doesn't exist
-        setPostingLogs([
-          {
-            id: 1,
-            jobTitle: 'Senior Frontend Developer',
-            platform: 'LinkedIn',
-            status: 'Success',
-            timestamp: new Date().toISOString(),
-            postId: 'LI_12345',
-            views: 245,
-            applications: 12
-          },
-          {
-            id: 2,
-            jobTitle: 'Data Scientist',
-            platform: 'Company Portal',
-            status: 'Success',
-            timestamp: new Date(Date.now() - 86400000).toISOString(),
-            postId: 'CP_67890',
-            views: 156,
-            applications: 8
-          }
-        ]);
-      } else {
-        // Map real data
-        const mappedLogs = data.map(log => ({
-          id: log.id,
-          jobTitle: log.job_descriptions?.job_title || 'Unknown Job',
-          platform: log.platform,
-          status: log.status,
-          timestamp: new Date(log.created_at).toLocaleString(),
-          postId: log.post_id,
-          views: log.views || 0,
-          applications: log.applications || 0,
-          error: log.error_message
-        }));
-        setPostingLogs(mappedLogs);
-      }
-    } catch (error) {
-      console.log('Using sample posting data');
+    if (error) {
+      console.error('Error fetching job postings:', error);
+      // Use sample data if table doesn't exist or has permission issues
+      setPostingLogs([
+        {
+          id: 1,
+          jobTitle: 'Senior Frontend Developer',
+          platform: 'LinkedIn',
+          status: 'Success',
+          timestamp: new Date().toLocaleString(),
+          postId: 'LI_12345',
+          views: 245,
+          applications: 12
+        }
+      ]);
+    } else {
+      // Map real data properly
+      const mappedLogs = data.map(log => ({
+        id: log.id,
+        jobTitle: log.job_descriptions?.job_title || 'Unknown Job',
+        platform: log.platform,
+        status: log.status,
+        timestamp: new Date(log.created_at).toLocaleString(),
+        postId: log.post_id,
+        views: log.views || 0,
+        applications: log.applications || 0,
+        error: log.error_message
+      }));
+      setPostingLogs(mappedLogs);
     }
-  };
+  } catch (error) {
+    console.error('Error in fetchPostingLogs:', error);
+    // Fallback to sample data
+    setPostingLogs([]);
+  }
+};
 
   // Helper functions to extract salary from range string
   const extractSalaryMin = (salaryRange) => {
@@ -244,7 +236,26 @@ const postToLinkedIn = async (jobData) => {
       fetchJobDescriptions(); // Refresh the data
     }
   };
+// Delete job
+const deleteJob = async (jobId, jobTitle) => {
+  const { error } = await supabase
+    .from('job_descriptions')
+    .delete()
+    .eq('id', jobId);
 
+  if (error) {
+    message.error('Failed to delete job');
+    console.error(error);
+  } else {
+    message.success(`Job "${jobTitle}" deleted successfully`);
+    fetchJobDescriptions(); // Refresh the data
+    
+    // If the deleted job was selected, clear the selection
+    if (selectedJob && selectedJob.id === jobId) {
+      setSelectedJob(null);
+    }
+  }
+};
   // Get counts for badges
   const getActiveJobsCount = () => {
     return jobDescriptions.filter(j => j.status === 'Active').length;
@@ -435,7 +446,7 @@ const postToLinkedIn = async (jobData) => {
       results.push(result);
 
       // Insert posting log into database
-      try {
+ try {
   const { data, error } = await supabase
     .from('job_postings')
     .insert({
@@ -447,13 +458,17 @@ const postToLinkedIn = async (jobData) => {
       views: 0,
       applications: 0,
       created_at: new Date().toISOString()
-    });
+    })
+    .select(); // Add .select() to return the inserted data
     
   if (error) {
-    console.log('Job postings insert error:', error.message);
+    console.error('Job postings insert error:', error);
+    // Still continue with the process even if logging fails
+  } else {
+    console.log('Successfully logged posting:', data);
   }
 } catch (error) {
-  console.log('Job postings table not available or permission denied:', error.message);
+  console.error('Job postings insert exception:', error);
 }
     }
 
@@ -951,47 +966,64 @@ const postToLinkedIn = async (jobData) => {
             </Button>
           ]}
         >
-          <List
-            dataSource={jobDescriptions}
-            renderItem={(job) => (
-              <List.Item
-                actions={[
-                  <Button
-                    key="active"
-                    type={job.status === 'Active' ? 'primary' : 'default'}
-                    size="small"
-                    onClick={() => updateJobStatus(job.id, 'Active')}
-                    disabled={job.status === 'Active'}
-                  >
-                    Active
-                  </Button>,
-                  <Button
-                    key="inactive"
-                    type={job.status === 'Inactive' ? 'primary' : 'default'}
-                    size="small"
-                    onClick={() => updateJobStatus(job.id, 'Inactive')}
-                    disabled={job.status === 'Inactive'}
-                  >
-                    Inactive
-                  </Button>
-                ]}
-              >
-                <List.Item.Meta
-                  title={
-                    <Space>
-                      <Text strong>{job.job_title}</Text>
-                      <Badge 
-                        status={job.status === 'Active' ? 'success' : 'default'} 
-                        text={job.status}
-                      />
-                    </Space>
-                  }
-                  description={`${job.department} • ${job.location} • ${job.employment_type}`}
-                />
-              </List.Item>
-            )}
-          />
-        </Modal>
+<List
+  dataSource={jobDescriptions}
+  renderItem={(job) => (
+    <List.Item
+      actions={[
+        <Button
+          key="active"
+          type={job.status === 'Active' ? 'primary' : 'default'}
+          size="small"
+          onClick={() => updateJobStatus(job.id, 'Active')}
+          disabled={job.status === 'Active'}
+        >
+          Active
+        </Button>,
+        <Button
+          key="inactive"
+          type={job.status === 'Inactive' ? 'primary' : 'default'}
+          size="small"
+          onClick={() => updateJobStatus(job.id, 'Inactive')}
+          disabled={job.status === 'Inactive'}
+        >
+          Inactive
+        </Button>,
+        <Popconfirm
+          key="delete"
+          title="Delete this job?"
+          description="This action cannot be undone. Are you sure?"
+          onConfirm={() => deleteJob(job.id, job.job_title)}
+          okText="Yes, Delete"
+          cancelText="Cancel"
+          okType="danger"
+        >
+          <Button
+            type="text"
+            danger
+            size="small"
+            icon={<DeleteOutlined />}
+          >
+            Delete
+          </Button>
+        </Popconfirm>
+      ]}
+    >
+      <List.Item.Meta
+        title={
+          <Space>
+            <Text strong>{job.job_title}</Text>
+            <Badge 
+              status={job.status === 'Active' ? 'success' : 'default'} 
+              text={job.status}
+            />
+          </Space>
+        }
+        description={`${job.department} • ${job.location} • ${job.employment_type}`}
+      />
+    </List.Item>
+  )}
+/>        </Modal>
       </div>
     </div>
   );
