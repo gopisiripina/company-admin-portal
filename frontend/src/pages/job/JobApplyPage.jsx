@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import {Table,Card,Select,Input,DatePicker,Button,Tag,Space,Modal,Avatar,Row,Col,Typography,Divider,Tooltip,message,Spin,Alert} from 'antd';
 import {SearchOutlined,EyeOutlined,DownloadOutlined,UserOutlined,CalendarOutlined,ToolOutlined,ReloadOutlined,CheckCircleOutlined,CloseCircleOutlined,MailOutlined,LinkOutlined} from '@ant-design/icons';
 
@@ -8,10 +7,7 @@ const { RangePicker } = DatePicker;
 const { Title, Text } = Typography;
 
 // Supabase configuration
-const supabaseUrl = 'https://dsvqjsnxdxlgufzwcaub.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdnFqc254ZHhsZ3VmendjYXViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4MjgyMjMsImV4cCI6MjA2NjQwNDIyM30.YHdiWzPvU6XBXFzcDZL7LKtgjU_dv5pVVpFRF8OkEz8';
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { supabase} from '../../supabase/config';
 
 const JobApplyPage = () => {
   const [selectedJob, setSelectedJob] = useState(null);

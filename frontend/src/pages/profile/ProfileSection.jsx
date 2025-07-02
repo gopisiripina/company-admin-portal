@@ -5,7 +5,7 @@ import authService from '../../supabase/authService';
 const ProfileSection = ({ userData, onLogout }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  
+  const [isHovered, setIsHovered] = useState(false);
   
   // Check if it's a base64 image
   const isBase64Image = userData?.profileImage?.startsWith('data:image/');
@@ -127,36 +127,42 @@ const ProfileSection = ({ userData, onLogout }) => {
     };
 
     const smallInitialsStyle = {
-      width: '42px',
-      height: '42px',
-      borderRadius: '20%',
-      backgroundColor: '#1F4842',
-      color: 'white',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontSize: '12px',
-      fontWeight: '600',
-      border: '2px solid #e5e7eb'
-    };
+  width: '42px',
+  height: '42px',
+  borderRadius: '20%',
+  objectFit: 'cover',
+  border: '2px solid #e5e7eb',
+  backgroundColor: '#1F4842', // Remove !important, but ensure it's always set
+  color: 'white',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: '12px',
+  fontWeight: '600',
+  position: 'relative',
+  zIndex: 1 // Add this to ensure it stays on top
+};
 
     const largeInitialsStyle = {
-      width: '64px',
-      height: '64px',
-      borderRadius: '20%',
-      backgroundColor: '#1F4842',
-      color: 'white',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontSize: '20px',
-      fontWeight: '600',
-      border: '3px solid #e5e7eb'
-    };
+  width: '64px',
+  height: '64px',
+  borderRadius: '20%',
+  backgroundColor: '#1F4842', // Remove !important, but ensure it's always set
+  color: 'white',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  fontSize: '20px',
+  fontWeight: '600',
+  border: '3px solid #e5e7eb',
+  position: 'relative',
+  zIndex: 1 // Add this to ensure it stays on top
+};
+
     
     if (hasImage && imageSource) {
       return (
-        <div style={{ position: 'relative', display: 'inline-block' }}>
+        <div style={{ position: 'relative', display: 'inline-block', width: size === 'large' ? '64px' : '42px', height: size === 'large' ? '64px' : '42px' }}>
           <img 
             src={imageSource}
             alt={userData?.name || userData?.displayName || 'User'} 
@@ -193,7 +199,7 @@ const ProfileSection = ({ userData, onLogout }) => {
     // Show initials if no image
     // console.log('No image found, showing initials:', initials);
     return (
-      <div style={size === 'large' ? largeInitialsStyle : smallInitialsStyle}>
+      <div className="profile-avatar-initials" style={size === 'large' ? largeInitialsStyle : smallInitialsStyle}>
         {initials}
       </div>
     );
@@ -210,8 +216,9 @@ const ProfileSection = ({ userData, onLogout }) => {
       border: '2px solid white',
       position: 'absolute',
       bottom: '2px',
-      right: '2px',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+      right: '0px',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+      zIndex: 1
     };
 
     return <div style={statusStyle} title={isActive ? 'Active' : 'Inactive'} />;
@@ -225,23 +232,22 @@ const ProfileSection = ({ userData, onLogout }) => {
   };
 
   const profileTriggerStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '8px 12px',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s ease',
-    backgroundColor: isDropdownOpen ? '#f3f4f6' : 'transparent',
-    border: 'none',
-    outline: 'none'
-  };
-
+  display: 'flex',
+  alignItems: 'center',
+  gap: '12px',
+  padding: '8px 12px',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  transition: 'background-color 0.2s ease',
+  backgroundColor: isDropdownOpen ? '#f3f4f6' : (isHovered ? '#f9fafb' : 'transparent'),
+  border: 'none',
+  outline: 'none'
+};
   const profileInfoStyle = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'flex-start',
-    minWidth: 0
+    minWidth: 0,
   };
 
   const profileNameStyle = {
@@ -369,19 +375,11 @@ const ProfileSection = ({ userData, onLogout }) => {
   return (
     <div style={profileSectionStyle}>
       <div 
-        style={profileTriggerStyle}
-        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-        onMouseEnter={(e) => {
-          if (!isDropdownOpen) {
-            e.target.style.backgroundColor = '#f9fafb';
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!isDropdownOpen) {
-            e.target.style.backgroundColor = 'transparent';
-          }
-        }}
-      >
+  style={profileTriggerStyle}
+  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+  onMouseEnter={() => setIsHovered(true)}
+  onMouseLeave={() => setIsHovered(false)}
+>
         <div style={{ position: 'relative' }}>
           {renderAvatar('small')}
           {renderStatusIndicator()}

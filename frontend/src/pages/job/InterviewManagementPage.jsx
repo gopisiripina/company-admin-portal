@@ -5,16 +5,11 @@ import {
 import {
   SearchOutlined, EyeOutlined, EditOutlined, CheckCircleOutlined, CloseCircleOutlined, CalendarOutlined, UserOutlined, FileTextOutlined, VideoCameraOutlined, ClockCircleOutlined, SendOutlined, PhoneOutlined, EnvironmentOutlined, DollarOutlined, HistoryOutlined, ReloadOutlined, StarOutlined, CommentOutlined
 } from '@ant-design/icons';
-import { createClient } from '@supabase/supabase-js';
 
 const { Option } = Select;
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
-
-const supabaseUrl = 'https://dsvqjsnxdxlgufzwcaub.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdnFqc254ZHhsZ3VmendjYXViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4MjgyMjMsImV4cCI6MjA2NjQwNDIyM30.YHdiWzPvU6XBXFzcDZL7LKtgjU_dv5pVVpFRF8OkEz8';
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from '../../supabase/config';
 
 // Fetch candidates with scheduled interviews
 const fetchInterviewCandidates = async (jobId) => {

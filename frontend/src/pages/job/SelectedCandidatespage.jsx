@@ -13,7 +13,6 @@ import {
   HistoryOutlined, ReloadOutlined, StarOutlined, TeamOutlined,
   BankOutlined, IdcardOutlined, HomeOutlined, ContactsOutlined
 } from '@ant-design/icons';
-import { createClient } from '@supabase/supabase-js';
 import emailjs from '@emailjs/browser';
 
 const { Option } = Select;
@@ -22,9 +21,7 @@ const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 
 // Supabase configuration
-const supabaseUrl = 'https://dsvqjsnxdxlgufzwcaub.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdnFqc254ZHhsZ3VmendjYXViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4MjgyMjMsImV4cCI6MjA2NjQwNDIyM30.YHdiWzPvU6XBXFzcDZL7LKtgjU_dv5pVVpFRF8OkEz8';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase} from '../../supabase/config';
 
 // EmailJS configuration - Replace with your actual values
 const EMAIL_CONFIG = {

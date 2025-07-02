@@ -2,18 +2,12 @@ import React, { useState, useEffect } from 'react';
 import {Table,Card,Select,Input,DatePicker,Button,Tag,Form, TimePicker ,Space,Modal,Avatar,Badge,Row,Col,Typography,Divider,message,Drawer,Steps,Timeline,Tooltip} from 'antd';
 import {SearchOutlined,EyeOutlined,DownloadOutlined,MailOutlined,UserOutlined, FileTextOutlined, VideoCameraOutlined, CloseCircleOutlined ,CalendarOutlined,CheckCircleOutlined,ClockCircleOutlined,SendOutlined,PhoneOutlined,EnvironmentOutlined,DollarOutlined,HistoryOutlined,ReloadOutlined} from '@ant-design/icons';
 import { sendInterviewInvitation } from '../email/EmailService';
-import { createClient } from '@supabase/supabase-js';
-
-
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 const { Step } = Steps;
-const supabaseUrl = 'https://dsvqjsnxdxlgufzwcaub.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdnFqc254ZHhsZ3VmendjYXViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4MjgyMjMsImV4cCI6MjA2NjQwNDIyM30.YHdiWzPvU6XBXFzcDZL7LKtgjU_dv5pVVpFRF8OkEz8';
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase} from '../../supabase/config';
 
 
 const fetchShortlistedCandidates = async (jobId) => {
