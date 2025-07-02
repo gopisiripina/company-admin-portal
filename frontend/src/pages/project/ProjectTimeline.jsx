@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Calendar, User, FileText, Clock, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
 import { Modal, Form, Input, DatePicker, Button, Select, Table, Pagination } from 'antd';
-import { collection, addDoc, getDocs, query, orderBy, limit, startAfter } from 'firebase/firestore';
 import { db } from '../../supabase/config';
 import './ProjectTimeline.css';
 

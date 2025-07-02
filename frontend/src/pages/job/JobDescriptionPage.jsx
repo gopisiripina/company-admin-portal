@@ -33,17 +33,12 @@ import {
   EditOutlined,
   DeleteOutlined
 } from '@ant-design/icons';
-import { createClient } from '@supabase/supabase-js';
 
 const { TextArea } = Input;
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-// Supabase configuration
-const supabaseUrl = 'https://dsvqjsnxdxlgufzwcaub.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdnFqc254ZHhsZ3VmendjYXViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4MjgyMjMsImV4cCI6MjA2NjQwNDIyM30.YHdiWzPvU6XBXFzcDZL7LKtgjU_dv5pVVpFRF8OkEz8';
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase} from '../../supabase/config';
 
 const JobDescriptionPage = ({ userRole }) => {
   const [form] = Form.useForm();

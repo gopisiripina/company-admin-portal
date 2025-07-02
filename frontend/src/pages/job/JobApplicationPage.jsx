@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import {
   Form,
   Input,
@@ -37,10 +36,7 @@ const { TextArea } = Input;
 const { Option } = Select;
 
 // Supabase configuration
-const supabaseUrl = 'https://dsvqjsnxdxlgufzwcaub.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdnFqc254ZHhsZ3VmendjYXViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4MjgyMjMsImV4cCI6MjA2NjQwNDIyM30.YHdiWzPvU6XBXFzcDZL7LKtgjU_dv5pVVpFRF8OkEz8';
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+import {supabase} from '../../supabase/config';
 
 // Utility function for uploading resume
 const uploadResumeToStorage = async (file, applicationId) => {

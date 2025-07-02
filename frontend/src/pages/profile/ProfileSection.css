@@ -5,7 +5,16 @@
   display: flex;
   align-items: center;
 }
+.profile-avatar-initials {
+  background-color: #1F4842 !important;
+}
+.profile-trigger.active {
+  background-color: #f3f4f6 !important;
+}
 
+.profile-trigger.active .profile-avatar-initials {
+  background-color: #1F4842 !important;
+}
 .profile-trigger {
   display: flex;
   align-items: center;

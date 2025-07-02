@@ -42,14 +42,11 @@ import {
   BellOutlined,
   SettingOutlined
 } from '@ant-design/icons';
-import { createClient } from '@supabase/supabase-js';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
-const supabaseUrl = 'https://dsvqjsnxdxlgufzwcaub.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdnFqc254ZHhsZ3VmendjYXViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4MjgyMjMsImV4cCI6MjA2NjQwNDIyM30.YHdiWzPvU6XBXFzcDZL7LKtgjU_dv5pVVpFRF8OkEz8';
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from '../../supabase/config';
 
 const JobPostPage = ({ userRole }) => {
   const [form] = Form.useForm();
@@ -78,7 +75,7 @@ const postToLinkedIn = async (jobData) => {
       `salary=${encodeURIComponent(jobData.salary_range || 'Competitive')}&` +
       `description=${encodeURIComponent(jobData.job_description || '')}`;
 
-    const response = await fetch('http://127.0.0.1:5000/api/post-job', {
+    const response = await fetch('https://api.linkedin.com/v2/ugcPosts', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
