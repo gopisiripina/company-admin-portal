@@ -43,22 +43,25 @@ const AppContent = () => {
     }
     setCheckingAuth(false);
   }, [location.pathname, navigate]);
-
-  useEffect(() => {
+useEffect(() => {
   // Handle URL-based navigation
   const path = location.pathname;
-   if (path === '/dashboard/job-application' && !isLoggedIn) {
+  
+  // Skip navigation logic for public job application pages
+  if (path.startsWith('/job-application') && !isLoggedIn) {
+    setActiveSection('job-application');
     return;
   }
+  
   if (path.includes('/selected-list')) {
     setActiveSection('selected-list');
-  }else if (path.includes('/job-application')) {
+  } else if (path.includes('/job-application')) {
     setActiveSection('job-application');
-  }else if (path.includes('/interview-management')) {
+  } else if (path.includes('/interview-management')) {
     setActiveSection('interview-management');
-  }else if (path.includes('/resume-list')) {
+  } else if (path.includes('/resume-list')) {
     setActiveSection('resume-list');
-  }else if (path.includes('/job-apply')) {
+  } else if (path.includes('/job-apply')) {
     setActiveSection('job-apply');
   } else if (path.includes('/job-post')) {
     setActiveSection('job-post');
@@ -77,9 +80,7 @@ const AppContent = () => {
   } else if (path === '/dashboard') {
     setActiveSection('dashboard');
   }
-}, [location.pathname]);
-
-
+}, [location.pathname, isLoggedIn]); 
 
 
   const handleLoginSuccess = (user) => {
@@ -205,8 +206,8 @@ const AppContent = () => {
           )
         } 
       />
-    <Route 
-  path="/job-application" 
+   <Route 
+  path="/job-application/*" 
   element={
     <AnimatedBackground>
       <div style={{ display: 'flex', height: '100vh', width: '100vw' }}>
@@ -216,7 +217,7 @@ const AppContent = () => {
           userData={null}
           onLogout={null}
           isPublicAccess={true}
-           onSectionChange={handleSidebarItemClick}
+          onSectionChange={handleSidebarItemClick}
         />
       </div>
     </AnimatedBackground>
