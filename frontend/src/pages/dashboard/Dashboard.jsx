@@ -13,7 +13,7 @@ import JobApplyPage from '../job/JobApplyPage';
 import ResumeListPage from '../job/ResumeListPage';
 import InterviewManagementPage from '../job/InterviewManagementPage';
 import JobApplicationPage from '../job/JobApplicationPage';
-
+import SelectedCandidatesPage from '../job/SelectedCandidatesPage';
 
 
 
@@ -504,43 +504,6 @@ if (activeSection === 'project-budgeting') {
     </div>
   );
 }
-if (activeSection === 'selected-list') {
-  return (
-    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-      {/* Header */}
-      <header className="dashboard-header">
-        {/* Search Bar */}
-        <div className="search-container">
-          <Search size={22} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search job descriptions..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
-        </div>
-
-        {/* Header Right */}
-        <div className="header-right">
-          {/* Notifications */}
-          <button className="notification-button">
-            <Bell size={22} />
-            <span className="notification-badge"></span>
-          </button>
-
-          {/* Profile Section */}
-          <ProfileSection />
-        </div>
-      </header>
-
-      {/* Project Budgeting Content */}
-      <main className="main-content">
-        <SelectedCandidatesPage userRole={userData?.role} />
-      </main>
-    </div>
-  );
-}
 if (activeSection === 'job-description') {
   return (
     <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
@@ -548,15 +511,30 @@ if (activeSection === 'job-description') {
       <header className="dashboard-header">
         {/* Search Bar */}
         <div className="search-container">
-          <Search size={22} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search job page..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
+  <Search size={22} className="search-icon" />
+  <input
+    type="text"
+    placeholder="Search job descriptions..."
+    value={searchQuery}
+    onChange={handleSearchInputChange}
+    onKeyPress={handleSearch}
+    className="search-input"
+  />
+  
+  {showSuggestions && searchSuggestions.length > 0 && (
+    <div className="search-suggestions">
+      {searchSuggestions.map((suggestion, index) => (
+        <div
+          key={index}
+          className="search-suggestion-item"
+          onClick={() => handleSuggestionClick(suggestion.section)}
+        >
+          {suggestion.name}
         </div>
+      ))}
+    </div>
+  )}
+</div>
 
         {/* Header Right */}
         <div className="header-right">
@@ -578,7 +556,7 @@ if (activeSection === 'job-description') {
     </div>
   );
 }
-if (activeSection === 'job-application') {
+if (activeSection === 'job-post') {
   return (
     <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
       {/* Header */}
@@ -623,6 +601,72 @@ if (activeSection === 'job-application') {
           <ProfileSection userData={userData} onLogout={onLogout}/>
         </div>
       </header>
+
+      {/* Job Description Content */}
+      <main className="main-content">
+        <JobPostPage userRole={userData?.role} />
+      </main>
+    </div>
+  );
+}
+if (activeSection === 'selected-list') {
+  return (
+    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+      {/* Header */}
+      <header className="dashboard-header">
+        {/* Search Bar */}
+        <div className="search-container">
+  <Search size={22} className="search-icon" />
+  <input
+    type="text"
+    placeholder="Search job page..."
+    value={searchQuery}
+    onChange={handleSearchInputChange}
+    onKeyPress={handleSearch}
+    className="search-input"
+  />
+  
+  {showSuggestions && searchSuggestions.length > 0 && (
+    <div className="search-suggestions">
+      {searchSuggestions.map((suggestion, index) => (
+        <div
+          key={index}
+          className="search-suggestion-item"
+          onClick={() => handleSuggestionClick(suggestion.section)}
+        >
+          {suggestion.name}
+        </div>
+      ))}
+    </div>
+  )}
+</div>
+
+
+        {/* Header Right */}
+        <div className="header-right">
+          {/* Notifications */}
+          <button className="notification-button">
+            <Bell size={22} />
+            <span className="notification-badge"></span>
+          </button>
+
+          {/* Profile Section */}
+          <ProfileSection userData={userData} onLogout={onLogout}/>
+        </div>
+      </header>
+
+      {/* Job Description Content */}
+      <main className="main-content">
+        <SelectedCandidatesPage userRole={userData?.role} />
+      </main>
+    </div>
+  );
+}
+
+if (activeSection === 'job-application') {
+  return (
+    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+      {/* Header */}
 
       {/* Job Description Content */}
       <main className="main-content">
