@@ -1,29 +1,30 @@
 # Stage 1: Build Vite React App
-FROM node:18 AS build
+FROM node:18 AS builder
 
 WORKDIR /app
 
-# Copy and install dependencies
+# Copy package files and install dependencies
 COPY package*.json ./
 RUN npm install --legacy-peer-deps
 
-# Copy source code and build
+# Copy app source and build
 COPY . .
 RUN npm run build
 
 # Stage 2: Serve with Nginx
 FROM nginx:alpine
 
-# Remove default nginx static files
+# Clean default nginx content
 RUN rm -rf /usr/share/nginx/html/*
 
-# Copy build output to Nginx's public directory
-COPY --from=build /app/dist /usr/share/nginx/html
+# Copy built files from builder stage
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Optional: Custom Nginx config for SPA routing
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Optional: Add custom nginx config for client-side routing
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
-
+# Expose port
 EXPOSE 80
 
+# Run Nginx in foreground
 CMD ["nginx", "-g", "daemon off;"]
