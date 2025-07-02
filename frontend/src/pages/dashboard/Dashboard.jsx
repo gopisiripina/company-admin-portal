@@ -11,9 +11,9 @@ import JobDescriptionPage from '../job/JobDescriptionPage';
 import JobPostPage from '../job/JobPostPage';
 import JobApplyPage from '../job/JobApplyPage';
 import ResumeListPage from '../job/ResumeListPage';
-import InterviewManagementPage from '../job/InterviewManagementPage';// Import ResumeListPage
+import InterviewManagementPage from '../job/InterviewManagementPage';
 import JobApplicationPage from '../job/JobApplicationPage';
-
+import SelectedCandidatesPage from '../job/SelectedCandidatesPage';
 
 
 
@@ -354,15 +354,30 @@ if (activeSection === 'project-budgeting') {
       <header className="dashboard-header">
         {/* Search Bar */}
         <div className="search-container">
-          <Search size={22} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search project budgeting..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
+  <Search size={22} className="search-icon" />
+  <input
+    type="text"
+    placeholder="Search project budgeting..."
+    value={searchQuery}
+    onChange={handleSearchInputChange}
+    onKeyPress={handleSearch}
+    className="search-input"
+  />
+  
+  {showSuggestions && searchSuggestions.length > 0 && (
+    <div className="search-suggestions">
+      {searchSuggestions.map((suggestion, index) => (
+        <div
+          key={index}
+          className="search-suggestion-item"
+          onClick={() => handleSuggestionClick(suggestion.section)}
+        >
+          {suggestion.name}
         </div>
+      ))}
+    </div>
+  )}
+</div>
 
         {/* Header Right */}
         <div className="header-right">
@@ -392,15 +407,30 @@ if (activeSection === 'project-budgeting') {
         <header className="dashboard-header">
           {/* Search Bar */}
           <div className="search-container">
-            <Search size={22} className="search-icon" />
-            <input
-              type="text"
-              placeholder="Search employees..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="search-input"
-            />
-          </div>
+  <Search size={22} className="search-icon" />
+  <input
+    type="text"
+    placeholder="Search employees..."
+    value={searchQuery}
+    onChange={handleSearchInputChange}
+    onKeyPress={handleSearch}
+    className="search-input"
+  />
+  
+  {showSuggestions && searchSuggestions.length > 0 && (
+    <div className="search-suggestions">
+      {searchSuggestions.map((suggestion, index) => (
+        <div
+          key={index}
+          className="search-suggestion-item"
+          onClick={() => handleSuggestionClick(suggestion.section)}
+        >
+          {suggestion.name}
+        </div>
+      ))}
+    </div>
+  )}
+</div>
 
           {/* Header Right */}
           <div className="header-right">
@@ -429,15 +459,30 @@ if (activeSection === 'project-budgeting') {
       <header className="dashboard-header">
         {/* Search Bar */}
         <div className="search-container">
-          <Search size={22} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search HR data..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
+  <Search size={22} className="search-icon" />
+  <input
+    type="text"
+    placeholder="Search HR data..."
+    value={searchQuery}
+    onChange={handleSearchInputChange}
+    onKeyPress={handleSearch}
+    className="search-input"
+  />
+  
+  {showSuggestions && searchSuggestions.length > 0 && (
+    <div className="search-suggestions">
+      {searchSuggestions.map((suggestion, index) => (
+        <div
+          key={index}
+          className="search-suggestion-item"
+          onClick={() => handleSuggestionClick(suggestion.section)}
+        >
+          {suggestion.name}
         </div>
+      ))}
+    </div>
+  )}
+</div>
 
         {/* Header Right */}
         <div className="header-right">
@@ -466,15 +511,30 @@ if (activeSection === 'job-description') {
       <header className="dashboard-header">
         {/* Search Bar */}
         <div className="search-container">
-          <Search size={22} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search job descriptions..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
+  <Search size={22} className="search-icon" />
+  <input
+    type="text"
+    placeholder="Search job descriptions..."
+    value={searchQuery}
+    onChange={handleSearchInputChange}
+    onKeyPress={handleSearch}
+    className="search-input"
+  />
+  
+  {showSuggestions && searchSuggestions.length > 0 && (
+    <div className="search-suggestions">
+      {searchSuggestions.map((suggestion, index) => (
+        <div
+          key={index}
+          className="search-suggestion-item"
+          onClick={() => handleSuggestionClick(suggestion.section)}
+        >
+          {suggestion.name}
         </div>
+      ))}
+    </div>
+  )}
+</div>
 
         {/* Header Right */}
         <div className="header-right">
@@ -503,15 +563,31 @@ if (activeSection === 'job-post') {
       <header className="dashboard-header">
         {/* Search Bar */}
         <div className="search-container">
-          <Search size={22} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search job page..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
+  <Search size={22} className="search-icon" />
+  <input
+    type="text"
+    placeholder="Search job page..."
+    value={searchQuery}
+    onChange={handleSearchInputChange}
+    onKeyPress={handleSearch}
+    className="search-input"
+  />
+  
+  {showSuggestions && searchSuggestions.length > 0 && (
+    <div className="search-suggestions">
+      {searchSuggestions.map((suggestion, index) => (
+        <div
+          key={index}
+          className="search-suggestion-item"
+          onClick={() => handleSuggestionClick(suggestion.section)}
+        >
+          {suggestion.name}
         </div>
+      ))}
+    </div>
+  )}
+</div>
+
 
         {/* Header Right */}
         <div className="header-right">
@@ -533,22 +609,38 @@ if (activeSection === 'job-post') {
     </div>
   );
 }
-if (activeSection === 'job-application') {
+if (activeSection === 'selected-list') {
   return (
     <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
       {/* Header */}
       <header className="dashboard-header">
         {/* Search Bar */}
         <div className="search-container">
-          <Search size={22} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search job page..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
+  <Search size={22} className="search-icon" />
+  <input
+    type="text"
+    placeholder="Search job page..."
+    value={searchQuery}
+    onChange={handleSearchInputChange}
+    onKeyPress={handleSearch}
+    className="search-input"
+  />
+  
+  {showSuggestions && searchSuggestions.length > 0 && (
+    <div className="search-suggestions">
+      {searchSuggestions.map((suggestion, index) => (
+        <div
+          key={index}
+          className="search-suggestion-item"
+          onClick={() => handleSuggestionClick(suggestion.section)}
+        >
+          {suggestion.name}
         </div>
+      ))}
+    </div>
+  )}
+</div>
+
 
         {/* Header Right */}
         <div className="header-right">
@@ -565,6 +657,19 @@ if (activeSection === 'job-application') {
 
       {/* Job Description Content */}
       <main className="main-content">
+        <SelectedCandidatesPage userRole={userData?.role} />
+      </main>
+    </div>
+  );
+}
+
+if (activeSection === 'job-application') {
+  return (
+    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+      {/* Header */}
+
+      {/* Job Description Content */}
+      <main className="main-content">
         <JobApplicationPage userRole={userData?.role} />
       </main>
     </div>
@@ -577,15 +682,30 @@ if (activeSection === 'interview-management') {
       <header className="dashboard-header">
         {/* Search Bar */}
         <div className="search-container">
-          <Search size={22} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search interview management page..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
+  <Search size={22} className="search-icon" />
+  <input
+    type="text"
+    placeholder="Search interview management page..."
+    value={searchQuery}
+    onChange={handleSearchInputChange}
+    onKeyPress={handleSearch}
+    className="search-input"
+  />
+  
+  {showSuggestions && searchSuggestions.length > 0 && (
+    <div className="search-suggestions">
+      {searchSuggestions.map((suggestion, index) => (
+        <div
+          key={index}
+          className="search-suggestion-item"
+          onClick={() => handleSuggestionClick(suggestion.section)}
+        >
+          {suggestion.name}
         </div>
+      ))}
+    </div>
+  )}
+</div>
 
         {/* Header Right */}
         <div className="header-right">
@@ -614,15 +734,30 @@ if (activeSection === 'job-apply') {
       <header className="dashboard-header">
         {/* Search Bar */}
         <div className="search-container">
-          <Search size={22} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search job apply..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
+  <Search size={22} className="search-icon" />
+  <input
+    type="text"
+    placeholder="Search job apply..."
+    value={searchQuery}
+    onChange={handleSearchInputChange}
+    onKeyPress={handleSearch}
+    className="search-input"
+  />
+  
+  {showSuggestions && searchSuggestions.length > 0 && (
+    <div className="search-suggestions">
+      {searchSuggestions.map((suggestion, index) => (
+        <div
+          key={index}
+          className="search-suggestion-item"
+          onClick={() => handleSuggestionClick(suggestion.section)}
+        >
+          {suggestion.name}
         </div>
+      ))}
+    </div>
+  )}
+</div>
 
         {/* Header Right */}
         <div className="header-right">
@@ -652,15 +787,30 @@ if (activeSection === 'resume-list') {
       <header className="dashboard-header">
         {/* Search Bar */}
         <div className="search-container">
-          <Search size={22} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search resume list..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
+  <Search size={22} className="search-icon" />
+  <input
+    type="text"
+    placeholder="Search resume list..."
+    value={searchQuery}
+    onChange={handleSearchInputChange}
+    onKeyPress={handleSearch}
+    className="search-input"
+  />
+  
+  {showSuggestions && searchSuggestions.length > 0 && (
+    <div className="search-suggestions">
+      {searchSuggestions.map((suggestion, index) => (
+        <div
+          key={index}
+          className="search-suggestion-item"
+          onClick={() => handleSuggestionClick(suggestion.section)}
+        >
+          {suggestion.name}
         </div>
+      ))}
+    </div>
+  )}
+</div>
 
         {/* Header Right */}
         <div className="header-right">
@@ -690,15 +840,30 @@ if (activeSection === 'project-timeline') {
       <header className="dashboard-header">
         {/* Search Bar */}
         <div className="search-container">
-          <Search size={22} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search project timeline..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
+  <Search size={22}ClassName="search-icon" />
+  <input
+    type="text"
+    placeholder="Search project timeline..."
+    value={searchQuery}
+    onChange={handleSearchInputChange}
+    onKeyPress={handleSearch}
+    className="search-input"
+  />
+  
+  {showSuggestions && searchSuggestions.length > 0 && (
+    <div className="search-suggestions">
+      {searchSuggestions.map((suggestion, index) => (
+        <div
+          key={index}
+          className="search-suggestion-item"
+          onClick={() => handleSuggestionClick(suggestion.section)}
+        >
+          {suggestion.name}
         </div>
+      ))}
+    </div>
+  )}
+</div>
 
         {/* Header Right */}
         <div className="header-right">
