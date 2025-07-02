@@ -17,27 +17,34 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 
 const fetchShortlistedCandidates = async (jobId) => {
-  const { data, error } = await supabase
-    .from('job_applications')
-    .select(`
-      *,
-      interview_type,
-      interview_date,
-      interview_time,
-      interview_link,
-      interview_platform,
-      mail_sent_date,
-      interview_status
-    `)
-    .eq('job_id', jobId)
-    .in('status', ['shortlisted', 'technical', 'hr', 'reschedule', 'selected'])
-    .order('applied_at', { ascending: false });
-  
-  if (error) {
-    console.error('Error fetching candidates:', error);
+  try {
+    const { data, error } = await supabase
+      .from('job_applications')
+      .select(`
+        *,
+        interview_type,
+        interview_date,
+        interview_time,
+        interview_link,
+        interview_platform,
+        mail_sent_date,
+        interview_status
+      `)
+      .eq('job_id', jobId)
+      .in('status', ['shortlisted', 'technical', 'hr', 'reschedule', 'selected'])
+      .order('applied_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching candidates:', error);
+      throw error; // Throw error instead of returning empty array
+    }
+    
+    console.log('Fetched candidates:', data); // Add this for debugging
+    return data || [];
+  } catch (error) {
+    console.error('Error in fetchShortlistedCandidates:', error);
     return [];
   }
-  return data;
 };
 
 const updateInterviewDetails = async (candidateId, interviewData) => {
@@ -83,21 +90,36 @@ const getCandidateCountByJob = async (jobId) => {
 };
 
 
-const fetchJobTitles = async (jobId) => {
-  const { data, error } = await supabase
-    .from('job_applications')
-    .select('job_title')
-    .eq('job_id', jobId)
-    .in('status', ['shortlisted', 'technical', 'hr', 'reschedule', 'selected']);
-  
-  if (error) {
-    console.error('Error fetching job titles:', error);
+const fetchJobTitles = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('job_applications')
+      .select('job_title, job_id')
+      .in('status', ['shortlisted', 'technical', 'hr', 'reschedule', 'selected'])
+      .order('job_title');
+    
+    if (error) {
+      console.error('Error fetching job titles:', error);
+      return [];
+    }
+    
+    // Get unique job titles with their job_ids
+    const uniqueJobs = data.reduce((acc, item) => {
+      if (!acc.find(job => job.title === item.job_title && job.id === item.job_id)) {
+        acc.push({
+          id: item.job_id,
+          title: item.job_title
+        });
+      }
+      return acc;
+    }, []);
+    
+    console.log('Available jobs with shortlisted candidates:', uniqueJobs);
+    return uniqueJobs;
+  } catch (error) {
+    console.error('Error in fetchJobTitles:', error);
     return [];
   }
-  
-  // Get unique job titles
-  const uniqueTitles = [...new Set(data.map(item => item.job_title))];
-  return uniqueTitles;
 };
 
 const ResumeListPage = () => {
@@ -118,53 +140,75 @@ const ResumeListPage = () => {
   const [selectedResume, setSelectedResume] = useState(null);
 // Add this useEffect after your state declarations
 useEffect(() => {
-  const loadCandidates = async () => {
+  const loadInitialData = async () => {
     setLoading(true);
     try {
-      const candidates = await fetchShortlistedCandidates(jobId);
+      // First, fetch all available job titles
+      const availableJobs = await fetchJobTitles();
+      setJobTitles(availableJobs);
       
-      // Fetch job titles
-      const titles = await fetchJobTitles(jobId);
-      setJobTitles(titles);
+      // If no specific jobId is set and we have available jobs, set the first one
+      if (!jobId && availableJobs.length > 0) {
+        setJobId(availableJobs[0].id);
+        return; // This will trigger another useEffect call with the new jobId
+      }
       
-      // Transform the data to match your existing structure
-      const transformedData = candidates.map(candidate => ({
-        id: candidate.id,
-        name: candidate.full_name,
-        email: candidate.email,
-        phone: candidate.phone,
-        jobTitle: candidate.job_title,
-        department: candidate.current_company || 'Not specified',
-        selectedDate: candidate.applied_at,
-        experience: candidate.experience_years,
-        skills: candidate.skills ? candidate.skills.split(',') : [],
-        status: candidate.status,
-        resumeUrl: candidate.resume_url,
-        location: candidate.location,
-        expectedSalary: candidate.expected_salary,
-        avatar: null,
-        interviewDate: candidate.interview_date,
-        interviewTime: candidate.interview_time,
-        interviewLink: candidate.interview_link,
-        interviewPlatform: candidate.interview_platform,
-        interviewType: candidate.interview_type,
-        mailHistory: candidate.mail_history || [],
-        mailSentDate: candidate.mail_sent_date,
-        interviewStatus: candidate.interview_status,
-        currentStep: candidate.status === 'shortlisted' ? 1 : candidate.status === 'technical' || candidate.status === 'hr' ? 2 : candidate.status === 'selected' ? 3 : 0
-      }));
-      setResumes(transformedData);
+      // Load candidates for the current jobId
+      if (jobId) {
+        console.log('Loading candidates for job ID:', jobId);
+        
+        const candidates = await fetchShortlistedCandidates(jobId);
+        console.log('Raw candidates data:', candidates);
+        
+        // Transform the data to match your existing structure
+        const transformedData = candidates.map(candidate => ({
+          id: candidate.id,
+          name: candidate.full_name,
+          email: candidate.email,
+          phone: candidate.phone,
+          jobTitle: candidate.job_title,
+          department: candidate.current_company || 'Not specified',
+          selectedDate: candidate.applied_at,
+          experience: candidate.experience_years,
+          skills: candidate.skills ? candidate.skills.split(',') : [],
+          status: candidate.status,
+          resumeUrl: candidate.resume_url,
+          location: candidate.location,
+          expectedSalary: candidate.expected_salary,
+          avatar: null,
+          interviewDate: candidate.interview_date,
+          interviewTime: candidate.interview_time,
+          interviewLink: candidate.interview_link,
+          interviewPlatform: candidate.interview_platform,
+          interviewType: candidate.interview_type,
+          mailHistory: candidate.mail_history || [],
+          mailSentDate: candidate.mail_sent_date,
+          interviewStatus: candidate.interview_status,
+          currentStep: candidate.status === 'shortlisted' ? 1 : candidate.status === 'technical' || candidate.status === 'hr' ? 2 : candidate.status === 'selected' ? 3 : 0
+        }));
+        
+        console.log('Transformed data:', transformedData);
+        setResumes(transformedData);
+      }
     } catch (error) {
-      console.error('Error loading candidates:', error);
-      message.error('Failed to load candidates');
+      console.error('Error loading initial data:', error);
+      message.error('Failed to load data: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  loadCandidates();
+  loadInitialData();
 }, [jobId]);
-
+const refreshJobTitles = async () => {
+  try {
+    const availableJobs = await fetchJobTitles();
+    setJobTitles(availableJobs);
+    console.log('Job titles refreshed:', availableJobs);
+  } catch (error) {
+    console.error('Error refreshing job titles:', error);
+  }
+};
   const applyFilters = () => {
     let filtered = [...resumes];
 
@@ -612,97 +656,144 @@ const getProgressSteps = (resume) => {
       </div>
 
       {/* Filters */}
-      <Card style={{ marginBottom: '24px' }}>
-        <Row gutter={[16, 16]}>
-          <Col span={6}>
-            <div style={{ marginBottom: '8px' }}>
-              <Text strong>Search</Text>
-            </div>
-            <Input
-              placeholder="Search by name or email"
-              prefix={<SearchOutlined />}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              allowClear
-            />
-          </Col>
-          <Col span={5}>
-            <div style={{ marginBottom: '8px' }}>
-              <Text strong>Job Title</Text>
-            </div>
-            <Select
-              value={jobTitleFilter}
-              onChange={setJobTitleFilter}
-              style={{ width: '100%' }}
-            >
-              <Option value="all">All Job Titles</Option>
-              {jobTitles.map(title => (
-                <Option key={title} value={title}>{title}</Option>
-              ))}
-            </Select>
-          </Col>
-          <Col span={5}>
-            <div style={{ marginBottom: '8px' }}>
-              <Text strong>Status</Text>
-            </div>
-            <Select
-  value={statusFilter}
-  onChange={setStatusFilter}
-  style={{ width: '100%' }}
->
-  <Option value="all">All Status</Option>
-  <Option value="shortlisted">Shortlisted</Option>
-  <Option value="technical">Technical Round</Option>
-  <Option value="hr">HR Round</Option>
-  <Option value="reschedule">Rescheduled</Option>
-  <Option value="selected">Selected</Option>
-</Select>
-          </Col>
-          <Col span={6}>
-            <div style={{ marginBottom: '8px' }}>
-              <Text strong>Date Range</Text>
-            </div>
-            <RangePicker
-              style={{ width: '100%' }}
-              onChange={setDateRange}
-            />
-          </Col>
-          <Col span={2}>
-            <div style={{ marginBottom: '8px', opacity: 0 }}>
-              <Text>Action</Text>
-            </div>
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={() => {
-                setResumes([...selectedResumesData]);
-                message.success('Data refreshed');
-              }}
-              title="Refresh Data"
-            />
-          </Col>
-        </Row>
-        
-        <Divider style={{ margin: '16px 0 8px 0' }} />
-        
-        <Row justify="space-between" align="middle">
-  <Col>
-    <Space>
-      <Text strong>{filteredResumes.length}</Text>
-      <Text type="secondary">selected resumes found</Text>
-    </Space>
-  </Col>
-  <Col>
-    <Space>
-      <Badge count={filteredResumes.filter(r => !r.mailSentDate).length} showZero>
-        <Tag color="orange">Pending Mails</Tag>
-      </Badge>
-      <Badge count={filteredResumes.filter(r => r.mailSentDate).length} showZero>
-        <Tag color="blue">Mails Sent</Tag>
-      </Badge>
-    </Space>
-  </Col>
-</Row>
-      </Card>
+
+  <Card style={{ marginBottom: '24px' }}>
+    <Row gutter={[16, 16]}>
+      <Col span={5}>
+        <div style={{ marginBottom: '8px' }}>
+          <Text strong>Select Job</Text>
+        </div>
+        <Select
+          value={jobId}
+          onChange={(value) => {
+            setJobId(value);
+            setJobTitleFilter('all'); // Reset job title filter when job changes
+          }}
+          style={{ width: '100%' }}
+          placeholder="Select a job"
+        >
+          {jobTitles.map(job => (
+            <Option key={job.id} value={job.id}>
+              {job.title} (ID: {job.id})
+            </Option>
+          ))}
+        </Select>
+      </Col>
+      <Col span={5}>
+        <div style={{ marginBottom: '8px' }}>
+          <Text strong>Search</Text>
+        </div>
+        <Input
+          placeholder="Search by name or email"
+          prefix={<SearchOutlined />}
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          allowClear
+        />
+      </Col>
+      <Col span={4}>
+        <div style={{ marginBottom: '8px' }}>
+          <Text strong>Status</Text>
+        </div>
+        <Select
+          value={statusFilter}
+          onChange={setStatusFilter}
+          style={{ width: '100%' }}
+        >
+          <Option value="all">All Status</Option>
+          <Option value="shortlisted">Shortlisted</Option>
+          <Option value="technical">Technical Round</Option>
+          <Option value="hr">HR Round</Option>
+          <Option value="reschedule">Rescheduled</Option>
+          <Option value="selected">Selected</Option>
+        </Select>
+      </Col>
+      <Col span={5}>
+        <div style={{ marginBottom: '8px' }}>
+          <Text strong>Date Range</Text>
+        </div>
+        <RangePicker
+          style={{ width: '100%' }}
+          onChange={setDateRange}
+        />
+      </Col>
+      <Col span={5}>
+        <div style={{ marginBottom: '8px', opacity: 0 }}>
+          <Text>Actions</Text>
+        </div>
+        <Space>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={async () => {
+              await refreshJobTitles();
+              // Reload current job data
+              const candidates = await fetchShortlistedCandidates(jobId);
+              const transformedData = candidates.map(candidate => ({
+                // ... same transformation as in useEffect
+                id: candidate.id,
+                name: candidate.full_name,
+                email: candidate.email,
+                phone: candidate.phone,
+                jobTitle: candidate.job_title,
+                department: candidate.current_company || 'Not specified',
+                selectedDate: candidate.applied_at,
+                experience: candidate.experience_years,
+                skills: candidate.skills ? candidate.skills.split(',') : [],
+                status: candidate.status,
+                resumeUrl: candidate.resume_url,
+                location: candidate.location,
+                expectedSalary: candidate.expected_salary,
+                avatar: null,
+                interviewDate: candidate.interview_date,
+                interviewTime: candidate.interview_time,
+                interviewLink: candidate.interview_link,
+                interviewPlatform: candidate.interview_platform,
+                interviewType: candidate.interview_type,
+                mailHistory: candidate.mail_history || [],
+                mailSentDate: candidate.mail_sent_date,
+                interviewStatus: candidate.interview_status,
+                currentStep: candidate.status === 'shortlisted' ? 1 : candidate.status === 'technical' || candidate.status === 'hr' ? 2 : candidate.status === 'selected' ? 3 : 0
+              }));
+              setResumes(transformedData);
+              message.success('Data refreshed');
+            }}
+            title="Refresh Data"
+          >
+            Refresh
+          </Button>
+        </Space>
+      </Col>
+    </Row>
+    
+    <Divider style={{ margin: '16px 0 8px 0' }} />
+    
+    <Row justify="space-between" align="middle">
+      <Col>
+        <Space>
+          <Text strong>{filteredResumes.length}</Text>
+          <Text type="secondary">selected resumes found</Text>
+          {jobId && (
+            <>
+              <Text type="secondary">for Job ID: {jobId}</Text>
+              <Text type="secondary">
+                ({jobTitles.find(job => job.id === jobId)?.title || 'Unknown Job'})
+              </Text>
+            </>
+          )}
+        </Space>
+      </Col>
+      <Col>
+        <Space>
+          <Badge count={filteredResumes.filter(r => !r.mailSentDate).length} showZero>
+            <Tag color="orange">Pending Mails</Tag>
+          </Badge>
+          <Badge count={filteredResumes.filter(r => r.mailSentDate).length} showZero>
+            <Tag color="blue">Mails Sent</Tag>
+          </Badge>
+        </Space>
+      </Col>
+    </Row>
+  </Card>
 
       {/* Resumes Table */}
       <Card style={{ overflowX: 'auto' }}>
