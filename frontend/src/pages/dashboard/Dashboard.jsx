@@ -13,6 +13,9 @@ import JobApplyPage from '../job/JobApplyPage';
 import ResumeListPage from '../job/ResumeListPage';
 import InterviewManagementPage from '../job/InterviewManagementPage';// Import ResumeListPage
 import JobApplicationPage from '../job/JobApplicationPage';
+import SelectedCandidatePage from '../job/SelectedCandidatespage';
+import SelectedCandidatesPage from '../job/SelectedCandidatespage';
+
 
 
 
@@ -455,6 +458,43 @@ if (activeSection === 'project-budgeting') {
       {/* HR Management Content */}
       <main className="main-content">
         <HRManagement userRole={userData?.role} />
+      </main>
+    </div>
+  );
+}
+if (activeSection === 'selected-list') {
+  return (
+    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+      {/* Header */}
+      <header className="dashboard-header">
+        {/* Search Bar */}
+        <div className="search-container">
+          <Search size={22} className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search project budgeting..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+        </div>
+
+        {/* Header Right */}
+        <div className="header-right">
+          {/* Notifications */}
+          <button className="notification-button">
+            <Bell size={22} />
+            <span className="notification-badge"></span>
+          </button>
+
+          {/* Profile Section */}
+          <ProfileSection />
+        </div>
+      </header>
+
+      {/* Project Budgeting Content */}
+      <main className="main-content">
+        <SelectedCandidatesPage userRole={userData?.role} />
       </main>
     </div>
   );
