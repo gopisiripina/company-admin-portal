@@ -39,4 +39,8 @@ jobs:
             docker pull myaccess2021/cap:latest
             docker stop react-container || true
             docker rm react-container || true
-            docker run -d --name react-container -p 80:80 myaccess2021/cap:latest
+            docker run -d --name react-container \
+              -p 80:80 -p 443:443 \
+              -v certbot-etc:/etc/letsencrypt \
+              -v certbot-www:/var/www/certbot \
+              myaccess2021/cap:latest
