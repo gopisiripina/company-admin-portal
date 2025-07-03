@@ -27,7 +27,7 @@ jobs:
         with:
           context: ./frontend
           push: true
-          tags: myaccess2021/cap:latest
+          tags: youruser/cap:latest
 
       - name: Deploy to Dedicated Server
         uses: appleboy/ssh-action@v1.0.3
@@ -36,12 +36,12 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            docker pull myaccess2021/cap:latest
+            docker pull youruser/cap:latest
             docker stop react-container || true
             docker rm react-container || true
             docker run -d --name react-container \
-              -p 80:80 -p 443:443 \
+              -p 80:80 \
               -v certbot-etc:/etc/letsencrypt \
               -v certbot-www:/var/www/certbot \
-              -v /full/path/to/nginx-temp.conf:/etc/nginx/conf.d/default.conf:ro \
-              myaccess2021/cap:latest
+              -v /opt/certbot-nginx/nginx-temp.conf:/etc/nginx/conf.d/default.conf:ro \
+              nginx
