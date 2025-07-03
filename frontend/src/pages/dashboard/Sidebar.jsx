@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Home, User, ChevronLeft, ChevronRight, Zap, LogOut, UserCheck, FolderKanban, ChevronDown, ChevronUp, Calendar, DollarSign, BarChart3, GitBranch, ClipboardList, AlertTriangle, FileText, BookOpen } from 'lucide-react';
 import './Sidebar.css';
-
+import Myaccesslogo from '../../assets/Myalogobgr.svg'; // Adjust the path as necessary
 const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
   const [hoveredItem, setHoveredItem] = useState(null);
   const [expandedItems, setExpandedItems] = useState({});
@@ -166,15 +166,15 @@ const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
       <div className="sidebar-header">
         <div className="logo-section">
           <div className="logo-icon">
-            <Zap size={24} />
+            <img src={Myaccesslogo} alt="Logo" width={34} height={34} />
           </div>
           {isOpen && (
             <div className="logo-text">
               <span className="logo-title">
-                ProDash
+                MyAccess
               </span>
               <span className="logo-subtitle">
-                Professional Suite
+                Protal
               </span>
             </div>
           )}
