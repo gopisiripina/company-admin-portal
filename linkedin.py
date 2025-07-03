@@ -62,7 +62,7 @@ def post_job():
             return post_text
 
         # Use the dynamic application URL or fallback to generic
-        final_app_url = application_url or "http://localhost:5173/job-application"
+        final_app_url = application_url or "http://cap.myaccessio.com/job-application"
         post_content = format_job_post(job_data, final_app_url)
         print("Post content length:", len(post_content))  # Debug print
 
