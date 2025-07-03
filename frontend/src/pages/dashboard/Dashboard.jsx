@@ -10,7 +10,7 @@ import HRManagement from '../admin/HRManagement';
 import JobDescriptionPage from '../job/JobDescriptionPage';
 import JobPostPage from '../job/JobPostPage';
 import JobApplyPage from '../job/JobApplyPage';
-import ResumeListPage from '../job/ResumeListPage';
+import ResumeListPage from '../job/ResumeListpage';
 import InterviewManagementPage from '../job/InterviewManagementPage';// Import ResumeListPage
 import JobApplicationPage from '../job/JobApplicationPage'
 import SelectedCandidatesPage from '../job/SelectedCandidatespage';
