@@ -42,5 +42,5 @@ jobs:
             docker run -d --name react-container \
               -p 80:80 -p 443:443 \
               -v certbot-etc:/etc/letsencrypt \
-              -v certbot-www:/var/www/certbot \
+              -v $(pwd)/nginx-temp.conf:/etc/nginx/conf.d/default.conf \
               myaccess2021/cap:latest
