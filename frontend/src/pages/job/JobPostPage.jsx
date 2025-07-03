@@ -42,9 +42,10 @@ import {
   FileTextOutlined,
   BellOutlined,
   SettingOutlined,
-  DeleteOutlined
+  DeleteOutlined,
+  EditOutlined
 } from '@ant-design/icons';
-
+import { useNavigate } from 'react-router-dom';
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 
@@ -61,11 +62,11 @@ const JobPostPage = ({ userRole }) => {
     company: false,
     internal: true
   });
-
+  const navigate = useNavigate();
   // Job descriptions data from Supabase
   const [jobDescriptions, setJobDescriptions] = useState([]);
   const [postingLogs, setPostingLogs] = useState([]);
-
+  
 const postToLinkedIn = async (jobData) => {
   try {
     // Generate dynamic application URL with job parameters
@@ -218,6 +219,15 @@ const fetchPostingLogs = async () => {
     return matches && matches.length > 1 ? parseInt(matches[1]) * 1000 : null;
   };
 
+   const handleEditJob = (job) => {
+    navigate('/dashboard/job-description', {
+      state: {
+        editData: job,
+        isEditing: true
+      }
+    });
+  };
+
   // Update job status
   const updateJobStatus = async (jobId, newStatus) => {
     const { error } = await supabase
@@ -322,28 +332,35 @@ const deleteJob = async (jobId, jobTitle) => {
       render: (date) => new Date(date).toLocaleDateString()
     },
     {
-      title: 'Actions',
-      key: 'actions',
-      render: (_, record) => (
-        <Space>
-          <Button 
-            type="link" 
-            icon={<EyeOutlined />}
-            onClick={() => handleJobPreview(record)}
-          >
-            Preview
-          </Button>
-          <Button 
-            type="primary" 
-            size="small"
-            onClick={() => handleJobSelect(record)}
-            disabled={record.status !== 'Active'}
-          >
-            Select
-          </Button>
-        </Space>
-      )
-    }
+  title: 'Actions',
+  key: 'actions',
+  render: (_, record) => (
+    <Space>
+      <Button 
+        type="link" 
+        icon={<EyeOutlined />}
+        onClick={() => handleJobPreview(record)}
+      >
+        Preview
+      </Button>
+      <Button 
+          type="link"
+          icon={<EditOutlined />}
+          onClick={() => handleEditJob(record)}
+        >
+          Edit
+        </Button>
+      <Button 
+        type="primary" 
+        size="small"
+        onClick={() => handleJobSelect(record)}
+        disabled={record.status !== 'Active'}
+      >
+        Select
+      </Button>
+    </Space>
+  )
+}
   ];
 
   // Table columns for posting logs
@@ -601,7 +618,11 @@ const deleteJob = async (jobId, jobTitle) => {
   rowKey="id"
   pagination={{ pageSize: 5 }}
   size="middle"
-  scroll={{ x: 800 }} // Add this line
+  scroll={{ x: 800 }}
+  style={{
+    '--scrollbar-color': '#234c46'
+  }}
+  className="custom-scrollbar"
   rowSelection={{
     type: 'radio',
     selectedRowKeys: selectedJob ? [selectedJob.id] : [],

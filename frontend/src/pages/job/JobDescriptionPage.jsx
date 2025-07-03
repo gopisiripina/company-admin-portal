@@ -40,8 +40,14 @@ const { Option } = Select;
 
 import { supabase} from '../../supabase/config';
 
-const JobDescriptionPage = ({ userRole }) => {
+const JobDescriptionPage = ({ userRole,location  }) => {
   const [form] = Form.useForm();
+  useEffect(() => {
+    if (location?.state?.editData) {
+      const jobData = location.state.editData;
+      // ... populate form fields as shown previously ...
+    }
+  }, [location?.state?.editData]);
   const [aiChatOpen, setAiChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState([
     {
@@ -55,7 +61,7 @@ const JobDescriptionPage = ({ userRole }) => {
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-
+  
   // Dynamic data states
   const [departments, setDepartments] = useState([]);
   const [locations, setLocations] = useState([]);
@@ -72,7 +78,7 @@ const JobDescriptionPage = ({ userRole }) => {
   useEffect(() => {
     loadDynamicData();
   }, []);
-
+  
   const loadDynamicData = async () => {
     try {
       // Load departments
@@ -189,7 +195,37 @@ const JobDescriptionPage = ({ userRole }) => {
       setAiLoading(false);
     }
   };
+ useEffect(() => {
+    if (location?.state?.editData) {
+      const jobData = location.state.editData;
+      
+      // Extract min/max salary from range if exists
+      const salaryRange = jobData.salary_range?.match(/\d+/g) || [];
+      const salaryMin = salaryRange[0] ? parseInt(salaryRange[0].replace(/,/g, '')) : undefined;
+      const salaryMax = salaryRange[1] ? parseInt(salaryRange[1].replace(/,/g, '')) : undefined;
 
+      form.setFieldsValue({
+        jobTitle: jobData.job_title,
+        department: jobData.department,
+        location: jobData.location,
+        employmentType: jobData.employment_type,
+        experienceLevel: jobData.experience_level,
+        description: jobData.job_description,
+        responsibilities: jobData.key_responsibilities,
+        qualifications: jobData.qualification_requirements,
+        benefits: jobData.additional_benefits,
+        salaryMin: salaryMin,
+        salaryMax: salaryMax
+      });
+
+      if (jobData.required_skills) {
+        setSkills(
+          Array.isArray(jobData.required_skills) 
+            ? jobData.required_skills 
+            : jobData.required_skills.split(',').map(s => s.trim()))
+      }
+    }
+  }, [location?.state?.editData]);
   // Handle AI chat
   const handleAiSend = () => {
     if (!chatInput.trim()) return;
@@ -253,43 +289,29 @@ What specific role would you like help with?`;
     setLoading(true);
     try {
       const jobData = {
-        job_title: toTitleCase(values.jobTitle),
-        department: toTitleCase(values.department),
-        location: toTitleCase(values.location),
-        employment_type: toTitleCase(values.employmentType),
-        experience_level: values.experienceLevel,
-        job_description: values.description,
-        key_responsibilities: values.responsibilities,
-        qualification_requirements: values.qualifications,
-        additional_benefits: values.benefits,
-        required_skills: skills.join(', '),
-        salary_range: values.salaryMin && values.salaryMax 
-          ? `₹${values.salaryMin.toLocaleString()} - ₹${values.salaryMax.toLocaleString()}`
-          : null,
-        updated_at: new Date().toISOString()
+        // ... your field mappings ...
+        // Remove the ID to ensure Supabase creates a new record
+        id: undefined, 
+        created_at: new Date().toISOString(), // Reset creation timestamp
+        status: 'Active' // Reset status to Active for new copy
       };
 
+      // Always insert new record, never update
       const { data, error } = await supabase
         .from('job_descriptions')
         .insert([jobData])
         .select();
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
-      message.success('Job description saved successfully!');
-      
-      // Reset form
+      message.success('Job saved as new copy successfully!');
       form.resetFields();
       setSkills([]);
-      
-      // Reload dynamic data to include new entries
       loadDynamicData();
       
     } catch (error) {
-      console.error('Error saving job description:', error);
-      message.error('Failed to save job description. Please try again.');
+      console.error('Error saving job:', error);
+      message.error('Failed to save job');
     } finally {
       setLoading(false);
     }
