@@ -220,13 +220,19 @@ const fetchPostingLogs = async () => {
   };
 
    const handleEditJob = (job) => {
-    navigate('/dashboard/job-description', {
-      state: {
-        editData: job,
-        isEditing: true
-      }
-    });
-  };
+  console.log('=== DEBUG: Edit Job Clicked ===');
+  console.log('Job object:', job);
+  console.log('Job ID:', job?.id);
+  console.log('Job Title:', job?.job_title);
+  console.log('===========================');
+  
+  navigate('/dashboard/job-description', {
+    state: {
+      editData: job,
+      isEditing: true
+    }
+  });
+};
 
   // Update job status
   const updateJobStatus = async (jobId, newStatus) => {

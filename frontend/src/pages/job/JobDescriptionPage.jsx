@@ -37,17 +37,57 @@ import {
 const { TextArea } = Input;
 const { Title, Text } = Typography;
 const { Option } = Select;
-
+import { useLocation } from 'react-router-dom';
 import { supabase} from '../../supabase/config';
 
-const JobDescriptionPage = ({ userRole,location  }) => {
+const JobDescriptionPage = ({ userRole,location: propLocation  }) => {
+   const location = useLocation();
+   const editData = location.state?.editData;
+  const isEditing = location.state?.isEditing;
   const [form] = Form.useForm();
   useEffect(() => {
-    if (location?.state?.editData) {
-      const jobData = location.state.editData;
-      // ... populate form fields as shown previously ...
+  if (location?.state?.editData) {
+    const jobData = location.state.editData;
+    
+    // Extract min/max salary from range if exists
+    let salaryMin, salaryMax;
+    if (jobData.salary_range) {
+      const salaryRange = jobData.salary_range.match(/\d+/g) || [];
+      salaryMin = salaryRange[0] ? parseInt(salaryRange[0].replace(/,/g, '')) : undefined;
+      salaryMax = salaryRange[1] ? parseInt(salaryRange[1].replace(/,/g, '')) : undefined;
     }
-  }, [location?.state?.editData]);
+
+    // Set form values
+    form.setFieldsValue({
+      jobTitle: jobData.job_title,
+      department: jobData.department,
+      location: jobData.location,
+      employmentType: jobData.employment_type,
+      experienceLevel: jobData.experience_level,
+      description: jobData.job_description,
+      responsibilities: jobData.key_responsibilities,
+      qualifications: jobData.qualification_requirements,
+      benefits: jobData.additional_benefits,
+      salaryMin: salaryMin,
+      salaryMax: salaryMax
+    });
+
+    // Handle skills properly
+    if (jobData.required_skills) {
+      const skillsArray = Array.isArray(jobData.required_skills) 
+        ? jobData.required_skills 
+        : jobData.required_skills.split(',').map(s => s.trim());
+      setSkills(skillsArray);
+    }
+  }
+}, [location?.state?.editData, form]);
+
+useEffect(() => {
+  console.log('Edit data received:', location?.state?.editData); // Add this line
+  if (location?.state?.editData) {
+    // ... rest of your code
+  }
+}, [location?.state?.editData, form]);
   const [aiChatOpen, setAiChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState([
     {
@@ -286,36 +326,58 @@ What specific role would you like help with?`;
 
   // Handle form submission to Supabase
   const handleSubmit = async (values) => {
-    setLoading(true);
-    try {
-      const jobData = {
-        // ... your field mappings ...
-        // Remove the ID to ensure Supabase creates a new record
-        id: undefined, 
-        created_at: new Date().toISOString(), // Reset creation timestamp
-        status: 'Active' // Reset status to Active for new copy
-      };
+  setLoading(true);
+  try {
+    // Format salary range
+    const salaryRange = values.salaryMin && values.salaryMax 
+      ? `₹${values.salaryMin.toLocaleString()} - ₹${values.salaryMax.toLocaleString()}`
+      : values.salaryMin 
+        ? `₹${values.salaryMin.toLocaleString()}+`
+        : null;
 
-      // Always insert new record, never update
-      const { data, error } = await supabase
-        .from('job_descriptions')
-        .insert([jobData])
-        .select();
+    const jobData = {
+      job_title: values.jobTitle,
+      department: values.department,
+      location: values.location,
+      employment_type: values.employmentType,
+      experience_level: values.experienceLevel,
+      job_description: values.description,
+      key_responsibilities: values.responsibilities,
+      qualification_requirements: values.qualifications,
+      additional_benefits: values.benefits,
+      required_skills: skills.join(', '), // Convert array to comma-separated string
+      salary_range: salaryRange,
+      status: 'Active',
+      // Don't include id, created_at, or updated_at - let Supabase auto-generate new ones
+    };
 
-      if (error) throw error;
+    // Always insert new record (never update)
+    const { data, error } = await supabase
+      .from('job_descriptions')
+      .insert([jobData])
+      .select();
 
-      message.success('Job saved as new copy successfully!');
-      form.resetFields();
-      setSkills([]);
-      loadDynamicData();
-      
-    } catch (error) {
-      console.error('Error saving job:', error);
-      message.error('Failed to save job');
-    } finally {
-      setLoading(false);
+    if (error) throw error;
+
+    // Show appropriate success message
+    if (isEditing) {
+      message.success('Job description saved as new copy successfully!');
+    } else {
+      message.success('Job description created successfully!');
     }
-  };
+
+    // Reset form and reload data
+    form.resetFields();
+    setSkills([]);
+    loadDynamicData();
+    
+  } catch (error) {
+    console.error('Error saving job:', error);
+    message.error(`Failed to save job description: ${error.message}`);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div style={{ 
@@ -717,23 +779,28 @@ What specific role would you like help with?`;
             <Row justify="center">
               <Col>
                 <Button
-                  type="primary"
-                  htmlType="submit"
-                  size="large"
-                  loading={loading}
-                  icon={<SaveOutlined />}
-                  style={{
-                    background: 'linear-gradient(45deg, #1890ff 0%, #722ed1 100%)',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '0 48px',
-                    height: '48px',
-                    fontSize: '16px',
-                    fontWeight: '600'
-                  }}
-                >
-                  {loading ? 'Saving Job Description...' : 'Save Job Description'}
-                </Button>
+  type="primary"
+  htmlType="submit"
+  size="large"
+  loading={loading}
+  icon={<SaveOutlined />}
+  style={{
+    background: 'linear-gradient(45deg, #1890ff 0%, #722ed1 100%)',
+    border: 'none',
+    borderRadius: '8px',
+    padding: '0 48px',
+    height: '48px',
+    fontSize: '16px',
+    fontWeight: '600'
+  }}
+>
+  {loading 
+    ? 'Saving Job Description...' 
+    : isEditing 
+      ? 'Save as New Copy' 
+      : 'Save Job Description'
+  }
+</Button>
               </Col>
             </Row>
           </Form>
