@@ -13,14 +13,19 @@ import { supabase } from '../../supabase/config';
 
 // Fetch candidates with scheduled interviews
 const fetchInterviewCandidates = async (jobId) => {
-  const { data, error } = await supabase
+  let query = supabase
     .from('job_applications')
-    .select('*')
-    .eq('job_id', jobId)
-    .in('status', ['technical', 'hr', 'reschedule'])
-    .not('interview_date', 'is', null)
-    .order('interview_date', { ascending: true });
+    .select('*');
+    
+  // Only filter by job_id if it's not 'all'
+  if (jobId !== 'all') {
+    query = query.eq('job_id', jobId);
+  }
   
+  const { data, error } = await query
+    .in('status', ['shortlisted', 'technical', 'hr', 'reschedule'])
+    .order('updated_at', { ascending: false });
+    
   if (error) {
     console.error('Error fetching interview candidates:', error);
     return [];
@@ -31,13 +36,13 @@ const fetchInterviewCandidates = async (jobId) => {
 // Update candidate interview status
 const updateCandidateStatus = async (candidateId, updateData) => {
   const { data, error } = await supabase
-    .from('job_applications')
-    .update({
-      ...updateData,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', candidateId)
-    .select();
+  .from('job_applications')
+  .update({
+    ...updateData,
+    updated_at: new Date().toISOString()
+  })
+  .eq('id', candidateId)
+  .select();
     
   if (error) {
     console.error('Error updating candidate status:', error);
@@ -49,7 +54,7 @@ const updateCandidateStatus = async (candidateId, updateData) => {
 const InterviewManagement = () => {
   const [candidates, setCandidates] = useState([]);
   const [filteredCandidates, setFilteredCandidates] = useState([]);
-  const [jobId, setJobId] = useState(1);
+  const [jobId, setJobId] = useState('all');
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
