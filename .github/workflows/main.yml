@@ -34,7 +34,7 @@ jobs:
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_KEY }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             docker pull myaccess2021/cap:latest
             docker stop react-container || true
