@@ -37,6 +37,4 @@ jobs:
           key: ${{ secrets.DEPLOY_KEY }}
           script: |
             docker pull myaccess2021/cap:latest
-            docker stop react-container || true
-            docker rm react-container || true
             docker run -d --name react-container -p 8080:80 myaccess2021/cap:latest
