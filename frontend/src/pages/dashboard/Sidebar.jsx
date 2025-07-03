@@ -60,6 +60,13 @@ const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
   }
 ] : []),
    ...(userRole === 'superadmin' || userRole === 'hr' ? [
+      {
+    icon: FolderKanban,
+    label: 'Carrers',
+    id: 'Carrers',
+    color: '#8b5cf6',
+    hasChildren: true,
+    children: [
   { icon: FileText, label: 'Job Description', id: 'job-description', color: '#10b981' },
   { icon: FileText, label: 'Job Posting', id: 'job-post', color: '#10b981' },
   { icon: FileText, label: 'Job Applying list', id: 'job-apply', color: '#10b981' },
@@ -67,7 +74,7 @@ const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
      { icon: FileText, label: 'Interview Management', id: 'interview-management', color: '#10b981' },
       { icon: FileText, label: 'Job Application', id: 'job-application', color: '#10b981' },
       { icon: FileText, label: 'Selected List', id: 'selected-list', color: '#10b981' },
-
+    ]}
 ] : []),
     // Only show Admin button for superadmin
     ...(userRole === 'superadmin' ? [
@@ -77,7 +84,7 @@ const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
       { icon: UserCheck, label: 'Hr', id: 'Hr', color: '#06b6d4' }
     ] : []),
     // Show Employee button for superadmin and admin
-    ...(userRole === 'superadmin' || userRole === 'admin' ? [
+    ...(userRole === 'superadmin' ||userRole === 'hr'|| userRole === 'admin' ? [
       { icon: User, label: 'Employee', id: 'employee', color: '#f59e0b' }
     ] : []),
   ];
