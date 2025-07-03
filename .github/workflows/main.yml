@@ -27,7 +27,7 @@ jobs:
         with:
           context: ./frontend
           push: true
-          tags: naseerai/cap:latest
+          tags: myaccess2021/cap:latest
 
       - name: Deploy to Dedicated Server
         uses: appleboy/ssh-action@v1.0.3
@@ -36,7 +36,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
           script: |
-            docker pull naseerai/cap:latest
+            docker pull myaccess2021/cap:latest
             docker stop react-container || true
             docker rm react-container || true
-            docker run -d --name react-container -p 8080:80 naseerai/cap:latest
+            docker run -d --name react-container -p 8080:80 myaccess2021/cap:latest
