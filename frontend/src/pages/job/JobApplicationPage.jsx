@@ -163,7 +163,7 @@ const JobApplicationPage = () => {
       }
 
       const applicationData = {
-        job_id: jobData.id, // Use dynamic job data
+        job_id: jobId ? parseInt(jobId) : 1, // Use dynamic job data
         job_title: jobData.title, // Use dynamic job data
         full_name: values.fullName,
         email: values.email,

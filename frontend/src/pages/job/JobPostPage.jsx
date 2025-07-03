@@ -272,19 +272,20 @@ const deleteJob = async (jobId, jobTitle) => {
   // Table columns for job descriptions
   const jobColumns = [
     {
-      title: 'Job Title',
-      dataIndex: 'job_title',
-      key: 'jobTitle',
-      render: (text, record) => (
-        <div>
-          <Text strong style={{ color: '#1890ff' }}>{text}</Text>
-          <br />
-          <Text type="secondary" style={{ fontSize: '12px' }}>
-            {record.department} • {record.location}
-          </Text>
-        </div>
-      )
-    },
+  title: 'Job Title',
+  dataIndex: 'job_title',
+  key: 'jobTitle',
+  width: 200, // Add fixed width
+  render: (text, record) => (
+    <div style={{ maxWidth: '180px' }}> {/* Add max-width container */}
+      <Text strong style={{ color: '#1890ff' }}>{text}</Text>
+      <br />
+      <Text type="secondary" style={{ fontSize: '12px' }}>
+        {record.department} • {record.location}
+      </Text>
+    </div>
+  )
+},
     {
       title: 'Type',
       dataIndex: 'employment_type',
@@ -595,17 +596,18 @@ const deleteJob = async (jobId, jobTitle) => {
               }}
             >
               <Table 
-                columns={jobColumns}
-                dataSource={jobDescriptions}
-                rowKey="id"
-                pagination={{ pageSize: 5 }}
-                size="middle"
-                rowSelection={{
-                  type: 'radio',
-                  selectedRowKeys: selectedJob ? [selectedJob.id] : [],
-                  onSelect: (record) => handleJobSelect(record)
-                }}
-              />
+  columns={jobColumns}
+  dataSource={jobDescriptions}
+  rowKey="id"
+  pagination={{ pageSize: 5 }}
+  size="middle"
+  scroll={{ x: 800 }} // Add this line
+  rowSelection={{
+    type: 'radio',
+    selectedRowKeys: selectedJob ? [selectedJob.id] : [],
+    onSelect: (record) => handleJobSelect(record)
+  }}
+/>
             </Card>
 
             {/* Selected Job Preview */}
