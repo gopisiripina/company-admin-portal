@@ -1,43 +1,64 @@
 # Stage 1: Build Vite React App
 FROM node:18 AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files first for caching
+# Copy package files and install dependencies
 COPY package*.json ./
-
-# Install dependencies
 RUN npm install --legacy-peer-deps
 
-# Copy rest of the app files
+# Copy the rest of the source code
 COPY . .
 
-# Set environment to production
+# Set environment for production build
 ENV NODE_ENV=production
 
-# Optional Debug: List files before building
-RUN echo "📦 Files before build:" && \
-    ls -la && \
-    echo "📁 src:" && ls -la src || true && \
-    echo "🛠 vite.config.js:" && cat vite.config.js || echo "Missing vite.config.js" && \
-    echo "🏗 Building..." && \
+# Run build with clearer logs
+RUN echo "===== Listing files in /app =====" && \
+    ls -al /app && \
+    echo "===== Checking for vite.config.js =====" && \
+    if [ -f vite.config.js ]; then cat vite.config.js; else echo "❌ vite.config.js not found"; fi && \
+    echo "===== Starting build =====" && \
     npm run build
 
 # Stage 2: Serve with Nginx
 FROM nginx:alpine
 
-# Remove default Nginx content
 RUN rm -rf /usr/share/nginx/html/*
-
-# Copy built app from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
-
-# Copy custom Nginx config for SPA routing (if exists)
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose port 80
 EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+# Stage 1: Build Vite React App
+FROM node:18 AS builder
 
-# Run Nginx in foreground
+WORKDIR /app
+
+# Copy package files and install dependencies
+COPY package*.json ./
+RUN npm install --legacy-peer-deps
+
+# Copy the rest of the source code
+COPY . .
+
+# Set environment for production build
+ENV NODE_ENV=production
+
+# Run build with clearer logs
+RUN echo "===== Listing files in /app =====" && \
+    ls -al /app && \
+    echo "===== Checking for vite.config.js =====" && \
+    if [ -f vite.config.js ]; then cat vite.config.js; else echo "❌ vite.config.js not found"; fi && \
+    echo "===== Starting build =====" && \
+    npm run build
+
+# Stage 2: Serve with Nginx
+FROM nginx:alpine
+
+RUN rm -rf /usr/share/nginx/html/*
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
