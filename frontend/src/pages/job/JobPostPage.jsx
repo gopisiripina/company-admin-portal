@@ -253,23 +253,49 @@ const fetchPostingLogs = async () => {
     }
   };
 // Delete job
+// Updated deleteJob function
 const deleteJob = async (jobId, jobTitle) => {
-  const { error } = await supabase
-    .from('job_descriptions')
-    .delete()
-    .eq('id', jobId);
+  try {
+    // First, delete related job postings to avoid foreign key constraint issues
+    const { error: postingsError } = await supabase
+      .from('job_postings')
+      .delete()
+      .eq('job_id', jobId);
 
-  if (error) {
-    message.error('Failed to delete job');
-    console.error(error);
-  } else {
+    if (postingsError) {
+      console.warn('Warning: Could not delete related job postings:', postingsError);
+      // Continue with job deletion even if postings deletion fails
+    }
+
+    // Then delete the job description
+    const { error: jobError } = await supabase
+      .from('job_descriptions')
+      .delete()
+      .eq('id', jobId);
+
+    if (jobError) {
+      console.error('Delete job error:', jobError);
+      message.error(`Failed to delete job: ${jobError.message}`);
+      return;
+    }
+
     message.success(`Job "${jobTitle}" deleted successfully`);
-    fetchJobDescriptions(); // Refresh the data
+    
+    // Refresh the data
+    await fetchJobDescriptions();
+    await fetchPostingLogs();
     
     // If the deleted job was selected, clear the selection
     if (selectedJob && selectedJob.id === jobId) {
       setSelectedJob(null);
     }
+    
+    // Close the modal after successful deletion
+    setStatusModalVisible(false);
+    
+  } catch (error) {
+    console.error('Delete job exception:', error);
+    message.error('An unexpected error occurred while deleting the job');
   }
 };
   // Get counts for badges
