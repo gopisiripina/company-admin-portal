@@ -9,6 +9,7 @@ RUN npm install --legacy-peer-deps
 
 # Copy app source and build
 COPY . .
+ENV NODE_ENV=production
 RUN npm run build
 
 # Stage 2: Serve with Nginx
