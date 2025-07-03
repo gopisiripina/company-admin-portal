@@ -1,0 +1,13 @@
+node_modules
+dist
+Dockerfile
+docker-compose.yml
+.git
+.gitignore
+npm-debug.log
+
+# DO NOT exclude config files like:
+!vite.config.js
+!tailwind.config.js
+!postcss.config.js
+!.env
