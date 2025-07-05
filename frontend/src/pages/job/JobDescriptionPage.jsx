@@ -45,6 +45,19 @@ const JobDescriptionPage = ({ userRole,location: propLocation  }) => {
    const editData = location.state?.editData;
   const isEditing = location.state?.isEditing;
   const [form] = Form.useForm();
+  
+  // Add animation state
+  const [isLoaded, setIsLoaded] = useState(false);
+  
+  useEffect(() => {
+    // Trigger animation after component mounts
+    const timer = setTimeout(() => {
+      setIsLoaded(true);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, []);
+  
   useEffect(() => {
   if (location?.state?.editData) {
     const jobData = location.state.editData;
@@ -410,10 +423,50 @@ What specific role would you like help with?`;
   }
 };
 
+  // Animation styles
+  const animationStyles = {
+    container: {
+      opacity: isLoaded ? 1 : 0,
+      transform: isLoaded ? 'translateY(0)' : 'translateY(-20px)',
+      transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+    },
+    headerCard: {
+      opacity: isLoaded ? 1 : 0,
+      transform: isLoaded ? 'translateY(0)' : 'translateY(-30px)',
+      transition: 'all 0.7s cubic-bezier(0.4, 0, 0.2, 1) 0.1s',
+    },
+    mainCard: {
+      opacity: isLoaded ? 1 : 0,
+      transform: isLoaded ? 'translateY(0)' : 'translateY(-40px)',
+      transition: 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.2s',
+    },
+    leftColumn: {
+      opacity: isLoaded ? 1 : 0,
+      transform: isLoaded ? 'translateX(0)' : 'translateX(-30px)',
+      transition: 'all 0.9s cubic-bezier(0.4, 0, 0.2, 1) 0.3s',
+    },
+    rightColumn: {
+      opacity: isLoaded ? 1 : 0,
+      transform: isLoaded ? 'translateX(0)' : 'translateX(30px)',
+      transition: 'all 0.9s cubic-bezier(0.4, 0, 0.2, 1) 0.4s',
+    },
+    submitButton: {
+      opacity: isLoaded ? 1 : 0,
+      transform: isLoaded ? 'translateY(0)' : 'translateY(20px)',
+      transition: 'all 1s cubic-bezier(0.4, 0, 0.2, 1) 0.5s',
+    },
+    floatButton: {
+      opacity: isLoaded ? 1 : 0,
+      transform: isLoaded ? 'scale(1)' : 'scale(0.8)',
+      transition: 'all 1.1s cubic-bezier(0.4, 0, 0.2, 1) 0.6s',
+    }
+  };
+
   return (
     <div style={{ 
       padding: '24px',
-      backgroundColor: 'transparent'
+      backgroundColor: 'transparent',
+      ...animationStyles.container
     }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         {/* Header */}
@@ -424,7 +477,8 @@ What specific role would you like help with?`;
             backdropFilter: 'blur(10px)',
             border: 'none',
             borderRadius: '16px',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            ...animationStyles.headerCard
           }}
         >
           <Row align="middle" justify="space-between">
@@ -463,7 +517,8 @@ What specific role would you like help with?`;
             backdropFilter: 'blur(10px)',
             border: 'none',
             borderRadius: '16px',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            ...animationStyles.mainCard
           }}
         >
           <Form
@@ -474,7 +529,7 @@ What specific role would you like help with?`;
           >
             <Row gutter={[32, 24]}>
               {/* Left Column - Basic Information */}
-              <Col xs={24} lg={12}>
+              <Col xs={24} lg={12} style={animationStyles.leftColumn}>
                 <Title level={4} style={{ color: '#1890ff', marginBottom: '24px' }}>
                   <TeamOutlined style={{ marginRight: '8px' }} />
                   Basic Information
@@ -748,7 +803,7 @@ What specific role would you like help with?`;
               </Col>
 
               {/* Right Column - Detailed Information */}
-              <Col xs={24} lg={12}>
+              <Col xs={24} lg={12} style={animationStyles.rightColumn}>
                 <Title level={4} style={{ color: '#1890ff', marginBottom: '24px' }}>
                   <FileTextOutlined style={{ marginRight: '8px' }} />
                   Detailed Information
@@ -758,7 +813,7 @@ What specific role would you like help with?`;
                   label={
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <span>Job Description</span>
-                      <Button
+                      <Button                     
                         type="text"
                         size="small"
                         shape="circle"
