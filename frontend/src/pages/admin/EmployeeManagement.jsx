@@ -708,7 +708,7 @@ const EmployeeManagement = ({ userRole }) => {
     },
   ], [isMobile, handleEdit, handleDelete]);
 
-  if (userRole !== 'superadmin' && userRole !== 'admin') {
+  if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
     return (
       <div className="access-denied">
         <TeamOutlined className="access-denied-icon" />

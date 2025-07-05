@@ -45,6 +45,19 @@ const JobDescriptionPage = ({ userRole,location: propLocation  }) => {
    const editData = location.state?.editData;
   const isEditing = location.state?.isEditing;
   const [form] = Form.useForm();
+  
+  // Add animation state
+  const [isLoaded, setIsLoaded] = useState(false);
+  
+  useEffect(() => {
+    // Trigger animation after component mounts
+    const timer = setTimeout(() => {
+      setIsLoaded(true);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, []);
+  
   useEffect(() => {
   if (location?.state?.editData) {
     const jobData = location.state.editData;
@@ -109,10 +122,42 @@ useEffect(() => {
   const [experienceLevels, setExperienceLevels] = useState([]);
 
   // Function to convert text to title case (capitalize first letter of each word)
-  const toTitleCase = (str) => {
-    if (!str) return str;
-    return str.toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
-  };
+ const smartTitleCase = (str) => {
+  if (!str) return str;
+  
+  // Split by spaces and process each word
+  return str.split(' ').map(word => {
+    if (word.length === 0) return word;
+    // Only capitalize first letter, keep rest exactly as user typed
+    return word.charAt(0).toUpperCase() + word.slice(1);
+  }).join(' ');
+};
+const toTitleCaseRealTime = (str) => {
+  if (!str) return str;
+  
+  // Split by spaces and process each word
+  return str.split(' ').map(word => {
+    if (word.length === 0) return word;
+    // Only capitalize first letter, keep rest as user typed
+    return word.charAt(0).toUpperCase() + word.slice(1);
+  }).join(' ');
+};
+const handleSmartTitleCaseChange = (e, fieldName, form) => {
+  const cursorPosition = e.target.selectionStart;
+  const value = e.target.value;
+  
+  // Apply smart title case conversion
+  const smartTitleCaseValue = smartTitleCase(value);
+  
+  // Set the form value
+  form.setFieldsValue({ [fieldName]: smartTitleCaseValue });
+  
+  // Restore cursor position after a brief delay
+  setTimeout(() => {
+    e.target.setSelectionRange(cursorPosition, cursorPosition);
+  }, 0);
+};
+
 
   // Load dynamic data from Supabase on component mount
   useEffect(() => {
@@ -177,14 +222,13 @@ useEffect(() => {
   };
 
   // Handle skill addition with title case
-  const handleSkillAdd = () => {
-    if (inputValue && skills.indexOf(toTitleCase(inputValue)) === -1) {
-      setSkills([...skills, toTitleCase(inputValue)]);
-    }
-    setInputVisible(false);
-    setInputValue('');
-  };
-
+ const handleSkillAdd = () => {
+  if (inputValue && skills.indexOf(smartTitleCase(inputValue)) === -1) {
+    setSkills([...skills, smartTitleCase(inputValue)]);
+  }
+  setInputVisible(false);
+  setInputValue('');
+};
   const handleSkillRemove = (removedSkill) => {
     setSkills(skills.filter(skill => skill !== removedSkill));
   };
@@ -379,10 +423,50 @@ What specific role would you like help with?`;
   }
 };
 
+  // Animation styles
+  const animationStyles = {
+    container: {
+      opacity: isLoaded ? 1 : 0,
+      transform: isLoaded ? 'translateY(0)' : 'translateY(-20px)',
+      transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+    },
+    headerCard: {
+      opacity: isLoaded ? 1 : 0,
+      transform: isLoaded ? 'translateY(0)' : 'translateY(-30px)',
+      transition: 'all 0.7s cubic-bezier(0.4, 0, 0.2, 1) 0.1s',
+    },
+    mainCard: {
+      opacity: isLoaded ? 1 : 0,
+      transform: isLoaded ? 'translateY(0)' : 'translateY(-40px)',
+      transition: 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.2s',
+    },
+    leftColumn: {
+      opacity: isLoaded ? 1 : 0,
+      transform: isLoaded ? 'translateX(0)' : 'translateX(-30px)',
+      transition: 'all 0.9s cubic-bezier(0.4, 0, 0.2, 1) 0.3s',
+    },
+    rightColumn: {
+      opacity: isLoaded ? 1 : 0,
+      transform: isLoaded ? 'translateX(0)' : 'translateX(30px)',
+      transition: 'all 0.9s cubic-bezier(0.4, 0, 0.2, 1) 0.4s',
+    },
+    submitButton: {
+      opacity: isLoaded ? 1 : 0,
+      transform: isLoaded ? 'translateY(0)' : 'translateY(20px)',
+      transition: 'all 1s cubic-bezier(0.4, 0, 0.2, 1) 0.5s',
+    },
+    floatButton: {
+      opacity: isLoaded ? 1 : 0,
+      transform: isLoaded ? 'scale(1)' : 'scale(0.8)',
+      transition: 'all 1.1s cubic-bezier(0.4, 0, 0.2, 1) 0.6s',
+    }
+  };
+
   return (
     <div style={{ 
       padding: '24px',
-      backgroundColor: 'transparent'
+      backgroundColor: 'transparent',
+      ...animationStyles.container
     }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         {/* Header */}
@@ -393,7 +477,8 @@ What specific role would you like help with?`;
             backdropFilter: 'blur(10px)',
             border: 'none',
             borderRadius: '16px',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            ...animationStyles.headerCard
           }}
         >
           <Row align="middle" justify="space-between">
@@ -432,7 +517,8 @@ What specific role would you like help with?`;
             backdropFilter: 'blur(10px)',
             border: 'none',
             borderRadius: '16px',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            ...animationStyles.mainCard
           }}
         >
           <Form
@@ -443,181 +529,198 @@ What specific role would you like help with?`;
           >
             <Row gutter={[32, 24]}>
               {/* Left Column - Basic Information */}
-              <Col xs={24} lg={12}>
+              <Col xs={24} lg={12} style={animationStyles.leftColumn}>
                 <Title level={4} style={{ color: '#1890ff', marginBottom: '24px' }}>
                   <TeamOutlined style={{ marginRight: '8px' }} />
                   Basic Information
                 </Title>
+<Form.Item
+  label="Job Title"
+  name="jobTitle"
+  rules={[{ required: true, message: 'Please enter job title' }]}
+>
+  <Input 
+    size="large" 
+    placeholder="e.g., Senior Frontend Developer"
+    style={{ borderRadius: '8px' }}
+    onChange={(e) => handleSmartTitleCaseChange(e, 'jobTitle', form)}
+  />
+</Form.Item>
 
-                <Form.Item
-                  label="Job Title"
-                  name="jobTitle"
-                  rules={[{ required: true, message: 'Please enter job title' }]}
-                >
-                  <Input 
-                    size="large" 
-                    placeholder="e.g., Senior Frontend Developer"
-                    style={{ borderRadius: '8px' }}
-                    onChange={(e) => {
-                      const titleCaseValue = toTitleCase(e.target.value);
-                      form.setFieldsValue({ jobTitle: titleCaseValue });
-                    }}
-                  />
-                </Form.Item>
 
                 <Row gutter={16}>
                   <Col xs={24} sm={12}>
-                    <Form.Item
-                      label="Department"
-                      name="department"
-                      rules={[{ required: true, message: 'Please select department' }]}
-                    >
-                      <Select 
-                        size="large" 
-                        placeholder="Select Department"
-                        style={{ borderRadius: '8px' }}
-                        dropdownRender={menu => (
-                          <div>
-                            {menu}
-                            <Divider style={{ margin: '8px 0' }} />
-                            <Space style={{ padding: '0 8px 4px' }}>
-                              <Input
-                                placeholder="Add new department"
-                                onPressEnter={e => {
-                                  const value = toTitleCase(e.target.value.trim());
-                                  if (value && !departments.includes(value)) {
-                                    setDepartments([...departments, value]);
-                                    form.setFieldsValue({ department: value });
-                                  }
-                                  e.target.value = '';
-                                }}
-                              />
-                            </Space>
-                          </div>
-                        )}
-                      >
-                        {departments.map(dept => (
-                          <Option key={dept} value={dept}>{dept}</Option>
-                        ))}
-                      </Select>
-                    </Form.Item>
+<Form.Item
+  label="Department"
+  name="department"
+  rules={[{ required: true, message: 'Please select department' }]}
+>
+  <Select 
+    size="large" 
+    placeholder="Select Department"
+    style={{ borderRadius: '8px' }}
+    dropdownRender={menu => (
+      <div>
+        {menu}
+        <Divider style={{ margin: '8px 0' }} />
+        <Space style={{ padding: '0 8px 4px' }}>
+          <Input
+            placeholder="Add new department"
+            onChange={(e) => {
+              // Apply smart title case in real-time for dropdown input
+              e.target.value = smartTitleCase(e.target.value);
+            }}
+            onPressEnter={e => {
+              const value = smartTitleCase(e.target.value.trim());
+              if (value && !departments.includes(value)) {
+                setDepartments([...departments, value]);
+                form.setFieldsValue({ department: value });
+              }
+              e.target.value = '';
+            }}
+          />
+        </Space>
+      </div>
+    )}
+  >
+    {departments.map(dept => (
+      <Option key={dept} value={dept}>{dept}</Option>
+    ))}
+  </Select>
+</Form.Item>
+
                   </Col>
                   <Col xs={24} sm={12}>
-                    <Form.Item
-                      label="Location"
-                      name="location"
-                      rules={[{ required: true, message: 'Please select location' }]}
-                    >
-                      <Select 
-                        size="large" 
-                        placeholder="Select Location"
-                        dropdownRender={menu => (
-                          <div>
-                            {menu}
-                            <Divider style={{ margin: '8px 0' }} />
-                            <Space style={{ padding: '0 8px 4px' }}>
-                              <Input
-                                placeholder="Add new location"
-                                onPressEnter={e => {
-                                  const value = toTitleCase(e.target.value.trim());
-                                  if (value && !locations.includes(value)) {
-                                    setLocations([...locations, value]);
-                                    form.setFieldsValue({ location: value });
-                                  }
-                                  e.target.value = '';
-                                }}
-                              />
-                            </Space>
-                          </div>
-                        )}
-                      >
-                        {locations.map(loc => (
-                          <Option key={loc} value={loc}>
-                            <EnvironmentOutlined style={{ marginRight: '8px' }} />
-                            {loc}
-                          </Option>
-                        ))}
-                      </Select>
-                    </Form.Item>
+<Form.Item
+  label="Location"
+  name="location"
+  rules={[{ required: true, message: 'Please select location' }]}
+>
+  <Select 
+    size="large" 
+    placeholder="Select Location"
+    dropdownRender={menu => (
+      <div>
+        {menu}
+        <Divider style={{ margin: '8px 0' }} />
+        <Space style={{ padding: '0 8px 4px' }}>
+          <Input
+            placeholder="Add new location"
+            onChange={(e) => {
+              // Apply smart title case in real-time for dropdown input
+              e.target.value = smartTitleCase(e.target.value);
+            }}
+            onPressEnter={e => {
+              const value = smartTitleCase(e.target.value.trim());
+              if (value && !locations.includes(value)) {
+                setLocations([...locations, value]);
+                form.setFieldsValue({ location: value });
+              }
+              e.target.value = '';
+            }}
+          />
+        </Space>
+      </div>
+    )}
+  >
+    {locations.map(loc => (
+      <Option key={loc} value={loc}>
+        <EnvironmentOutlined style={{ marginRight: '8px' }} />
+        {loc}
+      </Option>
+    ))}
+  </Select>
+</Form.Item>
+
                   </Col>
                 </Row>
 
                 <Row gutter={16}>
                   <Col xs={24} sm={12}>
-                    <Form.Item
-                      label="Employment Type"
-                      name="employmentType"
-                      rules={[{ required: true, message: 'Please select employment type' }]}
-                    >
-                      <Select 
-                        size="large" 
-                        placeholder="Select Type"
-                        dropdownRender={menu => (
-                          <div>
-                            {menu}
-                            <Divider style={{ margin: '8px 0' }} />
-                            <Space style={{ padding: '0 8px 4px' }}>
-                              <Input
-                                placeholder="Add new employment type"
-                                onPressEnter={e => {
-                                  const value = toTitleCase(e.target.value.trim());
-                                  if (value && !employmentTypes.includes(value)) {
-                                    setEmploymentTypes([...employmentTypes, value]);
-                                    form.setFieldsValue({ employmentType: value });
-                                  }
-                                  e.target.value = '';
-                                }}
-                              />
-                            </Space>
-                          </div>
-                        )}
-                      >
-                        {employmentTypes.map(type => (
-                          <Option key={type} value={type}>
-                            <ClockCircleOutlined style={{ marginRight: '8px' }} />
-                            {type}
-                          </Option>
-                        ))}
-                      </Select>
-                    </Form.Item>
+<Form.Item
+  label="Employment Type"
+  name="employmentType"
+  rules={[{ required: true, message: 'Please select employment type' }]}
+>
+  <Select 
+    size="large" 
+    placeholder="Select Type"
+    dropdownRender={menu => (
+      <div>
+        {menu}
+        <Divider style={{ margin: '8px 0' }} />
+        <Space style={{ padding: '0 8px 4px' }}>
+          <Input
+            placeholder="Add new employment type"
+            onChange={(e) => {
+              // Apply smart title case in real-time for dropdown input
+              e.target.value = smartTitleCase(e.target.value);
+            }}
+            onPressEnter={e => {
+              const value = smartTitleCase(e.target.value.trim());
+              if (value && !employmentTypes.includes(value)) {
+                setEmploymentTypes([...employmentTypes, value]);
+                form.setFieldsValue({ employmentType: value });
+              }
+              e.target.value = '';
+            }}
+          />
+        </Space>
+      </div>
+    )}
+  >
+    {employmentTypes.map(type => (
+      <Option key={type} value={type}>
+        <ClockCircleOutlined style={{ marginRight: '8px' }} />
+        {type}
+      </Option>
+    ))}
+  </Select>
+</Form.Item>
+
                   </Col>
                   <Col xs={24} sm={12}>
-                    <Form.Item
-                      label="Experience Level"
-                      name="experienceLevel"
-                      rules={[{ required: true, message: 'Please select experience level' }]}
-                    >
-                      <Select 
-                        size="large" 
-                        placeholder="Select Level"
-                        dropdownRender={menu => (
-                          <div>
-                            {menu}
-                            <Divider style={{ margin: '8px 0' }} />
-                            <Space style={{ padding: '0 8px 4px' }}>
-                              <Input
-                                placeholder="Add new experience level"
-                                onPressEnter={e => {
-                                  const value = toTitleCase(e.target.value.trim());
-                                  if (value && !experienceLevels.includes(value)) {
-                                    setExperienceLevels([...experienceLevels, value]);
-                                    form.setFieldsValue({ experienceLevel: value });
-                                  }
-                                  e.target.value = '';
-                                }}
-                              />
-                            </Space>
-                          </div>
-                        )}
-                      >
-                        {experienceLevels.map(level => (
-                          <Option key={level} value={level}>
-                            <StarOutlined style={{ marginRight: '8px' }} />
-                            {level}
-                          </Option>
-                        ))}
-                      </Select>
-                    </Form.Item>
+<Form.Item
+  label="Experience Level"
+  name="experienceLevel"
+  rules={[{ required: true, message: 'Please select experience level' }]}
+>
+  <Select 
+    size="large" 
+    placeholder="Select Level"
+    dropdownRender={menu => (
+      <div>
+        {menu}
+        <Divider style={{ margin: '8px 0' }} />
+        <Space style={{ padding: '0 8px 4px' }}>
+          <Input
+            placeholder="Add new experience level"
+            onChange={(e) => {
+              // Apply smart title case in real-time for dropdown input
+              e.target.value = smartTitleCase(e.target.value);
+            }}
+            onPressEnter={e => {
+              const value = smartTitleCase(e.target.value.trim());
+              if (value && !experienceLevels.includes(value)) {
+                setExperienceLevels([...experienceLevels, value]);
+                form.setFieldsValue({ experienceLevel: value });
+              }
+              e.target.value = '';
+            }}
+          />
+        </Space>
+      </div>
+    )}
+  >
+    {experienceLevels.map(level => (
+      <Option key={level} value={level}>
+        <StarOutlined style={{ marginRight: '8px' }} />
+        {level}
+      </Option>
+    ))}
+  </Select>
+</Form.Item>
+
                   </Col>
                 </Row>
 
@@ -642,28 +745,31 @@ What specific role would you like help with?`;
                       </Tag>
                     ))}
                     {inputVisible ? (
-                      <Input
-                        type="text"
-                        size="small"
-                        style={{ width: '120px' }}
-                        value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        onBlur={handleSkillAdd}
-                        onPressEnter={handleSkillAdd}
-                        autoFocus
-                      />
-                    ) : (
-                      <Tag
-                        onClick={() => setInputVisible(true)}
-                        style={{
-                          background: '#f0f0f0',
-                          borderStyle: 'dashed',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <PlusOutlined /> Add Skill
-                      </Tag>
-                    )}
+  <Input
+    type="text"
+    size="small"
+    style={{ width: '120px' }}
+    value={inputValue}
+    onChange={(e) => {
+      const smartValue = smartTitleCase(e.target.value);
+      setInputValue(smartValue);
+    }}
+    onBlur={handleSkillAdd}
+    onPressEnter={handleSkillAdd}
+    autoFocus
+  />
+) : (
+  <Tag
+    onClick={() => setInputVisible(true)}
+    style={{
+      background: '#f0f0f0',
+      borderStyle: 'dashed',
+      cursor: 'pointer'
+    }}
+  >
+    <PlusOutlined /> Add Skill
+  </Tag>
+)}
                   </div>
                 </Form.Item>
 
@@ -697,7 +803,7 @@ What specific role would you like help with?`;
               </Col>
 
               {/* Right Column - Detailed Information */}
-              <Col xs={24} lg={12}>
+              <Col xs={24} lg={12} style={animationStyles.rightColumn}>
                 <Title level={4} style={{ color: '#1890ff', marginBottom: '24px' }}>
                   <FileTextOutlined style={{ marginRight: '8px' }} />
                   Detailed Information
@@ -707,7 +813,7 @@ What specific role would you like help with?`;
                   label={
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <span>Job Description</span>
-                      <Button
+                      <Button                     
                         type="text"
                         size="small"
                         shape="circle"
