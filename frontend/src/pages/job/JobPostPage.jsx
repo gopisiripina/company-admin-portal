@@ -373,6 +373,7 @@ const deleteJob = async (jobId, jobTitle) => {
         icon={<EyeOutlined />}
         onClick={() => handleJobPreview(record)}
       >
+        
         Preview
       </Button>
       <Button 
