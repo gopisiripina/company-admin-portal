@@ -48,7 +48,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
-
+import ErrorPage from '../../error/ErrorPage';
 import { supabase } from '../../supabase/config';
 
 const JobPostPage = ({ userRole }) => {
@@ -66,7 +66,9 @@ const JobPostPage = ({ userRole }) => {
   // Job descriptions data from Supabase
   const [jobDescriptions, setJobDescriptions] = useState([]);
   const [postingLogs, setPostingLogs] = useState([]);
-  
+  if (userRole !== 'superadmin' && userRole !== 'admin' && userRole!=='hr') {
+  return <ErrorPage errorType="403" />;
+}
 const postToLinkedIn = async (jobData) => {
   try {
     // Generate dynamic application URL with job parameters

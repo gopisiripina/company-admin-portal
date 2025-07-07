@@ -39,13 +39,15 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 import { useLocation } from 'react-router-dom';
 import { supabase} from '../../supabase/config';
-
+import ErrorPage from '../../error/ErrorPage';
 const JobDescriptionPage = ({ userRole,location: propLocation  }) => {
    const location = useLocation();
    const editData = location.state?.editData;
   const isEditing = location.state?.isEditing;
   const [form] = Form.useForm();
-  
+  if (userRole !== 'superadmin' && userRole !== 'admin' && userRole!=='hr') {
+    return <ErrorPage errorType="403" />;
+  }
   // Add animation state
   const [isLoaded, setIsLoaded] = useState(false);
   

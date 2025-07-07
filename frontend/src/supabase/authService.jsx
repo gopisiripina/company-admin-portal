@@ -22,7 +22,7 @@ class AuthService {
       }
 
       // Use admin client for privileged operations
-      const { error } = await supabaseAdmin
+      const { error } = await supabase
         .from('users')
         .update({
           isactive: isActive, // Changed to match your schema
@@ -76,7 +76,7 @@ class AuthService {
           
           // Convert date strings to Date objects if needed
           const createdAt = userData.createdat ? new Date(userData.createdat) : new Date();
-          const updatedAt = new Date(); // Current time for login
+          const updatedat = new Date(); // Current time for login
           
           // Construct the user object matching your schema
           const user = {
@@ -90,7 +90,7 @@ class AuthService {
             employeeId: userData.employeeid,
             isFirstLogin: userData.isfirstlogin !== undefined ? userData.isfirstlogin : false,
             createdAt: createdAt,
-            updatedAt: updatedAt,
+            updatedAt: updatedat,
             password: undefined // Don't include password in the returned object
           };
           
@@ -105,52 +105,74 @@ class AuthService {
     }
   }
 
-  /**
-   * Change password for first-time login users
-   * @param {string} userId - User document ID
-   * @param {string} newPassword - New password
-   * @returns {Promise<Object>} Result object with success status
-   */
-  async changeFirstLoginPassword(userId, newPassword) {
-    try {
-      if (!userId || !newPassword) {
-        return {
-          success: false,
-          error: 'User ID and new password are required'
-        };
-      }
-
-      const { error } = await supabaseAdmin
-        .from('users')
-        .update({
-          password: newPassword,
-          isfirstlogin: false, // Changed to match schema
-          updatedat: new Date().toISOString()
-        })
-        .eq('id', userId);
-
-      if (error) {
-        console.error('Error changing password:', error);
-        return {
-          success: false,
-          error: 'Failed to change password. Please try again.'
-        };
-      }
-      
-      console.log(`Password changed successfully for user ${userId}`);
-      
+/**
+ * Change password for first-time login users (Plain text - NOT RECOMMENDED for production)
+ * @param {string} userId - User document ID from your custom users table
+ * @param {string} newPassword - New password
+ * @returns {Promise<Object>} Result object with success status
+ */
+async changeFirstLoginPassword(userId, newPassword) {
+  try {
+    if (!userId || !newPassword) {
       return {
-        success: true,
-        message: 'Password changed successfully'
+        success: false,
+        error: 'User ID and new password are required'
       };
-    } catch (error) {
+    }
+
+    console.log('Updating custom users table for user:', userId);
+
+    // Update your custom users table (NOT Supabase Auth)
+    const { data, error } = await supabaseAdmin
+  .from('users')
+  .update({
+    password: newPassword,
+    isfirstlogin: false,
+    updatedat: new Date().toISOString()  // ✅ Correct - matches your schema
+  })
+  .eq('id', userId)
+  .select()
+  .single();
+    if (error) {
       console.error('Error changing password:', error);
       return {
         success: false,
         error: 'Failed to change password. Please try again.'
       };
     }
+
+    // Check if any rows were updated
+    console.log('Update result:', data);
+    
+    // Verify the update worked by checking if user exists
+    const { data: verifyUser, error: verifyError } = await supabaseAdmin
+      .from('users')
+      .select('id, isfirstlogin')
+      .eq('id', userId)
+      .single();
+
+    if (verifyError) {
+      console.error('Error verifying user update:', verifyError);
+      return {
+        success: false,
+        error: 'Failed to verify password change.'
+      };
+    }
+
+    console.log('User after update:', verifyUser);
+    
+    return {
+      success: true,
+      message: 'Password changed successfully'
+    };
+  } catch (error) {
+    console.error('Error changing password:', error);
+    return {
+      success: false,
+      error: 'Failed to change password. Please try again.'
+    };
   }
+}
 
   /**
    * Check demo credentials
@@ -170,7 +192,7 @@ class AuthService {
         isActive: true,
         isFirstLogin: false,
         createdAt: new Date(),
-        updatedAt: new Date()
+        updateat: new Date()
       };
     }
     
@@ -251,7 +273,7 @@ class AuthService {
           isFirstLogin: user.isFirstLogin || false,
           employeeId: user.employeeId,
           createdAt: user.createdAt,
-          updatedAt: user.updatedAt
+          updatedAt: user.updatedat
         };
         
         console.log('Data to store:', dataToStore);

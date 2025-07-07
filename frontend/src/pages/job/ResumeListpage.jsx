@@ -8,7 +8,7 @@ const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 const { Step } = Steps;
 import { supabase} from '../../supabase/config';
-
+import ErrorPage from '../../error/ErrorPage';
 
 const fetchShortlistedCandidates = async (jobId) => {
   try {
@@ -116,7 +116,11 @@ const fetchJobTitles = async () => {
   }
 };
 
-const ResumeListPage = () => {
+const ResumeListPage = ({ userRole }) => {
+  if (userRole !== 'superadmin' && userRole !== 'admin'&& userRole!=='hr') {
+    return <ErrorPage errorType="403" />;
+  }
+
   const [resumes, setResumes] = useState([]);
   const [filteredResumes, setFilteredResumes] = useState([]);
   const [jobId, setJobId] = useState(1);

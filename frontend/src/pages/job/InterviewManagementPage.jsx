@@ -5,7 +5,7 @@ import {
 import {
   SearchOutlined, EyeOutlined, EditOutlined, CheckCircleOutlined, CloseCircleOutlined, CalendarOutlined, UserOutlined, FileTextOutlined, VideoCameraOutlined, ClockCircleOutlined, SendOutlined, PhoneOutlined, EnvironmentOutlined, DollarOutlined, HistoryOutlined, ReloadOutlined, StarOutlined, CommentOutlined
 } from '@ant-design/icons';
-
+import ErrorPage from '../../error/ErrorPage';
 const { Option } = Select;
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -51,7 +51,10 @@ const updateCandidateStatus = async (candidateId, updateData) => {
   return { success: true, data };
 };
 
-const InterviewManagement = () => {
+const InterviewManagement = ({ userRole }) => {
+  if (userRole !== 'superadmin' && userRole !== 'admin'&& userRole!=='hr') {
+  return <ErrorPage errorType="403" />;
+}
   const [candidates, setCandidates] = useState([]);
   const [filteredCandidates, setFilteredCandidates] = useState([]);
   const [jobId, setJobId] = useState('all');
@@ -64,7 +67,7 @@ const InterviewManagement = () => {
   const [actionModalVisible, setActionModalVisible] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [detailsDrawerVisible, setDetailsDrawerVisible] = useState(false);
-
+  
   // Load candidates
   useEffect(() => {
     const loadCandidates = async () => {

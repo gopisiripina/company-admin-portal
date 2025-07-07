@@ -31,7 +31,7 @@ import {
 import { supabase, supabaseAdmin } from '../../supabase/config';
 import { sendEmployeeWelcomeEmail, initEmailJS } from '../email/EmailService';
 import './Employee Management.css';
-
+import ErrorPage from '../../error/ErrorPage';
 const { Title, Text } = Typography;
 const { Search } = Input;
 
@@ -520,7 +520,7 @@ const EmployeeManagement = ({ userRole }) => {
   }, [fetchAllEmployees, applyFiltersAndPagination, searchQuery, pagination.pageSize]);
 
   useEffect(() => {
-    if (userRole === 'superadmin' || userRole === 'admin') {
+    if (userRole === 'superadmin' || userRole === 'admin' || userRole === 'hr') {
       const emailInitialized = initEmailJS();
       if (!emailInitialized) {
         console.warn('EmailJS initialization failed - emails may not work');
@@ -709,14 +709,9 @@ const EmployeeManagement = ({ userRole }) => {
   ], [isMobile, handleEdit, handleDelete]);
 
   if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
-    return (
-      <div className="access-denied">
-        <TeamOutlined className="access-denied-icon" />
-        <Title level={3}>Access Denied</Title>
-        <Text type="secondary">You don't have permission to view employee management.</Text>
-      </div>
-    );
+    return <ErrorPage errorType="403" />;
   }
+
 
   return (
     <div className="employee-management-wrapper">
