@@ -299,7 +299,7 @@ const Login = ({ onLoginSuccess }) => {
                   <img src="src/assets/logo.png" alt="My Access Logo" className="logo-image" />
                 </div>
                 
-                <h1 className="form-title">Sign</h1>
+                <h1 className="form-title">Sign in</h1>
               </div>
 
               <form className="login-form" onSubmit={handleSubmit}>

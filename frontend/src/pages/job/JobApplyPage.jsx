@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {Table,Card,Select,Input,DatePicker,Button,Tag,Space,Modal,Avatar,Row,Col,Typography,Divider,Tooltip,message,Spin,Alert} from 'antd';
 import {SearchOutlined,EyeOutlined,DownloadOutlined,UserOutlined,CalendarOutlined,ToolOutlined,ReloadOutlined,CheckCircleOutlined,CloseCircleOutlined,MailOutlined,LinkOutlined} from '@ant-design/icons';
-
+import ErrorPage from '../../error/ErrorPage';
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 const { Title, Text } = Typography;
@@ -9,7 +9,12 @@ const { Title, Text } = Typography;
 // Supabase configuration
 import { supabase} from '../../supabase/config';
 
-const JobApplyPage = () => {
+const JobApplyPage = ({ userRole }) => {
+  // const userRole = userData?.role;
+  if (userRole !== 'superadmin' && userRole !== 'admin'&& userRole!=='hr') {
+    return <ErrorPage errorType="403" />;
+  }
+
   const [selectedJob, setSelectedJob] = useState(null);
   const [jobPostings, setJobPostings] = useState([]);
   const [applicants, setApplicants] = useState([]);
@@ -23,7 +28,7 @@ const JobApplyPage = () => {
   const [dateRange, setDateRange] = useState(null);
   const [resumeModalVisible, setResumeModalVisible] = useState(false);
   const [selectedApplicant, setSelectedApplicant] = useState(null);
-
+  
   // Fetch all unique job postings from applications
   const fetchJobPostings = async () => {
     setJobsLoading(true);

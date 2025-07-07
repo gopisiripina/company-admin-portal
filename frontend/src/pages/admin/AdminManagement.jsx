@@ -30,6 +30,7 @@ import {
 import { supabase, supabaseAdmin } from '../../supabase/config';
 import { sendEmployeeWelcomeEmail, initEmailJS } from '../email/EmailService';
 import './AdminManagement.css';
+import ErrorPage from '../../error/ErrorPage';
 import { Upload, message as antMessage } from 'antd';
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -725,14 +726,9 @@ useEffect(() => {
 
   // Permission check
   if (userRole !== 'superadmin') {
-    return (
-      <div className="access-denied">
-        <TeamOutlined className="access-denied-icon" />
-        <Title level={3}>Access Denied</Title>
-        <Text type="secondary">You don't have permission to view admin management.</Text>
-      </div>
-    );
+    return <ErrorPage errorType="403" />;
   }
+
 
   return (
     <div className="admin-management-wrapper">

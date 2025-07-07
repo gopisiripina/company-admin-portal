@@ -14,7 +14,7 @@ import {
   BankOutlined, IdcardOutlined, HomeOutlined, ContactsOutlined
 } from '@ant-design/icons';
 import emailjs from '@emailjs/browser';
-
+import ErrorPage from '../../error/ErrorPage';
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 const { Title, Text, Paragraph } = Typography;
@@ -30,7 +30,10 @@ const EMAIL_CONFIG = {
   publicKey: 'NYTlY5dQBnWRdlpKn'
 };
 
-const SelectedCandidatesPage = () => {
+const SelectedCandidatesPage = ({ userRole }) => {
+  if (userRole !== 'superadmin' && userRole !== 'admin' && userRole!=='hr') {
+    return <ErrorPage errorType="403" />;
+  }
   const [candidates, setCandidates] = useState([]);
   const [filteredCandidates, setFilteredCandidates] = useState([]);
   const [loading, setLoading] = useState(false);
