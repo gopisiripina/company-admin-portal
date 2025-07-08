@@ -75,6 +75,7 @@ const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
       { icon: FileText, label: 'Job Application', id: 'job-application', color: '#10b981' },
       { icon: FileText, label: 'Selected List', id: 'selected-list', color: '#10b981' },
       { icon: FileText, label: 'Campus Job View', id: 'campus-job-view', color: '#10b981' },
+      { icon: FileText, label: 'On Campus Data', id: 'on-campus-data', color: '#10b981' },
     ]}
 ] : []),
     // Only show Admin button for superadmin
