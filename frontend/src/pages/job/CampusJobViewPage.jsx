@@ -75,6 +75,7 @@ const CampusJobViewPage = () => {
           student_name: values.name,
           email: values.email,
           mobile: values.mobile,
+          college_name: values.college_name,
           resume_url: values.resume_url || '',
         }]);
 
@@ -164,7 +165,7 @@ const CampusJobViewPage = () => {
         justifyContent: 'center', 
         alignItems: 'center', 
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        background: 'linear-gradient(135deg,rgb(0, 102, 255) 0%, #c3cfe2 100%)',
         padding: '20px'
       }}>
         <Card style={{ maxWidth: '90%', width: '100%', textAlign: 'center' }}>
@@ -197,11 +198,15 @@ const CampusJobViewPage = () => {
 
   return (
     <div style={{ 
+      left:'20%',
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
       position: 'relative',
       width: '100%',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center'
     }}>
       {/* Header with breadcrumb */}
       <div style={{ 
@@ -212,10 +217,13 @@ const CampusJobViewPage = () => {
         top: 0,
         zIndex: 100,
         boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-        width: '100%'
+        width: '100%',
+        display: 'flex',
+        justifyContent: 'center'
       }}>
         <div style={{ 
-          maxWidth: '100%', 
+          maxWidth: '1200px', 
+          width: '100%',
           margin: '0 auto', 
           padding: '0 16px',
           overflow: 'hidden'
@@ -227,8 +235,7 @@ const CampusJobViewPage = () => {
       <div style={{ 
         width: '100%',
         padding: '20px 16px',
-        maxWidth: '100%',
-        margin: '0 auto',
+        maxWidth: '1200px',
         boxSizing: 'border-box'
       }}>
         {/* Hero Section */}
@@ -594,11 +601,14 @@ const CampusJobViewPage = () => {
         confirmLoading={submitting}
         okText="Submit Application"
         cancelText="Cancel"
-        width="90%"
+        width="95%"
         style={{ 
           top: 20,
-          maxWidth: '500px',
+          maxWidth: '800px',
           margin: '0 auto'
+        }}
+        bodyStyle={{
+          padding: '24px'
         }}
       >
         <Form 
@@ -607,60 +617,89 @@ const CampusJobViewPage = () => {
           onFinish={handleFormSubmit}
           style={{ marginTop: '16px' }}
         >
-          <Form.Item 
-            label="Full Name" 
-            name="name" 
-            rules={[{ required: true, message: 'Please enter your full name' }]}
-          >
-            <Input 
-              prefix={<UserOutlined />}
-              size="middle"
-              placeholder="Enter your full name"
-              style={{ borderRadius: '6px' }}
-            />
-          </Form.Item>
-          
-          <Form.Item 
-            label="Email Address" 
-            name="email" 
-            rules={[
-              { required: true, message: 'Please enter your email' },
-              { type: 'email', message: 'Please enter a valid email' }
-            ]}
-          >
-            <Input 
-              prefix={<MailOutlined />}
-              size="middle"
-              placeholder="Enter your email address"
-              style={{ borderRadius: '6px' }}
-            />
-          </Form.Item>
-          
-          <Form.Item 
-            label="Mobile Number" 
-            name="mobile" 
-            rules={[{ required: true, message: 'Please enter your mobile number' }]}
-          >
-            <Input 
-              prefix={<PhoneOutlined />}
-              size="middle"
-              placeholder="Enter your mobile number"
-              style={{ borderRadius: '6px' }}
-            />
-          </Form.Item>
-          
-          <Form.Item 
-            label="Resume URL" 
-            name="resume_url"
-            help="Please provide a link to your resume (Google Drive, Dropbox, etc.)"
-          >
-            <Input 
-              prefix={<FileTextOutlined />}
-              size="middle"
-              placeholder="https://drive.google.com/file/d/..."
-              style={{ borderRadius: '6px' }}
-            />
-          </Form.Item>
+          <Row gutter={[16, 0]}>
+            <Col xs={24} md={12}>
+              <Form.Item 
+                label="Full Name" 
+                name="name" 
+                rules={[{ required: true, message: 'Please enter your full name' }]}
+              >
+                <Input 
+                  prefix={<UserOutlined />}
+                  size="large"
+                  placeholder="Enter your full name"
+                  style={{ borderRadius: '6px' }}
+                />
+              </Form.Item>
+            </Col>
+            
+            <Col xs={24} md={12}>
+              <Form.Item 
+                label="Email Address" 
+                name="email" 
+                rules={[
+                  { required: true, message: 'Please enter your email' },
+                  { type: 'email', message: 'Please enter a valid email' }
+                ]}
+              >
+                <Input 
+                  prefix={<MailOutlined />}
+                  size="large"
+                  placeholder="Enter your email address"
+                  style={{ borderRadius: '6px' }}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={[16, 0]}>
+            <Col xs={24} md={12}>
+              <Form.Item 
+                label="Mobile Number" 
+                name="mobile" 
+                rules={[{ required: true, message: 'Please enter your mobile number' }]}
+              >
+                <Input 
+                  prefix={<PhoneOutlined />}
+                  size="large"
+                  placeholder="Enter your mobile number"
+                  style={{ borderRadius: '6px' }}
+                />
+              </Form.Item>
+            </Col>
+            
+            <Col xs={24} md={12}>
+              <Form.Item 
+                label="College Name" 
+                name="college_name"
+                rules={[{ required: true, message: 'Please enter your college name' }]}
+              >
+                <Input 
+                  prefix={<BookOutlined />}
+                  size="large"
+                  placeholder="Enter your college name"
+                  style={{ borderRadius: '6px' }}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={[16, 0]}>
+            <Col xs={24}>
+              <Form.Item 
+                label="Resume URL" 
+                name="resume_url"
+                help="Please provide a link to your resume (Google Drive, Dropbox, etc.)"
+              >
+                <Input 
+                  prefix={<FileTextOutlined />}
+                  size="large"
+                  placeholder="https://drive.google.com/file/d/..."
+                  style={{ borderRadius: '6px' }}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
         </Form>
       </Modal>
 
