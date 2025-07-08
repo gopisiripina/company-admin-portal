@@ -74,7 +74,7 @@ const postToLinkedIn = async (jobData) => {
     // Generate dynamic application URL with job parameters
     const applicationUrl = `http://cap.myaccessio.com/job-application/${jobData.id}?` + 
       `title=${encodeURIComponent(jobData.job_title || '')}&` +
-      `company=${encodeURIComponent(jobData.company_name || 'Your Company Name')}&` +
+      `company=${encodeURIComponent(jobData.company_name || 'My Access')}&` +
       `location=${encodeURIComponent(jobData.location || '')}&` +
       `type=${encodeURIComponent(jobData.employment_type || '')}&` +
       `salary=${encodeURIComponent(jobData.salary_range || 'Competitive')}&` +

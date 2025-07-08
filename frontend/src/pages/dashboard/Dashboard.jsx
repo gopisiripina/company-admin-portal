@@ -21,6 +21,7 @@ import SelectedCandidatesPage from '../job/SelectedCandidatespage';
 
 const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionChange }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentJobId, setCurrentJobId] = useState(2);
   const fuzzySearch = (query, options) => {
   if (!query) return [];
   
@@ -668,11 +669,8 @@ if (activeSection === 'selected-list') {
 if (activeSection === 'job-application') {
   return (
     <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-      {/* Header */}
-
-      {/* Job Description Content */}
       <main className="main-content">
-        <JobApplicationPage userRole={userData?.role} />
+        <JobApplicationPage userRole={userData?.role} jobId={currentJobId} />
       </main>
     </div>
   );
