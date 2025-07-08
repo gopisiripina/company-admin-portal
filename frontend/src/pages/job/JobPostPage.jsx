@@ -52,6 +52,9 @@ import ErrorPage from '../../error/ErrorPage';
 import { supabase } from '../../supabase/config';
 
 const JobPostPage = ({ userRole }) => {
+  const [hiringTypeFilter, setHiringTypeFilter] = useState('all'); // 'all', 'on-campus', 'off-campus'
+const [campusLinkModal, setCampusLinkModal] = useState(false);
+const [generatedLink, setGeneratedLink] = useState('');
   const [form] = Form.useForm();
   const [selectedJob, setSelectedJob] = useState(null);
   const [previewVisible, setPreviewVisible] = useState(false);
@@ -122,43 +125,77 @@ const postToLinkedIn = async (jobData) => {
     };
   }
 };
-  useEffect(() => {
-    fetchJobDescriptions();
-    fetchPostingLogs();
-  }, []);
-
+const fetchJobDescriptions = async () => {
+  let query = supabase
+    .from('job_descriptions')
+    .select('*')
+    .order('updated_at', { ascending: false });
   
-  const fetchJobDescriptions = async () => {
-    const { data, error } = await supabase
-      .from('job_descriptions')
-      .select('*')
-      .order('updated_at', { ascending: false });
+  // Apply hiring type filter
+  if (hiringTypeFilter !== 'all') {
+    query = query.eq('hiring_type', hiringTypeFilter);
+  }
 
-    if (error) {
-      console.error('Failed to fetch job descriptions:', error);
-    } else {
-      // Map database fields to component expectations and ensure proper data types
-      const jobsWithStatus = data.map(job => ({
-        ...job,
-        status: job.status || 'Active',
-        // Map database field names to component field names
-        description: job.job_description,
-        responsibilities: job.key_responsibilities,
-        qualifications: job.qualification_requirements,
-        benefits: job.additional_benefits,
-        skills: job.required_skills ? 
-          (Array.isArray(job.required_skills) ? 
-            job.required_skills : 
-            job.required_skills.split(',').map(s => s.trim())
-          ) : [],
-        // Parse salary range if it exists
-        salary_min: job.salary_range ? extractSalaryMin(job.salary_range) : null,
-        salary_max: job.salary_range ? extractSalaryMax(job.salary_range) : null
-      }));
+  const { data, error } = await query;
 
-      setJobDescriptions(jobsWithStatus);
-    }
-  };
+  if (error) {
+    console.error('Failed to fetch job descriptions:', error);
+  } else {
+    // Map database fields to component expectations and ensure proper data types
+    const jobsWithStatus = data.map(job => ({
+      ...job,
+      status: job.status || 'Active',
+      // Map database field names to component field names
+      description: job.job_description,
+      responsibilities: job.key_responsibilities,
+      qualifications: job.qualification_requirements,
+      benefits: job.additional_benefits,
+      skills: job.required_skills ? 
+        (Array.isArray(job.required_skills) ? 
+          job.required_skills : 
+          job.required_skills.split(',').map(s => s.trim())
+        ) : [],
+      // Parse salary range if it exists
+      salary_min: job.salary_range ? extractSalaryMin(job.salary_range) : null,
+      salary_max: job.salary_range ? extractSalaryMax(job.salary_range) : null
+    }));
+
+    setJobDescriptions(jobsWithStatus);
+  }
+};
+useEffect(() => {
+  fetchJobDescriptions();
+}, [hiringTypeFilter]);
+
+// Generate campus link function
+const generateCampusLink = (jobData) => {
+  const baseUrl = 'http://cap.myaccessio.com/campus-job-view'; // Changed from 'campus-job' to 'campus-job-view'
+  const uniqueId = Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+  
+  const linkParams = new URLSearchParams({
+    link_id: uniqueId,
+    job_id: jobData.id,
+    title: jobData.job_title || '',
+    company: jobData.company_name || 'Your Company Name',
+    department: jobData.department || '',
+    location: jobData.location || '',
+    employment_type: jobData.employment_type || '',
+    experience_level: jobData.experience_level || '',
+    salary_range: jobData.salary_range || 'Competitive',
+    job_description: jobData.job_description || '',
+    key_responsibilities: jobData.key_responsibilities || '',
+    qualification_requirements: jobData.qualification_requirements || '',
+    required_skills: Array.isArray(jobData.required_skills) ? 
+      jobData.required_skills.join(',') : 
+      (jobData.required_skills || ''),
+    additional_benefits: jobData.additional_benefits || '',
+    hiring_type: jobData.hiring_type || 'on-campus',
+    status: 'active',
+    created_at: new Date().toISOString()
+  });
+  
+  return `${baseUrl}?${linkParams.toString()}`;
+};
 
 const fetchPostingLogs = async () => {
   try {
@@ -315,21 +352,28 @@ const deleteJob = async (jobId, jobTitle) => {
 
   // Table columns for job descriptions
   const jobColumns = [
-    {
-  title: 'Job Title',
-  dataIndex: 'job_title',
-  key: 'jobTitle',
-  width: 200, // Add fixed width
-  render: (text, record) => (
-    <div style={{ maxWidth: '180px' }}> {/* Add max-width container */}
-      <Text strong style={{ color: '#1890ff' }}>{text}</Text>
-      <br />
-      <Text type="secondary" style={{ fontSize: '12px' }}>
-        {record.department} • {record.location}
-      </Text>
-    </div>
-  )
-},
+  {
+    title: 'Job Title',
+    dataIndex: 'job_title',
+    key: 'jobTitle',
+    width: 200,
+    render: (text, record) => (
+      <div style={{ maxWidth: '180px' }}>
+        <Text strong style={{ color: '#1890ff' }}>{text}</Text>
+        <br />
+        <Text type="secondary" style={{ fontSize: '12px' }}>
+          {record.department} • {record.location}
+        </Text>
+        <br />
+        <Tag 
+          color={record.hiring_type === 'on-campus' ? 'orange' : 'blue'}
+          style={{ fontSize: '10px' }}
+        >
+          {record.hiring_type === 'on-campus' ? 'On-Campus' : 'Off-Campus'}
+        </Tag>
+      </div>
+    )
+  },
     {
       title: 'Type',
       dataIndex: 'employment_type',
@@ -455,12 +499,66 @@ const deleteJob = async (jobId, jobTitle) => {
     }));
   };
 
-  const handlePostJob = async () => {
+const handlePostJob = async () => {
   if (!selectedJob) {
     message.error('Please select a job description first');
     return;
   }
 
+  // Check if it's on-campus hiring
+  if (selectedJob.hiring_type === 'on-campus') {
+    setPosting(true);
+    
+    try {
+      const campusLink = generateCampusLink(selectedJob);
+      setGeneratedLink(campusLink);
+      
+      // Store the campus link in database for tracking
+      const { data, error } = await supabase
+        .from('campus_job_links')  // You'll need to create this table
+        .insert({
+          job_id: selectedJob.id,
+          unique_link_id: campusLink.split('link_id=')[1].split('&')[0],
+          full_link: campusLink,
+          job_title: selectedJob.job_title,
+          company_name: selectedJob.company_name || 'Your Company Name',
+          status: 'active',
+          created_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
+        });
+
+      if (error) {
+        console.error('Failed to store campus link:', error);
+        // Continue even if storage fails
+      }
+
+      // Also log in job_postings table
+      await supabase
+        .from('job_postings')
+        .insert({
+          job_id: selectedJob.id,
+          platform: 'Campus Link',
+          status: 'Success',
+          post_id: campusLink.split('link_id=')[1].split('&')[0],
+          created_at: new Date().toISOString()
+        });
+
+      setCampusLinkModal(true);
+      message.success('Campus job link generated successfully!');
+      
+    } catch (error) {
+      console.error('Failed to generate campus link:', error);
+      message.error('Failed to generate campus link. Please try again.');
+    } finally {
+      setPosting(false);
+    }
+    
+    fetchPostingLogs();
+    return;
+  }
+
+
+  // Continue with existing off-campus posting logic
   const selectedPlatforms = Object.keys(postingPlatforms).filter(
     platform => postingPlatforms[platform]
   );
@@ -576,6 +674,32 @@ const deleteJob = async (jobId, jobTitle) => {
       padding: '24px',
       backgroundColor: 'transparent'
     }}>
+      <div style={{ marginBottom: '16px' }}>
+  <Space>
+    <Text strong>Filter by Hiring Type:</Text>
+    <Button.Group>
+      <Button 
+        type={hiringTypeFilter === 'all' ? 'primary' : 'default'}
+        onClick={() => setHiringTypeFilter('all')}
+      >
+        All Jobs
+      </Button>
+      <Button 
+        type={hiringTypeFilter === 'off-campus' ? 'primary' : 'default'}
+        onClick={() => setHiringTypeFilter('off-campus')}
+      >
+        Off-Campus
+      </Button>
+      <Button 
+        type={hiringTypeFilter === 'on-campus' ? 'primary' : 'default'}
+        onClick={() => setHiringTypeFilter('on-campus')}
+      >
+        On-Campus
+      </Button>
+    </Button.Group>
+  </Space>
+</div>
+
       <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
         {/* Header */}
         <Card 
@@ -628,7 +752,9 @@ const deleteJob = async (jobId, jobTitle) => {
         </Card>
 
         <Row gutter={[24, 24]}>
+          
           {/* Left Column - Job Selection */}
+          
           <Col xs={24} xl={16}>
             {/* Job Selection Section */}
             <Card 
@@ -767,13 +893,14 @@ const deleteJob = async (jobId, jobTitle) => {
           </Col>
 
           {/* Right Column - Posting Options */}
+{/* Right Column - Posting Options */}
           <Col xs={24} xl={8}>
             {/* Posting Platforms */}
             <Card 
               title={
                 <div style={{ color: '#1890ff' }}>
                   <SendOutlined style={{ marginRight: '8px' }} />
-                  Posting Platforms
+                  {selectedJob?.hiring_type === 'on-campus' ? 'Campus Job Link' : 'Posting Platforms'}
                 </div>
               }
               style={{ 
@@ -785,149 +912,203 @@ const deleteJob = async (jobId, jobTitle) => {
                 boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
               }}
             >
-              <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                <div style={{ 
-                  padding: '16px', 
-                  border: '1px solid #d9d9d9', 
-                  borderRadius: '8px',
-                  background: postingPlatforms.linkedin ? '#f6ffed' : '#fafafa'
-                }}>
-                  <Row justify="space-between" align="middle">
-                    <Col>
-                      <Space>
-                        <Avatar 
-                          icon={<LinkedinOutlined />} 
-                          style={{ backgroundColor: '#0077b5' }}
-                        />
-                        <div>
-                          <Text strong>LinkedIn</Text>
-                          <br />
-                          <Text type="secondary" style={{ fontSize: '12px' }}>
-                            Professional network
-                          </Text>
-                        </div>
-                      </Space>
-                    </Col>
-                    <Col>
-                      <Switch 
-                        checked={postingPlatforms.linkedin}
-                        onChange={(checked) => handlePlatformChange('linkedin', checked)}
-                      />
-                    </Col>
-                  </Row>
-                  {postingPlatforms.linkedin && (
-                    <Alert 
-                      message="LinkedIn API connected" 
-                      type="success" 
-                      showIcon 
-                      style={{ marginTop: '12px' }}
-                      size="small"
-                    />
-                  )}
+              {/* On-Campus Job Content */}
+              {selectedJob?.hiring_type === 'on-campus' ? (
+                <div>
+                  <Alert
+                    message="On-Campus Hiring"
+                    description="Generate a shareable link for college placement officers to distribute to students."
+                    type="info"
+                    showIcon
+                    style={{ marginBottom: '20px' }}
+                  />
+                  
+                  <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                    <div style={{ 
+                      padding: '16px', 
+                      border: '2px dashed #1890ff', 
+                      borderRadius: '8px',
+                      background: '#f0f8ff'
+                    }}>
+                      <TeamOutlined style={{ fontSize: '24px', color: '#1890ff', marginBottom: '8px' }} />
+                      <div>
+                        <Text strong>Campus Job Link Generation</Text>
+                        <br />
+                        <Text type="secondary">
+                          Click below to generate a unique application link for this job
+                        </Text>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button
+                    type="primary"
+                    size="large"
+                    block
+                    icon={<RocketOutlined />}
+                    loading={posting}
+                    onClick={handlePostJob}
+                    disabled={!selectedJob}
+                    style={{
+                      background: 'linear-gradient(45deg, #52c41a 0%, #1890ff 100%)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      height: '48px',
+                      fontSize: '16px',
+                      fontWeight: '600'
+                    }}
+                  >
+                    {posting ? 'Generating Link...' : 'Generate Campus Job Link'}
+                  </Button>
                 </div>
-
-                <div style={{ 
-                  padding: '16px', 
-                  border: '1px solid #d9d9d9', 
-                  borderRadius: '8px',
-                  background: postingPlatforms.company ? '#f6ffed' : '#fafafa'
-                }}>
-                  <Row justify="space-between" align="middle">
-                    <Col>
-                      <Space>
-                        <Avatar 
-                          icon={<GlobalOutlined />} 
-                          style={{ backgroundColor: '#1890ff' }}
+              ) : (
+                /* Off-Campus Job Content */
+                <div>
+                  <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                    <div style={{ 
+                      padding: '16px', 
+                      border: '1px solid #d9d9d9', 
+                      borderRadius: '8px',
+                      background: postingPlatforms.linkedin ? '#f6ffed' : '#fafafa'
+                    }}>
+                      <Row justify="space-between" align="middle">
+                        <Col>
+                          <Space>
+                            <Avatar 
+                              icon={<LinkedinOutlined />} 
+                              style={{ backgroundColor: '#0077b5' }}
+                            />
+                            <div>
+                              <Text strong>LinkedIn</Text>
+                              <br />
+                              <Text type="secondary" style={{ fontSize: '12px' }}>
+                                Professional network
+                              </Text>
+                            </div>
+                          </Space>
+                        </Col>
+                        <Col>
+                          <Switch 
+                            checked={postingPlatforms.linkedin}
+                            onChange={(checked) => handlePlatformChange('linkedin', checked)}
+                          />
+                        </Col>
+                      </Row>
+                      {postingPlatforms.linkedin && (
+                        <Alert 
+                          message="LinkedIn API connected" 
+                          type="success" 
+                          showIcon 
+                          style={{ marginTop: '12px' }}
+                          size="small"
                         />
-                        <div>
-                          <Text strong>Company Portal</Text>
-                          <br />
-                          <Text type="secondary" style={{ fontSize: '12px' }}>
-                            External careers page
-                          </Text>
-                        </div>
-                      </Space>
-                    </Col>
-                    <Col>
-                      <Switch 
-                        checked={postingPlatforms.company}
-                        onChange={(checked) => handlePlatformChange('company', checked)}
-                      />
-                    </Col>
-                  </Row>
-                  {postingPlatforms.company && (
-                    <Alert 
-                      message="Company API configured" 
-                      type="success" 
-                      showIcon 
-                      style={{ marginTop: '12px' }}
-                      size="small"
-                    />
-                  )}
-                </div>
+                      )}
+                    </div>
 
-                <div style={{ 
-                  padding: '16px', 
-                  border: '1px solid #d9d9d9', 
-                  borderRadius: '8px',
-                  background: postingPlatforms.internal ? '#f6ffed' : '#fafafa'
-                }}>
-                  <Row justify="space-between" align="middle">
-                    <Col>
-                      <Space>
-                        <Avatar 
-                          icon={<TeamOutlined />} 
-                          style={{ backgroundColor: '#52c41a' }}
+                    <div style={{ 
+                      padding: '16px', 
+                      border: '1px solid #d9d9d9', 
+                      borderRadius: '8px',
+                      background: postingPlatforms.company ? '#f6ffed' : '#fafafa'
+                    }}>
+                      <Row justify="space-between" align="middle">
+                        <Col>
+                          <Space>
+                            <Avatar 
+                              icon={<GlobalOutlined />} 
+                              style={{ backgroundColor: '#1890ff' }}
+                            />
+                            <div>
+                              <Text strong>Company Portal</Text>
+                              <br />
+                              <Text type="secondary" style={{ fontSize: '12px' }}>
+                                External careers page
+                              </Text>
+                            </div>
+                          </Space>
+                        </Col>
+                        <Col>
+                          <Switch 
+                            checked={postingPlatforms.company}
+                            onChange={(checked) => handlePlatformChange('company', checked)}
+                          />
+                        </Col>
+                      </Row>
+                      {postingPlatforms.company && (
+                        <Alert 
+                          message="Company API configured" 
+                          type="success" 
+                          showIcon 
+                          style={{ marginTop: '12px' }}
+                          size="small"
                         />
-                        <div>
-                          <Text strong>Internal Portal</Text>
-                          <br />
-                          <Text type="secondary" style={{ fontSize: '12px' }}>
-                            Employee referrals
-                          </Text>
-                        </div>
-                      </Space>
-                    </Col>
-                    <Col>
-                      <Switch 
-                        checked={postingPlatforms.internal}
-                        onChange={(checked) => handlePlatformChange('internal', checked)}
-                      />
-                    </Col>
-                  </Row>
-                  {postingPlatforms.internal && (
-                    <Alert 
-                      message="Internal system ready" 
-                      type="success" 
-                      showIcon 
-                      style={{ marginTop: '12px' }}
-                      size="small"
-                    />
-                  )}
+                      )}
+                    </div>
+
+                    <div style={{ 
+                      padding: '16px', 
+                      border: '1px solid #d9d9d9', 
+                      borderRadius: '8px',
+                      background: postingPlatforms.internal ? '#f6ffed' : '#fafafa'
+                    }}>
+                      <Row justify="space-between" align="middle">
+                        <Col>
+                          <Space>
+                            <Avatar 
+                              icon={<TeamOutlined />} 
+                              style={{ backgroundColor: '#52c41a' }}
+                            />
+                            <div>
+                              <Text strong>Internal Portal</Text>
+                              <br />
+                              <Text type="secondary" style={{ fontSize: '12px' }}>
+                                Employee referrals
+                              </Text>
+                            </div>
+                          </Space>
+                        </Col>
+                        <Col>
+                          <Switch 
+                            checked={postingPlatforms.internal}
+                            onChange={(checked) => handlePlatformChange('internal', checked)}
+                          />
+                        </Col>
+                      </Row>
+                      {postingPlatforms.internal && (
+                        <Alert 
+                          message="Internal system ready" 
+                          type="success" 
+                          showIcon 
+                          style={{ marginTop: '12px' }}
+                          size="small"
+                        />
+                      )}
+                    </div>
+                  </Space>
+
+                  <Divider />
+
+                  <Button
+                    type="primary"
+                    size="large"
+                    block
+                    icon={<RocketOutlined />}
+                    loading={posting}
+                    onClick={handlePostJob}
+                    disabled={!selectedJob}
+                    style={{
+                      background: 'linear-gradient(45deg, #1890ff 0%, #722ed1 100%)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      height: '48px',
+                      fontSize: '16px',
+                      fontWeight: '600'
+                    }}
+                  >
+                    {posting ? 'Processing...' : 'Post to Selected Platforms'}
+                  </Button>
                 </div>
-              </Space>
-
-              <Divider />
-
-              <Button
-                type="primary"
-                size="large"
-                block
-                icon={<RocketOutlined />}
-                loading={posting}
-                onClick={handlePostJob}
-                disabled={!selectedJob}
-                style={{
-                  background: 'linear-gradient(45deg, #1890ff 0%, #722ed1 100%)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  height: '48px',
-                  fontSize: '16px',
-                  fontWeight: '600'
-                }}
-              >
-                {posting ? 'Posting Job...' : 'Post to Selected Platforms'}
-              </Button>
+              )}
             </Card>
           </Col>
         </Row>
@@ -1082,6 +1263,63 @@ const deleteJob = async (jobId, jobTitle) => {
     </List.Item>
   )}
 />        </Modal>
+<Modal
+  title="Campus Job Link Generated"
+  open={campusLinkModal}
+  onCancel={() => setCampusLinkModal(false)}
+  width={600}
+  footer={[
+    <Button 
+      key="copy" 
+      type="primary"
+      onClick={() => {
+        navigator.clipboard.writeText(generatedLink);
+        message.success('Link copied to clipboard!');
+      }}
+    >
+      Copy Link
+    </Button>,
+    <Button key="close" onClick={() => setCampusLinkModal(false)}>
+      Close
+    </Button>
+  ]}
+>
+  <div>
+    <Alert
+      message="Campus Job Link Ready"
+      description="Share this link with colleges for on-campus hiring. Students can apply directly through this link."
+      type="success"
+      showIcon
+      style={{ marginBottom: '16px' }}
+    />
+    
+    <div style={{ marginBottom: '16px' }}>
+      <Text strong>Job: </Text>
+      <Text>{selectedJob?.job_title}</Text>
+    </div>
+    
+    <div style={{ marginBottom: '16px' }}>
+      <Text strong>Generated Link:</Text>
+      <div style={{ 
+        marginTop: '8px',
+        padding: '12px',
+        backgroundColor: '#f5f5f5',
+        border: '1px solid #d9d9d9',
+        borderRadius: '6px',
+        wordBreak: 'break-all'
+      }}>
+        <Text code>{generatedLink}</Text>
+      </div>
+    </div>
+    
+    <Alert
+      message="Instructions"
+      description="1. Copy the link above. 2. Share with college placement officers. 3. Students can apply directly through this link. 4. Track applications in your dashboard."
+      type="info"
+      showIcon
+    />
+  </div>
+</Modal>
       </div>
     </div>
   );
