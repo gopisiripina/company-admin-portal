@@ -176,7 +176,7 @@ const generateCampusLink = (jobData) => {
     link_id: uniqueId,
     job_id: jobData.id,
     title: jobData.job_title || '',
-    company: jobData.company_name || 'Your Company Name',
+    company: jobData.company_name || 'My Access',
     department: jobData.department || '',
     location: jobData.location || '',
     employment_type: jobData.employment_type || '',
