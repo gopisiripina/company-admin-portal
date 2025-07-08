@@ -29,14 +29,14 @@ import {
   CheckCircleOutlined,
   LinkOutlined
 } from '@ant-design/icons';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 const { Option } = Select;
 
 // Supabase configuration
-import {supabase} from '../../supabase/config';
+import { supabase } from '../../supabase/config';
 
 // Utility function for uploading resume
 const uploadResumeToStorage = async (file, applicationId) => {
@@ -58,17 +58,23 @@ const uploadResumeToStorage = async (file, applicationId) => {
 };
 
 const JobApplicationPage = () => {
-  const { jobId } = useParams(); // Get job ID from URL params
-  const [searchParams] = useSearchParams(); // Get query parameters
+  const [searchParams] = useSearchParams();
   const [jobData, setJobData] = useState(null);
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(true);
-  const [currentStep, setCurrentStep] = useState(0);
   const [formProgress, setFormProgress] = useState(0);
   const [fileList, setFileList] = useState([]);
   const [submitted, setSubmitted] = useState(false);
+
+  // Extract job ID from URL
+  const getCurrentJobId = () => {
+    const path = window.location.pathname;
+    const match = path.match(/\/job-application\/(\d+)/);
+    return match ? match[1] : null;
+  };
   
-  // Add useEffect to fetch job data dynamically
+  const jobId = getCurrentJobId();
+  
   useEffect(() => {
     fetchJobData();
   }, [jobId]);
@@ -78,69 +84,81 @@ const JobApplicationPage = () => {
     try {
       let jobInfo = null;
 
-      // If jobId is provided in URL, fetch from database
+      // If jobId is provided in URL, try to fetch from job_postings table
       if (jobId) {
-        const { data, error } = await supabase
-          .from('job_descriptions')
-          .select('*')
-          .eq('id', jobId)
-          .single();
+        try {
+          const { data: jobPosting, error } = await supabase
+            .from('job_postings')
+            .select('*')
+            .eq('id', jobId)
+            .single();
 
-        if (error) {
-          console.error('Error fetching job:', error);
-          message.error('Job not found');
-          return;
+          if (error) {
+            console.error('Error fetching job posting:', error);
+            throw error;
+          }
+
+          // Use the job posting data directly
+          jobInfo = {
+            id: jobPosting.id,
+            title: jobPosting.title || jobPosting.job_title,
+            company: jobPosting.company || jobPosting.company_name || "My Access",
+            location: jobPosting.location || "Location TBD",
+            type: jobPosting.type || jobPosting.employment_type || "Full-time",
+            salary: jobPosting.salary || jobPosting.salary_range || "Competitive",
+            description: jobPosting.description || jobPosting.job_description || "Great opportunity to join our team",
+            requirements: jobPosting.requirements || jobPosting.required_skills || []
+          };
+        } catch (error) {
+          console.error('Error fetching job from database:', error);
+          // If database fetch fails, fall back to URL parameters
+          jobInfo = getJobInfoFromParams();
         }
-
-        jobInfo = {
-          id: data.id,
-          title: data.job_title,
-          company: data.company_name || "Your Company Name",
-          location: data.location,
-          type: data.employment_type,
-          salary: data.salary_range || "Competitive",
-          description: data.job_description,
-          requirements: data.required_skills ? 
-            (Array.isArray(data.required_skills) ? 
-              data.required_skills : 
-              data.required_skills.split(',').map(s => s.trim())
-            ) : []
-        };
-      } 
+      }
       // If no jobId but query params exist (from job posting)
       else if (searchParams.get('title')) {
-        jobInfo = {
-          id: searchParams.get('id') || Date.now(),
-          title: searchParams.get('title'),
-          company: searchParams.get('company') || "Your Company Name",
-          location: searchParams.get('location') || "Location TBD",
-          type: searchParams.get('type') || "Full-time",
-          salary: searchParams.get('salary') || "Competitive",
-          description: searchParams.get('description') || "Great opportunity to join our team",
-          requirements: []
-        };
+        jobInfo = getJobInfoFromParams();
       }
       // Fallback to default
       else {
-        jobInfo = {
-          id: 1,
-          title: "General Application",
-          company: "Your Company Name",
-          location: "Various Locations",
-          type: "Multiple Types",
-          salary: "Competitive",
-          description: "Submit your application for future opportunities.",
-          requirements: []
-        };
+        jobInfo = getDefaultJobInfo();
       }
 
       setJobData(jobInfo);
     } catch (error) {
       console.error('Error fetching job data:', error);
       message.error('Failed to load job information');
+      // Set default job info even on error
+      setJobData(getDefaultJobInfo());
     } finally {
       setLoading(false);
     }
+  };
+
+  const getJobInfoFromParams = () => {
+    return {
+      id: searchParams.get('job_id') || searchParams.get('id'),
+      title: searchParams.get('title'),
+      company: searchParams.get('company') || "My Access",
+      location: searchParams.get('location') || "Location TBD",
+      type: searchParams.get('type') || "Full-time",
+      salary: searchParams.get('salary') || "Competitive",
+      description: searchParams.get('description') || "Great opportunity to join our team",
+      requirements: []
+    };
+  };
+
+  const getDefaultJobInfo = () => {
+    return {
+      id: null,
+      title: "General Application",
+      company: "My Access",
+      location: "Various Locations",
+      type: "Multiple Types",
+      salary: "Competitive",
+      description: "Submit your application for future opportunities.",
+      requirements: []
+    };
   };
 
   const calculateProgress = () => {
@@ -151,7 +169,6 @@ const JobApplicationPage = () => {
     setFormProgress(progress);
   };
 
-  // Update the handleSubmit function to use dynamic jobData
   const handleSubmit = async (values) => {
     setLoading(true);
     
@@ -163,8 +180,8 @@ const JobApplicationPage = () => {
       }
 
       const applicationData = {
-        job_id: jobId ? parseInt(jobId) : 1, // Use dynamic job data
-        job_title: jobData.title, // Use dynamic job data
+        job_id: jobId ? parseInt(jobId) : null,
+        job_title: jobData?.title || 'Unknown Position',
         full_name: values.fullName,
         email: values.email,
         phone: values.phone,
@@ -182,7 +199,7 @@ const JobApplicationPage = () => {
         resume_url: resumeUrl,
         status: 'pending'
       };
-      
+
       const { data, error } = await supabase
         .from('job_applications')
         .insert([applicationData])
@@ -231,13 +248,7 @@ const JobApplicationPage = () => {
     fileList
   };
 
-  const steps = [
-    { title: 'Personal Info', icon: <UserOutlined /> },
-    { title: 'Professional Details', icon: <BankOutlined /> },
-    { title: 'Application', icon: <FileTextOutlined /> }
-  ];
-
-  // Add loading state for initial page load
+  // Loading state for initial page load
   if (loading && !jobData) {
     return (
       <div style={{ 
@@ -283,7 +294,6 @@ const JobApplicationPage = () => {
   return (
     <div style={{ 
       minHeight: '100vh', 
-      // background: 'linear-gradient(135deg,rgb(156, 184, 139) 0%,rgb(237, 244, 239) 100%)',
       padding: '20px 0'
     }}>
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 20px' }}>
@@ -316,11 +326,6 @@ const JobApplicationPage = () => {
               </div>
             </Col>
           </Row>
-        </Card>
-
-        {/* Steps */}
-        <Card style={{ marginBottom: '24px', borderRadius: '12px' }}>
-          <Steps current={currentStep} items={steps} />
         </Card>
 
         {/* Application Form */}
