@@ -485,7 +485,7 @@ const handleSubmit = async (values) => {
         >
           <Row align="middle" justify="space-between">
             <Col>
-              // Update the main header title (around line 380)
+             
 <Title level={2} style={{ margin: 0, color: '#1890ff' }}>
   <FileTextOutlined style={{ marginRight: '12px' }} />
   Create Job Description 
