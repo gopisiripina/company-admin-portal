@@ -427,10 +427,30 @@ const AdminManagement = ({ userRole }) => {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  const checkMobile = () => {
+    const mobile = window.innerWidth <= 768;
+    setIsMobile(mobile);
+    
+    // Prevent horizontal scroll on mobile
+    if (mobile) {
+      document.body.style.overflowX = 'hidden';
+      document.documentElement.style.overflowX = 'hidden';
+    } else {
+      document.body.style.overflowX = 'auto';
+      document.documentElement.style.overflowX = 'auto';
+    }
+  };
+  
+  checkMobile();
+  window.addEventListener('resize', checkMobile);
+  
+  return () => {
+    window.removeEventListener('resize', checkMobile);
+    // Cleanup overflow styles
+    document.body.style.overflowX = 'auto';
+    document.documentElement.style.overflowX = 'auto';
+  };
+}, []);
 useEffect(() => {
   // Prevent horizontal scroll on mobile
   if (isMobile) {
@@ -601,58 +621,66 @@ useEffect(() => {
     title: 'Admin',
     dataIndex: 'name',
     key: 'name',
-    fixed: 'left',
-    width: isMobile ? 200 : 250,
+    fixed: isMobile ? false : 'left', // Remove fixed positioning on mobile
+    width: isMobile ? 180 : 250,
     render: (text, record) => (
-  <div style={{ 
-    display: 'flex', 
-    alignItems: 'flex-start',
-    gap: '12px',
-    width: '100%'
-  }}>
-    <Avatar 
-      style={{ 
-        backgroundColor: '#1F4842',
-        flexShrink: 0
-      }}
-      size={isMobile ? "default" : "large"}
-      src={record.profileimage}  // Changed from record.profileImage
-      icon={!record.profileimage && <UserOutlined />}  // Changed condition
-    >
-      {!record.profileimage && text.charAt(0).toUpperCase()}  // Changed condition
-    </Avatar>
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'flex-start',
+        gap: isMobile ? '8px' : '12px',
+        width: '100%',
+        overflow: 'hidden' // Prevent overflow
+      }}>
+        <Avatar 
+          style={{ 
+            backgroundColor: '#1F4842',
+            flexShrink: 0
+          }}
+          size={isMobile ? "small" : "large"}
+          src={record.profileimage}
+          icon={!record.profileimage && <UserOutlined />}
+        >
+          {!record.profileimage && text.charAt(0).toUpperCase()}
+        </Avatar>
         <div style={{ 
           flex: 1,
-          minWidth: 0,
-          textAlign: 'left'
+          minWidth: 0, // Allow shrinking
+          overflow: 'hidden'
         }}>
           <div style={{ 
             fontWeight: 600, 
-            fontSize: isMobile ? '12px' : '14px',
+            fontSize: isMobile ? '11px' : '14px',
             marginBottom: '4px',
-            textAlign: 'left'
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
           }}>
             {text}
           </div>
           <div style={{ 
-            fontSize: isMobile ? '10px' : '12px',
+            fontSize: isMobile ? '9px' : '12px',
             color: '#666',
-            textAlign: 'left'
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
           }}>
             <MailOutlined style={{ marginRight: '4px' }} /> 
             {record.email}
           </div>
           {isMobile && (
             <div style={{ 
-              marginTop: '8px',
+              marginTop: '4px',
               display: 'flex',
               flexWrap: 'wrap',
-              gap: '4px',
-              justifyContent: 'flex-start'
+              gap: '2px'
             }}>
-              <Tag color="blue" size="small">{record.role}</Tag>
-              {record.adminId && (
-                <Tag color="geekblue" size="small">{record.adminId}</Tag>
+              <Tag color="blue" size="small" style={{ fontSize: '10px' }}>
+                {record.role}
+              </Tag>
+              {record.employeeid && (
+                <Tag color="geekblue" size="small" style={{ fontSize: '10px' }}>
+                  {record.employeeid}
+                </Tag>
               )}
             </div>
           )}
@@ -664,47 +692,55 @@ useEffect(() => {
     title: 'Admin ID',
     dataIndex: 'employeeid',
     key: 'adminId',
-    width: 120,
+    width: isMobile ? 80 : 120,
     render: (adminId) => (
-      <Tag color="geekblue">{adminId || 'N/A'}</Tag>
+      <Tag color="geekblue" style={{ fontSize: isMobile ? '10px' : '12px' }}>
+        {adminId || 'N/A'}
+      </Tag>
     ),
     responsive: ['md'],
   },
   {
-      title: 'Status',
-      dataIndex: 'isactive',
-      key: 'isActive',
-      width: 100,
-      render: (isActive) => (
-        <Tag color={isActive ? 'green' : 'red'}>
-          {isActive ? 'Active' : 'Inactive'}
-        </Tag>
-      ),
-      responsive: ['md'],
-    },
+    title: 'Status',
+    dataIndex: 'isactive',
+    key: 'isActive',
+    width: isMobile ? 70 : 100,
+    render: (isActive) => (
+      <Tag 
+        color={isActive ? 'green' : 'red'} 
+        style={{ fontSize: isMobile ? '10px' : '12px' }}
+      >
+        {isActive ? 'Active' : 'Inactive'}
+      </Tag>
+    ),
+    responsive: ['md'],
+  },
   {
-  title: 'Created Date',
-  dataIndex: 'createdat',
-  key: 'createdAt',
-  width: 120,
-  render: (date) => (
-    date ? new Date(date).toLocaleDateString() : 'Unknown'  // Changed from date?.toDate()
-  ),
-  responsive: ['xl'],
-},
+    title: 'Created',
+    dataIndex: 'createdat',
+    key: 'createdAt',
+    width: isMobile ? 80 : 120,
+    render: (date) => (
+      <span style={{ fontSize: isMobile ? '10px' : '12px' }}>
+        {date ? new Date(date).toLocaleDateString() : 'Unknown'}
+      </span>
+    ),
+    responsive: ['xl'],
+  },
   {
     title: 'Actions',
     key: 'actions',
-    fixed: 'right',
-    width: isMobile ? 120 : 140,
+    fixed: isMobile ? false : 'right', // Remove fixed positioning on mobile
+    width: isMobile ? 80 : 140,
     render: (_, record) => (
       <div className={isMobile ? 'mobile-actions' : 'actions-container'}>
         <Button
           type="primary"
           icon={<EditOutlined />}
-          size={isMobile ? "small" : "middle"}
+          size="small"
           onClick={() => handleEdit(record)}
           className="brand-primary"
+          style={{ minWidth: isMobile ? '28px' : '32px' }}
         />
         <Popconfirm
           title="Delete Admin"
@@ -716,13 +752,15 @@ useEffect(() => {
           <Button
             danger
             icon={<DeleteOutlined />}
-            size={isMobile ? "small" : "middle"}
+            size="small"
+            style={{ minWidth: isMobile ? '28px' : '32px' }}
           />
         </Popconfirm>
       </div>
     ),
   },
 ], [isMobile, handleEdit, handleDelete]);
+
 
   // Permission check
   if (userRole !== 'superadmin') {
@@ -731,173 +769,189 @@ useEffect(() => {
 
 
   return (
-    <div className="admin-management-wrapper">
-      <div className="admin-management-content">
-        <div className={`admin-management-container ${isMobile ? 'mobile-table' : ''}`}>
-          {/* Header */}
-          <div className="animated-card" style={{ marginBottom: '24px' }}>
-            <div className={`${isMobile ? 'mobile-header' : ''}`} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div>
-                <Title level={2} className={isMobile ? 'responsive-title' : ''} style={{ margin: 0 }}>
-                  Admin Management
-                </Title>
-                <Text type="secondary" className={isMobile ? 'responsive-subtitle' : ''}>
-                  Manage admin users and their access levels
-                </Text>
-              </div>
-              <Button
-                type="primary"
-                icon={<UserAddOutlined />}
-                onClick={() => setShowFormModal(true)}
-                className="brand-primary"
-                size={isMobile ? "middle" : "large"}
-              >
-                Add Admin
-              </Button>
+  <div className="admin-management-wrapper">
+    <div className="admin-management-content">
+      <div className={`admin-management-container ${isMobile ? 'mobile-table' : ''}`}>
+        {/* Header */}
+        <div className="animated-card" style={{ marginBottom: '24px' }}>
+          <div 
+            className={`${isMobile ? 'mobile-header' : ''}`} 
+            style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: isMobile ? 'flex-start' : 'center', 
+              marginBottom: '16px',
+              flexDirection: isMobile ? 'column' : 'row',
+              gap: isMobile ? '12px' : '0'
+            }}
+          >
+            <div style={{ width: isMobile ? '100%' : 'auto' }}>
+              <Title level={2} className={isMobile ? 'responsive-title' : ''} style={{ margin: 0 }}>
+                Admin Management
+              </Title>
+              <Text type="secondary" className={isMobile ? 'responsive-subtitle' : ''}>
+                Manage admin users and their access levels
+              </Text>
             </div>
-          </div>
-
-          {/* Stats Cards */}
-          <Row gutter={[16, 16]} style={{ marginBottom: '24px' }} className={isMobile ? 'mobile-stats' : ''}>
-            <Col xs={24} sm={12} md={8} lg={6}>
-              <Card className="animated-card-delayed stats-card">
-                <Statistic
-                  title="Total Admins"
-                  value={totalAdmins}
-                  prefix={<TeamOutlined />}
-                  valueStyle={{ color: '#1F4842' }}
-                  className={isMobile ? 'responsive-stat-value' : ''}
-                />
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} md={8} lg={6}>
-              <Card className="animated-card-delayed-2 stats-card">
-                <Statistic
-                  title="Active Admins"
-                  value={activeAdmins}
-                  prefix={<TeamOutlined />}
-                  valueStyle={{ color: '#10b981' }}
-                  className={isMobile ? 'responsive-stat-value' : ''}
-                />
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} md={8} lg={6}>
-              <Card className="animated-card-delayed-3 stats-card">
-                <Statistic
-                  title="Inactive Admins"
-                  value={inactiveAdmins}
-                  prefix={<TeamOutlined />}
-                  valueStyle={{ color: '#ef4444' }}
-                  className={isMobile ? 'responsive-stat-value' : ''}
-                />
-              </Card>
-            </Col>
-          </Row>
-
-          {/* Search Bar */}
-          <Card style={{ marginBottom: '24px' }} className={`animated-card-delayed ${isMobile ? 'mobile-search' : ''}`}>
-            <Search
-              placeholder="Search admins by name, email or admin ID..."
-              allowClear
-              enterButton={
-                <Button 
-                  type="primary" 
-                  icon={<SearchOutlined />}
-                  className="brand-primary"
-                  style={{ backgroundColor: '#1F4842', borderColor: '#1F4842' }}
-                >
-                  Search
-                </Button>
-              }
+            <Button
+              type="primary"
+              icon={<UserAddOutlined />}
+              onClick={() => setShowFormModal(true)}
+              className="brand-primary"
               size={isMobile ? "middle" : "large"}
-              onSearch={handleSearch}
-              style={{ maxWidth: isMobile ? '100%' : '400px' }}
-            />
-          </Card>
+              style={{ width: isMobile ? '100%' : 'auto', maxWidth: isMobile ? '200px' : 'none' }}
+            >
+              Add Admin
+            </Button>
+          </div>
+        </div>
 
-          {/* Admin List - Mobile Cards or Table */}
-          {isMobile ? (
-            <Card className="animated-card-delayed-2" style={{ marginBottom: '24px' }}>
-              <div style={{ marginBottom: '16px' }}>
-                <Title level={4} style={{ margin: 0 }}>Admin List</Title>
-                <Text type="secondary" style={{ fontSize: '12px' }}>
-                  {admins.length} of {pagination.total} admins
-                </Text>
-              </div>
-              {loading ? (
-                <div style={{ textAlign: 'center', padding: '40px' }}>
-                  <Text>Loading admins...</Text>
-                </div>
-              ) : (
-                <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
-                  {admins.map((admin) => (
-                    <MobileAdminCard
-                      key={admin.id}
-                      admin={admin}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                      loading={loading}
-                    />
-                  ))}
-                </div>
-              )}
-              
-              {/* Mobile Pagination */}
-              <div style={{ textAlign: 'center', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #f0f0f0' }}>
-                <Space>
-                  <Button 
-                    size="small"
-                    disabled={pagination.current === 1}
-                    onClick={() => fetchAdmins(pagination.current - 1, pagination.pageSize, searchQuery)}
-                  >
-                    Previous
-                  </Button>
-                  <Text style={{ fontSize: '12px' }}>
-                    Page {pagination.current} of {Math.ceil(pagination.total / pagination.pageSize)}
-                  </Text>
-                  <Button 
-                    size="small"
-                    disabled={pagination.current >= Math.ceil(pagination.total / pagination.pageSize)}
-                    onClick={() => fetchAdmins(pagination.current + 1, pagination.pageSize, searchQuery)}
-                  >
-                    Next
-                  </Button>
-                </Space>
-              </div>
-            </Card>
-          ) : (
-            /* Desktop Table */
-            <Card className="animated-card-delayed-2">
-              <Table
-                columns={columns}
-                dataSource={admins}
-                rowKey="id"
-                loading={loading}
-                pagination={{
-                  ...pagination,
-                  showSizeChanger: true,
-                  showQuickJumper: true,
-                  showTotal: (total, range) =>
-                    `${range[0]}-${range[1]} of ${total} admins`,
-                  pageSizeOptions: ['10', '20', '50', '100'],
-                }}
-                onChange={handleTableChange}
-                scroll={{ x: 800 }}
-                size="middle"
+        {/* Stats Cards */}
+        <Row gutter={[8, 8]} style={{ marginBottom: '24px' }} className={isMobile ? 'mobile-stats' : ''}>
+          <Col xs={24} sm={12} md={8} lg={6}>
+            <Card className="animated-card-delayed stats-card">
+              <Statistic
+                title="Total Admins"
+                value={totalAdmins}
+                prefix={<TeamOutlined />}
+                valueStyle={{ color: '#1F4842' }}
+                className={isMobile ? 'responsive-stat-value' : ''}
               />
             </Card>
-          )}
+          </Col>
+          <Col xs={24} sm={12} md={8} lg={6}>
+            <Card className="animated-card-delayed-2 stats-card">
+              <Statistic
+                title="Active Admins"
+                value={activeAdmins}
+                prefix={<TeamOutlined />}
+                valueStyle={{ color: '#10b981' }}
+                className={isMobile ? 'responsive-stat-value' : ''}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={8} lg={6}>
+            <Card className="animated-card-delayed-3 stats-card">
+              <Statistic
+                title="Inactive Admins"
+                value={inactiveAdmins}
+                prefix={<TeamOutlined />}
+                valueStyle={{ color: '#ef4444' }}
+                className={isMobile ? 'responsive-stat-value' : ''}
+              />
+            </Card>
+          </Col>
+        </Row>
 
-          {/* Form Modal */}
-          <AdminFormModal
-            isOpen={showFormModal}
-            onClose={handleFormClose}
-            editingAdmin={editingAdmin}
-            onSuccess={handleFormSuccess}
+        {/* Search Bar */}
+        <Card style={{ marginBottom: '24px' }} className={`animated-card-delayed ${isMobile ? 'mobile-search' : ''}`}>
+          <Search
+            placeholder="Search admins by name, email or admin ID..."
+            allowClear
+            enterButton={
+              <Button 
+                type="primary" 
+                icon={<SearchOutlined />}
+                className="brand-primary"
+                style={{ backgroundColor: '#1F4842', borderColor: '#1F4842' }}
+              >
+                {isMobile ? '' : 'Search'}
+              </Button>
+            }
+            size={isMobile ? "middle" : "large"}
+            onSearch={handleSearch}
+            style={{ width: '100%' }}
           />
-        </div>
+        </Card>
+
+        {/* Admin List - Mobile Cards or Table */}
+        {isMobile ? (
+          <Card className="animated-card-delayed-2" style={{ marginBottom: '24px' }}>
+            <div style={{ marginBottom: '16px' }}>
+              <Title level={4} style={{ margin: 0 }}>Admin List</Title>
+              <Text type="secondary" style={{ fontSize: '12px' }}>
+                {admins.length} of {pagination.total} admins
+              </Text>
+            </div>
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: '40px' }}>
+                <Text>Loading admins...</Text>
+              </div>
+            ) : (
+              <div style={{ maxHeight: '500px', overflowY: 'auto', overflowX: 'hidden' }}>
+                {admins.map((admin) => (
+                  <MobileAdminCard
+                    key={admin.id}
+                    admin={admin}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    loading={loading}
+                  />
+                ))}
+              </div>
+            )}
+            
+            {/* Mobile Pagination */}
+            <div style={{ 
+              textAlign: 'center', 
+              marginTop: '16px', 
+              paddingTop: '16px', 
+              borderTop: '1px solid #f0f0f0' 
+            }}>
+              <Space>
+                <Button 
+                  size="small"
+                  disabled={pagination.current === 1}
+                  onClick={() => fetchAdmins(pagination.current - 1, pagination.pageSize, searchQuery)}
+                >
+                  Previous
+                </Button>
+                <Text style={{ fontSize: '12px' }}>
+                  Page {pagination.current} of {Math.ceil(pagination.total / pagination.pageSize)}
+                </Text>
+                <Button 
+                  size="small"
+                  disabled={pagination.current >= Math.ceil(pagination.total / pagination.pageSize)}
+                  onClick={() => fetchAdmins(pagination.current + 1, pagination.pageSize, searchQuery)}
+                >
+                  Next
+                </Button>
+              </Space>
+            </div>
+          </Card>
+        ) : (
+          /* Desktop Table */
+          <Card className="animated-card-delayed-2">
+            <Table
+              columns={columns}
+              dataSource={admins}
+              rowKey="id"
+              loading={loading}
+              pagination={{
+                ...pagination,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total, range) =>
+                  `${range[0]}-${range[1]} of ${total} admins`,
+                pageSizeOptions: ['10', '20', '50', '100'],
+              }}
+              onChange={handleTableChange}
+              scroll={{ x: 'max-content' }} // Changed from fixed width to max-content
+              size="middle"
+            />
+          </Card>
+        )}
+
+        {/* Form Modal */}
+        <AdminFormModal
+          isOpen={showFormModal}
+          onClose={handleFormClose}
+          editingAdmin={editingAdmin}
+          onSuccess={handleFormSuccess}
+        />
       </div>
     </div>
+  </div>
   );
 };
 
