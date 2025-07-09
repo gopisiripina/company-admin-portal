@@ -62,7 +62,7 @@ const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
    ...(userRole === 'superadmin' || userRole === 'hr' ? [
       {
     icon: FolderKanban,
-    label: 'Carrers',
+    label: 'Careers',
     id: 'Carrers',
     color: '#8b5cf6',
     hasChildren: true,
@@ -76,6 +76,7 @@ const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
       { icon: FileText, label: 'Selected List', id: 'selected-list', color: '#10b981' },
       { icon: FileText, label: 'Campus Job View', id: 'campus-job-view', color: '#10b981' },
       { icon: FileText, label: 'On Campus Data', id: 'on-campus-data', color: '#10b981' },
+      { icon: FileText, label: 'Exam Conduct On Campus', id: 'exam-conduct-page', color: '#10b981' },
     ]}
 ] : []),
     // Only show Admin button for superadmin
@@ -183,7 +184,7 @@ const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
                 MyAccess
               </span>
               <span className="logo-subtitle">
-                Protal
+                Portal
               </span>
             </div>
           )}
