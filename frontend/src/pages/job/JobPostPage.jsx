@@ -177,6 +177,7 @@ const generateCampusLink = (jobData) => {
     job_id: jobData.id,
     title: jobData.job_title || '',
     company: jobData.company_name || 'My Access',
+    college_name: jobData.college_name || '',
     department: jobData.department || '',
     location: jobData.location || '',
     employment_type: jobData.employment_type || '',
@@ -521,7 +522,8 @@ const handlePostJob = async () => {
           unique_link_id: campusLink.split('link_id=')[1].split('&')[0],
           full_link: campusLink,
           job_title: selectedJob.job_title,
-          company_name: selectedJob.company_name || 'Your Company Name',
+          company_name: selectedJob.company_name || 'My Access',
+          college_name: selectedJob.college_name || '',
           status: 'active',
           created_at: new Date().toISOString(),
           expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
