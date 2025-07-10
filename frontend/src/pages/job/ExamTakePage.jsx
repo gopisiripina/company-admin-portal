@@ -43,6 +43,11 @@ const ExamTakePage = () => {
   const [currentQuestion, setCurrentQuestion] = useState(1);
   const [answers, setAnswers] = useState({});
   const [examQuestions, setExamQuestions] = useState([]);
+  // Add these state variables at the top with other useState declarations
+const [isFullscreen, setIsFullscreen] = useState(false);
+const [isMobile, setIsMobile] = useState(false);
+const [rollNumber, setRollNumber] = useState('');
+const [examAlreadyTaken, setExamAlreadyTaken] = useState(false);
 
   // Fetch exam data
   const fetchExamData = async () => {
@@ -81,6 +86,29 @@ const ExamTakePage = () => {
     setLoading(false);
   }
 };
+useEffect(() => {
+  // Check if device is mobile
+  const checkMobile = () => {
+    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                          window.innerWidth < 768;
+    setIsMobile(isMobileDevice);
+  };
+
+  checkMobile();
+  window.addEventListener('resize', checkMobile);
+
+  // Fullscreen change listener
+  const handleFullscreenChange = () => {
+    setIsFullscreen(!!document.fullscreenElement);
+  };
+
+  document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+  return () => {
+    window.removeEventListener('resize', checkMobile);
+    document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  };
+}, []);
 
 
   // Timer effect
@@ -99,6 +127,23 @@ const ExamTakePage = () => {
       return () => clearInterval(timer);
     }
   }, [examStarted, timeLeft]);
+const checkExamAlreadyTaken = async (rollNum) => {
+  try {
+    const { data, error } = await supabase
+      .from('campus_management')
+      .select('*')
+      .eq('type', 'exam_response')
+      .eq('exam_id', examData.id)
+      .eq('student_roll_number', rollNum);
+
+    if (error) throw error;
+    
+    return data && data.length > 0;
+  } catch (error) {
+    console.error('Error checking exam status:', error);
+    return false;
+  }
+};
 
   // Auto submit when time runs out
   const handleAutoSubmit = async () => {
@@ -118,12 +163,48 @@ const ExamTakePage = () => {
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Start exam
-  const handleStartExam = async (values) => {
-    setStudentInfo(values);
+// Update the handleStartExam function
+const handleStartExam = async (values) => {
+  try {
+    // Check if exam already taken
+    const alreadyTaken = await checkExamAlreadyTaken(values.rollNumber);
+    
+    if (alreadyTaken) {
+      setExamAlreadyTaken(true);
+      return;
+    }
+
+    // Check if mobile device
+    if (isMobile) {
+      Modal.error({
+        title: 'Device Not Supported',
+        content: 'This exam can only be taken on desktop or laptop computers. Please use a desktop/laptop to take the exam.',
+        okText: 'Understood'
+      });
+      return;
+    }
+
+    // Request fullscreen
+    try {
+      await document.documentElement.requestFullscreen();
+      setIsFullscreen(true);
+    } catch (error) {
+      Modal.warning({
+        title: 'Fullscreen Required',
+        content: 'Please enable fullscreen mode to take the exam. Press F11 or allow fullscreen when prompted.',
+        okText: 'Continue'
+      });
+    }
+
+    setStudentInfo({ ...values, rollNumber: values.rollNumber });
     setExamStarted(true);
     message.success('Exam started! Best of luck!');
-  };
+  } catch (error) {
+    console.error('Error starting exam:', error);
+    message.error('Failed to start exam. Please try again.');
+  }
+};
+
 
   // Handle answer change
   const handleAnswerChange = (questionId, answer) => {
@@ -158,6 +239,7 @@ const handleSubmitExam = async () => {
         exam_id: examData.id,
         student_name: studentInfo.studentName,
         student_email: studentInfo.email,
+        student_roll_number: studentInfo.rollNumber, // Add roll number
         job_id: examData.job_id,
         college: examData.college,
         question_number: question.id,
@@ -198,80 +280,36 @@ const handleSubmitExam = async () => {
 
     if (updateError) throw updateError;
 
-    // Calculate percentage
-    const percentage = Math.round((correctCount / totalQuestions) * 100);
+    // Exit fullscreen
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    }
 
-    // Show detailed results
+    // Show simple completion message
     Modal.success({
       title: 'Exam Completed Successfully!',
       content: (
-        <div>
-          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-            <div style={{ 
-              fontSize: '48px', 
-              fontWeight: 'bold', 
-              color: percentage >= 60 ? '#52c41a' : '#ff4d4f'
-            }}>
-              {percentage}%
-            </div>
-            <Text type="secondary">Your Score</Text>
+        <div style={{ textAlign: 'center', padding: '20px' }}>
+          <div style={{ fontSize: '24px', marginBottom: '16px' }}>
+            ✅ Your exam has been submitted successfully
           </div>
-          
-          <Divider />
-          
           <div style={{ marginBottom: '16px' }}>
-            <Row gutter={[16, 16]}>
-              <Col span={8}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#52c41a' }}>
-                    {correctCount}
-                  </div>
-                  <Text type="secondary">Correct</Text>
-                </div>
-              </Col>
-              <Col span={8}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ff4d4f' }}>
-                    {totalQuestions - correctCount}
-                  </div>
-                  <Text type="secondary">Incorrect</Text>
-                </div>
-              </Col>
-              <Col span={8}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1890ff' }}>
-                    {totalQuestions}
-                  </div>
-                  <Text type="secondary">Total</Text>
-                </div>
-              </Col>
-            </Row>
-          </div>
-          
-          <Divider />
-          
-          <div>
             <p><strong>Student:</strong> {studentInfo.studentName}</p>
+            <p><strong>Roll Number:</strong> {studentInfo.rollNumber}</p>
             <p><strong>Email:</strong> {studentInfo.email}</p>
             <p><strong>Job ID:</strong> {examData.job_id}</p>
             <p><strong>College:</strong> {examData.college}</p>
-            <p><strong>Questions Attempted:</strong> {Object.keys(answers).length} / {totalQuestions}</p>
           </div>
-          
           <Alert
-            message={percentage >= 60 ? "Congratulations!" : "Better luck next time!"}
-            description={
-              percentage >= 60 
-                ? "You have passed the exam. Your responses have been recorded and will be reviewed by the HR team."
-                : "Your responses have been recorded. The HR team will review all submissions."
-            }
-            type={percentage >= 60 ? "success" : "info"}
+            message="Thank you for taking the exam!"
+            description="Your responses have been recorded successfully. Our HR team will review your submission and get back to you soon."
+            type="success"
             showIcon
-            style={{ marginTop: '16px' }}
           />
         </div>
       ),
-      width: 600,
+      width: 500,
+      okText: 'Close',
       onOk: () => navigate('/')
     });
 
@@ -339,7 +377,9 @@ const handleSubmitExam = async () => {
   }
 
   // Student info form (before exam starts)
-  if (!examStarted) {
+if (!examStarted) {
+  // Show mobile device warning
+  if (isMobile) {
     return (
       <div style={{ 
         padding: '24px', 
@@ -349,72 +389,150 @@ const handleSubmitExam = async () => {
         display: 'flex',
         alignItems: 'center'
       }}>
-        <Card style={{ width: '100%' }}>
-          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <FileTextOutlined style={{ fontSize: '48px', color: '#1890ff' }} />
-            <Title level={2} style={{ color: '#1890ff' }}>
-              {examData.exam_title}
+        <Card style={{ width: '100%', textAlign: 'center' }}>
+          <div style={{ marginBottom: '24px' }}>
+            <WarningOutlined style={{ fontSize: '48px', color: '#ff4d4f' }} />
+            <Title level={2} style={{ color: '#ff4d4f' }}>
+              Device Not Supported
             </Title>
-            <Text type="secondary">
-              Job ID: {examData.job_id} • College: {examData.college}
-            </Text>
           </div>
-
           <Alert
-            message="Exam Instructions"
-            description={
-              <div>
-                <p>• Total Questions: {examData.total_questions}</p>
-                <p>• Duration: {examData.duration} minutes</p>
-                <p>• Once you start, you cannot pause the exam</p>
-                <p>• Make sure you have a stable internet connection</p>
-                <p>• Do not refresh the page during the exam</p>
-              </div>
-            }
-            type="info"
+            message="Desktop/Laptop Required"
+            description="This exam can only be taken on desktop or laptop computers. Please use a desktop/laptop device to access the exam."
+            type="error"
             showIcon
             style={{ marginBottom: '24px' }}
           />
-
-          <Form form={form} onFinish={handleStartExam} layout="vertical">
-            <Form.Item
-              label="Student Name"
-              name="studentName"
-              rules={[{ required: true, message: 'Please enter your name' }]}
-            >
-              <Input prefix={<UserOutlined />} placeholder="Enter your full name" />
-            </Form.Item>
-
-            <Form.Item
-              label="Email"
-              name="email"
-              rules={[
-                { required: true, message: 'Please enter your email' },
-                { type: 'email', message: 'Please enter a valid email' }
-              ]}
-            >
-              <Input placeholder="Enter your email address" />
-            </Form.Item>
-
-            <Form.Item
-              label="Mobile Number"
-              name="mobile"
-              rules={[{ required: true, message: 'Please enter your mobile number' }]}
-            >
-              <Input placeholder="Enter your mobile number" />
-            </Form.Item>
-
-            <Form.Item>
-              <Button type="primary" htmlType="submit" block size="large">
-                Start Exam
-              </Button>
-            </Form.Item>
-          </Form>
+          <Button type="primary" onClick={() => navigate('/')}>
+            Go Back
+          </Button>
         </Card>
       </div>
     );
   }
 
+  // Show exam already taken message
+  if (examAlreadyTaken) {
+    return (
+      <div style={{ 
+        padding: '24px', 
+        maxWidth: '600px', 
+        margin: '0 auto',
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center'
+      }}>
+        <Card style={{ width: '100%', textAlign: 'center' }}>
+          <div style={{ marginBottom: '24px' }}>
+            <FileTextOutlined style={{ fontSize: '48px', color: '#ff4d4f' }} />
+            <Title level={2} style={{ color: '#ff4d4f' }}>
+              Exam Already Completed
+            </Title>
+          </div>
+          <Alert
+            message="You have already taken this exam"
+            description="Our records show that you have already completed this exam. Each candidate can only take the exam once. If you believe this is an error, please contact the HR team."
+            type="warning"
+            showIcon
+            style={{ marginBottom: '24px' }}
+          />
+          <div style={{ marginTop: '16px' }}>
+            <p><strong>Exam:</strong> {examData.exam_title}</p>
+            <p><strong>Job ID:</strong> {examData.job_id}</p>
+            <p><strong>College:</strong> {examData.college}</p>
+          </div>
+          <Button type="primary" onClick={() => navigate('/')}>
+            Go Back
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ 
+      padding: '24px', 
+      maxWidth: '600px', 
+      margin: '0 auto',
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center'
+    }}>
+      <Card style={{ width: '100%' }}>
+        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+          <FileTextOutlined style={{ fontSize: '48px', color: '#1890ff' }} />
+          <Title level={2} style={{ color: '#1890ff' }}>
+            {examData.exam_title}
+          </Title>
+          <Text type="secondary">
+            Job ID: {examData.job_id} • College: {examData.college}
+          </Text>
+        </div>
+
+        <Alert
+          message="Exam Instructions"
+          description={
+            <div>
+              <p>• Total Questions: {examData.total_questions}</p>
+              <p>• Duration: {examData.duration} minutes</p>
+              <p>• Exam must be taken in fullscreen mode</p>
+              <p>• Once you start, you cannot pause the exam</p>
+              <p>• Make sure you have a stable internet connection</p>
+              <p>• Do not refresh the page during the exam</p>
+              <p>• Each candidate can only take the exam once</p>
+            </div>
+          }
+          type="info"
+          showIcon
+          style={{ marginBottom: '24px' }}
+        />
+
+        <Form form={form} onFinish={handleStartExam} layout="vertical">
+          <Form.Item
+            label="Roll Number"
+            name="rollNumber"
+            rules={[{ required: true, message: 'Please enter your roll number' }]}
+          >
+            <Input prefix={<UserOutlined />} placeholder="Enter your roll number" />
+          </Form.Item>
+
+          <Form.Item
+            label="Student Name"
+            name="studentName"
+            rules={[{ required: true, message: 'Please enter your name' }]}
+          >
+            <Input prefix={<UserOutlined />} placeholder="Enter your full name" />
+          </Form.Item>
+
+          <Form.Item
+            label="Email"
+            name="email"
+            rules={[
+              { required: true, message: 'Please enter your email' },
+              { type: 'email', message: 'Please enter a valid email' }
+            ]}
+          >
+            <Input placeholder="Enter your email address" />
+          </Form.Item>
+
+          <Form.Item
+            label="Mobile Number"
+            name="mobile"
+            rules={[{ required: true, message: 'Please enter your mobile number' }]}
+          >
+            <Input placeholder="Enter your mobile number" />
+          </Form.Item>
+
+          <Form.Item>
+            <Button type="primary" htmlType="submit" block size="large">
+              Start Exam
+            </Button>
+          </Form.Item>
+        </Form>
+      </Card>
+    </div>
+  );
+}
   // Exam interface
   return (
     <div style={{ padding: '24px', maxWidth: '900px', margin: '0 auto' }}>
