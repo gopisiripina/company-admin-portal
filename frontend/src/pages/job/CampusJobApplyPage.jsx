@@ -167,53 +167,69 @@ const CampusJobApplyPage = ({ userRole }) => {
   };
 
   // Fetch available exams
-  const fetchAvailableExams = async (jobId, college) => {
-    try {
-      const { data, error } = await supabase
-        .from('campus_management')
-        .select('*')
-        .eq('type', 'exam')
-        .eq('job_id', jobId)
-        .eq('college', college)
-        .eq('status', 'Active');
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching exams:', error);
-      return [];
-    }
-  };
-
-  // Updated handleSendExamLink function
-  const handleSendExamLink = async () => {
-    if (selectedStudents.length === 0) {
-      message.error('Please select at least one student');
-      return;
-    }
-
-    // Get selected applications
-    const selectedApps = applications.filter(app => selectedStudents.includes(app.id));
-    const uniqueJobIds = [...new Set(selectedApps.map(app => app.jobId))];
-    const uniqueColleges = [...new Set(selectedApps.map(app => app.collegeName))];
-
-    if (uniqueJobIds.length > 1 || uniqueColleges.length > 1) {
-      message.error('Please select students from the same job and college');
-      return;
-    }
-
-    // Fetch available exams for this job and college
-    const exams = await fetchAvailableExams(uniqueJobIds[0], uniqueColleges[0]);
+// Fetch available exams - Updated to show all active exams
+// Updated fetchAvailableExams function
+const fetchAvailableExams = async () => {
+  try {
+    console.log('Fetching available exams...');
     
-    if (exams.length === 0) {
-      message.error('No exams available for this job and college combination. Please create an exam first.');
-      return;
+    const { data, error } = await supabase
+      .from('campus_management')
+      .select('*')
+      .eq('type', 'exam')
+      .eq('status', 'Active')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Supabase error:', error);
+      throw error;
     }
+    
+    console.log('Raw exam data from database:', data);
+    
+    // Transform the data to match expected format
+    const transformedExams = data?.map(exam => ({
+      id: exam.id,
+      exam_title: exam.exam_title,
+      job_id: exam.job_id,
+      college: exam.college || exam.college_name, // Handle both field names
+      total_questions: exam.total_questions,
+      duration: exam.duration,
+      exam_link: exam.exam_link,
+      students_invited: exam.students_invited || 0,
+      status: exam.status,
+      created_at: exam.created_at
+    })) || [];
+    
+    console.log('Transformed exam data:', transformedExams);
+    console.log('Number of exams found:', transformedExams.length);
+    
+    return transformedExams;
+  } catch (error) {
+    console.error('Error fetching exams:', error);
+    message.error('Failed to fetch exams: ' + error.message);
+    return [];
+  }
+};
+  // Updated handleSendExamLink function
+// Updated handleSendExamLink function
+const handleSendExamLink = async () => {
+  if (selectedStudents.length === 0) {
+    message.error('Please select at least one student');
+    return;
+  }
 
-    setAvailableExams(exams);
-    setExamSelectionVisible(true);
-  };
+  // Fetch all available exams (no filtering by job/college)
+  const exams = await fetchAvailableExams();
+  
+  if (exams.length === 0) {
+    message.error('No active exams found. Please create an exam first.');
+    return;
+  }
 
+  setAvailableExams(exams);
+  setExamSelectionVisible(true);
+};
   // Handle exam selection
   const handleExamSelection = (examId) => {
     const exam = availableExams.find(e => e.id === examId);
@@ -654,34 +670,38 @@ HR Team`
           <Text strong>Available Exams:</Text>
         </div>
         
-        {availableExams.map(exam => (
-          <Card 
-            key={exam.id} 
-            style={{ marginBottom: '12px', cursor: 'pointer' }}
-            hoverable
-            onClick={() => handleExamSelection(exam.id)}
-          >
-            <Row justify="space-between" align="middle">
-              <Col span={16}>
-                <div>
-                  <Text strong>{exam.exam_title}</Text>
-                  <br />
-                  <Text type="secondary">
-                    {exam.total_questions} questions • {exam.duration} minutes
-                  </Text>
-                  <br />
-                  <Tag color="green">Active</Tag>
-                  <Tag color="blue">Invited: {exam.students_invited || 0}</Tag>
-                </div>
-              </Col>
-              <Col span={8} style={{ textAlign: 'right' }}>
-                <Button type="primary">
-                  Select This Exam
-                </Button>
-              </Col>
-            </Row>
-          </Card>
-        ))}
+{availableExams.map(exam => (
+  <Card 
+    key={exam.id} 
+    style={{ marginBottom: '12px', cursor: 'pointer' }}
+    hoverable
+    onClick={() => handleExamSelection(exam.id)}
+  >
+    <Row justify="space-between" align="middle">
+      <Col span={16}>
+        <div>
+          <Text strong>{exam.exam_title}</Text>
+          <br />
+          <Text type="secondary">
+            Job ID: {exam.job_id} • College: {exam.college || exam.college_name || 'Not specified'}
+          </Text>
+          <br />
+          <Text type="secondary">
+            {exam.total_questions} questions • {exam.duration} minutes
+          </Text>
+          <br />
+          <Tag color="green">Active</Tag>
+          <Tag color="blue">Invited: {exam.students_invited || 0}</Tag>
+        </div>
+      </Col>
+      <Col span={8} style={{ textAlign: 'right' }}>
+        <Button type="primary">
+          Select This Exam
+        </Button>
+      </Col>
+    </Row>
+  </Card>
+))}
         
         {availableExams.length === 0 && (
           <div style={{ textAlign: 'center', padding: '20px' }}>
