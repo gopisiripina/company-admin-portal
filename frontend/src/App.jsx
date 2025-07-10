@@ -45,6 +45,7 @@ const AppContent = () => {
     }
     setCheckingAuth(false);
   }, [location.pathname, navigate]);
+
 useEffect(() => {
   // Handle URL-based navigation
   const path = location.pathname;
@@ -86,7 +87,6 @@ useEffect(() => {
     setActiveSection('dashboard');
   }
 }, [location.pathname, isLoggedIn]); 
-
 
   const handleLoginSuccess = (user) => {
     console.log('=== Login Success Debug ===');
@@ -203,9 +203,32 @@ useEffect(() => {
 
   return (
     <Routes>
-      <Route path="/campus-job-view" element={<CampusJobViewPage />} />
-<Route path="/exam/:linkId" element={<ExamTakePage />} />
-       <Route path='/job-apply' element={<Navigate to='/dashboard/job-apply' replace />} />
+      <Route path="/campus-job-view" element={ <div style={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            minHeight: '100vh',
+            width: '100vw'
+          }}><CampusJobViewPage /></div>} />
+      
+      {/* ExamTakePage with centered content */}
+      <Route 
+        path="/exam/:linkId" 
+        element={
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            minHeight: '100vh',
+            width: '100vw'
+          }}>
+            <ExamTakePage />
+          </div>
+        } 
+      />
+      
+      <Route path='/job-apply' element={<Navigate to='/dashboard/job-apply' replace />} />
+      
       {/* Login Route */}
       <Route 
         path="/" 

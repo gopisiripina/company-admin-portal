@@ -365,7 +365,13 @@ const handleSubmitExam = async () => {
 
   if (!examData) {
     return (
-      <div style={{ padding: '24px', textAlign: 'center' }}>
+      <div style={{ 
+        padding: '24px', 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '100vh' 
+      }}>
         <Alert
           message="Exam Not Found"
           description="The exam link you're looking for doesn't exist or has expired."
@@ -387,7 +393,8 @@ if (!examStarted) {
         margin: '0 auto',
         minHeight: '100vh',
         display: 'flex',
-        alignItems: 'center'
+        alignItems: 'center',
+        justifyContent: 'center'
       }}>
         <Card style={{ width: '100%', textAlign: 'center' }}>
           <div style={{ marginBottom: '24px' }}>
@@ -420,7 +427,8 @@ if (!examStarted) {
         margin: '0 auto',
         minHeight: '100vh',
         display: 'flex',
-        alignItems: 'center'
+        alignItems: 'center',
+        justifyContent: 'center'
       }}>
         <Card style={{ width: '100%', textAlign: 'center' }}>
           <div style={{ marginBottom: '24px' }}>
@@ -452,11 +460,13 @@ if (!examStarted) {
   return (
     <div style={{ 
       padding: '24px', 
-      maxWidth: '600px', 
+      width: '100%',  
+      maxWidth: '800px', 
       margin: '0 auto',
       minHeight: '100vh',
       display: 'flex',
-      alignItems: 'center'
+      alignItems: 'center',
+      justifyContent: 'center'
     }}>
       <Card style={{ width: '100%' }}>
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
@@ -533,151 +543,167 @@ if (!examStarted) {
     </div>
   );
 }
-  // Exam interface
+  
+  // Exam interface - FIXED CENTERING
   return (
-    <div style={{ padding: '24px', maxWidth: '900px', margin: '0 auto' }}>
-      {/* Header */}
-      <Card style={{ marginBottom: '24px' }}>
-        <Row justify="space-between" align="middle">
-          <Col>
-            <Title level={3} style={{ margin: 0 }}>
-              {examData.exam_title}
-            </Title>
-            <Text type="secondary">
-              Student: {studentInfo.studentName} • Email: {studentInfo.email}
-            </Text>
-          </Col>
-          <Col>
-            <Space>
-              <div style={{ textAlign: 'center' }}>
-                <ClockCircleOutlined style={{ color: timeLeft < 300 ? '#ff4d4f' : '#1890ff' }} />
-                <Text 
-                  strong 
-                  style={{ 
-                    marginLeft: '8px',
-                    color: timeLeft < 300 ? '#ff4d4f' : '#1890ff'
-                  }}
-                >
-                  {formatTime(timeLeft)}
-                </Text>
-              </div>
-            </Space>
-          </Col>
-        </Row>
-        
-        <div style={{ marginTop: '16px' }}>
-          <Progress
-            percent={Math.round(((examData.total_questions - timeLeft / (examData.duration * 60) * examData.total_questions) / examData.total_questions) * 100)}
-            showInfo={false}
-            strokeColor={timeLeft < 300 ? '#ff4d4f' : '#1890ff'}
-          />
-        </div>
-      </Card>
-
-      {/* Questions */}
-      <Card>
-        <div style={{ marginBottom: '24px' }}>
-          <Text strong>Question {currentQuestion} of {examQuestions.length}</Text>
-        </div>
-
-// Updated question rendering to handle dynamic options
-{examQuestions.map((question, index) => (
-  <div 
-    key={question.id}
-    style={{ 
-      display: currentQuestion === question.id ? 'block' : 'none',
-      marginBottom: '24px'
-    }}
-  >
-    <Title level={4}>{question.question}</Title>
-    
-    <Radio.Group
-      value={answers[question.id]}
-      onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-      style={{ width: '100%' }}
-    >
-      <Space direction="vertical" style={{ width: '100%' }}>
-        {question.options.map((option, optIndex) => (
-          <Radio key={optIndex} value={option} style={{ padding: '8px' }}>
-            {option}
-          </Radio>
-        ))}
-      </Space>
-    </Radio.Group>
-  </div>
-))}
-        <Divider />
-
-        {/* Navigation */}
-        <Row justify="space-between" align="middle">
-          <Col>
-            <Button 
-              disabled={currentQuestion === 1}
-              onClick={() => setCurrentQuestion(prev => Math.max(1, prev - 1))}
-            >
-              Previous
-            </Button>
-          </Col>
-          <Col>
-            <Space>
-              <Text>
-                {Object.keys(answers).filter(key => answers[key]).length} / {examQuestions.length} answered
+    <div style={{ 
+      padding: '24px', 
+      width: '100%',
+      minHeight: '90vh', 
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'flex-start'
+    }}>
+      <div style={{ 
+        width: '100%', 
+        maxWidth: '900px',
+        margin: '0 auto'
+      }}>
+        {/* Header */}
+        <Card style={{ marginBottom: '24px' }}>
+          <Row justify="space-between" align="middle">
+            <Col>
+              <Title level={3} style={{ margin: 0 }}>
+                {examData.exam_title}
+              </Title>
+              <Text type="secondary">
+                Student: {studentInfo.studentName} • Email: {studentInfo.email}
               </Text>
-              {currentQuestion < examQuestions.length ? (
-                <Button 
-                  type="primary"
-                  onClick={() => setCurrentQuestion(prev => Math.min(examQuestions.length, prev + 1))}
-                >
-                  Next
-                </Button>
-              ) : (
-                <Button 
-                  type="primary"
-                  onClick={handleConfirmSubmit}
-                  loading={submitting}
-                  icon={<SendOutlined />}
-                >
-                  Submit Exam
-                </Button>
-              )}
-            </Space>
-          </Col>
-        </Row>
-
-        {/* Question Navigation */}
-        <div style={{ marginTop: '24px' }}>
-          <Text strong>Question Navigation:</Text>
-          <div style={{ marginTop: '8px' }}>
-            {examQuestions.map((question, index) => (
-              <Button
-                key={question.id}
-                type={currentQuestion === question.id ? 'primary' : 'default'}
-                size="small"
-                style={{ 
-                  margin: '2px',
-                  backgroundColor: answers[question.id] ? '#52c41a' : undefined,
-                  borderColor: answers[question.id] ? '#52c41a' : undefined,
-                  color: answers[question.id] && currentQuestion !== question.id ? '#fff' : undefined
-                }}
-                onClick={() => setCurrentQuestion(question.id)}
-              >
-                {index + 1}
-              </Button>
-            ))}
+            </Col>
+            <Col>
+              <Space>
+                <div style={{ textAlign: 'center' }}>
+                  <ClockCircleOutlined style={{ color: timeLeft < 300 ? '#ff4d4f' : '#1890ff' }} />
+                  <Text 
+                    strong 
+                    style={{ 
+                      marginLeft: '8px',
+                      color: timeLeft < 300 ? '#ff4d4f' : '#1890ff'
+                    }}
+                  >
+                    {formatTime(timeLeft)}
+                  </Text>
+                </div>
+              </Space>
+            </Col>
+          </Row>
+          
+          <div style={{ marginTop: '16px' }}>
+            <Progress
+              percent={Math.round(((examData.total_questions - timeLeft / (examData.duration * 60) * examData.total_questions) / examData.total_questions) * 100)}
+              showInfo={false}
+              strokeColor={timeLeft < 300 ? '#ff4d4f' : '#1890ff'}
+            />
           </div>
-        </div>
-      </Card>
+        </Card>
 
-      {/* Warning for time */}
-      {timeLeft < 300 && (
-        <Alert
-          message="Time Warning"
-          description={`Only ${formatTime(timeLeft)} remaining! Your exam will be auto-submitted when time runs out.`}
-          type="warning"
-          showIcon
-          style={{ marginTop: '16px' }}
-        />
-      )}
+        {/* Questions */}
+        <Card>
+          <div style={{ marginBottom: '24px' }}>
+            <Text strong>Question {currentQuestion} of {examQuestions.length}</Text>
+          </div>
+
+          {/* Updated question rendering to handle dynamic options */}
+          {examQuestions.map((question, index) => (
+            <div 
+              key={question.id}
+              style={{ 
+                display: currentQuestion === question.id ? 'block' : 'none',
+                marginBottom: '24px'
+              }}
+            >
+              <Title level={4}>{question.question}</Title>
+              
+              <Radio.Group
+                value={answers[question.id]}
+                onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                style={{ width: '100%' }}
+              >
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  {question.options.map((option, optIndex) => (
+                    <Radio key={optIndex} value={option} style={{ padding: '8px' }}>
+                      {option}
+                    </Radio>
+                  ))}
+                </Space>
+              </Radio.Group>
+            </div>
+          ))}
+
+          <Divider />
+
+          {/* Navigation */}
+          <Row justify="space-between" align="middle">
+            <Col>
+              <Button 
+                disabled={currentQuestion === 1}
+                onClick={() => setCurrentQuestion(prev => Math.max(1, prev - 1))}
+              >
+                Previous
+              </Button>
+            </Col>
+            <Col>
+              <Space>
+                <Text>
+                  {Object.keys(answers).filter(key => answers[key]).length} / {examQuestions.length} answered
+                </Text>
+                {currentQuestion < examQuestions.length ? (
+                  <Button 
+                    type="primary"
+                    onClick={() => setCurrentQuestion(prev => Math.min(examQuestions.length, prev + 1))}
+                  >
+                    Next
+                  </Button>
+                ) : (
+                  <Button 
+                    type="primary"
+                    onClick={handleConfirmSubmit}
+                    loading={submitting}
+                    icon={<SendOutlined />}
+                  >
+                    Submit Exam
+                  </Button>
+                )}
+              </Space>
+            </Col>
+          </Row>
+
+          {/* Question Navigation */}
+          <div style={{ marginTop: '24px' }}>
+            <Text strong>Question Navigation:</Text>
+            <div style={{ marginTop: '8px' }}>
+              {examQuestions.map((question, index) => (
+                <Button
+                  key={question.id}
+                  type={currentQuestion === question.id ? 'primary' : 'default'}
+                  size="small"
+                  style={{ 
+                    margin: '2px',
+                    backgroundColor: answers[question.id] ? '#52c41a' : undefined,
+                    borderColor: answers[question.id] ? '#52c41a' : undefined,
+                    color: answers[question.id] && currentQuestion !== question.id ? '#fff' : undefined
+                  }}
+                  onClick={() => setCurrentQuestion(question.id)}
+                >
+                  {index + 1}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </Card>
+
+        {/* Warning for time */}
+        {timeLeft < 300 && (
+          <Alert
+            message="Time Warning"
+            description={`Only ${formatTime(timeLeft)} remaining! Your exam will be auto-submitted when time runs out.`}
+            type="warning"
+            showIcon
+            style={{ marginTop: '16px' }}
+          />
+        )}
+      </div>
     </div>
   );
 };
