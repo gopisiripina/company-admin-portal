@@ -387,6 +387,12 @@ What specific role would you like help with?`;
 
   // Handle form submission to Supabase
 const handleSubmit = async (values) => {
+  console.log('=== DEBUG INFO ===');
+  console.log('Form values received:', values);
+  console.log('Skills array:', skills);
+  console.log('Hiring type:', hiringType);
+  console.log('College name from form:', values.collegeName);
+  
   setLoading(true);
   try {
     // Format salary range
@@ -413,11 +419,17 @@ const handleSubmit = async (values) => {
       status: 'Active',
     };
 
+    console.log('Final jobData object:', jobData);
+    console.log('College name in jobData:', jobData.college_name);
+
     // Always insert new record
     const { data, error } = await supabase
       .from('job_descriptions')
       .insert([jobData])
       .select();
+
+    console.log('Supabase response data:', data);
+    console.log('Supabase error:', error);
 
     if (error) throw error;
 
@@ -599,7 +611,24 @@ const handleSubmit = async (values) => {
   </Row>
 </Card>
 {/* College Selection for On-Campus */}
-{hiringType === 'on-campus' && (
+        {/* Main Content */}
+        <Card 
+          style={{ 
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(10px)',
+            border: 'none',
+            borderRadius: '16px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            ...animationStyles.mainCard
+          }}
+        >
+          <Form
+            form={form}
+            layout="vertical"
+            onFinish={handleSubmit}
+            style={{ padding: '24px' }}
+          >
+            {hiringType === 'on-campus' && (
   <Card 
     style={{ 
       marginBottom: '24px',
@@ -616,12 +645,12 @@ const handleSubmit = async (values) => {
       College Information
     </Title>
     <Form.Item
-      label="College Name"
-      name="collegeName"
-      rules={[
-        { required: hiringType === 'on-campus', message: 'Please select or enter college name' }
-      ]}
-    >
+  label="College Name"
+  name="collegeName"  // Make sure this matches what you're accessing in values.collegeName
+  rules={[
+    { required: hiringType === 'on-campus', message: 'Please select or enter college name' }
+  ]}
+>
       <Select 
         size="large" 
         placeholder="Select or enter college name"
@@ -659,23 +688,7 @@ const handleSubmit = async (values) => {
     </Form.Item>
   </Card>
 )}
-        {/* Main Content */}
-        <Card 
-          style={{ 
-            background: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(10px)',
-            border: 'none',
-            borderRadius: '16px',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-            ...animationStyles.mainCard
-          }}
-        >
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleSubmit}
-            style={{ padding: '24px' }}
-          >
+
             <Row gutter={[32, 24]}>
               {/* Left Column - Basic Information */}
               <Col xs={24} lg={12} style={animationStyles.leftColumn}>
