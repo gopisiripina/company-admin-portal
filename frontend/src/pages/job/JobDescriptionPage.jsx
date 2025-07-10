@@ -40,13 +40,18 @@ const { TextArea } = Input;
 const { Title, Text } = Typography;
 const { Option } = Select;
 import { useLocation } from 'react-router-dom';
-import { supabase} from '../../supabase/config';
+  import { supabase} from '../../supabase/config';
 import ErrorPage from '../../error/ErrorPage';
+
+
 const JobDescriptionPage = ({ userRole,location: propLocation  }) => {
   const [hiringType, setHiringType] = useState('off-campus');
+  const [colleges, setColleges] = useState([]);
    const location = useLocation();
    const editData = location.state?.editData;
   const isEditing = location.state?.isEditing;
+
+  
   const [form] = Form.useForm();
   if (userRole !== 'superadmin' && userRole !== 'admin' && userRole!=='hr') {
     return <ErrorPage errorType="403" />;
@@ -174,6 +179,15 @@ const handleSmartTitleCaseChange = (e, fieldName, form) => {
   
   const loadDynamicData = async () => {
     try {
+
+      const { data: collegeData } = await supabase
+  .from('job_descriptions')
+  .select('college_name')
+  .not('college_name', 'is', null);
+
+const uniqueColleges = [...new Set(collegeData?.map(item => item.college_name).filter(Boolean))];
+setColleges(uniqueColleges);
+
       // Load departments
       const { data: deptData } = await supabase
         .from('job_descriptions')
@@ -237,6 +251,7 @@ const handleSmartTitleCaseChange = (e, fieldName, form) => {
   setInputVisible(false);
   setInputValue('');
 };
+
   const handleSkillRemove = (removedSkill) => {
     setSkills(skills.filter(skill => skill !== removedSkill));
   };
@@ -300,7 +315,8 @@ const generateJobDescriptionWithAI = async () => {
         qualifications: jobData.qualification_requirements,
         benefits: jobData.additional_benefits,
         salaryMin: salaryMin,
-        salaryMax: salaryMax
+        salaryMax: salaryMax,
+        collegeName: jobData.college_name
       });
 
       if (jobData.required_skills) {
@@ -392,7 +408,8 @@ const handleSubmit = async (values) => {
       additional_benefits: values.benefits,
       required_skills: skills.join(', '),
       salary_range: salaryRange,
-      hiring_type: hiringType, // Add this line
+      hiring_type: hiringType,
+      college_name: hiringType === 'on-campus' ? values.collegeName : null,
       status: 'Active',
     };
 
@@ -414,7 +431,8 @@ const handleSubmit = async (values) => {
     // Reset form and reload data
     form.resetFields();
     setSkills([]);
-    setHiringType('off-campus'); // Reset to default
+    setHiringType('off-campus');
+    setColleges([]);  
     loadDynamicData();
     
   } catch (error) {
@@ -580,7 +598,67 @@ const handleSubmit = async (values) => {
     </Col>
   </Row>
 </Card>
-
+{/* College Selection for On-Campus */}
+{hiringType === 'on-campus' && (
+  <Card 
+    style={{ 
+      marginBottom: '24px',
+      background: 'rgba(255, 255, 255, 0.95)',
+      backdropFilter: 'blur(10px)',
+      border: 'none',
+      borderRadius: '16px',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+      ...animationStyles.headerCard
+    }}
+  >
+    <Title level={4} style={{ color: '#52c41a', marginBottom: '16px' }}>
+      <TeamOutlined style={{ marginRight: '8px' }} />
+      College Information
+    </Title>
+    <Form.Item
+      label="College Name"
+      name="collegeName"
+      rules={[
+        { required: hiringType === 'on-campus', message: 'Please select or enter college name' }
+      ]}
+    >
+      <Select 
+        size="large" 
+        placeholder="Select or enter college name"
+        showSearch
+        filterOption={(input, option) =>
+          option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+        }
+        dropdownRender={menu => (
+          <div>
+            {menu}
+            <Divider style={{ margin: '8px 0' }} />
+            <Space style={{ padding: '0 8px 4px' }}>
+              <Input
+                placeholder="Add new college"
+                onChange={(e) => {
+                  e.target.value = smartTitleCase(e.target.value);
+                }}
+                onPressEnter={e => {
+                  const value = smartTitleCase(e.target.value.trim());
+                  if (value && !colleges.includes(value)) {
+                    setColleges([...colleges, value]);
+                    form.setFieldsValue({ collegeName: value });
+                  }
+                  e.target.value = '';
+                }}
+              />
+            </Space>
+          </div>
+        )}
+      >
+        {colleges.map(college => (
+          <Option key={college} value={college}>{college}</Option>
+        ))}
+      </Select>
+    </Form.Item>
+  </Card>
+)}
         {/* Main Content */}
         <Card 
           style={{ 

@@ -75,7 +75,8 @@ const CampusJobViewPage = () => {
           student_name: values.name,
           email: values.email,
           mobile: values.mobile,
-          college_name: values.college_name,
+          roll_no: values.roll_no,
+          college_name: jobData.college_name,
           resume_url: values.resume_url || '',
         }]);
 
@@ -97,12 +98,13 @@ const CampusJobViewPage = () => {
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    
+     console.log('All URL params:', Object.fromEntries(urlParams));
     const extractedData = {
       linkId: urlParams.get('link_id'),
       jobId: urlParams.get('job_id'),
       title: urlParams.get('title'),
       company: urlParams.get('company'),
+      college_name: decodeURIComponent(urlParams.get('college_name') || ''),
       department: urlParams.get('department'),
       location: urlParams.get('location'),
       employmentType: urlParams.get('employment_type'),
@@ -115,7 +117,7 @@ const CampusJobViewPage = () => {
       additionalBenefits: urlParams.get('additional_benefits'),
       createdAt: urlParams.get('created_at')
     };
-
+     console.log('Extracted college_name:', extractedData.college_name);
     if (!extractedData.linkId || !extractedData.jobId || !extractedData.title) {
       setError('Invalid job link. Please contact the company for a valid link.');
       setLoading(false);
@@ -254,13 +256,23 @@ const CampusJobViewPage = () => {
             <Col xs={24} sm={18} md={20} lg={21}>
               <div>
                 <Title level={2} style={{ 
-                  margin: '0 0 8px 0', 
-                  color: '#262626',
-                  fontSize: 'clamp(20px, 4vw, 28px)',
-                  lineHeight: '1.2'
-                }}>
-                  {jobData.title}
-                </Title>
+  margin: '0 0 8px 0', 
+  color: '#262626',
+  fontSize: 'clamp(20px, 4vw, 28px)',
+  lineHeight: '1.2'
+}}>
+  {jobData.title}
+  {jobData.college_name && jobData.college_name.trim() !== '' && (
+    <Text style={{ 
+      color: '#666', 
+      fontSize: '16px', 
+      fontWeight: 400,
+      marginLeft: '8px' 
+    }}>
+      - {jobData.college_name}
+    </Text>
+  )}
+</Title>
                 <Title level={4} style={{ 
                   margin: '0 0 12px 0', 
                   color: '#1890ff',
@@ -268,7 +280,6 @@ const CampusJobViewPage = () => {
                   fontSize: 'clamp(16px, 3vw, 20px)',
                   lineHeight: '1.3'
                 }}>
-                  {jobData.company}
                 </Title>
                 
                 {/* Job Tags */}
@@ -667,21 +678,31 @@ const CampusJobViewPage = () => {
                 />
               </Form.Item>
             </Col>
-            
             <Col xs={24} md={12}>
-              <Form.Item 
-                label="College Name" 
-                name="college_name"
-                rules={[{ required: true, message: 'Please enter your college name' }]}
-              >
-                <Input 
-                  prefix={<BookOutlined />}
-                  size="large"
-                  placeholder="Enter your college name"
-                  style={{ borderRadius: '6px' }}
-                />
-              </Form.Item>
-            </Col>
+  <Form.Item 
+    label="Roll Number" 
+    name="roll_no" 
+    rules={[{ required: true, message: 'Please enter your roll number' }]}
+  >
+    <Input 
+      prefix={<BookOutlined />}
+      size="large"
+      placeholder="Enter your roll number"
+      style={{ borderRadius: '6px' }}
+    />
+  </Form.Item>
+</Col>
+            <Col xs={24} md={12}>
+  <Form.Item label="College Name">
+    <Input 
+  prefix={<BookOutlined />}
+  size="large"
+  value={jobData.college_name}
+  disabled
+  style={{ borderRadius: '6px', backgroundColor: '#f5f5f5' }}
+/>
+  </Form.Item>
+</Col>
           </Row>
 
           <Row gutter={[16, 0]}>
