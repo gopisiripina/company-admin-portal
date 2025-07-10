@@ -67,14 +67,14 @@ const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
     color: '#8b5cf6',
     hasChildren: true,
     children: [
-  { icon: FileText, label: 'Job Description', id: 'job-description', color: '#10b981' },
+  { icon: FileText, label: 'Job Creating', id: 'job-description', color: '#10b981' },
   { icon: FileText, label: 'Job Posting', id: 'job-post', color: '#10b981' },
-  { icon: FileText, label: 'Job Applying list', id: 'job-apply', color: '#10b981' },
+  { icon: FileText, label: 'Off Campus data', id: 'job-apply', color: '#10b981' },
     { icon: FileText, label: 'Candidate Details', id: 'resume-list', color: '#10b981' },
      { icon: FileText, label: 'Interview Management', id: 'interview-management', color: '#10b981' },
-      { icon: FileText, label: 'Job Application', id: 'job-application', color: '#10b981' },
+      { icon: FileText, label: 'Application Form', id: 'job-application', color: '#10b981' },
       { icon: FileText, label: 'Selected List', id: 'selected-list', color: '#10b981' },
-      { icon: FileText, label: 'Campus Job View', id: 'campus-job-view', color: '#10b981' },
+      { icon: FileText, label: 'Job View', id: 'campus-job-view', color: '#10b981' },
       { icon: FileText, label: 'On Campus Data', id: 'on-campus-data', color: '#10b981' },
       { icon: FileText, label: 'Exam Conduct On Campus', id: 'exam-conduct-page', color: '#10b981' },
     ]}
