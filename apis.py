@@ -163,6 +163,292 @@ def send_email():
         }), 500
 
 
+@app.route('/api/send-recruitment-email', methods=['POST'])
+def send_recruitment_email():
+    try:
+        data = request.get_json()
+        print("Received data:", data)  # Debug print
+
+        # Get email configuration
+        sender_email = data.get('senderEmail')
+        sender_password = data.get('senderPassword')  # App password
+        smtp_server = data.get('smtpServer', 'smtp.gmail.com')
+        smtp_port = data.get('smtpPort', 587)
+        
+        # Get email details
+        recipient_email = data.get('recipientEmail')
+        subject = data.get('subject', 'Campus Recruitment Exam Invitation')
+        
+        # Get template variables
+        template_data = data.get('templateData', {})
+        
+        # Validate required fields
+        if not sender_email or not sender_password or not recipient_email:
+            return jsonify({
+                "success": False,
+                "error": "Missing required fields: senderEmail, senderPassword, or recipientEmail"
+            }), 400
+
+        # Campus Recruitment HTML template
+        html_template = """<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background-color: white;">
+        <div style="background-color: #1890ff; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+            <h1 style="margin: 0; font-size: 24px;">Campus Recruitment Exam Invitation</h1>
+        </div>
+        
+        <div style="padding: 20px; background-color: #f8f9fa;">
+            <p style="font-size: 16px; margin-bottom: 20px;">Dear <strong>{{to_name}}</strong>,</p>
+            
+            <p style="font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
+                You are invited to participate in the campus recruitment exam for the following position:
+            </p>
+            
+            <div style="background-color: white; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #1890ff;">
+                <p style="margin: 5px 0;"><strong>Exam Title:</strong> {{exam_title}}</p>
+                <p style="margin: 5px 0;"><strong>Job ID:</strong> {{job_id}}</p>
+                <p style="margin: 5px 0;"><strong>College:</strong> {{college}}</p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{{exam_link}}" style="background-color: #1890ff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold; display: inline-block;">
+                    Start Exam
+                </a>
+            </div>
+            
+            <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
+                <h3 style="margin-top: 0; color: #856404;">Important Instructions:</h3>
+                <ul style="margin-bottom: 0; color: #856404;">
+                    <li>Ensure you have a stable internet connection</li>
+                    <li>Complete the exam within the given time limit</li>
+                    <li>Do not refresh the page during the exam</li>
+                    <li>Do not close the browser tab until submission</li>
+                    <li>Contact support if you face any technical issues</li>
+                </ul>
+            </div>
+            
+            <div style="border-top: 1px solid #ddd; padding-top: 20px; margin-top: 20px;">
+                <p style="font-size: 14px; line-height: 1.6;">{{message}}</p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+                <p style="font-size: 12px; color: #666;">
+                    Best regards,<br>
+                    HR Team<br>
+                    Campus Recruitment Department
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>"""
+
+        # Replace template variables
+        for key, value in template_data.items():
+            html_template = html_template.replace(f"{{{{{key}}}}}", str(value))
+
+        # Create message
+        message = MIMEMultipart("alternative")
+        message["Subject"] = subject
+        message["From"] = sender_email
+        message["To"] = recipient_email
+
+        # Create HTML part
+        html_part = MIMEText(html_template, "html")
+        message.attach(html_part)
+
+        # Send email
+        print("Connecting to SMTP server...")
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.send_message(message)
+            print("Campus recruitment email sent successfully!")
+
+        return jsonify({
+            "success": True,
+            "message": "Campus recruitment email sent successfully",
+            "recipient": recipient_email
+        }), 200
+
+    except Exception as e:
+        print("Exception occurred:", str(e))
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+
+from flask import Flask, request, jsonify
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from flask_cors import CORS
+import os
+
+app = Flask(__name__)
+CORS(app)
+
+
+
+@app.route('/api/send-job-offer', methods=['POST'])
+def send_job_offer():
+    try:
+        data = request.get_json()
+        print("Received data:", data)  # Debug print
+
+        # Get email configuration
+        sender_email = data.get('senderEmail')
+        sender_password = data.get('senderPassword')  # App password
+        smtp_server = data.get('smtpServer', 'smtp.gmail.com')
+        smtp_port = data.get('smtpPort', 587)
+        
+        # Get email details
+        recipient_email = data.get('recipientEmail')
+        template_data = data.get('templateData', {})
+        
+        # Create dynamic subject line
+        job_title = template_data.get('job_title', 'Job Position')
+        company_name = template_data.get('company_name', 'Our Company')
+        subject = data.get('subject', f'Job Offer - {job_title} Position at {company_name}')
+        
+        # Validate required fields
+        if not sender_email or not sender_password or not recipient_email:
+            return jsonify({
+                "success": False,
+                "error": "Missing required fields: senderEmail, senderPassword, or recipientEmail"
+            }), 400
+
+        # Job Offer HTML template
+        html_template = """<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 40px; }
+        .header { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+        .content { background: white; padding: 30px; border: 1px solid #dee2e6; border-radius: 8px; }
+        .footer { margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; font-size: 14px; }
+        .highlight { background: #e7f3ff; padding: 15px; border-radius: 6px; margin: 20px 0; }
+        .signature { margin-top: 30px; border-top: 1px solid #dee2e6; padding-top: 20px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        td { padding: 10px; border-bottom: 1px solid #eee; }
+        .label { font-weight: bold; width: 150px; }
+    </style>
+</head>
+<body>
+    <div class="content">
+        <div class="highlight">
+            <strong>Subject Line:</strong> Job Offer - {{job_title}} Position at {{company_name}}
+        </div>
+        <div class="template-preview">
+            <h3>🎉 Congratulations! Job Offer Letter</h3>
+            
+            <p>Dear <strong>{{to_name}}</strong>,</p>
+            
+            <p>We are delighted to extend an offer of employment to you for the position of <strong>{{job_title}}</strong> at <strong>{{company_name}}</strong>.</p>
+            
+            <p>After careful consideration of your qualifications, experience, and interview performance, we believe you would be a valuable addition to our team.</p>
+            
+            <h4>📋 Offer Details:</h4>
+            <ul>
+                <li><strong>Position:</strong> {{job_title}}</li>
+                <li><strong>Company:</strong> {{company_name}}</li>
+                <li><strong>Compensation:</strong> {{salary_amount}}</li>
+                <li><strong>Expected Joining Date:</strong> {{joining_date}}</li>
+                <li><strong>Work Location:</strong> {{work_location}}</li>
+                <li><strong>Reporting Manager:</strong> {{reporting_manager}}</li>
+            </ul>
+            
+            <h4>🎁 Additional Benefits:</h4>
+            <p>{{additional_benefits}}</p>
+            
+            <h4>⏰ Important Information:</h4>
+            <p>This offer is valid until: <strong>{{offer_valid_until}}</strong></p>
+            <p>Please confirm your acceptance by replying to this email or contacting our HR team.</p>
+            
+            <h4>💬 Personal Message:</h4>
+            <p>{{message}}</p>
+            
+            <p>We look forward to welcoming you to our team and are excited about the contributions you will make to our organization.</p>
+            
+            <p><strong>Next Steps:</strong></p>
+            <ol>
+                <li>Review this offer carefully</li>
+                <li>Contact us if you have any questions</li>
+                <li>Confirm your acceptance</li>
+                <li>Prepare for your exciting journey with us!</li>
+            </ol>
+            
+            <p>If you have any questions or need clarification about any aspect of this offer, please don't hesitate to reach out.</p>
+            
+            <p><strong>HR Contact:</strong><br>
+            {{hr_contact}}</p>
+            
+            <p>Congratulations once again, and we look forward to having you on board!</p>
+            
+            <p>Best regards,<br>
+            <strong>{{company_name}} HR Team</strong></p>
+            
+            <hr>
+            <p style="font-size: 12px; color: #666;">
+                This is an official job offer from {{company_name}}. Please keep this email for your records.
+            </p>
+        </div>
+    </div>
+</body>
+</html>"""
+
+        # Replace template variables
+        for key, value in template_data.items():
+            html_template = html_template.replace(f"{{{{{key}}}}}", str(value))
+
+        # Create message
+        message = MIMEMultipart("alternative")
+        message["Subject"] = subject
+        message["From"] = sender_email
+        message["To"] = recipient_email
+
+        # Create HTML part
+        html_part = MIMEText(html_template, "html")
+        message.attach(html_part)
+
+        # Send email
+        print("Connecting to SMTP server...")
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.send_message(message)
+            print("Job offer email sent successfully!")
+
+        return jsonify({
+            "success": True,
+            "message": "Job offer email sent successfully",
+            "recipient": recipient_email,
+            "subject": subject
+        }), 200
+
+    except Exception as e:
+        print("Exception occurred:", str(e))
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+
+
 @app.route('/api/post-job', methods=['POST'])
 def post_job():
     try:
@@ -271,6 +557,128 @@ def post_job():
                 "error": error_data,
                 "status_code": response.status_code
             }), 422  # Return 422 to match what frontend expects
+
+    except Exception as e:
+        print("Exception occurred:", str(e))  # Debug print
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/api/send-interview-invitation', methods=['POST'])
+def send_interview_invitation():
+    try:
+        data = request.get_json()
+        print("Received data:", data)  # Debug print
+
+        # Extract data from request
+        sender_email = data.get('senderEmail')
+        sender_password = data.get('senderPassword')
+        recipient_email = data.get('recipientEmail')
+        subject = data.get('subject')
+        smtp_server = data.get('smtpServer')
+        smtp_port = data.get('smtpPort')
+        template_data = data.get('templateData', {})
+        
+        print("Sender email:", sender_email)  # Debug print
+        print("Recipient email:", recipient_email)  # Debug print
+        print("Subject:", subject)  # Debug print
+        print("SMTP server:", smtp_server)  # Debug print
+        print("SMTP port:", smtp_port)  # Debug print
+        print("Template data:", template_data)  # Debug print
+
+        # Validate required fields
+        if not sender_email or not sender_password or not recipient_email:
+            return jsonify({
+                "success": False,
+                "error": "Missing senderEmail, senderPassword, or recipientEmail"
+            }), 400
+
+        if not smtp_server or not smtp_port:
+            return jsonify({
+                "success": False,
+                "error": "Missing smtpServer or smtpPort"
+            }), 400
+
+        # Get template data
+        candidate_name = template_data.get('candidate_name', 'Candidate')
+        message_body = template_data.get('message_body', 'We would like to invite you for an interview.')
+        
+        # Use provided subject or create default
+        email_subject = subject if subject else f"Interview Invitation - {candidate_name}"
+
+        def create_email_content(candidate_name, message_body):
+            # Create the HTML email content
+            html_content = f"""
+            <html>
+            <body>
+                <h3>Interview Invitation</h3>
+                <p>Dear {candidate_name},</p>
+                <p>{message_body}</p>
+                <br>
+                <p>Best regards,<br>
+                HR Team</p>
+            </body>
+            </html>
+            """
+            return html_content
+
+        # Format the email content
+        email_content = create_email_content(candidate_name, message_body)
+        
+        # Email configuration
+        try:
+            import smtplib
+            from email.mime.text import MIMEText
+            from email.mime.multipart import MIMEMultipart
+            
+            # Create message
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = email_subject
+            msg['From'] = sender_email
+            msg['To'] = recipient_email
+            
+            # Create HTML part
+            html_part = MIMEText(email_content, 'html')
+            msg.attach(html_part)
+            
+            print("Connecting to SMTP server...")  # Debug print
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.starttls()
+            server.login(sender_email, sender_password)
+            
+            print("Sending email...")  # Debug print
+            text = msg.as_string()
+            server.sendmail(sender_email, recipient_email, text)
+            server.quit()
+            
+            print("Email sent successfully!")  # Debug print
+            
+            return jsonify({
+                "success": True,
+                "message": "Interview invitation sent successfully",
+                "recipient": recipient_email,
+                "subject": email_subject,
+                "candidate_name": candidate_name
+            }), 200
+            
+        except smtplib.SMTPAuthenticationError:
+            return jsonify({
+                "success": False,
+                "error": "SMTP Authentication failed. Please check email credentials."
+            }), 401
+            
+        except smtplib.SMTPException as smtp_error:
+            return jsonify({
+                "success": False,
+                "error": f"SMTP Error: {str(smtp_error)}"
+            }), 422
+            
+        except Exception as email_error:
+            return jsonify({
+                "success": False,
+                "error": f"Email sending failed: {str(email_error)}"
+            }), 422
 
     except Exception as e:
         print("Exception occurred:", str(e))  # Debug print
