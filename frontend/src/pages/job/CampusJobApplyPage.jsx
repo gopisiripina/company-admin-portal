@@ -1,4 +1,4 @@
-import React, { useState, useEffect ,useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Table, 
   Card, 
@@ -34,7 +34,6 @@ import ErrorPage from '../../error/ErrorPage';
 import { supabase } from '../../supabase/config';
 import emailjs from '@emailjs/browser';
 
-
 const { Option } = Select;
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -43,8 +42,11 @@ const CampusJobApplyPage = ({ userRole }) => {
   if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
     return <ErrorPage errorType="403" />;
   }
-const [examSelectionVisible, setExamSelectionVisible] = useState(false);
-const [availableExams, setAvailableExams] = useState([]);
+
+  // State variables
+  const [availableExams, setAvailableExams] = useState([]);
+  const [examSelectionVisible, setExamSelectionVisible] = useState(false);
+  const [selectedExam, setSelectedExam] = useState(null);
   const [applications, setApplications] = useState([]);
   const [filteredApplications, setFilteredApplications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -58,81 +60,74 @@ const [availableExams, setAvailableExams] = useState([]);
   const [examLinkData, setExamLinkData] = useState(null);
   const [emailForm] = Form.useForm();
   const [sendingEmails, setSendingEmails] = useState(false);
-  const EMAIL_SERVICE_ID = 'service_gtd1otu'; // Replace with your EmailJS service ID
-const EMAIL_TEMPLATE_ID = 'template_lqcrq8c'; // Replace with your EmailJS template ID
-const EMAIL_PUBLIC_KEY = 'NYTlY5dQBnWRdlpKn';
+
+  const EMAIL_SERVICE_ID = 'service_gtd1otu';
+  const EMAIL_TEMPLATE_ID = 'template_lqcrq8c';
+  const EMAIL_PUBLIC_KEY = 'NYTlY5dQBnWRdlpKn';
 
   // Get unique job IDs and college names for filters
   const uniqueJobIds = useMemo(() => {
-  return [...new Set(applications.map(app => app.jobId))].filter(Boolean);
-}, [applications]);
+    return [...new Set(applications.map(app => app.jobId))].filter(Boolean);
+  }, [applications]);
 
-const uniqueColleges = useMemo(() => {
-  return [...new Set(applications.map(app => app.collegeName))].filter(Boolean);
-}, [applications]);
+  const uniqueColleges = useMemo(() => {
+    return [...new Set(applications.map(app => app.collegeName))].filter(Boolean);
+  }, [applications]);
 
-  // Check for exam link data from sessionStorage
+  // Updated useEffect - removed sessionStorage usage
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const examId = urlParams.get('exam');
     const jobId = urlParams.get('job');
     const college = urlParams.get('college');
+    const examId = urlParams.get('examId');
 
-    if (examId) {
-      setJobFilter(jobId || 'all');
-      setCollegeFilter(college || 'all');
+    if (jobId) {
+      setJobFilter(jobId);
     }
-
-    // Check sessionStorage for exam link data
-    const storedExamData = sessionStorage.getItem('examLinkData');
-    if (storedExamData) {
-      const examData = JSON.parse(storedExamData);
-      setExamLinkData(examData);
-      setJobFilter(examData.jobId || 'all');
-      setCollegeFilter(examData.college || 'all');
-      
-      // Show notification
-      message.info({
-        content: `Exam link copied! Ready to send "${examData.examTitle}" to students.`,
-        duration: 5
-      });
+    if (college) {
+      setCollegeFilter(college);
+    }
+    
+    // If examId is provided, highlight it but don't auto-select
+    if (examId) {
+      console.log('Exam ID from URL:', examId);
     }
   }, []);
 
   // Fetch all campus job applications
-// Updated fetchApplications function to use campus_job_applications table
-const fetchApplications = async () => {
-  setLoading(true);
-  try {
-    const { data, error } = await supabase
-      .from('campus_job_applications')  // Changed from 'campus_management'
-      .select('*')
-      .order('created_at', { ascending: false });
+  const fetchApplications = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('campus_job_applications')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (error) throw error;
+      if (error) throw error;
 
-    const transformedData = data.map(app => ({
-      id: app.id,
-      linkId: app.link_id,
-      jobId: app.job_id,
-      studentName: app.student_name,
-      email: app.email,
-      mobile: app.mobile,
-      resumeUrl: app.resume_url,
-      collegeName: app.college_name,  // Updated field name
-      appliedDate: app.created_at ? new Date(app.created_at).toISOString().split('T')[0] : '',
-      appliedTime: app.created_at ? new Date(app.created_at).toLocaleString() : ''
-    }));
+      const transformedData = data.map(app => ({
+        id: app.id,
+        linkId: app.link_id,
+        jobId: app.job_id,
+        studentName: app.student_name,
+        email: app.email,
+        mobile: app.mobile,
+        resumeUrl: app.resume_url,
+        collegeName: app.college_name,
+        appliedDate: app.created_at ? new Date(app.created_at).toISOString().split('T')[0] : '',
+        appliedTime: app.created_at ? new Date(app.created_at).toLocaleString() : ''
+      }));
 
-    setApplications(transformedData);
-    setFilteredApplications(transformedData);
-  } catch (error) {
-    console.error('Error fetching applications:', error);
-    message.error('Failed to load applications');
-  } finally {
-    setLoading(false);
-  }
-};
+      setApplications(transformedData);
+      setFilteredApplications(transformedData);
+    } catch (error) {
+      console.error('Error fetching applications:', error);
+      message.error('Failed to load applications');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Apply filters
   const applyFilters = () => {
     let filtered = [...applications];
@@ -161,6 +156,192 @@ const fetchApplications = async () => {
     setFilteredApplications(filtered);
   };
 
+  // Handle select all functionality
+  const handleSelectAll = (checked) => {
+    if (checked) {
+      const allIds = filteredApplications.map(app => app.id);
+      setSelectedStudents(allIds);
+    } else {
+      setSelectedStudents([]);
+    }
+  };
+
+  // Fetch available exams
+  const fetchAvailableExams = async (jobId, college) => {
+    try {
+      const { data, error } = await supabase
+        .from('campus_management')
+        .select('*')
+        .eq('type', 'exam')
+        .eq('job_id', jobId)
+        .eq('college', college)
+        .eq('status', 'Active');
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching exams:', error);
+      return [];
+    }
+  };
+
+  // Updated handleSendExamLink function
+  const handleSendExamLink = async () => {
+    if (selectedStudents.length === 0) {
+      message.error('Please select at least one student');
+      return;
+    }
+
+    // Get selected applications
+    const selectedApps = applications.filter(app => selectedStudents.includes(app.id));
+    const uniqueJobIds = [...new Set(selectedApps.map(app => app.jobId))];
+    const uniqueColleges = [...new Set(selectedApps.map(app => app.collegeName))];
+
+    if (uniqueJobIds.length > 1 || uniqueColleges.length > 1) {
+      message.error('Please select students from the same job and college');
+      return;
+    }
+
+    // Fetch available exams for this job and college
+    const exams = await fetchAvailableExams(uniqueJobIds[0], uniqueColleges[0]);
+    
+    if (exams.length === 0) {
+      message.error('No exams available for this job and college combination. Please create an exam first.');
+      return;
+    }
+
+    setAvailableExams(exams);
+    setExamSelectionVisible(true);
+  };
+
+  // Handle exam selection
+  const handleExamSelection = (examId) => {
+    const exam = availableExams.find(e => e.id === examId);
+    setSelectedExam(exam);
+    setExamSelectionVisible(false);
+    
+    // Pre-fill email form with exam details
+    emailForm.setFieldsValue({
+      subject: `Exam Invitation: ${exam.exam_title}`,
+      message: `Dear Student,
+
+You are invited to take the following exam:
+
+Exam Title: ${exam.exam_title}
+Job ID: ${exam.job_id}
+Duration: ${exam.duration} minutes
+Total Questions: ${exam.total_questions}
+
+Please click the link below to start your exam:
+${exam.exam_link}
+
+Important Instructions:
+- Make sure you have a stable internet connection
+- Do not refresh the page during the exam
+- Complete the exam within the given time limit
+
+Best regards,
+HR Team`
+    });
+    
+    setEmailModalVisible(true);
+  };
+
+  // Updated sendExamEmails function
+  const sendExamEmails = async (values) => {
+    if (!selectedExam) {
+      message.error('No exam selected. Please select an exam first.');
+      return;
+    }
+
+    if (selectedStudents.length === 0) {
+      message.error('Please select at least one student');
+      return;
+    }
+
+    setSendingEmails(true);
+    try {
+      const studentsToEmail = applications.filter(app => 
+        selectedStudents.includes(app.id)
+      );
+
+      // Create email invitations records
+      const now = new Date().toISOString();
+      const invitations = studentsToEmail.map(student => ({
+        type: 'exam_invitation',
+        exam_id: selectedExam.id,
+        student_email: student.email,
+        student_name: student.studentName,
+        job_id: student.jobId,
+        college: student.collegeName,
+        status: 'sent',
+        created_at: now
+      }));
+
+      const { error: inviteError } = await supabase
+        .from('campus_management')
+        .insert(invitations);
+
+      if (inviteError) throw inviteError;
+
+      // Update exam students_invited count
+      const { data: currentExam, error: fetchError } = await supabase
+        .from('campus_management')
+        .select('students_invited')
+        .eq('id', selectedExam.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const newCount = (currentExam?.students_invited || 0) + invitations.length;
+
+      const { error: updateError } = await supabase
+        .from('campus_management')
+        .update({ 
+          students_invited: newCount
+        })
+        .eq('id', selectedExam.id)
+        .eq('type', 'exam');
+
+      if (updateError) throw updateError;
+
+      // Send emails using EmailJS
+      const emailPromises = studentsToEmail.map(student => {
+        const templateParams = {
+          to_name: student.studentName,
+          to_email: student.email,
+          subject: values.subject,
+          exam_title: selectedExam.exam_title,
+          job_id: selectedExam.job_id,
+          college: selectedExam.college,
+          exam_link: selectedExam.exam_link,
+          message: values.message
+        };
+
+        return emailjs.send(
+          EMAIL_SERVICE_ID,
+          EMAIL_TEMPLATE_ID,
+          templateParams,
+          EMAIL_PUBLIC_KEY
+        );
+      });
+
+      await Promise.all(emailPromises);
+
+      message.success(`Exam links sent to ${studentsToEmail.length} students successfully!`);
+      setEmailModalVisible(false);
+      setSelectedStudents([]);
+      setSelectedExam(null); // Reset exam selection for next send
+      emailForm.resetFields();
+
+    } catch (error) {
+      console.error('Error sending emails:', error);
+      message.error('Failed to send exam emails');
+    } finally {
+      setSendingEmails(false);
+    }
+  };
+
   useEffect(() => {
     fetchApplications();
   }, []);
@@ -169,182 +350,31 @@ const fetchApplications = async () => {
     applyFilters();
   }, [searchText, jobFilter, collegeFilter, applications]);
 
-  // Handle student selection
-  const handleStudentSelection = (studentIds) => {
-    setSelectedStudents(studentIds);
-  };
-const handleSendExamLink = async () => {
-  if (selectedStudents.length === 0) {
-    message.error('Please select at least one student');
-    return;
-  }
-
-  // Get unique job IDs and colleges from selected students
-  const selectedApps = applications.filter(app => selectedStudents.includes(app.id));
-  const uniqueJobIds = [...new Set(selectedApps.map(app => app.jobId))];
-  const uniqueColleges = [...new Set(selectedApps.map(app => app.collegeName))];
-
-  if (uniqueJobIds.length > 1 || uniqueColleges.length > 1) {
-    message.error('Please select students from the same job and college');
-    return;
-  }
-
-  // Fetch available exams for this job and college
-  const exams = await fetchAvailableExams(uniqueJobIds[0], uniqueColleges[0]);
-  
-  if (exams.length === 0) {
-    message.error('No exams available for this job and college combination');
-    return;
-  }
-
-  setAvailableExams(exams);
-  setExamSelectionVisible(true);
-};
-const fetchAvailableExams = async (jobId, college) => {
-  try {
-    const { data, error } = await supabase
-      .from('campus_management')
-      .select('*')
-      .eq('type', 'exam')
-      .eq('job_id', jobId)
-      .eq('college', college)
-      .eq('status', 'Draft');
-
-    if (error) throw error;
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching exams:', error);
-    return [];
-  }
-};
-const handleExamSelection = (examId) => {
-  const selectedExam = availableExams.find(exam => exam.id === examId);
-  
-  if (selectedExam) {
-    setExamLinkData({
-      examId: selectedExam.id,
-      examTitle: selectedExam.exam_title,
-      jobId: selectedExam.job_id,
-      college: selectedExam.college,
-      examLink: selectedExam.exam_link
-    });
-    
-    setExamSelectionVisible(false);
-    setEmailModalVisible(true);
-  }
-};
-// 5. Update sendExamEmails function with EmailJS integration
-const sendExamEmails = async (values) => {
-  if (!examLinkData) {
-    message.error('No exam link data found. Please generate exam link first.');
-    return;
-  }
-
-  if (selectedStudents.length === 0) {
-    message.error('Please select at least one student');
-    return;
-  }
-
-  setSendingEmails(true);
-  try {
-    const studentsToEmail = applications.filter(app => 
-      selectedStudents.includes(app.id)
-    );
-
-    // Create email invitations records in single table
-    const invitations = studentsToEmail.map(student => ({
-      type: 'exam_invitation',
-      exam_id: examLinkData.examId,
-      student_email: student.email,
-      student_name: student.studentName,
-      job_id: student.jobId,
-      college: student.collegeName,
-      status: 'sent'
-    }));
-
-    const { error: inviteError } = await supabase
-      .from('campus_management')
-      .insert(invitations);
-
-    if (inviteError) throw inviteError;
-
-    // Update exam students_invited count
-    const { error: updateError } = await supabase
-      .from('campus_management')
-      .update({ 
-        students_invited: invitations.length,
-        status: 'Active'
-      })
-      .eq('id', examLinkData.examId)
-      .eq('type', 'exam');
-
-    if (updateError) throw updateError;
-
-    // Send emails using EmailJS
-    const emailPromises = studentsToEmail.map(student => {
-      const templateParams = {
-        to_name: student.studentName,
-        to_email: student.email,
-        subject: values.subject,
-        exam_title: examLinkData.examTitle,
-        job_id: examLinkData.jobId,
-        college: examLinkData.college,
-        exam_link: examLinkData.examLink,
-        message: values.message
-      };
-
-      return emailjs.send(
-        EMAIL_SERVICE_ID,
-        EMAIL_TEMPLATE_ID,
-        templateParams,
-        EMAIL_PUBLIC_KEY
-      );
-    });
-
-    await Promise.all(emailPromises);
-
-    message.success(`Exam links sent to ${studentsToEmail.length} students successfully!`);
-    setEmailModalVisible(false);
-    setSelectedStudents([]);
-    emailForm.resetFields();
-    
-    // Clear exam link data
-    sessionStorage.removeItem('examLinkData');
-    setExamLinkData(null);
-
-  } catch (error) {
-    console.error('Error sending emails:', error);
-    message.error('Failed to send exam emails');
-  } finally {
-    setSendingEmails(false);
-  }
-};
-
-
- const columns = [
-  {
-    title: (
-      <Checkbox
-        checked={selectedStudents.length === filteredApplications.length && filteredApplications.length > 0}
-        indeterminate={selectedStudents.length > 0 && selectedStudents.length < filteredApplications.length}
-        onChange={(e) => handleSelectAll(e.target.checked)}
-      >
-        Select All
-      </Checkbox>
-    ),
-    key: 'select',
-    width: 100,
-    render: (_, record) => (
-      <Checkbox
-        checked={selectedStudents.includes(record.id)}
-        onChange={(e) => {
-          if (e.target.checked) {
-            setSelectedStudents([...selectedStudents, record.id]);
-          } else {
-            setSelectedStudents(selectedStudents.filter(id => id !== record.id));
-          }
-        }}
-      />
+  // Table columns
+  const columns = [
+    {
+      title: (
+        <Checkbox
+          checked={selectedStudents.length === filteredApplications.length && filteredApplications.length > 0}
+          indeterminate={selectedStudents.length > 0 && selectedStudents.length < filteredApplications.length}
+          onChange={(e) => handleSelectAll(e.target.checked)}
+        >
+          Select All
+        </Checkbox>
+      ),
+      key: 'select',
+      width: 100,
+      render: (_, record) => (
+        <Checkbox
+          checked={selectedStudents.includes(record.id)}
+          onChange={(e) => {
+            if (e.target.checked) {
+              setSelectedStudents([...selectedStudents, record.id]);
+            } else {
+              setSelectedStudents(selectedStudents.filter(id => id !== record.id));
+            }
+          }}
+        />
       ),
     },
     {
@@ -441,18 +471,6 @@ const sendExamEmails = async (values) => {
     },
   ];
 
-  // Show exam link notification if coming from exam conduct page
-  useEffect(() => {
-    const storedExamData = sessionStorage.getItem('examLinkData');
-    if (storedExamData) {
-      const examData = JSON.parse(storedExamData);
-      message.info({
-        content: `Exam link ready! You can now send "${examData.examTitle}" to selected students.`,
-        duration: 5
-      });
-    }
-  }, []);
-
   if (loading) {
     return (
       <div style={{ 
@@ -483,27 +501,6 @@ const sendExamEmails = async (values) => {
           View and manage campus recruitment applications
         </Text>
       </div>
-
-      {/* Exam Link Alert */}
-      {examLinkData && (
-        <Alert
-          message={`Exam Ready: ${examLinkData.examTitle}`}
-          description={`You can now send the exam link to students for Job ID: ${examLinkData.jobId} at ${examLinkData.college}`}
-          type="success"
-          showIcon
-          icon={<LinkOutlined />}
-          style={{ marginBottom: '24px' }}
-          action={
-            <Button 
-              type="primary" 
-              icon={<SendOutlined />}
-              onClick={() => setEmailModalVisible(true)}
-            >
-              Send to Students
-            </Button>
-          }
-        />
-      )}
 
       {/* Filters */}
       <Card style={{ marginBottom: '24px' }}>
@@ -590,8 +587,7 @@ const sendExamEmails = async (values) => {
                 <Button
                   type="primary"
                   icon={<MailOutlined />}
-                  onClick={() => setEmailModalVisible(true)}
-                  disabled={!examLinkData}
+                  onClick={handleSendExamLink}
                 >
                   Send Exam Link
                 </Button>
@@ -636,6 +632,64 @@ const sendExamEmails = async (values) => {
         />
       </Card>
 
+      {/* Exam Selection Modal */}
+      <Modal
+        title="Select Exam to Send"
+        open={examSelectionVisible}
+        onCancel={() => setExamSelectionVisible(false)}
+        footer={null}
+        width={600}
+      >
+        <div style={{ marginBottom: '16px' }}>
+          <Text><strong>Selected Students:</strong> {selectedStudents.length}</Text>
+          <br />
+          <Text><strong>Job ID:</strong> {applications.find(app => selectedStudents.includes(app.id))?.jobId}</Text>
+          <br />
+          <Text><strong>College:</strong> {applications.find(app => selectedStudents.includes(app.id))?.collegeName}</Text>
+        </div>
+        
+        <Divider />
+        
+        <div style={{ marginBottom: '16px' }}>
+          <Text strong>Available Exams:</Text>
+        </div>
+        
+        {availableExams.map(exam => (
+          <Card 
+            key={exam.id} 
+            style={{ marginBottom: '12px', cursor: 'pointer' }}
+            hoverable
+            onClick={() => handleExamSelection(exam.id)}
+          >
+            <Row justify="space-between" align="middle">
+              <Col span={16}>
+                <div>
+                  <Text strong>{exam.exam_title}</Text>
+                  <br />
+                  <Text type="secondary">
+                    {exam.total_questions} questions • {exam.duration} minutes
+                  </Text>
+                  <br />
+                  <Tag color="green">Active</Tag>
+                  <Tag color="blue">Invited: {exam.students_invited || 0}</Tag>
+                </div>
+              </Col>
+              <Col span={8} style={{ textAlign: 'right' }}>
+                <Button type="primary">
+                  Select This Exam
+                </Button>
+              </Col>
+            </Row>
+          </Card>
+        ))}
+        
+        {availableExams.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <Text type="secondary">No exams available for this job and college combination</Text>
+          </div>
+        )}
+      </Modal>
+
       {/* Email Modal */}
       <Modal
         title="Send Exam Link to Students"
@@ -649,9 +703,9 @@ const sendExamEmails = async (values) => {
             message="Exam Details"
             description={
               <div>
-                <Text><strong>Exam:</strong> {examLinkData?.examTitle}</Text><br />
-                <Text><strong>Job ID:</strong> {examLinkData?.jobId}</Text><br />
-                <Text><strong>College:</strong> {examLinkData?.college}</Text><br />
+                <Text><strong>Exam:</strong> {selectedExam?.exam_title}</Text><br />
+                <Text><strong>Job ID:</strong> {selectedExam?.job_id}</Text><br />
+                <Text><strong>College:</strong> {selectedExam?.college}</Text><br />
                 <Text><strong>Selected Students:</strong> {selectedStudents.length}</Text>
               </div>
             }
@@ -663,7 +717,6 @@ const sendExamEmails = async (values) => {
           <Form.Item
             label="Email Subject"
             name="subject"
-            initialValue={`Exam Invitation - ${examLinkData?.examTitle}`}
             rules={[{ required: true, message: 'Please enter email subject' }]}
           >
             <Input />
@@ -672,20 +725,6 @@ const sendExamEmails = async (values) => {
           <Form.Item
             label="Email Content"
             name="message"
-            initialValue={`Dear Student,
-
-You are invited to take the ${examLinkData?.examTitle} exam for Job ID: ${examLinkData?.jobId}.
-
-Click the link below to start your exam:
-${examLinkData?.examLink}
-
-Please note:
-- Make sure you have a stable internet connection
-- Complete the exam in the given time limit
-- Do not refresh the page during the exam
-
-Best regards,
-HR Team`}
             rules={[{ required: true, message: 'Please enter email content' }]}
           >
             <TextArea rows={8} />

@@ -23,12 +23,16 @@ import {
   LinkOutlined, 
   SendOutlined,
   EyeOutlined,
-  DeleteOutlined,
+  
   CheckCircleOutlined,
-  CopyOutlined,
-  MailOutlined
+  
+  CopyOutlined, MailOutlined, DeleteOutlined
+  
 } from '@ant-design/icons';
 import { supabase } from '../../supabase/config';
+import * as XLSX from 'xlsx';
+
+
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -96,71 +100,93 @@ const fetchJobsAndColleges = async () => {
 
   // Generate unique exam link
   const generateExamLink = () => {
-    const linkId = Math.random().toString(36).substr(2, 12);
-    return `${window.location.origin}/exam/take/${linkId}`;
-  };
-
-  // Upload file to Supabase storage
-  const uploadFile = async (file, folder) => {
-  try {
-    console.log('Starting file upload:', file.name, 'to folder:', folder);
-    
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}.${fileExt}`;
-    const filePath = `${folder}/${fileName}`;
-
-    console.log('File path:', filePath);
-
-    // Upload file to Supabase storage
-    const { data, error } = await supabase.storage
-      .from('exam-documents')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false
-      });
-
-    console.log('Upload response:', { data, error });
-
-    if (error) {
-      console.error('Upload error:', error);
-      throw new Error(`Upload failed: ${error.message}`);
-    }
-
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('exam-documents')
-      .getPublicUrl(filePath);
-
-    console.log('Public URL:', publicUrl);
-    return publicUrl;
-
-  } catch (error) {
-    console.error('File upload error:', error);
-    throw error;
-  }
+  const linkId = `exam_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `${window.location.origin}/exam/${linkId}`;
 };
 
+  // Upload file to Supabase storage
+const parseExcelFile = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        
+        // Convert to JSON
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        
+        // Parse questions (assuming format: Column A = Questions, Column B = Options, Column C = Answers)
+        const questions = jsonData.slice(1).map((row, index) => { // Skip header row
+          if (!row[0]) return null; // Skip empty rows
+          
+const options = row[1] ? String(row[1]).split(',').map(opt => opt.trim()) : [];
+          
+          return {
+            id: index + 1,
+            question: row[0],
+            options: options,
+            correctAnswer: row[2] ? String(row[2]).trim() : '',
+
+            type: 'multiple_choice'
+          };
+        }).filter(q => q !== null);
+        
+        resolve(questions);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+};
+const uploadFile = async (file, folder = 'questions') => {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+  const filePath = `${folder}/${fileName}`;
+
+  const { data, error } = await supabase.storage
+    .from('exam-files') // 👈 Replace with your Supabase storage bucket name
+    .upload(filePath, file);
+
+  if (error) {
+    throw new Error('File upload failed: ' + error.message);
+  }
+
+  const { publicUrl } = supabase.storage
+    .from('exam-files') // 👈 Same bucket
+    .getPublicUrl(filePath).data;
+
+  return publicUrl;
+};
 
   // Create exam
 const handleCreateExam = async (values) => {
-  if (!questionFile || !answerFile) {
-    message.error('Please upload both question and answer files');
+  if (!questionFile) {
+    message.error('Please upload the questions Excel file');
     return;
   }
 
   setLoading(true);
   try {
-    // Upload files
-    const [questionUrl, answerUrl] = await Promise.all([
-      uploadFile(questionFile, 'questions'),
-      uploadFile(answerFile, 'answers')
-    ]);
+    // Parse Excel file to get questions and answers
+    const questionsData = await parseExcelFile(questionFile);
+    
+    if (!questionsData || questionsData.length === 0) {
+      throw new Error('No valid questions found in Excel file');
+    }
+
+    // Upload the original Excel file
+    const questionUrl = await uploadFile(questionFile, 'questions');
 
     // Generate exam link
     const examLink = generateExamLink();
     const linkId = examLink.split('/').pop();
 
-    // Create exam record in single table
+    // Create exam record with questions data
     const { data, error } = await supabase
       .from('campus_management')
       .insert([{
@@ -168,13 +194,13 @@ const handleCreateExam = async (values) => {
         exam_title: values.examTitle,
         job_id: values.jobId,
         college: values.college,
-        total_questions: parseInt(values.totalQuestions),
+        total_questions: questionsData.length,
         duration: parseInt(values.duration),
         exam_link: examLink,
         link_id: linkId,
         question_file_url: questionUrl,
-        answer_file_url: answerUrl,
-        status: 'Draft',
+        questions_data: JSON.stringify(questionsData), // Store parsed questions
+        status: 'Active',
         students_invited: 0,
         students_completed: 0,
         created_by: userRole
@@ -184,18 +210,19 @@ const handleCreateExam = async (values) => {
 
     if (error) throw error;
 
+    // Add to local state
     setExams([data, ...exams]);
     setCreateExamVisible(false);
     form.resetFields();
     setQuestionFile(null);
-    setAnswerFile(null);
     
-    // Show copy link modal immediately after creation
+    // Show success message
     Modal.success({
       title: 'Exam Created Successfully!',
       content: (
         <div>
-          <p>Exam link has been generated:</p>
+          <p>Exam "{values.examTitle}" has been created with {questionsData.length} questions.</p>
+          <p><strong>Exam Link:</strong></p>
           <Input.Search
             value={examLink}
             enterButton="Copy Link"
@@ -203,22 +230,38 @@ const handleCreateExam = async (values) => {
               navigator.clipboard.writeText(examLink);
               message.success('Link copied to clipboard!');
             }}
+            style={{ marginBottom: '16px' }}
           />
-          <p style={{ marginTop: '10px', color: '#666' }}>
-            You can now go to Campus Applications page to send this link to students.
-          </p>
+          <div style={{ 
+            padding: '12px', 
+            backgroundColor: '#f6ffed', 
+            borderRadius: '6px',
+            border: '1px solid #b7eb8f'
+          }}>
+            <p style={{ margin: 0, color: '#389e0d' }}>
+              <strong>✓ Excel Format Detected:</strong>
+              <br />
+              • Questions: {questionsData.length}
+              <br />
+              • All questions parsed successfully
+              <br />
+              • Ready for student evaluation
+            </p>
+          </div>
         </div>
       ),
-      width: 500
+      width: 650,
+      okText: 'Got It!'
     });
 
   } catch (error) {
     console.error('Error creating exam:', error);
-    message.error('Failed to create exam');
+    message.error(`Failed to create exam: ${error.message}`);
   } finally {
     setLoading(false);
   }
 };
+
 
   // Copy exam link and open applications page
   const handleCopyLinkAndFilter = (exam) => {
@@ -241,7 +284,6 @@ const handleCreateExam = async (values) => {
     window.open(applicationsUrl, '_blank');
   };
 
-  // Delete exam
   const handleDeleteExam = async (examId) => {
   try {
     const { error } = await supabase
@@ -252,8 +294,9 @@ const handleCreateExam = async (values) => {
 
     if (error) throw error;
 
+    // Remove from local state
     setExams(exams.filter(exam => exam.id !== examId));
-    message.success('Exam deleted successfully!');
+    message.success('Exam deleted successfully');
   } catch (error) {
     console.error('Error deleting exam:', error);
     message.error('Failed to delete exam');
@@ -268,116 +311,132 @@ const handleCreateExam = async (values) => {
 };
 
   const examColumns = [
-    {
-      title: 'Exam Title',
-      dataIndex: 'exam_title',
-      key: 'exam_title',
-      render: (title) => (
-        <Space>
-          <FileTextOutlined style={{ color: '#1890ff' }} />
-          <Text strong>{title}</Text>
-        </Space>
-      )
-    },
-    {
-      title: 'Job ID',
-      dataIndex: 'job_id',
-      key: 'job_id',
-    },
-    {
-      title: 'College',
-      dataIndex: 'college',
-      key: 'college',
-    },
-    {
-      title: 'Questions',
-      dataIndex: 'total_questions',
-      key: 'total_questions',
-      render: (count) => <Text>{count} questions</Text>
-    },
-    {
-      title: 'Duration',
-      dataIndex: 'duration',
-      key: 'duration',
-      render: (duration) => <Text>{duration} minutes</Text>
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status) => (
-        <Tag color={status === 'Active' ? 'green' : 'orange'}>
-          {status}
-        </Tag>
-      )
-    },
-    {
-      title: 'Students',
-      key: 'students',
-      render: (_, record) => {
-        const totalStudents = getStudentCount(record.job_id, record.college);
-        return (
-          <div>
-            <Text style={{ fontSize: '12px' }}>
-              {record.students_completed || 0}/{totalStudents} eligible
-            </Text>
-          </div>
-        );
-      }
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (_, record) => (
-        <Space size="small">
-          <Button 
-            type="text" 
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => {
-              Modal.info({
-                title: 'Exam Link',
-                content: (
-                  <div>
-                    <Text>Share this link with students:</Text>
-                    <br />
-                    <Input.Search
-                      value={record.exam_link}
-                      enterButton="Copy"
-                      onSearch={() => {
-                        navigator.clipboard.writeText(record.exam_link);
-                        message.success('Link copied to clipboard!');
-                      }}
-                    />
-                  </div>
-                )
-              });
-            }}
-          />
-          <Button 
-            type="text" 
-            size="small"
-            icon={<MailOutlined />}
-            onClick={() => handleCopyLinkAndFilter(record)}
-            title="Copy link and open applications to send emails"
-          />
-          <Button 
-            type="text" 
-            size="small"
-            icon={<DeleteOutlined />}
-            danger
-            onClick={() => {
-              Modal.confirm({
-                title: 'Delete Exam',
-                content: 'Are you sure you want to delete this exam?',
-                onOk: () => handleDeleteExam(record.id)
-              });
-            }}
-          />
-        </Space>
-      )
+  {
+    title: 'Exam Title',
+    dataIndex: 'exam_title',
+    key: 'exam_title',
+    render: (title) => (
+      <Space>
+        <FileTextOutlined style={{ color: '#1890ff' }} />
+        <Text strong>{title}</Text>
+      </Space>
+    )
+  },
+  {
+    title: 'Job ID',
+    dataIndex: 'job_id',
+    key: 'job_id',
+  },
+  {
+    title: 'College',
+    dataIndex: 'college',
+    key: 'college',
+  },
+  {
+    title: 'Questions',
+    dataIndex: 'total_questions',
+    key: 'total_questions',
+    render: (count) => <Text>{count} questions</Text>
+  },
+  {
+    title: 'Duration',
+    dataIndex: 'duration',
+    key: 'duration',
+    render: (duration) => <Text>{duration} minutes</Text>
+  },
+  {
+    title: 'Status',
+    dataIndex: 'status',
+    key: 'status',
+    render: (status) => (
+      <Tag color={status === 'Active' ? 'green' : 'orange'}>
+        {status}
+      </Tag>
+    )
+  },
+  {
+    title: 'Students',
+    key: 'students',
+    render: (_, record) => {
+      const totalStudents = getStudentCount(record.job_id, record.college);
+      return (
+        <div>
+          <Text style={{ fontSize: '12px' }}>
+            {record.students_completed || 0}/{totalStudents} eligible
+          </Text>
+        </div>
+      );
     }
-  ];
+  },
+  {
+    title: 'Actions',
+    key: 'actions',
+    render: (_, record) => (
+      <Space size="small">
+        <Button 
+          type="text" 
+          size="small"
+          icon={<CopyOutlined />}
+          onClick={() => {
+            navigator.clipboard.writeText(record.exam_link);
+            message.success('Exam link copied to clipboard!');
+          }}
+          title="Copy Exam Link"
+        />
+        <Button 
+          type="text" 
+          size="small"
+          icon={<EyeOutlined />}
+          onClick={() => {
+            Modal.info({
+              title: 'Exam Link',
+              content: (
+                <div>
+                  <Text>Share this link with students:</Text>
+                  <br />
+                  <Input.Search
+                    value={record.exam_link}
+                    enterButton="Copy"
+                    onSearch={() => {
+                      navigator.clipboard.writeText(record.exam_link);
+                      message.success('Link copied to clipboard!');
+                    }}
+                  />
+                </div>
+              )
+            });
+          }}
+        />
+        <Button 
+          type="text" 
+          size="small"
+          icon={<MailOutlined />}
+          onClick={() => {
+            // Navigate to campus applications with filters
+            const baseUrl = window.location.origin;
+            const applicationsUrl = `${baseUrl}/dashboard/job-apply?job=${record.job_id}&college=${encodeURIComponent(record.college)}&exam=${record.id}`;
+            window.open(applicationsUrl, '_blank');
+          }}
+          title="Send to students"
+        />
+        <Button 
+          type="text" 
+          size="small"
+          icon={<DeleteOutlined />}
+          danger
+          onClick={() => {
+            Modal.confirm({
+              title: 'Delete Exam',
+              content: 'Are you sure you want to delete this exam?',
+              onOk: () => handleDeleteExam(record.id)
+            });
+          }}
+        />
+      </Space>
+    )
+  }
+];
+
 
   return (
     <div style={{ padding: '24px' }}>
@@ -532,55 +591,42 @@ const handleCreateExam = async (values) => {
 
           <Divider>Upload Documents</Divider>
 
-          <Row gutter={[16, 0]}>
-            <Col span={12}>
-              <Form.Item
-                label="Questions Document"
-                name="questionsFile"
-                rules={[{ required: true, message: 'Please upload questions document' }]}
-              >
-                <Upload
-                  accept=".pdf,.doc,.docx"
-                  beforeUpload={(file) => {
-                    setQuestionFile(file);
-                    return false;
-                  }}
-                  fileList={questionFile ? [questionFile] : []}
-                  onRemove={() => setQuestionFile(null)}
-                >
-                  <Button icon={<UploadOutlined />}>Upload Questions</Button>
-                </Upload>
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                label="Answer Key Document"
-                name="answerFile"
-                rules={[{ required: true, message: 'Please upload answer key document' }]}
-              >
-                <Upload
-                  accept=".pdf,.doc,.docx"
-                  beforeUpload={(file) => {
-                    setAnswerFile(file);
-                    return false;
-                  }}
-                  fileList={answerFile ? [answerFile] : []}
-                  onRemove={() => setAnswerFile(null)}
-                >
-                  <Button icon={<UploadOutlined />}>Upload Answer Key</Button>
-                </Upload>
-              </Form.Item>
-            </Col>
-          </Row>
+<Row gutter={[16, 0]}>
+  <Col span={24}>
+    <Form.Item
+      label="Questions Excel File"
+      name="questionsFile"
+      rules={[{ required: true, message: 'Please upload questions Excel file' }]}
+    >
+      <Upload
+        accept=".xlsx,.xls"
+        beforeUpload={(file) => {
+          setQuestionFile(file);
+          return false;
+        }}
+        fileList={questionFile ? [questionFile] : []}
+        onRemove={() => setQuestionFile(null)}
+      >
+        <Button icon={<UploadOutlined />}>Upload Questions Excel</Button>
+      </Upload>
+    </Form.Item>
+  </Col>
+</Row>
 
-          <Alert
-            message="Document Requirements"
-            description="Please ensure question document has clear question numbers and answer key document has corresponding answers in the same order."
-            type="info"
-            showIcon
-            style={{ marginBottom: '16px' }}
-          />
-
+<Alert
+  message="Excel Format Requirements"
+  description={
+    <div>
+      <p><strong>Column A:</strong> Questions (e.g., "What is 2+2?")</p>
+      <p><strong>Column B:</strong> Options separated by commas (e.g., "Option A, Option B, Option C, Option D")</p>
+      <p><strong>Column C:</strong> Correct Answer (e.g., "Option A")</p>
+      <p><strong>First row should contain headers, questions start from row 2</strong></p>
+    </div>
+  }
+  type="info"
+  showIcon
+  style={{ marginBottom: '16px' }}
+/>
           <Form.Item>
             <Space>
               <Button type="primary" htmlType="submit" loading={loading}>

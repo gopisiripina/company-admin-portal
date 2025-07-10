@@ -14,7 +14,6 @@ import ResumeListPage from '../job/ResumeListpage';
 import InterviewManagementPage from '../job/InterviewManagementPage';// Import ResumeListPage
 import JobApplicationPage from '../job/JobApplicationPage'
 import SelectedCandidatesPage from '../job/SelectedCandidatespage';
-import CampusJobViewPage from '../job/CampusJobViewPage'; // Import CampusJobViewPage
 import CampusJobApplyPage from '../job/CampusJobApplyPage'; // Import CampusJobApplyPage
 import ExamConductPage from '../job/ExamConductPage'; // Import ExamConductPage
 
@@ -615,58 +614,6 @@ if (activeSection === 'exam-conduct-page') {
   );
 }
 
-if (activeSection === 'campus-job-view') {
-  return (
-    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-      {/* Header */}
-      <header className="dashboard-header">
-        {/* Search Bar */}
-        <div className="search-container">
-  <Search size={22} className="search-icon" />
-  <input
-    type="text"
-    placeholder="Search job descriptions..."
-    value={searchQuery}
-    onChange={handleSearchInputChange}
-    onKeyPress={handleSearch}
-    className="search-input"
-  />
-  
-  {showSuggestions && searchSuggestions.length > 0 && (
-    <div className="search-suggestions">
-      {searchSuggestions.map((suggestion, index) => (
-        <div
-          key={index}
-          className="search-suggestion-item"
-          onClick={() => handleSuggestionClick(suggestion.section)}
-        >
-          {suggestion.name}
-        </div>
-      ))}
-    </div>
-  )}
-</div>
-
-        {/* Header Right */}
-        <div className="header-right">
-          {/* Notifications */}
-          <button className="notification-button">
-            <Bell size={22} />
-            <span className="notification-badge"></span>
-          </button>
-
-          {/* Profile Section */}
-          <ProfileSection userData={userData} onLogout={onLogout}/>
-        </div>
-      </header>
-
-      {/* Job Description Content */}
-      <main className="main-content">
-        <CampusJobViewPage userRole={userData?.role} />
-      </main>
-    </div>
-  );
-}
 if (activeSection === 'on-campus-data') {
   return (
     <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>

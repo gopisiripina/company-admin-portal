@@ -5,6 +5,8 @@ import Dashboard from './pages/dashboard/Dashboard';
 import Sidebar from './pages/dashboard/Sidebar';
 import AnimatedBackground from './pages/dashboard/AnimatedBackground';
 import CampusJobViewPage from './pages/job/CampusJobViewPage';
+import ExamTakePage from './pages/job/ExamTakePage';
+
 // Protected Route component
 const ProtectedRoute = ({ children, isLoggedIn }) => {
   return isLoggedIn ? children : <Navigate to="/" replace />;
@@ -202,7 +204,7 @@ useEffect(() => {
   return (
     <Routes>
       <Route path="/campus-job-view" element={<CampusJobViewPage />} />
-
+<Route path="/exam/:linkId" element={<ExamTakePage />} />
        <Route path='/job-apply' element={<Navigate to='/dashboard/job-apply' replace />} />
       {/* Login Route */}
       <Route 

@@ -74,7 +74,6 @@ const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
      { icon: FileText, label: 'Interview Management', id: 'interview-management', color: '#10b981' },
       { icon: FileText, label: 'Application Form', id: 'job-application', color: '#10b981' },
       { icon: FileText, label: 'Selected List', id: 'selected-list', color: '#10b981' },
-      { icon: FileText, label: 'Job View', id: 'campus-job-view', color: '#10b981' },
       { icon: FileText, label: 'On Campus Data', id: 'on-campus-data', color: '#10b981' },
       { icon: FileText, label: 'Exam Conduct On Campus', id: 'exam-conduct-page', color: '#10b981' },
     ]}
