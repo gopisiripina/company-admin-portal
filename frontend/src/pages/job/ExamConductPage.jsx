@@ -102,22 +102,44 @@ const fetchJobsAndColleges = async () => {
 
   // Upload file to Supabase storage
   const uploadFile = async (file, folder) => {
+  try {
+    console.log('Starting file upload:', file.name, 'to folder:', folder);
+    
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = `${folder}/${fileName}`;
 
+    console.log('File path:', filePath);
+
+    // Upload file to Supabase storage
     const { data, error } = await supabase.storage
       .from('exam-documents')
-      .upload(filePath, file);
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
 
-    if (error) throw error;
+    console.log('Upload response:', { data, error });
 
+    if (error) {
+      console.error('Upload error:', error);
+      throw new Error(`Upload failed: ${error.message}`);
+    }
+
+    // Get public URL
     const { data: { publicUrl } } = supabase.storage
       .from('exam-documents')
       .getPublicUrl(filePath);
 
+    console.log('Public URL:', publicUrl);
     return publicUrl;
-  };
+
+  } catch (error) {
+    console.error('File upload error:', error);
+    throw error;
+  }
+};
+
 
   // Create exam
 const handleCreateExam = async (values) => {
