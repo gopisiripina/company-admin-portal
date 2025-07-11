@@ -138,6 +138,7 @@ useEffect(() => {
  const smartTitleCase = (str) => {
   if (!str) return str;
   
+  
   // Split by spaces and process each word
   return str.split(' ').map(word => {
     if (word.length === 0) return word;
