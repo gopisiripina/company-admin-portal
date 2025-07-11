@@ -25,6 +25,8 @@ import {
   EyeOutlined,
   BarChartOutlined,
   CheckCircleOutlined,
+  DownloadOutlined,    // ADD THIS
+  UserAddOutlined ,
   
   CopyOutlined, MailOutlined, DeleteOutlined
   
@@ -53,6 +55,44 @@ const ExamConductPage = ({ userRole }) => {
 const [selectedExamResponses, setSelectedExamResponses] = useState([]);
 const [cutoffScore, setCutoffScore] = useState('');
 const [filteredResponses, setFilteredResponses] = useState([]);
+const [selectedStudents, setSelectedStudents] = useState([]);
+const [selectedStudentKeys, setSelectedStudentKeys] = useState([]);
+
+const downloadExcel = () => {
+  if (selectedStudents.length === 0) {
+    message.warning('Please select at least one student to download');
+    return;
+  }
+
+  // Prepare data for Excel
+  const excelData = selectedStudents.map((student, index) => ({
+    'S.No': index + 1,
+    'Student Name': student.student_name,
+    'Email': student.student_email,
+    'Score': student.total_score,
+    'Total Questions': student.total_questions,
+    'Percentage': ((student.total_score / student.total_questions) * 100).toFixed(2) + '%',
+    'Status': cutoffScore && student.total_score >= parseInt(cutoffScore) ? 'PASSED' : 'FAILED',
+    'Exam Title': selectedExam?.exam_title,
+    'Job ID': selectedExam?.job_id,
+    'College': selectedExam?.college
+  }));
+
+  // Create workbook and worksheet
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(excelData);
+  
+  // Add worksheet to workbook
+  XLSX.utils.book_append_sheet(wb, ws, 'Selected Students');
+  
+  // Generate filename
+  const filename = `${selectedExam?.exam_title}_Selected_Students_${new Date().toISOString().split('T')[0]}.xlsx`;
+  
+  // Download file
+  XLSX.writeFile(wb, filename);
+  
+  message.success(`Downloaded ${selectedStudents.length} student records`);
+};
 
 
   // Fetch unique job IDs and colleges from applications
@@ -185,6 +225,25 @@ const responseColumns = [
     }
   }
 ];
+const rowSelection = {
+  selectedRowKeys: selectedStudentKeys,
+  onChange: (selectedRowKeys, selectedRows) => {
+    setSelectedStudentKeys(selectedRowKeys);
+    setSelectedStudents(selectedRows);
+  },
+  onSelectAll: (selected, selectedRows, changeRows) => {
+    if (selected) {
+      setSelectedStudentKeys(filteredResponses.map(student => student.student_email));
+      setSelectedStudents(filteredResponses);
+    } else {
+      setSelectedStudentKeys([]);
+      setSelectedStudents([]);
+    }
+  },
+  getCheckboxProps: (record) => ({
+    name: record.student_name,
+  }),
+};
 
   // Fetch exams from database
  const fetchExams = async () => {
@@ -794,6 +853,7 @@ const [jobTitles, setJobTitles] = useState([]);
         </Form>
       </Modal>
       {/* Responses View */}
+      
 {showResponses && (
   <Card style={{ marginTop: '24px' }}>
     <div style={{ marginBottom: '16px' }}>
@@ -832,14 +892,41 @@ const [jobTitles, setJobTitles] = useState([]);
         </Space>
       </Col>
     </Row>
+<Row gutter={[16, 16]} style={{ marginBottom: '16px' }}>
+  <Col span={24}>
+    <Space>
+      <Button 
+        type="primary" 
+        icon={<DownloadOutlined />}
+        onClick={downloadExcel}
+        disabled={selectedStudents.length === 0}
+      >
+        Download Excel ({selectedStudents.length} selected)
+      </Button>
+      <Button 
+        type="default"
+        icon={<UserAddOutlined />}
+        disabled={selectedStudents.length === 0}
+      >
+        Move to Candidate List ({selectedStudents.length} selected)
+      </Button>
+      {selectedStudents.length > 0 && (
+        <Text type="secondary">
+          {selectedStudents.length} of {filteredResponses.length} students selected
+        </Text>
+      )}
+    </Space>
+  </Col>
+</Row>
 
     <Table
-      columns={responseColumns}
-      dataSource={filteredResponses}
-      rowKey="student_email"
-      loading={loading}
-      pagination={{ pageSize: 10 }}
-    />
+  columns={responseColumns}
+  dataSource={filteredResponses}
+  rowKey="student_email"
+  loading={loading}
+  pagination={{ pageSize: 10 }}
+  rowSelection={rowSelection}
+/>
   </Card>
 )}
 
