@@ -9,6 +9,12 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
+
+@app.route('/', methods=['GET'])
+def hello_world():
+    return "Hello World"
+
+
 @app.route('/api/send-email', methods=['POST'])
 def send_email():
     try:
@@ -289,19 +295,6 @@ def send_recruitment_email():
             "success": False,
             "error": str(e)
         }), 500
-
-
-
-from flask import Flask, request, jsonify
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from flask_cors import CORS
-import os
-
-app = Flask(__name__)
-CORS(app)
-
 
 
 @app.route('/api/send-job-offer', methods=['POST'])
@@ -682,6 +675,120 @@ def send_interview_invitation():
 
     except Exception as e:
         print("Exception occurred:", str(e))  # Debug print
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/api/send-email-with-attachment', methods=['POST'])
+def send_email_with_attachment():
+    try:
+        # Get form data and files
+        sender_email = request.form.get('senderEmail')
+        sender_password = request.form.get('senderPassword')
+        recipient_email = request.form.get('recipientEmail')
+        subject = request.form.get('subject', 'Email with Attachment')
+        message_body = request.form.get('messageBody', 'Please find the attached file.')
+        smtp_server = request.form.get('smtpServer', 'smtp.gmail.com')
+        smtp_port = int(request.form.get('smtpPort', 587))
+        
+        print(f"Sender: {sender_email}")
+        print(f"Recipient: {recipient_email}")
+        print(f"Subject: {subject}")
+        print(f"SMTP Server: {smtp_server}:{smtp_port}")
+        
+        # Validate required fields
+        if not sender_email or not sender_password or not recipient_email:
+            return jsonify({
+                "success": False,
+                "error": "Missing required fields: senderEmail, senderPassword, or recipientEmail"
+            }), 400
+        
+        # Get uploaded files
+        uploaded_files = request.files.getlist('attachments')
+        print(f"Number of files uploaded: {len(uploaded_files)}")
+        
+        if not uploaded_files or all(f.filename == '' for f in uploaded_files):
+            return jsonify({
+                "success": False,
+                "error": "No files uploaded"
+            }), 400
+        
+        # Create message
+        message = MIMEMultipart()
+        message["Subject"] = subject
+        message["From"] = sender_email
+        message["To"] = recipient_email
+        
+        # Add body to email
+        message.attach(MIMEText(message_body, "plain"))
+        
+        # Process attachments
+        attachment_info = []
+        for file in uploaded_files:
+            if file.filename != '':
+                print(f"Processing file: {file.filename}")
+                
+                # Read file content
+                file_content = file.read()
+                file_size = len(file_content)
+                
+                # Create attachment
+                from email.mime.base import MIMEBase
+                from email import encoders
+                
+                part = MIMEBase('application', 'octet-stream')
+                part.set_payload(file_content)
+                encoders.encode_base64(part)
+                
+                # Add header
+                part.add_header(
+                    'Content-Disposition',
+                    f'attachment; filename= {file.filename}'
+                )
+                
+                # Attach the part to message
+                message.attach(part)
+                
+                attachment_info.append({
+                    "filename": file.filename,
+                    "size": file_size,
+                    "content_type": file.content_type
+                })
+                
+                print(f"Attached file: {file.filename} ({file_size} bytes)")
+        
+        # Send email
+        print("Connecting to SMTP server...")
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.send_message(message)
+            print("Email with attachments sent successfully!")
+        
+        return jsonify({
+            "success": True,
+            "message": "Email with attachments sent successfully",
+            "recipient": recipient_email,
+            "subject": subject,
+            "attachments": attachment_info,
+            "total_attachments": len(attachment_info)
+        }), 200
+        
+    except smtplib.SMTPAuthenticationError:
+        return jsonify({
+            "success": False,
+            "error": "SMTP Authentication failed. Please check email credentials."
+        }), 401
+        
+    except smtplib.SMTPException as smtp_error:
+        return jsonify({
+            "success": False,
+            "error": f"SMTP Error: {str(smtp_error)}"
+        }), 422
+        
+    except Exception as e:
+        print("Exception occurred:", str(e))
         return jsonify({
             "success": False,
             "error": str(e)
