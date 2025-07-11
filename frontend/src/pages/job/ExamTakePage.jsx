@@ -215,6 +215,7 @@ const handleStartExam = async (values) => {
   };
 
   // Submit exam
+// Submit exam
 const handleSubmitExam = async () => {
   if (!studentInfo) {
     message.error('Student information is missing');
@@ -239,7 +240,7 @@ const handleSubmitExam = async () => {
         exam_id: examData.id,
         student_name: studentInfo.studentName,
         student_email: studentInfo.email,
-        student_roll_number: studentInfo.rollNumber, // Add roll number
+        student_roll_number: studentInfo.rollNumber,
         job_id: examData.job_id,
         college: examData.college,
         question_number: question.id,
@@ -285,7 +286,7 @@ const handleSubmitExam = async () => {
       document.exitFullscreen();
     }
 
-    // Show simple completion message
+    // Show completion message without redirection
     Modal.success({
       title: 'Exam Completed Successfully!',
       content: (
@@ -301,22 +302,30 @@ const handleSubmitExam = async () => {
             <p><strong>College:</strong> {examData.college}</p>
           </div>
           <Alert
-            message="Thank you for taking the exam!"
-            description="Your responses have been recorded successfully. Our HR team will review your submission and get back to you soon."
+            message="Exam Completed"
+            description="Thank you for taking the exam! Your responses have been recorded successfully. Our team will review your submission and get back to you soon."
             type="success"
             showIcon
           />
+          <div style={{ marginTop: '24px' }}>
+            <Text type="secondary">
+              You may now safely close this window.
+            </Text>
+          </div>
         </div>
       ),
       width: 500,
       okText: 'Close',
-      onOk: () => navigate('/')
+      // Remove the onOk handler to prevent any navigation
     });
+
+    // Disable all exam controls after submission
+    setExamStarted(false);
+    setSubmitting(false);
 
   } catch (error) {
     console.error('Error submitting exam:', error);
     message.error('Failed to submit exam. Please try again.');
-  } finally {
     setSubmitting(false);
   }
 };
@@ -419,44 +428,50 @@ if (!examStarted) {
   }
 
   // Show exam already taken message
-  if (examAlreadyTaken) {
-    return (
-      <div style={{ 
-        padding: '24px', 
-        maxWidth: '600px', 
-        margin: '0 auto',
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <Card style={{ width: '100%', textAlign: 'center' }}>
-          <div style={{ marginBottom: '24px' }}>
-            <FileTextOutlined style={{ fontSize: '48px', color: '#ff4d4f' }} />
-            <Title level={2} style={{ color: '#ff4d4f' }}>
-              Exam Already Completed
-            </Title>
-          </div>
-          <Alert
-            message="You have already taken this exam"
-            description="Our records show that you have already completed this exam. Each candidate can only take the exam once. If you believe this is an error, please contact the HR team."
-            type="warning"
-            showIcon
-            style={{ marginBottom: '24px' }}
-          />
-          <div style={{ marginTop: '16px' }}>
-            <p><strong>Exam:</strong> {examData.exam_title}</p>
-            <p><strong>Job ID:</strong> {examData.job_id}</p>
-            <p><strong>College:</strong> {examData.college}</p>
-          </div>
-          <Button type="primary" onClick={() => navigate('/')}>
-            Go Back
-          </Button>
-        </Card>
-      </div>
-    );
-  }
-
+// Show exam already taken message
+if (examAlreadyTaken) {
+  return (
+    <div style={{ 
+      padding: '24px', 
+      maxWidth: '600px', 
+      margin: '0 auto',
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}>
+      <Card style={{ width: '100%', textAlign: 'center' }}>
+        <div style={{ marginBottom: '24px' }}>
+          <FileTextOutlined style={{ fontSize: '48px', color: '#ff4d4f' }} />
+          <Title level={2} style={{ color: '#ff4d4f' }}>
+            Exam Already Completed
+          </Title>
+        </div>
+        <Alert
+          message="You have already taken this exam"
+          description="Our records show that you have already completed this exam. Each candidate can only take the exam once. If you believe this is an error, please contact the HR team."
+          type="warning"
+          showIcon
+          style={{ marginBottom: '24px' }}
+        />
+        <div style={{ marginTop: '16px' }}>
+          <p><strong>Exam:</strong> {examData.exam_title}</p>
+          <p><strong>Job ID:</strong> {examData.job_id}</p>
+          <p><strong>College:</strong> {examData.college}</p>
+        </div>
+        <Button 
+          type="primary" 
+          onClick={() => {
+            // Remove navigation and just show a message
+            message.info('Please close this window as you have already completed the exam');
+          }}
+        >
+          Close Window
+        </Button>
+      </Card>
+    </div>
+  );
+}
   return (
     <div style={{ 
       padding: '24px', 

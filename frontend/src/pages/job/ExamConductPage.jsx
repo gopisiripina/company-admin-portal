@@ -23,8 +23,10 @@ import {
   LinkOutlined, 
   SendOutlined,
   EyeOutlined,
-  
+  BarChartOutlined,
   CheckCircleOutlined,
+  DownloadOutlined,    // ADD THIS
+  UserAddOutlined ,
   
   CopyOutlined, MailOutlined, DeleteOutlined
   
@@ -49,27 +51,250 @@ const ExamConductPage = ({ userRole }) => {
   const [jobIds, setJobIds] = useState([]);
   const [colleges, setColleges] = useState([]);
   const [applications, setApplications] = useState([]);
+  const [showResponses, setShowResponses] = useState(false);
+const [selectedExamResponses, setSelectedExamResponses] = useState([]);
+const [cutoffScore, setCutoffScore] = useState('');
+const [filteredResponses, setFilteredResponses] = useState([]);
+const [selectedStudents, setSelectedStudents] = useState([]);
+const [selectedStudentKeys, setSelectedStudentKeys] = useState([]);
+
+const moveToCandidateList = async () => {
+  if (selectedStudents.length === 0) {
+    message.warning('Please select at least one student to move');
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const insertPayload = selectedStudents.map(student => ({
+      job_id: selectedExam?.job_id,
+      job_title: selectedExam?.exam_title,
+      full_name: student.student_name,
+      email: student.student_email,
+      phone: '', // optional, if available
+      location: '',
+      current_position: '',
+      current_company: '',
+      experience_years: '',
+      education: '',
+      availability: '',
+      skills: '',
+      expected_salary: '',
+      resume_url: '',
+      interview_type: null,
+      interview_date: null,
+      interview_time: null,
+      interview_link: null,
+      interview_platform: null,
+      mail_sent_date: null,
+      interview_status: 'pending',
+      status: 'shortlisted',
+      applied_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }));
+
+    const { data, error } = await supabase
+      .from('job_applications')
+      .insert(insertPayload);
+
+    if (error) throw error;
+
+    message.success(`${selectedStudents.length} students moved to candidate list`);
+  } catch (error) {
+    console.error('Error moving students:', error);
+    message.error('Failed to move candidates');
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+const downloadExcel = () => {
+  if (selectedStudents.length === 0) {
+    message.warning('Please select at least one student to download');
+    return;
+  }
+
+  // Prepare data for Excel
+  const excelData = selectedStudents.map((student, index) => ({
+    'S.No': index + 1,
+    'Student Name': student.student_name,
+    'Email': student.student_email,
+    'Score': student.total_score,
+    'Total Questions': student.total_questions,
+    'Percentage': ((student.total_score / student.total_questions) * 100).toFixed(2) + '%',
+    'Status': cutoffScore && student.total_score >= parseInt(cutoffScore) ? 'PASSED' : 'FAILED',
+    'Exam Title': selectedExam?.exam_title,
+    'Job ID': selectedExam?.job_id,
+    'College': selectedExam?.college
+  }));
+
+  // Create workbook and worksheet
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(excelData);
+  
+  // Add worksheet to workbook
+  XLSX.utils.book_append_sheet(wb, ws, 'Selected Students');
+  
+  // Generate filename
+  const filename = `${selectedExam?.exam_title}_Selected_Students_${new Date().toISOString().split('T')[0]}.xlsx`;
+  
+  // Download file
+  XLSX.writeFile(wb, filename);
+  
+  message.success(`Downloaded ${selectedStudents.length} student records`);
+};
+
 
   // Fetch unique job IDs and colleges from applications
 // Updated fetchJobsAndColleges function to use campus_job_applications table
 const fetchJobsAndColleges = async () => {
   try {
-    const { data, error } = await supabase
-      .from('campus_job_applications')  // Changed from 'campus_management'
-      .select('job_id, college_name, student_name, email, mobile, resume_url, created_at, link_id');  // Removed type filter
+    // Fetch applications data
+    const { data: applicationsData, error: applicationsError } = await supabase
+      .from('campus_job_applications')
+      .select('job_id, college_name, student_name, email, mobile, resume_url, created_at, link_id');
 
-    if (error) throw error;
+    if (applicationsError) throw applicationsError;
 
-    const uniqueJobIds = [...new Set(data.map(app => app.job_id))].filter(Boolean);
-    const uniqueColleges = [...new Set(data.map(app => app.college_name))].filter(Boolean);
+    // Fetch job descriptions data
+    const { data: jobDescriptionsData, error: jobDescriptionsError } = await supabase
+      .from('job_descriptions')
+      .select('job_title, college_name');
+
+    if (jobDescriptionsError) throw jobDescriptionsError;
+
+    const uniqueJobIds = [...new Set(applicationsData.map(app => app.job_id))].filter(Boolean);
+    const uniqueColleges = [...new Set(jobDescriptionsData.map(job => job.college_name))].filter(Boolean);
+    
+    // Extract job titles from job_descriptions table
+    const uniqueJobTitles = [...new Set(jobDescriptionsData.map(job => job.job_title))].filter(Boolean);
 
     setJobIds(uniqueJobIds);
     setColleges(uniqueColleges);
-    setApplications(data);
+    setJobTitles(uniqueJobTitles);
+    setApplications(applicationsData);
   } catch (error) {
     console.error('Error fetching jobs and colleges:', error);
     message.error('Failed to load job IDs and colleges');
   }
+};
+
+
+const handleViewResponses = async (exam) => {
+  setSelectedExam(exam);
+  setLoading(true);
+  try {
+    const { data, error } = await supabase
+      .from('campus_management')
+      .select('*')
+      .eq('type', 'exam_response')
+      .eq('exam_id', exam.id);
+
+    if (error) throw error;
+    
+    // Group responses by student
+    const studentResponses = data.reduce((acc, response) => {
+      const studentKey = response.student_email;
+      if (!acc[studentKey]) {
+        acc[studentKey] = {
+          student_email: response.student_email,
+          student_name: response.student_name,
+          total_score: 0,
+          total_questions: 0,
+          responses: []
+        };
+      }
+      acc[studentKey].responses.push(response);
+      acc[studentKey].total_score += response.score || 0;
+      acc[studentKey].total_questions += 1;
+      return acc;
+    }, {});
+
+    setSelectedExamResponses(Object.values(studentResponses));
+    setFilteredResponses(Object.values(studentResponses));
+    setShowResponses(true);
+  } catch (error) {
+    message.error('Failed to fetch responses');
+  } finally {
+    setLoading(false);
+  }
+};
+const handleCutoffFilter = (cutoff) => {
+  if (!cutoff) {
+    setFilteredResponses(selectedExamResponses);
+    return;
+  }
+  
+  const filtered = selectedExamResponses.filter(student => 
+    student.total_score >= parseInt(cutoff)
+  );
+  setFilteredResponses(filtered);
+};
+const responseColumns = [
+  {
+    title: 'Student Name',
+    dataIndex: 'student_name',
+    key: 'student_name',
+  },
+  {
+    title: 'Email',
+    dataIndex: 'student_email',
+    key: 'student_email',
+  },
+  {
+    title: 'Score',
+    dataIndex: 'total_score',
+    key: 'total_score',
+    render: (score, record) => (
+      <Text strong style={{ 
+        color: cutoffScore && score >= parseInt(cutoffScore) ? '#52c41a' : '#ff4d4f' 
+      }}>
+        {score}/{record.total_questions}
+      </Text>
+    )
+  },
+  {
+    title: 'Percentage',
+    key: 'percentage',
+    render: (_, record) => {
+      const percentage = ((record.total_score / record.total_questions) * 100).toFixed(2);
+      return <Text>{percentage}%</Text>;
+    }
+  },
+  {
+    title: 'Status',
+    key: 'status',
+    render: (_, record) => {
+      if (!cutoffScore) return <Text>-</Text>;
+      const passed = record.total_score >= parseInt(cutoffScore);
+      return (
+        <Tag color={passed ? 'green' : 'red'}>
+          {passed ? 'PASSED' : 'FAILED'}
+        </Tag>
+      );
+    }
+  }
+];
+const rowSelection = {
+  selectedRowKeys: selectedStudentKeys,
+  onChange: (selectedRowKeys, selectedRows) => {
+    setSelectedStudentKeys(selectedRowKeys);
+    setSelectedStudents(selectedRows);
+  },
+  onSelectAll: (selected, selectedRows, changeRows) => {
+    if (selected) {
+      setSelectedStudentKeys(filteredResponses.map(student => student.student_email));
+      setSelectedStudents(filteredResponses);
+    } else {
+      setSelectedStudentKeys([]);
+      setSelectedStudents([]);
+    }
+  },
+  getCheckboxProps: (record) => ({
+    name: record.student_name,
+  }),
 };
 
   // Fetch exams from database
@@ -192,8 +417,8 @@ const handleCreateExam = async (values) => {
       .insert([{
         type: 'exam',
         exam_title: values.examTitle,
-        job_id: values.jobId,
-        college: values.college,
+        job_id: Array.isArray(values.jobId) ? parseInt(values.jobId[0]) : parseInt(values.jobId),
+college: Array.isArray(values.college) ? values.college[0] : values.college,
         total_questions: questionsData.length,
         duration: parseInt(values.duration),
         exam_link: examLink,
@@ -309,7 +534,17 @@ const handleCreateExam = async (values) => {
     app.job_id === jobId && app.college_name === college
   ).length;
 };
+// Add this function to format exam title
+const formatExamTitle = (title) => {
+  if (!title) return '';
+  return title
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+};
 
+// Add these state variables at the top with other useState declarations
+const [jobTitles, setJobTitles] = useState([]);
   const examColumns = [
   {
     title: 'Exam Title',
@@ -376,16 +611,6 @@ const handleCreateExam = async (values) => {
         <Button 
           type="text" 
           size="small"
-          icon={<CopyOutlined />}
-          onClick={() => {
-            navigator.clipboard.writeText(record.exam_link);
-            message.success('Exam link copied to clipboard!');
-          }}
-          title="Copy Exam Link"
-        />
-        <Button 
-          type="text" 
-          size="small"
           icon={<EyeOutlined />}
           onClick={() => {
             Modal.info({
@@ -407,17 +632,14 @@ const handleCreateExam = async (values) => {
             });
           }}
         />
-        <Button 
+        
+        
+         <Button 
           type="text" 
           size="small"
-          icon={<MailOutlined />}
-          onClick={() => {
-            // Navigate to campus applications with filters
-            const baseUrl = window.location.origin;
-            const applicationsUrl = `${baseUrl}/dashboard/job-apply?job=${record.job_id}&college=${encodeURIComponent(record.college)}&exam=${record.id}`;
-            window.open(applicationsUrl, '_blank');
-          }}
-          title="Send to students"
+          icon={<BarChartOutlined />}
+          onClick={() => handleViewResponses(record)}
+          title="View Responses"
         />
         <Button 
           type="text" 
@@ -529,65 +751,108 @@ const handleCreateExam = async (values) => {
         footer={null}
         width={800}
       >
-        <Form form={form} onFinish={handleCreateExam} layout="vertical">
-          <Row gutter={[16, 0]}>
-            <Col span={12}>
-              <Form.Item
-                label="Exam Title"
-                name="examTitle"
-                rules={[{ required: true, message: 'Please enter exam title' }]}
-              >
-                <Input placeholder="Enter exam title" />
-              </Form.Item>
-            </Col>
-            <Col span={6}>
-              <Form.Item
-                label="Job ID"
-                name="jobId"
-                rules={[{ required: true, message: 'Please select job ID' }]}
-              >
-                <Select placeholder="Select Job ID">
-                  {jobIds.map(jobId => (
-                    <Option key={jobId} value={jobId}>{jobId}</Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={6}>
-              <Form.Item
-                label="College"
-                name="college"
-                rules={[{ required: true, message: 'Please select college' }]}
-              >
-                <Select placeholder="Select College">
-                  {colleges.map(college => (
-                    <Option key={college} value={college}>{college}</Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={[16, 0]}>
-            <Col span={12}>
-              <Form.Item
-                label="Total Questions"
-                name="totalQuestions"
-                rules={[{ required: true, message: 'Please enter number of questions' }]}
-              >
-                <Input type="number" placeholder="Enter number of questions" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                label="Duration (minutes)"
-                name="duration"
-                rules={[{ required: true, message: 'Please enter duration' }]}
-              >
-                <Input type="number" placeholder="Enter duration in minutes" />
-              </Form.Item>
-            </Col>
-          </Row>
+<Form form={form} onFinish={handleCreateExam} layout="vertical">
+  <Row gutter={[16, 0]}>
+    <Col span={24}>
+      <Form.Item
+        label="Exam Title"
+        name="examTitle"
+        rules={[{ required: true, message: 'Please enter exam title' }]}
+      >
+        <Select
+          mode="tags"
+          placeholder="Select existing job title or enter new one"
+          style={{ width: '100%' }}
+          tokenSeparators={[',']}
+          maxTagCount={1}
+          onChange={(value) => {
+            if (value && value.length > 0) {
+              const formattedTitle = formatExamTitle(value[0]);
+              form.setFieldsValue({ examTitle: formattedTitle });
+            }
+          }}
+          filterOption={(input, option) =>
+            option?.children?.toLowerCase().indexOf(input.toLowerCase()) >= 0
+          }
+        >
+          {jobTitles.map(title => (
+            <Option key={title} value={title}>
+              {formatExamTitle(title)}
+            </Option>
+          ))}
+        </Select>
+      </Form.Item>
+    </Col>
+  </Row>
+  
+  <Row gutter={[16, 0]}>
+    <Col span={12}>
+      <Form.Item
+        label="Job ID"
+        name="jobId"
+        rules={[{ required: true, message: 'Please enter job ID' }]}
+      >
+        <Select
+          mode="tags"
+          placeholder="Select existing Job ID or enter new one"
+          style={{ width: '100%' }}
+          tokenSeparators={[',']}
+          maxTagCount={1}
+          filterOption={(input, option) =>
+            option?.children?.toLowerCase().indexOf(input.toLowerCase()) >= 0
+          }
+        >
+          {jobIds.map(jobId => (
+            <Option key={jobId} value={jobId}>{jobId}</Option>
+          ))}
+        </Select>
+      </Form.Item>
+    </Col>
+    <Col span={12}>
+      <Form.Item
+        label="College"
+        name="college"
+        rules={[{ required: true, message: 'Please enter college name' }]}
+      >
+        <Select
+          mode="tags"
+          placeholder="Select existing college or enter new one"
+          style={{ width: '100%' }}
+          tokenSeparators={[',']}
+          maxTagCount={1}
+          filterOption={(input, option) =>
+            option?.children?.toLowerCase().indexOf(input.toLowerCase()) >= 0
+          }
+        >
+          {colleges.map(college => (
+            <Option key={college} value={college}>{college}</Option>
+          ))}
+        </Select>
+      </Form.Item>
+    </Col>
+  </Row>
+  
+  {/* Rest of your form remains the same */}
+  <Row gutter={[16, 0]}>
+    <Col span={12}>
+      <Form.Item
+        label="Total Questions"
+        name="totalQuestions"
+        rules={[{ required: true, message: 'Please enter number of questions' }]}
+      >
+        <Input type="number" placeholder="Enter number of questions" />
+      </Form.Item>
+    </Col>
+    <Col span={12}>
+      <Form.Item
+        label="Duration (minutes)"
+        name="duration"
+        rules={[{ required: true, message: 'Please enter duration' }]}
+      >
+        <Input type="number" placeholder="Enter duration in minutes" />
+      </Form.Item>
+    </Col>
+  </Row>
 
           <Divider>Upload Documents</Divider>
 
@@ -639,8 +904,87 @@ const handleCreateExam = async (values) => {
           </Form.Item>
         </Form>
       </Modal>
+      {/* Responses View */}
+      
+{showResponses && (
+  <Card style={{ marginTop: '24px' }}>
+    <div style={{ marginBottom: '16px' }}>
+      <Space>
+        <Button onClick={() => setShowResponses(false)}>
+          ← Back to Exams
+        </Button>
+        <Title level={4} style={{ margin: 0 }}>
+          Responses for: {selectedExam?.exam_title}
+        </Title>
+      </Space>
+    </div>
+    
+    <Row gutter={[16, 16]} style={{ marginBottom: '16px' }}>
+      <Col span={8}>
+        <Input
+          placeholder="Enter cutoff score"
+          value={cutoffScore}
+          onChange={(e) => {
+            setCutoffScore(e.target.value);
+            handleCutoffFilter(e.target.value);
+          }}
+          type="number"
+          addonBefore="Cutoff Score"
+        />
+      </Col>
+      <Col span={16}>
+        <Space>
+          <Text>Total Students: {selectedExamResponses.length}</Text>
+          {cutoffScore && (
+            <>
+              <Text type="success">Passed: {filteredResponses.filter(s => s.total_score >= parseInt(cutoffScore)).length}</Text>
+              <Text type="danger">Failed: {filteredResponses.filter(s => s.total_score < parseInt(cutoffScore)).length}</Text>
+            </>
+          )}
+        </Space>
+      </Col>
+    </Row>
+<Row gutter={[16, 16]} style={{ marginBottom: '16px' }}>
+  <Col span={24}>
+    <Space>
+      <Button 
+        type="primary" 
+        icon={<DownloadOutlined />}
+        onClick={downloadExcel}
+        disabled={selectedStudents.length === 0}
+      >
+        Download Excel ({selectedStudents.length} selected)
+      </Button>
+      <Button 
+  type="default"
+  icon={<UserAddOutlined />}
+  disabled={selectedStudents.length === 0}
+  onClick={moveToCandidateList} // ✅ Attach this
+>
+  Move to Candidate List ({selectedStudents.length} selected)
+</Button>
+
+      {selectedStudents.length > 0 && (
+        <Text type="secondary">
+          {selectedStudents.length} of {filteredResponses.length} students selected
+        </Text>
+      )}
+    </Space>
+  </Col>
+</Row>
+
+    <Table
+  columns={responseColumns}
+  dataSource={filteredResponses}
+  rowKey="student_email"
+  loading={loading}
+  pagination={{ pageSize: 10 }}
+  rowSelection={rowSelection}
+/>
+  </Card>
+)}
+
     </div>
   );
 };
-
 export default ExamConductPage;
