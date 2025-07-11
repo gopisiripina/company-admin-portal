@@ -15,23 +15,24 @@ import { supabase } from '../../supabase/config';
 const fetchInterviewCandidates = async (jobId) => {
   let query = supabase
     .from('job_applications')
-    .select('*');
-    
-  // Only filter by job_id if it's not 'all'
+    .select('*')
+    .in('interview_status', ['scheduled', 'rescheduled', 'completed']); // ✅ Only scheduled/rescheduled/done
+
   if (jobId !== 'all') {
     query = query.eq('job_id', jobId);
   }
-  
+
   const { data, error } = await query
-    .in('status', ['shortlisted', 'technical', 'hr', 'reschedule'])
+    .in('status', ['technical', 'hr', 'reschedule', 'selected']) // ✅ Only valid interview rounds
     .order('updated_at', { ascending: false });
-    
+
   if (error) {
     console.error('Error fetching interview candidates:', error);
     return [];
   }
   return data;
 };
+
 
 // Update candidate interview status
 const updateCandidateStatus = async (candidateId, updateData) => {
