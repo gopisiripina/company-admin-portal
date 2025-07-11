@@ -58,6 +58,58 @@ const [filteredResponses, setFilteredResponses] = useState([]);
 const [selectedStudents, setSelectedStudents] = useState([]);
 const [selectedStudentKeys, setSelectedStudentKeys] = useState([]);
 
+const moveToCandidateList = async () => {
+  if (selectedStudents.length === 0) {
+    message.warning('Please select at least one student to move');
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const insertPayload = selectedStudents.map(student => ({
+      job_id: selectedExam?.job_id,
+      job_title: selectedExam?.exam_title,
+      full_name: student.student_name,
+      email: student.student_email,
+      phone: '', // optional, if available
+      location: '',
+      current_position: '',
+      current_company: '',
+      experience_years: '',
+      education: '',
+      availability: '',
+      skills: '',
+      expected_salary: '',
+      resume_url: '',
+      interview_type: null,
+      interview_date: null,
+      interview_time: null,
+      interview_link: null,
+      interview_platform: null,
+      mail_sent_date: null,
+      interview_status: 'pending',
+      status: 'shortlisted',
+      applied_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }));
+
+    const { data, error } = await supabase
+      .from('job_applications')
+      .insert(insertPayload);
+
+    if (error) throw error;
+
+    message.success(`${selectedStudents.length} students moved to candidate list`);
+  } catch (error) {
+    console.error('Error moving students:', error);
+    message.error('Failed to move candidates');
+  } finally {
+    setLoading(false);
+  }
+};
+
+
 const downloadExcel = () => {
   if (selectedStudents.length === 0) {
     message.warning('Please select at least one student to download');
@@ -365,8 +417,8 @@ const handleCreateExam = async (values) => {
       .insert([{
         type: 'exam',
         exam_title: values.examTitle,
-        job_id: values.jobId,
-        college: values.college,
+        job_id: Array.isArray(values.jobId) ? parseInt(values.jobId[0]) : parseInt(values.jobId),
+college: Array.isArray(values.college) ? values.college[0] : values.college,
         total_questions: questionsData.length,
         duration: parseInt(values.duration),
         exam_link: examLink,
@@ -904,12 +956,14 @@ const [jobTitles, setJobTitles] = useState([]);
         Download Excel ({selectedStudents.length} selected)
       </Button>
       <Button 
-        type="default"
-        icon={<UserAddOutlined />}
-        disabled={selectedStudents.length === 0}
-      >
-        Move to Candidate List ({selectedStudents.length} selected)
-      </Button>
+  type="default"
+  icon={<UserAddOutlined />}
+  disabled={selectedStudents.length === 0}
+  onClick={moveToCandidateList} // ✅ Attach this
+>
+  Move to Candidate List ({selectedStudents.length} selected)
+</Button>
+
       {selectedStudents.length > 0 && (
         <Text type="secondary">
           {selectedStudents.length} of {filteredResponses.length} students selected
