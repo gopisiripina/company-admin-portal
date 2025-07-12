@@ -107,70 +107,42 @@ export const EMAIL_TEMPLATE_VARIABLES = {
   website_link: '{{website_link}}'
 };
 // Send interview invitation email
-export const sendInterviewInvitation = async (candidateData, interviewDetails) => {
-  const templateParams = {
-    // Basic email fields
-    subject: `Interview Invitation - ${candidateData.jobTitle} Position`,
-    to_email: candidateData.email,
-    from_name: 'HR Team',
-    title: 'Interview Invitation',
-    
-    // Interview specific variables
-    candidate_name: candidateData.full_name,
-    job_title: candidateData.jobTitle,
-    interview_type: interviewDetails.type,
-    interview_date: interviewDetails.date,
-    interview_time: interviewDetails.time,
-    interview_link: interviewDetails.link,
-    interview_platform: interviewDetails.platform,
-    company_name: 'My Access',
-    
-    // Message content
-message_body: `We are pleased to invite you for a ${interviewDetails.type} interview for the ${candidateData.jobTitle} position.
-...
-    
+const sendInterviewInvitation = async (candidateData, interviewDetails) => {
+  const response = await fetch('https://ksvreddy4.pythonanywhere.com/api/send-interview-invitation', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      senderEmail: "suryavenkatareddy90@gmail.com",
+      senderPassword: "vrxftrjsiekrxdnf",
+      recipientEmail: candidateData.email,
+      subject: `Interview Invitation - ${candidateData.jobTitle} Position`,
+      smtpServer: "smtp.gmail.com",
+      smtpPort: 587,
+      templateData: {
+        candidate_name: candidateData.name,
+        message_body: `We are pleased to invite you for a ${interviewDetails.type} interview for the ${candidateData.jobTitle} position.
+
 Interview Details:
 - Date: ${interviewDetails.date}
 - Time: ${interviewDetails.time}
 - Platform: ${interviewDetails.platform}
 - Link: ${interviewDetails.link}
 
-Please available and join the meeting at the scheduled on time.
+Please be available and join the meeting at the scheduled time.
 
 Best regards,
 HR Team`
-  };
+      }
+    })
+  });
 
-  try {
-    const response = await emailjs.send(
-      EMAILJS_CONFIG.serviceId,
-      'template_c084vw7', // You'll need to create this template in EmailJS
-      templateParams
-    );
-
-    console.log('Interview invitation sent successfully:', response);
-    return { success: true, response };
-  } catch (error) {
-    console.error('Error sending interview invitation:', error);
-    
-    // Try alternative method
-    try {
-      const response = await emailjs.send(
-        EMAILJS_CONFIG.serviceId,
-        'template_c084vw7',
-        templateParams,
-        {
-          publicKey: EMAILJS_CONFIG.publicKey,
-        }
-      );
-      return { success: true, response };
-    } catch (altError) {
-      return { 
-        success: false, 
-        error: altError.text || altError.message || 'Interview invitation sending failed' 
-      };
-    }
+  if (!response.ok) {
+    throw new Error('Failed to send email');
   }
+
+  return { success: true, response: await response.json() };
 };
 
 // Send reschedule notification

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {Table,Card,Select,Input,DatePicker,Button,Tag,Form, TimePicker ,Space,Modal,Avatar,Badge,Row,Col,Typography,Divider,message,Drawer,Steps,Timeline,Tooltip} from 'antd';
 import {SearchOutlined,EyeOutlined,DownloadOutlined,MailOutlined,UserOutlined, FileTextOutlined, VideoCameraOutlined, CloseCircleOutlined ,CalendarOutlined,CheckCircleOutlined,ClockCircleOutlined,SendOutlined,PhoneOutlined,EnvironmentOutlined,DollarOutlined,HistoryOutlined,ReloadOutlined} from '@ant-design/icons';
-import { sendInterviewInvitation } from '../email/EmailService';
+// import { sendInterviewInvitation } from '../email/EmailService';
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 const { Title, Text, Paragraph } = Typography;
@@ -288,12 +288,47 @@ const sendInterviewMail = async (values) => {
     };
 
     // Send email using your email service
-    const emailResult = await sendInterviewInvitation(selectedResume, interviewDetails);
-    
-    if (!emailResult.success) {
-      throw new Error(emailResult.error);
-    }
+const emailPayload = {
+  senderEmail: "suryavenkatareddy90@gmail.com",
+  senderPassword: "vrxftrjsiekrxdnf",
+  recipientEmail: selectedResume.email,
+  subject: `Interview Invitation - ${selectedResume.jobTitle} Position`,
+  smtpServer: "smtp.gmail.com",
+  smtpPort: 587,
+  templateData: {
+  candidate_name: selectedResume.name,
+  message_body: `<p>Dear ${selectedResume.name},</p>
+  
+<p>We are pleased to invite you for a <strong>${values.interviewType}</strong> interview for the <strong>${selectedResume.jobTitle}</strong> position.</p>
 
+<h3>Interview Details:</h3>
+<ul>
+  <li><strong>Date:</strong> ${values.interviewDate.format('YYYY-MM-DD')}</li>
+  <li><strong>Time:</strong> ${values.interviewTime.format('HH:mm')}</li>
+  <li><strong>Platform:</strong> ${values.platform.replace('_', ' ').toUpperCase()}</li>
+  <li><strong>Meeting Link:</strong> <a href="${values.meetingLink}">${values.meetingLink}</a></li>
+</ul>
+
+<p>Please be available and join the meeting at the scheduled time.</p>
+
+<p>Best regards,<br>
+HR Team</p>`
+}
+};
+
+const response = await fetch('https://ksvreddy4.pythonanywhere.com/api/send-interview-invitation', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify(emailPayload)
+});
+
+const emailResult = await response.json();
+
+if (!response.ok || !emailResult.success) {
+  throw new Error(emailResult.error || 'Failed to send email');
+}
     // Prepare mail history entry
     const newMailEntry = {
       type: values.interviewType,
@@ -979,17 +1014,7 @@ const getProgressSteps = (resume) => {
       <Form.Item label="Message" name="message">
         <TextArea 
           rows={6} 
-          placeholder="Enter your message"
-          defaultValue={`Dear ${selectedResume.name},
-
-
-Interview Details will be mentioned above.
-
-Please availablility and join the meeting at the scheduled time.
-
-Best regards,
-HR Team`}
-        />
+          placeholder="Enter your message"/>
       </Form.Item>
 
       <div style={{ textAlign: 'right' }}>

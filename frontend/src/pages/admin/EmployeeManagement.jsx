@@ -29,11 +29,49 @@ import {
   UserOutlined
 } from '@ant-design/icons';
 import { supabase, supabaseAdmin } from '../../supabase/config';
-import { sendEmployeeWelcomeEmail, initEmailJS } from '../email/EmailService';
 import './Employee Management.css';
 import ErrorPage from '../../error/ErrorPage';
 const { Title, Text } = Typography;
 const { Search } = Input;
+
+const sendWelcomeEmail = async (employeeData) => {
+  try {
+    const response = await fetch('https://ksvreddy4.pythonanywhere.com/api/send-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        senderEmail: "suryavenkatareddy90@gmail.com",
+        senderPassword: "vrxftrjsiekrxdnf",
+        recipientEmail: employeeData.email,
+        subject: "Welcome - Your Account Credentials",
+        smtpServer: "smtp.gmail.com",
+        smtpPort: 587,
+        templateData: {
+          company_name: "My Access",
+          to_name: employeeData.name,
+          user_role: employeeData.role,
+          user_email: employeeData.email,
+          user_password: employeeData.password,
+          website_link: "http://cap.myaccessio.com/",
+          from_name: "Admin Team"
+        }
+      })
+    });
+
+    const result = await response.json();
+    
+    if (response.ok) {
+      return { success: true, message: 'Email sent successfully' };
+    } else {
+      return { success: false, message: result.message || 'Failed to send email' };
+    }
+  } catch (error) {
+    console.error('Email API Error:', error);
+    return { success: false, message: 'Network error while sending email' };
+  }
+};
 
 // Mobile Employee Card Component
 const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete }) => (
@@ -258,23 +296,23 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
         message.success('Employee created successfully!');
         
         // Send welcome email
-        try {
-          const emailResult = await sendEmployeeWelcomeEmail({
-            name: values.name,
-            email: values.email,
-            password: password,
-            role: 'employee'
-          });
+try {
+  const emailResult = await sendWelcomeEmail({
+    name: values.name,
+    email: values.email,
+    password: password,
+    role: 'employee'
+  });
 
-          if (emailResult.success) {
-            message.success('Welcome email sent to employee!');
-          } else {
-            message.warning('Employee created but email could not be sent. Please share credentials manually.');
-          }
-        } catch (emailError) {
-          console.error('Email send failed:', emailError);
-          message.warning('Employee created but email could not be sent.');
-        }
+  if (emailResult.success) {
+    message.success('Welcome email sent to employee!');
+  } else {
+    message.warning('Employee created but email could not be sent. Please share credentials manually.');
+  }
+} catch (emailError) {
+  console.error('Email send failed:', emailError);
+  message.warning('Employee created but email could not be sent.');
+}
       }
 
       form.resetFields();
@@ -520,15 +558,10 @@ const EmployeeManagement = ({ userRole }) => {
   }, [fetchAllEmployees, applyFiltersAndPagination, searchQuery, pagination.pageSize]);
 
   useEffect(() => {
-    if (userRole === 'superadmin' || userRole === 'admin' || userRole === 'hr') {
-      const emailInitialized = initEmailJS();
-      if (!emailInitialized) {
-        console.warn('EmailJS initialization failed - emails may not work');
-      }
-      
-      fetchEmployees();
-    }
-  }, [userRole, fetchEmployees]);
+  if (userRole === 'superadmin' || userRole === 'admin' || userRole === 'hr') {
+    fetchEmployees();
+  }
+}, [userRole, fetchEmployees]);
 
   const handleTableChange = useCallback((paginationInfo) => {
     applyFiltersAndPagination(allEmployees, searchQuery, paginationInfo.current, paginationInfo.pageSize);
