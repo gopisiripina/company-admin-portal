@@ -28,13 +28,49 @@ import {
   UserOutlined
 } from '@ant-design/icons';
 import { supabase, supabaseAdmin } from '../../supabase/config';
-import { sendEmployeeWelcomeEmail, initEmailJS } from '../email/EmailService';
 import './AdminManagement.css';
 import ErrorPage from '../../error/ErrorPage';
 import { Upload, message as antMessage } from 'antd';
 const { Title, Text } = Typography;
 const { Search } = Input;
+const sendWelcomeEmail = async (employeeData) => {
+  try {
+    const response = await fetch('https://ksvreddy4.pythonanywhere.com/api/send-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        senderEmail: "suryavenkatareddy90@gmail.com",
+        senderPassword: "vrxftrjsiekrxdnf",
+        recipientEmail: employeeData.email,
+        subject: "Welcome - Your Account Credentials",
+        smtpServer: "smtp.gmail.com",
+        smtpPort: 587,
+        templateData: {
+          company_name: "My Access",
+          to_name: employeeData.name,
+          user_role: employeeData.role,
+          user_email: employeeData.email,
+          user_password: employeeData.password,
+          website_link: "http://cap.myaccessio.com/",
+          from_name: "Admin Team"
+        }
+      })
+    });
 
+    const result = await response.json();
+    
+    if (response.ok) {
+      return { success: true, message: 'Email sent successfully' };
+    } else {
+      return { success: false, message: result.message || 'Failed to send email' };
+    }
+  } catch (error) {
+    console.error('Email API Error:', error);
+    return { success: false, message: 'Network error while sending email' };
+  }
+};
 // Mobile Admin Card Component
 const MobileAdminCard = React.memo(({ admin, onEdit, onDelete }) => (
   <Card 
@@ -212,8 +248,8 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
         updatedat: new Date().toISOString()
       };
       
-      // Use supabaseAdmin to bypass RLS
-      const { data, error } = await supabaseAdmin
+      // Use regular supabase instead of supabaseAdmin
+      const { data, error } = await supabase
         .from('users')
         .update(updateData)
         .eq('id', editingAdmin.id)
@@ -242,8 +278,8 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
         updatedat: new Date().toISOString()
       };
       
-      // Use supabaseAdmin to bypass RLS
-      const { data, error } = await supabaseAdmin
+      // Use regular supabase instead of supabaseAdmin
+      const { data, error } = await supabase
         .from('users')
         .insert([adminData])
         .select();
@@ -255,9 +291,9 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
       
       message.success('Admin created successfully!');
       
-      // Email sending logic remains the same
+      // Send welcome email
       try {
-        const emailResult = await sendEmployeeWelcomeEmail({
+        const emailResult = await sendWelcomeEmail({
           name: values.name,
           email: values.email,
           password: password,
@@ -268,6 +304,7 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
           message.success('Welcome email sent to admin!');
         } else {
           message.warning('Admin created but email could not be sent. Please share credentials manually.');
+          console.error('Email send failed:', emailResult.message);
         }
       } catch (emailError) {
         console.error('Email send failed:', emailError);
@@ -413,7 +450,6 @@ const AdminManagement = ({ userRole }) => {
     pageSize: 10,
     total: 0
   });
-
   // Use useMemo for calculations
   const { totalAdmins, activeAdmins, inactiveAdmins } = useMemo(() => {
     const total = allAdmins.length;
@@ -463,7 +499,10 @@ useEffect(() => {
   // Fetch all admins
   const fetchAllAdmins = useCallback(async () => {
   try {
-    // Use supabaseAdmin to bypass RLS
+    setLoading(true);
+    console.log('Starting to fetch admins...');
+    
+    // Use only regular supabase client
     const { data, error } = await supabaseAdmin
       .from('users')
       .select(`
@@ -480,10 +519,7 @@ useEffect(() => {
       .eq('role', 'admin')
       .order('createdat', { ascending: false });
     
-    if (error) {
-      console.error('Fetch error:', error);
-      throw error;
-    }
+    if (error) throw error;
     
     setAllAdmins(data || []);
     return data || [];
@@ -491,9 +527,10 @@ useEffect(() => {
     console.error('Error fetching admins:', error);
     message.error(`Error loading admins: ${error.message}`);
     return [];
+  } finally {
+    setLoading(false);
   }
 }, []);
-
   // Apply filters and pagination
   const applyFiltersAndPagination = useCallback((adminList, search = '', page = 1, pageSize = 10) => {
   let filteredAdmins = [...adminList];
@@ -522,24 +559,68 @@ useEffect(() => {
 }, []);
 
   // Fetch admins with pagination
-  const fetchAdmins = useCallback(async (page = 1, pageSize = 10, search = '') => {
+ const fetchAdmins = useCallback(async (page = 1, pageSize = 10, search = '') => {
+  try {
+    console.log('fetchAdmins called with:', { page, pageSize, search });
+    
+    let adminList = allAdmins;
+    if (adminList.length === 0) {
+      adminList = await fetchAllAdmins();
+    }
+    
+    applyFiltersAndPagination(adminList, search, page, pageSize);
+    
+  } catch (error) {
+    console.error('Error in fetchAdmins:', error);
+    message.error(`Error loading admins: ${error.message}`);
+  }
+}, [allAdmins, fetchAllAdmins, applyFiltersAndPagination]);
+useEffect(() => {
+  console.log('Component mounted, fetching admins...');
+  fetchAdmins();
+}, []);
+useEffect(() => {
+  const loadInitialData = async () => {
     try {
+      console.log('Loading initial data...');
       setLoading(true);
       
-      let adminList = allAdmins;
-      if (adminList.length === 0) {
-        adminList = await fetchAllAdmins();
+      // Direct fetch without going through fetchAdmins
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('role', 'admin')
+        .order('createdat', { ascending: false });
+      
+      console.log('Direct fetch result:', { data, error });
+      
+      if (error) {
+        console.error('Direct fetch error:', error);
+        message.error('Failed to load admins');
+        return;
       }
       
-      applyFiltersAndPagination(adminList, search, page, pageSize);
+      const adminData = data || [];
+      console.log('Setting admin data:', adminData);
+      
+      setAllAdmins(adminData);
+      setAdmins(adminData.slice(0, 10)); // Show first 10
+      setPagination({
+        current: 1,
+        pageSize: 10,
+        total: adminData.length
+      });
+      
     } catch (error) {
-      console.error('Error in fetchAdmins:', error);
-      message.error(`Error loading admins: ${error.message}`);
+      console.error('Error in loadInitialData:', error);
+      message.error('Failed to load admin data');
     } finally {
       setLoading(false);
     }
-  }, [allAdmins, fetchAllAdmins, applyFiltersAndPagination]);
-
+  };
+  
+  loadInitialData();
+}, []);
   // Refresh data
   const refreshData = useCallback(async () => {
     try {
@@ -552,19 +633,6 @@ useEffect(() => {
       setLoading(false);
     }
   }, [fetchAllAdmins, applyFiltersAndPagination, searchQuery, pagination.pageSize]);
-
-  // Initialize component
-  useEffect(() => {
-    if (userRole === 'superadmin') {
-      const emailInitialized = initEmailJS();
-      if (!emailInitialized) {
-        console.warn('EmailJS initialization failed - emails may not work');
-      }
-      
-      fetchAdmins();
-    }
-  }, [userRole, fetchAdmins]);
-
   // Event handlers
   const handleTableChange = useCallback((paginationInfo) => {
     applyFiltersAndPagination(allAdmins, searchQuery, paginationInfo.current, paginationInfo.pageSize);
@@ -584,8 +652,8 @@ useEffect(() => {
   try {
     setLoading(true);
     
-    // Use supabaseAdmin to bypass RLS
-    const { error } = await supabaseAdmin
+    // Use regular supabase instead of supabaseAdmin
+    const { error } = await supabase
       .from('users')
       .delete()
       .eq('id', adminId)

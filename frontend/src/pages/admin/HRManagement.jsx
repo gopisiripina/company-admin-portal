@@ -2,13 +2,49 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Table, Button, Modal, Form, Input, Space, Popconfirm, Card, Statistic, Row, Col, message, Avatar, Tag, Typography, Switch } from 'antd';
 import { UserAddOutlined, EditOutlined, DeleteOutlined, SearchOutlined, TeamOutlined, MailOutlined, UploadOutlined, UserOutlined } from '@ant-design/icons';
 import { supabase, supabaseAdmin } from '../../supabase/config';
-import { sendEmployeeWelcomeEmail, initEmailJS } from '../email/EmailService';
 import './Employee Management.css';
 import { Upload, message as antMessage } from 'antd';
 const { Title, Text } = Typography;
 const { Search } = Input;
 
+const sendWelcomeEmail = async (employeeData) => {
+  try {
+    const response = await fetch('https://ksvreddy4.pythonanywhere.com/api/send-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        senderEmail: "suryavenkatareddy90@gmail.com",
+        senderPassword: "vrxftrjsiekrxdnf",
+        recipientEmail: employeeData.email,
+        subject: "Welcome - Your Account Credentials",
+        smtpServer: "smtp.gmail.com",
+        smtpPort: 587,
+        templateData: {
+          company_name: "My Access",
+          to_name: employeeData.name,
+          user_role: employeeData.role,
+          user_email: employeeData.email,
+          user_password: employeeData.password,
+          website_link: "http://cap.myaccessio.com/",
+          from_name: "Admin Team"
+        }
+      })
+    });
 
+    const result = await response.json();
+    
+    if (response.ok) {
+      return { success: true, message: 'Email sent successfully' };
+    } else {
+      return { success: false, message: result.message || 'Failed to send email' };
+    }
+  } catch (error) {
+    console.error('Email API Error:', error);
+    return { success: false, message: 'Network error while sending email' };
+  }
+};
 // Mobile HR Card Component
 const MobileHRCard = React.memo(({ hr, onEdit, onDelete }) => (
   <Card 
@@ -228,22 +264,22 @@ const HRFormModal = React.memo(({ isOpen, onClose, editingHR, onSuccess }) => {
         message.success('HR created successfully!');
         
         try {
-          const emailResult = await sendEmployeeWelcomeEmail({
-            name: values.name,
-            email: values.email,
-            password: password,
-            role: 'hr'
-          });
+  const emailResult = await sendWelcomeEmail({
+    name: values.name,
+    email: values.email,
+    password: password,
+    role: 'hr'
+  });
 
-          if (emailResult.success) {
-            message.success('Welcome email sent to HR!');
-          } else {
-            message.warning('HR created but email could not be sent. Please share credentials manually.');
-          }
-        } catch (emailError) {
-          console.error('Email send failed:', emailError);
-          message.warning('HR created but email could not be sent.');
-        }
+  if (emailResult.success) {
+    message.success('Welcome email sent to HR!');
+  } else {
+    message.warning('HR created but email could not be sent. Please share credentials manually.');
+  }
+} catch (emailError) {
+  console.error('Email send failed:', emailError);
+  message.warning('HR created but email could not be sent.');
+}
       }
 
       form.resetFields();
@@ -483,11 +519,6 @@ const fetchHRs = useCallback(async (page = 1, pageSize = 10, search = '') => {
 // Initialize component
 useEffect(() => {
   if (userRole === 'superadmin' || userRole === 'admin') {
-    const emailInitialized = initEmailJS();
-    if (!emailInitialized) {
-      console.warn('EmailJS initialization failed - emails may not work');
-    }
-    
     fetchHRs();
   }
 }, [userRole, fetchHRs]);
@@ -508,17 +539,6 @@ useEffect(() => {
     }
   }, [fetchAllHRs, applyFiltersAndPagination, searchQuery, pagination.pageSize]);
 
-  // Initialize component
-  useEffect(() => {
-  if (userRole === 'superadmin' || userRole === 'admin') {
-    const emailInitialized = initEmailJS();
-    if (!emailInitialized) {
-      console.warn('EmailJS initialization failed - emails may not work');
-    }
-    
-    fetchHRs(); // This is causing the error
-  }
-}, [userRole, fetchHRs]);
 
   // Event handlers
   const handleTableChange = useCallback((paginationInfo) => {

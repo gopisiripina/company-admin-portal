@@ -32,7 +32,6 @@ import {
 } from '@ant-design/icons';
 import ErrorPage from '../../error/ErrorPage';
 import { supabase } from '../../supabase/config';
-import emailjs from '@emailjs/browser';
 
 const { Option } = Select;
 const { Title, Text } = Typography;
@@ -60,10 +59,6 @@ const CampusJobApplyPage = ({ userRole }) => {
   const [examLinkData, setExamLinkData] = useState(null);
   const [emailForm] = Form.useForm();
   const [sendingEmails, setSendingEmails] = useState(false);
-
-  const EMAIL_SERVICE_ID = 'service_gtd1otu';
-  const EMAIL_TEMPLATE_ID = 'template_lqcrq8c';
-  const EMAIL_PUBLIC_KEY = 'NYTlY5dQBnWRdlpKn';
 
   // Get unique job IDs and college names for filters
   const uniqueJobIds = useMemo(() => {
@@ -322,41 +317,49 @@ HR Team`
       if (updateError) throw updateError;
 
       // Send emails using EmailJS
-      const emailPromises = studentsToEmail.map(student => {
-        const templateParams = {
-          to_name: student.studentName,
-          to_email: student.email,
-          subject: values.subject,
-          exam_title: selectedExam.exam_title,
-          job_id: selectedExam.job_id,
-          college: selectedExam.college,
-          exam_link: selectedExam.exam_link,
-          message: values.message
-        };
-
-        return emailjs.send(
-          EMAIL_SERVICE_ID,
-          EMAIL_TEMPLATE_ID,
-          templateParams,
-          EMAIL_PUBLIC_KEY
-        );
-      });
-
-      await Promise.all(emailPromises);
-
-      message.success(`Exam links sent to ${studentsToEmail.length} students successfully!`);
-      setEmailModalVisible(false);
-      setSelectedStudents([]);
-      setSelectedExam(null); // Reset exam selection for next send
-      emailForm.resetFields();
-
-    } catch (error) {
-      console.error('Error sending emails:', error);
-      message.error('Failed to send exam emails');
-    } finally {
-      setSendingEmails(false);
+      // Send emails using your API
+const emailPromises = studentsToEmail.map(student => {
+  const emailData = {
+    senderEmail: "suryavenkatareddy90@gmail.com",
+    senderPassword: "vrxftrjsiekrxdnf",
+    recipientEmail: student.email,
+    subject: values.subject,
+    smtpServer: "smtp.gmail.com",
+    smtpPort: 587,
+    templateData: {
+      to_name: student.studentName,
+      exam_title: selectedExam.exam_title,
+      job_id: selectedExam.job_id,
+      college: selectedExam.college,
+      exam_link: selectedExam.exam_link,
+      message: values.message
     }
   };
+
+  return fetch('https://ksvreddy4.pythonanywhere.com/api/send-recruitment-email', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(emailData)
+  });
+});
+
+await Promise.all(emailPromises);
+
+        message.success(`Exam links sent to ${studentsToEmail.length} students successfully!`);
+        setEmailModalVisible(false);
+        setSelectedStudents([]);
+        setSelectedExam(null); // Reset exam selection for next send
+        emailForm.resetFields();
+
+      } catch (error) {
+        console.error('Error sending emails:', error);
+        message.error('Failed to send exam emails');
+      } finally {
+        setSendingEmails(false);
+      }
+    };
 
   useEffect(() => {
     fetchApplications();
