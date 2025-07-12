@@ -606,11 +606,8 @@ def send_interview_invitation():
             <html>
             <body>
                 <h3>Interview Invitation</h3>
-                <p>Dear {candidate_name},</p>
                 <p>{message_body}</p>
                 <br>
-                <p>Best regards,<br>
-                HR Team</p>
             </body>
             </html>
             """

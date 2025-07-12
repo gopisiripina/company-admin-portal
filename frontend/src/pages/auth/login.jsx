@@ -206,19 +206,20 @@ const Login = ({ onLoginSuccess }) => {
 
   const images = [
     {
-      url: "/src/assets/image1.webp",
+      url: "/src/assets/image1.svg",
       alt: "Industrial PCB Assembly",
       title: "Automated PCB Manufacturing Process",
       description: "We specialize in high-performance embedded systems and electronic solutions, tailored for IoT, smart devices, and industrial automation. Our focus is on innovation, reliability, and scalable quality."
     },
     {
-      url: "/src/assets/image2.webp",
+      url: "/src/assets/image2.svg",
       alt: "Robotics and Embedded Systems Lab",
       title: "Programmable Robotics for Smart Automation",
       description: "We develop intelligent robotic systems powered by embedded technology, designed for automation, research, and next-generation innovation."
     },
     {
-      url: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=500&h=350&fit=crop&crop=center",
+      url: "/src/assets/image3.svg",
+      // url: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=500&h=350&fit=crop&crop=center",
       alt: "Business Growth",
       title: "Business Growth Tools",
       description: "Scale your business with our comprehensive suite of growth tools. From market analysis to performance optimization, we've got you covered."
@@ -296,7 +297,7 @@ const Login = ({ onLoginSuccess }) => {
                   <div className="">
                     
                   </div>
-                  <img src="src/assets/logo.png" alt="My Access Logo" className="logo-image" />
+                  <img src="src/assets/logo 1.svg" alt="My Access Logo" className="logo-image" />
                 </div>
                 
                 <h1 className="form-title">Sign in</h1>
