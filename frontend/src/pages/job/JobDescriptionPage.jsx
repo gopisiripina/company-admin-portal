@@ -501,6 +501,41 @@ const handleSubmit = async (values) => {
       backgroundColor: 'transparent',
       ...animationStyles.container
     }}>
+        <style>
+          {`.ant-input:hover,
+.ant-input:focus,
+.ant-input-focused {
+  border-color: #0D7139 !important;
+}
+
+.ant-input:focus,
+.ant-input-focused {
+  box-shadow: 0 0 0 2px rgba(13, 113, 57, 0.2) !important;
+}
+
+.ant-select:hover .ant-select-selector,
+.ant-select-focused .ant-select-selector,
+.ant-select-selector:focus {
+  border-color: #0D7139 !important;
+}
+
+.ant-select-focused .ant-select-selector {
+  box-shadow: 0 0 0 2px rgba(13, 113, 57, 0.2) !important;
+}
+
+.ant-input-number:hover,
+.ant-input-number:focus,
+.ant-input-number-focused {
+  border-color: #0D7139 !important;
+}
+
+.ant-input-number:focus,
+.ant-input-number-focused {
+  box-shadow: 0 0 0 2px rgba(13, 113, 57, 0.2) !important;
+
+  
+}`}
+        </style>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         {/* Header */}
         <Card 
@@ -517,11 +552,11 @@ const handleSubmit = async (values) => {
           <Row align="middle" justify="space-between">
             <Col>
              
-<Title level={2} style={{ margin: 0, color: '#1890ff' }}>
+<Title level={2} style={{ margin: 0, color: '#0D7139' }}>
   <FileTextOutlined style={{ marginRight: '12px' }} />
   Create Job Description 
   <Tag 
-    color={hiringType === 'on-campus' ? 'green' : 'blue'} 
+    color={hiringType === 'on-campus' ? 'green' : '#0D7139'} 
     style={{ marginLeft: '12px', fontSize: '12px' }}
   >
     {hiringType === 'on-campus' ? 'On-Campus' : 'Off-Campus'}
@@ -538,7 +573,7 @@ const handleSubmit = async (values) => {
                   icon={<BulbOutlined />}
                   onClick={() => setAiChatOpen(true)}
                   style={{
-                    background: 'linear-gradient(45deg, #667eea 0%, #764ba2 100%)',
+                    background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
                     border: 'none',
                     borderRadius: '8px'
                   }}
@@ -560,7 +595,7 @@ const handleSubmit = async (values) => {
     ...animationStyles.headerCard
   }}
 >
-  <Title level={4} style={{ color: '#1890ff', marginBottom: '16px' }}>
+  <Title level={4} style={{ color: ' #0D7139', marginBottom: '16px' }}>
     <BankOutlined style={{ marginRight: '8px' }} />
     Hiring Type
   </Title>
@@ -570,15 +605,15 @@ const handleSubmit = async (values) => {
         hoverable
         style={{
           borderRadius: '12px',
-          border: hiringType === 'off-campus' ? '2px solid #1890ff' : '1px solid #f0f0f0',
+          border: hiringType === 'off-campus' ? '2px solid #0D7139' : '1px solid #f0f0f0',
           background: hiringType === 'off-campus' ? 'rgba(24, 144, 255, 0.05)' : 'white',
           cursor: 'pointer'
         }}
         onClick={() => setHiringType('off-campus')}
       >
         <div style={{ textAlign: 'center', padding: '16px' }}>
-          <BankOutlined style={{ fontSize: '32px', color: '#1890ff', marginBottom: '12px' }} />
-          <Title level={5} style={{ margin: 0, color: hiringType === 'off-campus' ? '#1890ff' : '#333' }}>
+          <BankOutlined style={{ fontSize: '32px', color: '#0D7139', marginBottom: '12px' }} />
+          <Title level={5} style={{ margin: 0, color: hiringType === 'off-campus' ? '#0D7139' : '#333' }}>
             Off-Campus Hiring
           </Title>
           <Text type="secondary" style={{ fontSize: '14px' }}>
@@ -693,7 +728,7 @@ const handleSubmit = async (values) => {
             <Row gutter={[32, 24]}>
               {/* Left Column - Basic Information */}
               <Col xs={24} lg={12} style={animationStyles.leftColumn}>
-                <Title level={4} style={{ color: '#1890ff', marginBottom: '24px' }}>
+                <Title level={4} style={{ color: '#0D7139', marginBottom: '24px' }}>
                   <TeamOutlined style={{ marginRight: '8px' }} />
                   Basic Information
                 </Title>
@@ -899,7 +934,7 @@ const handleSubmit = async (values) => {
                           marginBottom: '8px',
                           padding: '4px 12px',
                           borderRadius: '16px',
-                          background: 'linear-gradient(45deg, #667eea 0%, #764ba2 100%)',
+                          background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
                           color: 'white',
                           border: 'none'
                         }}
@@ -937,6 +972,7 @@ const handleSubmit = async (values) => {
                 </Form.Item>
 
                 {/* Salary Range in INR */}
+                
                 <Form.Item label="Salary Range in INR (Optional)">
                   <Row gutter={16}>
                     <Col xs={12}>
@@ -945,7 +981,11 @@ const handleSubmit = async (values) => {
                           size="large"
                           placeholder="Min"
                           prefix="₹"
-                          style={{ width: '100%' }}
+                          style={{ 
+                            width: '100%',
+                            borderColor: '#d9d9d9',
+                            boxShadow: 'none'
+                          }}
                           formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                         />
                       </Form.Item>
@@ -956,7 +996,7 @@ const handleSubmit = async (values) => {
                           size="large"
                           placeholder="Max"
                           prefix="₹"
-                          style={{ width: '100%' }}
+                          style={{ width: '100%',borderColor: '#d9d9d9', boxShadow: 'none' }}
                           formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                         />
                       </Form.Item>
@@ -967,7 +1007,7 @@ const handleSubmit = async (values) => {
 
               {/* Right Column - Detailed Information */}
               <Col xs={24} lg={12} style={animationStyles.rightColumn}>
-                <Title level={4} style={{ color: '#1890ff', marginBottom: '24px' }}>
+                <Title level={4} style={{ color: '#0D7139', marginBottom: '24px' }}>
                   <FileTextOutlined style={{ marginRight: '8px' }} />
                   Detailed Information
                 </Title>
@@ -984,7 +1024,7 @@ const handleSubmit = async (values) => {
                         onClick={generateJobDescriptionWithAI}
                         loading={aiLoading}
                         style={{
-                          color: '#667eea',
+                          color: '#0D7139',
                           width: '24px',
                           height: '24px',
                           display: 'flex',
@@ -1054,7 +1094,7 @@ const handleSubmit = async (values) => {
   loading={loading}
   icon={<SaveOutlined />}
   style={{
-    background: 'linear-gradient(45deg, #1890ff 0%, #722ed1 100%)',
+    background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
     border: 'none',
     borderRadius: '8px',
     padding: '0 48px',
@@ -1076,18 +1116,28 @@ const handleSubmit = async (values) => {
         </Card>
 
         {/* AI Assistant Float Button */}
-        <FloatButton
-          icon={<RobotOutlined />}
-          type="primary"
-          style={{
-            width: '64px',
-            height: '64px',
-            background: 'linear-gradient(45deg, #667eea 0%, #764ba2 100%)',
-            border: 'none'
-          }}
-          onClick={() => setAiChatOpen(true)}
-          tooltip="AI Assistant - Get help with job descriptions"
-        />
+
+       <div
+  style={{
+    position: 'fixed',
+    bottom: '24px',
+    right: '24px',
+    width: '64px',
+    height: '64px',
+    backgroundColor: '#0D7139',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+    zIndex: 1000
+  }}
+  onClick={() => setAiChatOpen(true)}
+  title="AI Assistant - Get help with job descriptions"
+>
+  <RobotOutlined style={{ color: 'white', fontSize: '24px' }} />
+</div>
 
         {/* AI Chat Drawer */}
         <Drawer
@@ -1096,7 +1146,7 @@ const handleSubmit = async (values) => {
               <Avatar 
                 icon={<RobotOutlined />} 
                 style={{ 
-                  background: 'linear-gradient(45deg, #667eea 0%, #764ba2 100%)',
+                  background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
                   marginRight: '12px'
                 }} 
               />
@@ -1134,7 +1184,7 @@ const handleSubmit = async (values) => {
                       padding: '12px 16px',
                       borderRadius: '12px',
                       background: msg.type === 'user' 
-                        ? 'linear-gradient(45deg, #1890ff 0%, #722ed1 100%)'
+                        ? 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)'
                         : 'white',
                       color: msg.type === 'user' ? 'white' : '#333',
                       whiteSpace: 'pre-line',
@@ -1171,7 +1221,7 @@ const handleSubmit = async (values) => {
                     onClick={handleAiSend}
                     size="large"
                     style={{
-                      background: 'linear-gradient(45deg, #667eea 0%, #764ba2 100%)',
+                      background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
                       border: 'none',
                       borderRadius: '8px'
                     }}
