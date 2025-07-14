@@ -127,6 +127,7 @@
 }
 
 .sidebar.closed .toggle-button {
+  display: flex !important;
   position: static;
   padding: 8px;
   width: 36px;
@@ -378,17 +379,108 @@
   margin: 0 10px;
 }
 
-/* Responsive adjustments */
 @media (max-width: 768px) {
+  .sidebar {
+    transition: transform 0.3s ease;
+  }
+  
   .sidebar.open {
     width: 280px;
+    transform: translateX(0);
   }
   
   .sidebar.closed {
-    width: 70px;
+    width: 60px;
+    transform: translateX(0);
+  }
+  
+  /* Mobile: Hide text labels and children when closed, but keep icons visible */
+  .sidebar.closed .nav-item-label {
+    display: none;
+  }
+  
+  .sidebar.closed .expand-icon {
+    display: none;
+  }
+  
+  .sidebar.closed .nav-children {
+    display: none;
+  }
+  
+  .sidebar.closed .logo-text {
+    display: none;
+  }
+  
+  /* Keep the logo icon visible but hide text on mobile */
+  .sidebar.closed .logo-section {
+    justify-content: center;
+  }
+  
+  .sidebar.closed .logo-section .logo-icon {
+    display: flex;
+  }
+  
+  .sidebar.closed .sidebar-header {
+    padding: 12px 8px;
+    justify-content: space-between;
+  }
+  
+  /* Adjust nav items for mobile collapsed state */
+  .sidebar.closed .nav-item {
+    padding: 12px 8px;
+    margin: 4px 8px;
+    justify-content: center;
+  }
+  
+  .sidebar.closed .nav-item-icon {
+    min-width: 20px;
+    height: 20px;
+  }
+  
+  .sidebar.closed .sidebar-footer .nav-item {
+    padding: 12px 8px;
+    margin: 0 8px;
+    justify-content: center;
+  }
+  
+  /* Make sure toggle button is always visible on mobile */
+  .sidebar.closed .toggle-button {
+    display: flex !important;
+    position: static;
+    padding: 8px;
+    width: 32px;
+    height: 32px;
+  }
+  
+  /* Overlay for mobile when sidebar is open */
+  .sidebar.open::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 280px;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: -1;
+  }
+  
+  /* Hide tooltips on mobile */
+  .nav-tooltip {
+    display: none;
+  }
+}
+
+/* Tablet view */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .sidebar.open {
+    width: 250px;
+  }
+  
+  .sidebar.closed {
+    width: 60px;
   }
   
   .nav-tooltip {
-    left: 60px;
+    left: 50px;
   }
 }

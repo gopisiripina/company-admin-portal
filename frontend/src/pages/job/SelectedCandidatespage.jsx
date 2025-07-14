@@ -13,7 +13,6 @@ import {
   HistoryOutlined, ReloadOutlined, StarOutlined, TeamOutlined,
   BankOutlined, IdcardOutlined, HomeOutlined, ContactsOutlined
 } from '@ant-design/icons';
-import emailjs from '@emailjs/browser';
 import ErrorPage from '../../error/ErrorPage';
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -22,13 +21,6 @@ const { TextArea } = Input;
 
 // Supabase configuration
 import { supabase} from '../../supabase/config';
-
-// EmailJS configuration - Replace with your actual values
-const EMAIL_CONFIG = {
-  serviceId: 'service_gtd1otu',
-  templateId: 'template_qlck5w9', 
-  publicKey: 'NYTlY5dQBnWRdlpKn'
-};
 
 const SelectedCandidatesPage = ({ userRole }) => {
   if (userRole !== 'superadmin' && userRole !== 'admin' && userRole!=='hr') {
@@ -198,16 +190,39 @@ const sendOfferLetter = async (offerData) => {
 
     console.log('Email params:', emailParams);
 
-    const result = await emailjs.send(
-      EMAIL_CONFIG.serviceId,
-      EMAIL_CONFIG.templateId,
-      emailParams,
-      EMAIL_CONFIG.publicKey
-    );
+    const response = await fetch('https://ksvreddy4.pythonanywhere.com/api/send-job-offer', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    senderEmail: "suryavenkatareddy90@gmail.com",
+    senderPassword: "vrxftrjsiekrxdnf",
+    recipientEmail: selectedCandidate.email,
+    subject: `Job Offer - ${selectedCandidate.jobTitle} Position at ${offerData.companyName}`,
+    smtpServer: "smtp.gmail.com",
+    smtpPort: 587,
+    templateData: {
+      to_name: selectedCandidate.name,
+      job_title: selectedCandidate.jobTitle,
+      company_name: offerData.companyName,
+      salary_amount: offerData.salaryAmount,
+      joining_date: formattedJoiningDate,
+      work_location: offerData.workLocation,
+      reporting_manager: offerData.reportingManager,
+      additional_benefits: offerData.additionalBenefits,
+      offer_valid_until: offerData.offerValidUntil,
+      message: offerData.message || '',
+      hr_contact: offerData.hrContact
+    }
+  })
+});
+
+const result = await response.json();
 
     console.log('EmailJS result:', result);
 
-    if (result.status === 200 || result.text === 'OK') {
+    if (response.ok && result.success) {
       // Store the formatted joining date in the database
       const newMailEntry = {
         type: 'offer',

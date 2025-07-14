@@ -2,10 +2,14 @@ from flask import Flask, request, jsonify
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 import requests
 import os
 from flask_cors import CORS
-
+import mimetypes
+import tempfile
+from urllib.parse import urlparse
 app = Flask(__name__)
 CORS(app)
 
@@ -308,16 +312,17 @@ def send_job_offer():
         sender_password = data.get('senderPassword')  # App password
         smtp_server = data.get('smtpServer', 'smtp.gmail.com')
         smtp_port = data.get('smtpPort', 587)
-        
+
         # Get email details
         recipient_email = data.get('recipientEmail')
         template_data = data.get('templateData', {})
-        
+        attachments = data.get('attachments', [])  # List of file paths or URLs
+
         # Create dynamic subject line
         job_title = template_data.get('job_title', 'Job Position')
         company_name = template_data.get('company_name', 'Our Company')
         subject = data.get('subject', f'Job Offer - {job_title} Position at {company_name}')
-        
+
         # Validate required fields
         if not sender_email or not sender_password or not recipient_email:
             return jsonify({
@@ -348,13 +353,13 @@ def send_job_offer():
         </div>
         <div class="template-preview">
             <h3>🎉 Congratulations! Job Offer Letter</h3>
-            
+
             <p>Dear <strong>{{to_name}}</strong>,</p>
-            
+
             <p>We are delighted to extend an offer of employment to you for the position of <strong>{{job_title}}</strong> at <strong>{{company_name}}</strong>.</p>
-            
+
             <p>After careful consideration of your qualifications, experience, and interview performance, we believe you would be a valuable addition to our team.</p>
-            
+
             <h4>📋 Offer Details:</h4>
             <ul>
                 <li><strong>Position:</strong> {{job_title}}</li>
@@ -364,19 +369,19 @@ def send_job_offer():
                 <li><strong>Work Location:</strong> {{work_location}}</li>
                 <li><strong>Reporting Manager:</strong> {{reporting_manager}}</li>
             </ul>
-            
+
             <h4>🎁 Additional Benefits:</h4>
             <p>{{additional_benefits}}</p>
-            
+
             <h4>⏰ Important Information:</h4>
             <p>This offer is valid until: <strong>{{offer_valid_until}}</strong></p>
             <p>Please confirm your acceptance by replying to this email or contacting our HR team.</p>
-            
+
             <h4>💬 Personal Message:</h4>
             <p>{{message}}</p>
-            
+
             <p>We look forward to welcoming you to our team and are excited about the contributions you will make to our organization.</p>
-            
+
             <p><strong>Next Steps:</strong></p>
             <ol>
                 <li>Review this offer carefully</li>
@@ -384,17 +389,17 @@ def send_job_offer():
                 <li>Confirm your acceptance</li>
                 <li>Prepare for your exciting journey with us!</li>
             </ol>
-            
+
             <p>If you have any questions or need clarification about any aspect of this offer, please don't hesitate to reach out.</p>
-            
+
             <p><strong>HR Contact:</strong><br>
             {{hr_contact}}</p>
-            
+
             <p>Congratulations once again, and we look forward to having you on board!</p>
-            
+
             <p>Best regards,<br>
             <strong>{{company_name}} HR Team</strong></p>
-            
+
             <hr>
             <p style="font-size: 12px; color: #666;">
                 This is an official job offer from {{company_name}}. Please keep this email for your records.
@@ -409,7 +414,7 @@ def send_job_offer():
             html_template = html_template.replace(f"{{{{{key}}}}}", str(value))
 
         # Create message
-        message = MIMEMultipart("alternative")
+        message = MIMEMultipart("mixed")
         message["Subject"] = subject
         message["From"] = sender_email
         message["To"] = recipient_email
@@ -418,20 +423,129 @@ def send_job_offer():
         html_part = MIMEText(html_template, "html")
         message.attach(html_part)
 
+        # Function to check if string is a URL
+        def is_url(string):
+            try:
+                result = urlparse(string)
+                return all([result.scheme, result.netloc])
+            except:
+                return False
+
+        # Function to download file from URL
+        def download_file_from_url(url):
+            try:
+                response = requests.get(url, stream=True)
+                response.raise_for_status()
+                
+                # Create a temporary file
+                temp_file = tempfile.NamedTemporaryFile(delete=False)
+                
+                # Write the content to the temporary file
+                for chunk in response.iter_content(chunk_size=8192):
+                    temp_file.write(chunk)
+                
+                temp_file.close()
+                
+                # Get filename from URL or use a default
+                parsed_url = urlparse(url)
+                filename = os.path.basename(parsed_url.path)
+                if not filename:
+                    filename = "attachment"
+                
+                return temp_file.name, filename
+            except Exception as e:
+                raise Exception(f"Failed to download file from {url}: {str(e)}")
+
+        # Add attachments if any
+        attached_files = []
+        temp_files_to_cleanup = []
+        
+        for attachment_path in attachments:
+            try:
+                if is_url(attachment_path):
+                    # Download file from URL
+                    print(f"Downloading file from URL: {attachment_path}")
+                    temp_file_path, filename = download_file_from_url(attachment_path)
+                    temp_files_to_cleanup.append(temp_file_path)
+                    actual_file_path = temp_file_path
+                else:
+                    # Local file path
+                    if not os.path.exists(attachment_path):
+                        return jsonify({
+                            "success": False,
+                            "error": f"File not found: {attachment_path}"
+                        }), 404
+                    actual_file_path = attachment_path
+                    filename = os.path.basename(attachment_path)
+
+                # Guess the content type based on the file's extension
+                ctype, encoding = mimetypes.guess_type(filename)
+                if ctype is None or encoding is not None:
+                    ctype = "application/octet-stream"
+                
+                maintype, subtype = ctype.split("/", 1)
+                
+                # Read the file
+                with open(actual_file_path, "rb") as fp:
+                    attachment_data = fp.read()
+                
+                # Create attachment
+                attachment = MIMEBase(maintype, subtype)
+                attachment.set_payload(attachment_data)
+                encoders.encode_base64(attachment)
+                
+                # Add header
+                attachment.add_header(
+                    "Content-Disposition",
+                    f"attachment; filename= {filename}",
+                )
+                
+                message.attach(attachment)
+                attached_files.append(filename)
+                print(f"Attached file: {filename}")
+                
+            except Exception as e:
+                # Clean up any temporary files created so far
+                for temp_file in temp_files_to_cleanup:
+                    try:
+                        os.unlink(temp_file)
+                    except:
+                        pass
+                
+                print(f"Error attaching file {attachment_path}: {str(e)}")
+                return jsonify({
+                    "success": False,
+                    "error": f"Error attaching file {attachment_path}: {str(e)}"
+                }), 500
+
         # Send email
         print("Connecting to SMTP server...")
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.starttls()
-            server.login(sender_email, sender_password)
-            server.send_message(message)
-            print("Job offer email sent successfully!")
+        try:
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                server.starttls()
+                server.login(sender_email, sender_password)
+                server.send_message(message)
+                print("Job offer email sent successfully!")
+        finally:
+            # Clean up temporary files
+            for temp_file in temp_files_to_cleanup:
+                try:
+                    os.unlink(temp_file)
+                    print(f"Cleaned up temporary file: {temp_file}")
+                except:
+                    pass
 
-        return jsonify({
+        response_data = {
             "success": True,
             "message": "Job offer email sent successfully",
             "recipient": recipient_email,
             "subject": subject
-        }), 200
+        }
+        
+        if attached_files:
+            response_data["attachments"] = attached_files
+
+        return jsonify(response_data), 200
 
     except Exception as e:
         print("Exception occurred:", str(e))

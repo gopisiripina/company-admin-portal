@@ -1,17 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Home, User, ChevronLeft, ChevronRight, Zap, LogOut, UserCheck, FolderKanban, ChevronDown, ChevronUp, Calendar, DollarSign, BarChart3, GitBranch, ClipboardList, AlertTriangle, FileText, BookOpen } from 'lucide-react';
 import './Sidebar.css';
 import Myaccesslogo from '../../assets/Myalogobgr.svg'; // Adjust the path as necessary
 const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
   const [hoveredItem, setHoveredItem] = useState(null);
   const [expandedItems, setExpandedItems] = useState({});
+useEffect(() => {
+  const handleResize = () => {
+    if (window.innerWidth <= 768) {
+      if (isOpen) {
+        document.body.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = 'auto';
+      }
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+  };
 
+  handleResize();
+  window.addEventListener('resize', handleResize);
+  
+  return () => {
+    window.removeEventListener('resize', handleResize);
+    document.body.style.overflow = 'auto';
+  };
+}, [isOpen]);
   const handleExpandToggle = (itemId) => {
     setExpandedItems(prev => ({
       ...prev,
       [itemId]: !prev[itemId]
     }));
   };
+
+  const handleOverlayClick = (e) => {
+  if (window.innerWidth <= 768 && e.target === e.currentTarget) {
+    onToggle();
+  }
+};
 
   const sidebarItems = [
     { icon: Home, label: 'Dashboard', id: 'dashboard', color: '#3b82f6' },
@@ -89,6 +115,8 @@ const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
       { icon: User, label: 'Employee', id: 'employee', color: '#f59e0b' }
     ] : []),
   ];
+
+  
 
   // Separate logout item
   const logoutItem = { icon: LogOut, label: 'Logout', id: 'logout', color: '#ef4444' };
@@ -169,7 +197,8 @@ const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
   };
 
   return (
-    <div className={`sidebar ${isOpen ? 'open' : 'closed'}`}>
+    <div className={`sidebar ${isOpen ? 'open' : 'closed'}`} onClick={handleOverlayClick}>
+      
       {/* Sidebar Header */}
       <div className="sidebar-header">
         <div className="logo-section">
