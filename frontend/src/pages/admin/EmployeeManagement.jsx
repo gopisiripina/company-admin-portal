@@ -16,8 +16,10 @@ import {
   Tag,
   Typography,
   Switch,
-  Upload
+  Upload,
+  Select, DatePicker
 } from 'antd';
+import dayjs from 'dayjs';
 import { 
   UserAddOutlined, 
   EditOutlined, 
@@ -185,12 +187,16 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
       if (editingEmployee) {
         setTimeout(() => {
           form.setFieldsValue({
-            name: editingEmployee.name,
-            email: editingEmployee.email,
-            employeeId: editingEmployee.employeeid,
-            role: editingEmployee.role,
-            isActive: editingEmployee.isactive !== undefined ? editingEmployee.isactive : true
-          });
+  name: editingEmployee.name,
+  email: editingEmployee.email,
+  employeeId: editingEmployee.employeeid,
+  role: editingEmployee.role,
+  isActive: editingEmployee.isactive !== undefined ? editingEmployee.isactive : true,
+  // ADD THESE LINES:
+  employeeType: editingEmployee.employee_type || 'full-time',
+  startDate: editingEmployee.start_date ? dayjs(editingEmployee.start_date) : null,
+  endDate: editingEmployee.end_date ? dayjs(editingEmployee.end_date) : null
+});
           setProfileImage(editingEmployee.profileimage || null);
         }, 0);
       } else {
@@ -202,11 +208,16 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
   }, [editingEmployee, form, isOpen]);
 
   useEffect(() => {
-    if (!isOpen) {
-      form.resetFields();
-      setProfileImage(null);
-    }
-  }, [isOpen, form]);
+  if (!isOpen) {
+    form.resetFields();
+    setProfileImage(null);
+    // Reset to default values
+    form.setFieldsValue({ 
+      isActive: false,
+      employeeType: 'full-time'
+    });
+  }
+}, [isOpen, form]);
 
   const generatePassword = useCallback(() => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
@@ -247,12 +258,16 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
         // Update existing employee
         const updateData = {
           name: values.name,
-          email: values.email,
-          role: values.role || 'employee',
-          employeeid: values.employeeId,
-          isactive: values.isActive,
-          profileimage: profileImage,
-          updatedat: new Date().toISOString()
+  email: values.email,
+  role: values.role || 'employee',
+  employeeid: values.employeeId,
+  isactive: values.isActive,
+  profileimage: profileImage,
+  // ADD THESE LINES:
+  employee_type: values.employeeType,
+  start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
+  end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
+  updatedat: new Date().toISOString()
         };
         
         const { data, error } = await supabaseAdmin
@@ -272,15 +287,19 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
         const password = generatePassword();
         const employeeData = {
           name: values.name,
-          email: values.email,
-          employeeid: values.employeeId,
-          role: 'employee',
-          isactive: values.isActive !== undefined ? values.isActive : false,
-          isfirstlogin: true,
-          profileimage: profileImage,
-          password: password, // In production, hash this password
-          createdat: new Date().toISOString(),
-          updatedat: new Date().toISOString()
+  email: values.email,
+  employeeid: values.employeeId,
+  role: 'employee',
+  isactive: values.isActive !== undefined ? values.isActive : false,
+  isfirstlogin: true,
+  profileimage: profileImage,
+  password: password,
+  // ADD THESE LINES:
+  employee_type: values.employeeType,
+  start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
+  end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
+  createdat: new Date().toISOString(),
+  updatedat: new Date().toISOString()
         };
         
         const { data, error } = await supabaseAdmin
@@ -402,6 +421,57 @@ try {
         </Form.Item>
 
         <Form.Item
+  name="employeeType"
+  label="Employee Type"
+  rules={[{ required: true, message: 'Please select employee type' }]}
+>
+  <Select placeholder="Select employee type">
+    <Select.Option value="full-time">Full-time</Select.Option>
+    <Select.Option value="temporary">Temporary</Select.Option>
+    <Select.Option value="internship">Internship</Select.Option>
+  </Select>
+</Form.Item>
+
+<Form.Item
+  name="startDate"
+  label="Start Date"
+  rules={[{ required: true, message: 'Please select start date' }]}
+>
+  <DatePicker style={{ width: '100%' }} />
+</Form.Item>
+
+<Form.Item
+  shouldUpdate={(prevValues, currentValues) => 
+    prevValues.employeeType !== currentValues.employeeType
+  }
+>
+  {({ getFieldValue }) => {
+    const employeeType = getFieldValue('employeeType');
+    const showEndDate = employeeType === 'temporary' || employeeType === 'internship';
+    
+    return showEndDate ? (
+      <Form.Item
+        name="endDate"
+        label="End Date"
+        rules={[
+          { required: true, message: 'Please select end date' },
+          ({ getFieldValue }) => ({
+            validator(_, value) {
+              const startDate = getFieldValue('startDate');
+              if (!value || !startDate) return Promise.resolve();
+              if (value.isAfter(startDate)) return Promise.resolve();
+              return Promise.reject(new Error('End date must be after start date'));
+            },
+          }),
+        ]}
+      >
+        <DatePicker style={{ width: '100%' }} />
+      </Form.Item>
+    ) : null;
+  }}
+</Form.Item>
+
+        <Form.Item
           name="employeeId"
           label="Employee ID"
           rules={[
@@ -452,7 +522,10 @@ const EmployeeManagement = ({ userRole }) => {
     pageSize: 10,
     total: 0
   });
-
+const [filters, setFilters] = useState({
+  employeeType: '',
+  status: ''
+});
   const { totalEmployees, activeEmployees, inactiveEmployees } = useMemo(() => {
     const total = allEmployees.length;
     const active = allEmployees.filter(employee => employee.isactive === true).length;
@@ -472,20 +545,23 @@ const EmployeeManagement = ({ userRole }) => {
   const fetchAllEmployees = useCallback(async () => {
     try {
       const { data, error } = await supabaseAdmin
-        .from('users')
-        .select(`
-          id,
-          name,
-          email,
-          role,
-          employeeid,
-          isactive,
-          profileimage,
-          createdat,
-          updatedat
-        `)
-        .eq('role', 'employee')
-        .order('createdat', { ascending: false });
+  .from('users')
+  .select(`
+    id,
+    name,
+    email,
+    role,
+    employeeid,
+    isactive,
+    profileimage,
+    employee_type,
+    start_date,
+    end_date,
+    createdat,
+    updatedat
+  `)
+  .eq('role', 'employee')
+  .order('createdat', { ascending: false });
       
       if (error) {
         console.error('Fetch error:', error);
@@ -501,61 +577,77 @@ const EmployeeManagement = ({ userRole }) => {
     }
   }, []);
 
-  const applyFiltersAndPagination = useCallback((employeeList, search = '', page = 1, pageSize = 10) => {
-    let filteredEmployees = [...employeeList];
-    
-    if (search) {
-      const searchLower = search.toLowerCase();
-      filteredEmployees = filteredEmployees.filter(employee =>
-        employee.name?.toLowerCase().includes(searchLower) ||
-        employee.email?.toLowerCase().includes(searchLower) ||
-        (employee.employeeid && employee.employeeid.toLowerCase().includes(searchLower))
-      );
-    }
-    
-    const total = filteredEmployees.length;
-    const startIndex = (page - 1) * pageSize;
-    const paginatedEmployees = filteredEmployees.slice(startIndex, startIndex + pageSize);
-    
-    setEmployees(paginatedEmployees);
-    setPagination({
-      current: page,
-      pageSize: pageSize,
-      total: total
-    });
-    
-    return paginatedEmployees;
-  }, []);
+  const applyFiltersAndPagination = useCallback((employeeList, search = '', page = 1, pageSize = 10, filterOptions = {}) => {
+  let filteredEmployees = [...employeeList];
+  
+  // Search filter
+  if (search) {
+    const searchLower = search.toLowerCase();
+    filteredEmployees = filteredEmployees.filter(employee =>
+      employee.name?.toLowerCase().includes(searchLower) ||
+      employee.email?.toLowerCase().includes(searchLower) ||
+      (employee.employeeid && employee.employeeid.toLowerCase().includes(searchLower))
+    );
+  }
+  
+  // Employee Type filter
+  if (filterOptions.employeeType) {
+    filteredEmployees = filteredEmployees.filter(employee => 
+      employee.employee_type === filterOptions.employeeType
+    );
+  }
+  
+  // Status filter
+  if (filterOptions.status !== '') {
+    const isActive = filterOptions.status === 'active';
+    filteredEmployees = filteredEmployees.filter(employee => 
+      employee.isactive === isActive
+    );
+  }
+  
+  const total = filteredEmployees.length;
+  const startIndex = (page - 1) * pageSize;
+  const paginatedEmployees = filteredEmployees.slice(startIndex, startIndex + pageSize);
+  
+  setEmployees(paginatedEmployees);
+  setPagination({
+    current: page,
+    pageSize: pageSize,
+    total: total
+  });
+  
+  return paginatedEmployees;
+}, []);
 
-  const fetchEmployees = useCallback(async (page = 1, pageSize = 10, search = '') => {
-    try {
-      setLoading(true);
-      
-      let employeeList = allEmployees;
-      if (employeeList.length === 0) {
-        employeeList = await fetchAllEmployees();
-      }
-      
-      applyFiltersAndPagination(employeeList, search, page, pageSize);
-    } catch (error) {
-      console.error('Error in fetchEmployees:', error);
-      message.error(`Error loading employees: ${error.message}`);
-    } finally {
-      setLoading(false);
+  const fetchEmployees = useCallback(async (page = 1, pageSize = 10, search = '', filterOptions = {}) => {
+  try {
+    setLoading(true);
+    
+    let employeeList = allEmployees;
+    if (employeeList.length === 0) {
+      employeeList = await fetchAllEmployees();
     }
-  }, [allEmployees, fetchAllEmployees, applyFiltersAndPagination]);
+    
+    applyFiltersAndPagination(employeeList, search, page, pageSize, filterOptions);
+  } catch (error) {
+    console.error('Error in fetchEmployees:', error);
+    message.error(`Error loading employees: ${error.message}`);
+  } finally {
+    setLoading(false);
+  }
+}, [allEmployees, fetchAllEmployees, applyFiltersAndPagination]);
 
   const refreshData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const employeeList = await fetchAllEmployees();
-      applyFiltersAndPagination(employeeList, searchQuery, 1, pagination.pageSize);
-    } catch (error) {
-      console.error('Error refreshing data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchAllEmployees, applyFiltersAndPagination, searchQuery, pagination.pageSize]);
+  try {
+    setLoading(true);
+    const employeeList = await fetchAllEmployees();
+    applyFiltersAndPagination(employeeList, searchQuery, 1, pagination.pageSize, filters);
+  } catch (error) {
+    console.error('Error refreshing data:', error);
+  } finally {
+    setLoading(false);
+  }
+}, [fetchAllEmployees, applyFiltersAndPagination, searchQuery, pagination.pageSize, filters]);
 
   useEffect(() => {
   if (userRole === 'superadmin' || userRole === 'admin' || userRole === 'hr') {
@@ -563,14 +655,33 @@ const EmployeeManagement = ({ userRole }) => {
   }
 }, [userRole, fetchEmployees]);
 
+const handleEmployeeTypeFilter = useCallback((value) => {
+  const newFilters = { ...filters, employeeType: value };
+  setFilters(newFilters);
+  applyFiltersAndPagination(allEmployees, searchQuery, 1, pagination.pageSize, newFilters);
+}, [allEmployees, searchQuery, pagination.pageSize, applyFiltersAndPagination, filters]);
+
+const handleStatusFilter = useCallback((value) => {
+  const newFilters = { ...filters, status: value };
+  setFilters(newFilters);
+  applyFiltersAndPagination(allEmployees, searchQuery, 1, pagination.pageSize, newFilters);
+}, [allEmployees, searchQuery, pagination.pageSize, applyFiltersAndPagination, filters]);
+
+const handleClearFilters = useCallback(() => {
+  const clearedFilters = { employeeType: '', status: '' };
+  setFilters(clearedFilters);
+  setSearchQuery('');
+  applyFiltersAndPagination(allEmployees, '', 1, pagination.pageSize, clearedFilters);
+}, [allEmployees, pagination.pageSize, applyFiltersAndPagination]);
+
   const handleTableChange = useCallback((paginationInfo) => {
-    applyFiltersAndPagination(allEmployees, searchQuery, paginationInfo.current, paginationInfo.pageSize);
-  }, [allEmployees, searchQuery, applyFiltersAndPagination]);
+  applyFiltersAndPagination(allEmployees, searchQuery, paginationInfo.current, paginationInfo.pageSize, filters);
+}, [allEmployees, searchQuery, applyFiltersAndPagination, filters]);
 
   const handleSearch = useCallback((value) => {
-    setSearchQuery(value);
-    applyFiltersAndPagination(allEmployees, value, 1, pagination.pageSize);
-  }, [allEmployees, pagination.pageSize, applyFiltersAndPagination]);
+  setSearchQuery(value);
+  applyFiltersAndPagination(allEmployees, value, 1, pagination.pageSize, filters);
+}, [allEmployees, pagination.pageSize, applyFiltersAndPagination, filters]);
 
   const handleEdit = useCallback((employee) => {
     setEditingEmployee(employee);
@@ -687,6 +798,21 @@ const EmployeeManagement = ({ userRole }) => {
       ),
       responsive: ['md'],
     },
+    {
+  title: 'Employee Type',
+  dataIndex: 'employee_type',
+  key: 'employeeType',
+  width: 120,
+  render: (type) => {
+    const colors = {
+      'full-time': 'green',
+      'temporary': 'orange',
+      'internship': 'blue'
+    };
+    return <Tag color={colors[type]}>{type}</Tag>;
+  },
+  responsive: ['lg'],
+},
     {
       title: 'Status',
       dataIndex: 'isactive',
@@ -809,24 +935,73 @@ const EmployeeManagement = ({ userRole }) => {
           </Row>
 
           <Card style={{ marginBottom: '24px' }} className={`animated-card-delayed ${isMobile ? 'mobile-search' : ''}`}>
-            <Search
-              placeholder="Search employees by name, email or employee ID..."
-              allowClear
-              enterButton={
-                <Button 
-                  type="primary" 
-                  icon={<SearchOutlined />}
-                  className="brand-primary"
-                  style={{ backgroundColor: '#1F4842', borderColor: '#1F4842' }}
-                >
-                  Search
-                </Button>
-              }
-              size={isMobile ? "middle" : "large"}
-              onSearch={handleSearch}
-              style={{ maxWidth: isMobile ? '100%' : '400px' }}
-            />
-          </Card>
+  <div style={{ 
+    display: 'flex', 
+    flexDirection: isMobile ? 'column' : 'row', 
+    gap: '16px',
+    alignItems: isMobile ? 'stretch' : 'flex-end'
+  }}>
+    <div style={{ flex: 1 }}>
+      <Search
+        placeholder="Search employees by name, email or employee ID..."
+        allowClear
+        value={searchQuery}
+        enterButton={
+          <Button 
+            type="primary" 
+            icon={<SearchOutlined />}
+            className="brand-primary"
+            style={{ backgroundColor: '#1F4842', borderColor: '#1F4842' }}
+          >
+            Search
+          </Button>
+        }
+        size={isMobile ? "middle" : "large"}
+        onSearch={handleSearch}
+        onChange={(e) => handleSearch(e.target.value)}
+      />
+    </div>
+    
+    <div style={{ 
+      display: 'flex', 
+      gap: '12px',
+      flexDirection: isMobile ? 'column' : 'row'
+    }}>
+      <Select
+        placeholder="Employee Type"
+        allowClear
+        value={filters.employeeType || undefined}
+        onChange={handleEmployeeTypeFilter}
+        style={{ width: isMobile ? '100%' : '150px' }}
+        size={isMobile ? "middle" : "large"}
+      >
+        <Select.Option value="full-time">Full-time</Select.Option>
+        <Select.Option value="temporary">Temporary</Select.Option>
+        <Select.Option value="internship">Internship</Select.Option>
+      </Select>
+      
+      <Select
+        placeholder="Status"
+        allowClear
+        value={filters.status || undefined}
+        onChange={handleStatusFilter}
+        style={{ width: isMobile ? '100%' : '120px' }}
+        size={isMobile ? "middle" : "large"}
+      >
+        <Select.Option value="active">Active</Select.Option>
+        <Select.Option value="inactive">Inactive</Select.Option>
+      </Select>
+      
+      <Button 
+        onClick={handleClearFilters}
+        size={isMobile ? "middle" : "large"}
+        disabled={!searchQuery && !filters.employeeType && !filters.status}
+      >
+        Clear All
+      </Button>
+    </div>
+  </div>
+</Card>
 
           {isMobile ? (
             <Card className="animated-card-delayed-2" style={{ marginBottom: '24px' }}>
