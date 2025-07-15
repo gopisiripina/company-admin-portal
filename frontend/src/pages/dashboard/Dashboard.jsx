@@ -18,12 +18,17 @@ import CampusJobApplyPage from '../job/CampusJobApplyPage';
 import ExamConductPage from '../job/ExamConductPage';
 import EmailClient from '../email/EmailClient';
 
-const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionChange, onToggleSidebar }) => {
+const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionChange, onToggleSidebar, isEmailAuthenticated, setIsEmailAuthenticated }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentJobId, setCurrentJobId] = useState(2);
   const [searchSuggestions, setSearchSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-
+  const [activeEmailFolder, setActiveEmailFolder] = useState('inbox');
+  
+const handleEmailFolderChange = (folder) => {
+    setActiveEmailFolder(folder);
+    setIsEmailAuthenticated(true); // Set email as authenticated when folder changes
+  };
   const fuzzySearch = (query, options) => {
     if (!query) return [];
     
@@ -313,15 +318,46 @@ const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionCh
     }
   ];
 if (activeSection === 'mails') {
-  return (
-    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-      {renderHeader("Search emails...")}
-      <main className="main-content">
-        <EmailClient userRole={userData?.role} />
-      </main>
-    </div>
-  );
-}
+    return (
+      <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+        {renderHeader("Search emails...")}
+        <main className="main-content">
+          <EmailClient 
+            userRole={userData?.role}
+            activeFolder={activeEmailFolder}
+            onFolderChange={handleEmailFolderChange}
+          />
+        </main>
+      </div>
+    );
+  }
+
+  // Handle email child items (inbox, compose)
+  if (activeSection === 'inbox' || activeSection === 'compose') {
+    return (
+      <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+        {renderHeader("Search emails...")}
+        <main className="main-content">
+          <EmailClient 
+            userRole={userData?.role}
+            activeFolder={activeSection}
+            onFolderChange={handleEmailFolderChange}
+          />
+        </main>
+      </div>
+    );
+  }
+  
+
+  // Handle email section clicks
+  const handleEmailSectionClick = (section) => {
+    if (section === 'inbox' || section === 'compose') {
+      setActiveEmailFolder(section);
+      onSectionChange('mails'); // Always go to mails section
+    } else {
+      onSectionChange(section);
+    }
+  };
   // Render different sections based on activeSection
   if (activeSection === 'admin') {
     return (

@@ -36,10 +36,9 @@ const { Header, Sider, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 
-const EmailClient = ({ userRole }) => {
+const EmailClient = ({ userRole, activeFolder, onFolderChange }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [emailCredentials, setEmailCredentials] = useState({ email: '', password: '' });
-  const [activeFolder, setActiveFolder] = useState('inbox');
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState(null);
@@ -66,7 +65,7 @@ const EmailClient = ({ userRole }) => {
   return () => window.removeEventListener('resize', handleResize);
 }, []);
 
-  const handleEmailAuth = async (values) => {
+const handleEmailAuth = async (values) => {
     setLoading(true);
     
     try {
@@ -82,6 +81,12 @@ const EmailClient = ({ userRole }) => {
         setIsAuthenticated(true);
         setEmailCredentials(values);
         message.success('Successfully connected to email!');
+        
+        // Notify parent component about successful authentication
+        if (onFolderChange) {
+          onFolderChange('inbox'); // Set default folder to inbox
+        }
+        
         fetchEmails();
       } else {
         message.error('Authentication failed: ' + result.error);
@@ -455,101 +460,72 @@ bodyStyle={{
     />
   );
 
-const renderEmailInterface = () => (
-<Layout style={{ height: '100vh', overflow: 'hidden' }}>
-    <Header style={{ 
-      background: '#fff', 
-      padding: '0 16px',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between'
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        {(isMobile || isTablet) && (
-          <Button 
-            type="text" 
-            icon={<MenuOutlined />}
-            onClick={() => setMobileDrawerVisible(true)}
-            style={{ marginRight: 16 }}
-          />
-        )}
-        <Space>
-          <Avatar icon={<MailOutlined />} style={{ backgroundColor: '#1890ff' }} />
-          <Title level={4} style={{ margin: 0 }}>
-            {isTablet ? 'Email' : 'Email Client'}
-          </Title>
-        </Space>
-      </div>
-      <Text type="secondary" style={{ 
-        fontSize: isTablet ? 14 : 16,
-        display: isMobile ? 'none' : 'block'
+  const renderEmailInterface = () => (
+    <Layout style={{ height: '100vh', overflow: 'hidden' }}>
+      <Header style={{ 
+        background: '#fff', 
+        padding: '0 16px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between'
       }}>
-        {emailCredentials.email}
-      </Text>
-    </Header>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <Space>
+            <Avatar icon={<MailOutlined />} style={{ backgroundColor: '#1890ff' }} />
+            <Title level={4} style={{ margin: 0 }}>
+              {isTablet ? 'Email' : 'Email Client'}
+            </Title>
+          </Space>
+        </div>
+        <Text type="secondary" style={{ 
+          fontSize: isTablet ? 14 : 16,
+          display: isMobile ? 'none' : 'block'
+        }}>
+          {emailCredentials.email}
+        </Text>
+      </Header>
 
-    <Layout>
-      {!isMobile && !isTablet && (
-        <Sider
-          width={250}
-          style={{ background: '#fff' }}
-          collapsed={siderCollapsed}
-          collapsible
-          onCollapse={setSiderCollapsed}
-        >
-          {renderSidebar()}
-        </Sider>
-      )}
+      {/* Remove the Sider component completely */}
       
-     <Content style={{ 
-  padding: isTablet ? 12 : 16, 
-  background: '#f0f2f5',
-  height: 'calc(100vh - 64px)', // Subtract header height
-  overflow: 'hidden' // Prevent content area from scrolling
-}}>
-  <div style={{ height: '100%', overflow: 'hidden' }}>
-    {activeFolder === 'inbox' && renderEmailList()}
-    {activeFolder === 'compose' && renderCompose()}
-  </div>
-</Content>
+      <Content style={{ 
+        padding: isTablet ? 12 : 16, 
+        background: '#f0f2f5',
+        height: 'calc(100vh - 64px)', 
+        overflow: 'hidden'
+      }}>
+        <div style={{ height: '100%', overflow: 'hidden' }}>
+          {/* Use activeFolder prop instead of state */}
+          {activeFolder === 'inbox' && renderEmailList()}
+          {activeFolder === 'compose' && renderCompose()}
+        </div>
+      </Content>
+
+      {/* Remove the mobile drawer completely */}
+
+      {/* Keep the email detail modal */}
+      <Modal
+        title={selectedEmail?.subject}
+        open={emailDetailVisible}
+        onCancel={() => {
+          setEmailDetailVisible(false);
+          setSelectedEmail(null);
+        }}
+        footer={null}
+        width={isMobile ? "95%" : isTablet ? "90%" : "70%"}
+        style={{ top: isMobile ? 20 : isTablet ? 40 : 50 }}
+        bodyStyle={{ 
+          padding: isMobile ? 16 : isTablet ? 20 : 24,
+          maxHeight: isMobile ? '80vh' : isTablet ? '70vh' : '75vh',
+          overflow: 'auto'
+        }}
+      >
+        {selectedEmail && renderEmailDetail()}
+      </Modal>
     </Layout>
+  );
 
-    {/* Mobile Drawer for Navigation */}
-    <Drawer
-      title="Navigation"
-      placement="left"
-      onClose={() => setMobileDrawerVisible(false)}
-      open={mobileDrawerVisible}
-      width={isTablet ? 280 : 250}
-      bodyStyle={{ padding: 0 }}
-    >
-      {renderSidebar()}
-    </Drawer>
-
-    {/* Email Detail Modal for ALL devices */}
-    <Modal
-      title={selectedEmail?.subject}
-      open={emailDetailVisible}
-      onCancel={() => {
-        setEmailDetailVisible(false);
-        setSelectedEmail(null);
-      }}
-      footer={null}
-      width={isMobile ? "95%" : isTablet ? "90%" : "70%"} // Responsive width
-      style={{ top: isMobile ? 20 : isTablet ? 40 : 50 }}
-      bodyStyle={{ 
-        padding: isMobile ? 16 : isTablet ? 20 : 24,
-        maxHeight: isMobile ? '80vh' : isTablet ? '70vh' : '75vh',
-        overflow: 'auto'
-      }}
-    >
-      {selectedEmail && renderEmailDetail()}
-    </Modal>
-  </Layout>
-);
-
-
+  // Update the return statement
   return (
     <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       {!isAuthenticated ? renderAuthForm() : renderEmailInterface()}
