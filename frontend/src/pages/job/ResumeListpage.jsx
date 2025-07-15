@@ -444,14 +444,18 @@ const getProgressSteps = (resume) => {
   {
     title: 'Candidate',
     key: 'candidate',
-    fixed: 'left',
-    width: 160, // Reduced from 180
+    fixed: window.innerWidth > 768 ? 'left' : false,
+    width: window.innerWidth > 768 ? 160 : 'auto',
     render: (_, record) => (
-      <Space>
-        <Avatar size={32} icon={<UserOutlined />} /> {/* Reduced from 40 */}
+      <Space direction={window.innerWidth > 768 ? 'horizontal' : 'vertical'} size="small">
+        <Avatar size={window.innerWidth > 768 ? 32 : 24} icon={<UserOutlined />} />
         <div>
-          <div style={{ fontWeight: 500, fontSize: '13px' }}>{record.name}</div> {/* Reduced font */}
-          <Text type="secondary" style={{ fontSize: '11px' }}>{record.email}</Text>
+          <div style={{ fontWeight: 500, fontSize: window.innerWidth > 768 ? '13px' : '12px' }}>
+          {record.name}
+        </div>
+           <Text type="secondary" style={{ fontSize: window.innerWidth > 768 ? '11px' : '10px' }}>
+          {record.email}
+        </Text>
         </div>
       </Space>
     ),
@@ -692,7 +696,7 @@ const getProgressSteps = (resume) => {
 
   <Card style={{ marginBottom: '24px' }}>
     <Row gutter={[16, 16]}>
-      <Col span={5}>
+      <Col xs={24} sm={12} md={8} lg={5}>
         <div style={{ marginBottom: '8px' }}>
           <Text strong>Select Job</Text>
         </div>
@@ -712,7 +716,7 @@ const getProgressSteps = (resume) => {
           ))}
         </Select>
       </Col>
-      <Col span={5}>
+      <Col xs={24} sm={12} md={8} lg={5}>
         <div style={{ marginBottom: '8px' }}>
           <Text strong>Search</Text>
         </div>
@@ -724,7 +728,7 @@ const getProgressSteps = (resume) => {
           allowClear
         />
       </Col>
-      <Col span={4}>
+      <Col xs={24} sm={12} md={8} lg={4}>
         <div style={{ marginBottom: '8px' }}>
           <Text strong>Status</Text>
         </div>
@@ -741,7 +745,7 @@ const getProgressSteps = (resume) => {
           <Option value="selected">Selected</Option>
         </Select>
       </Col>
-      <Col span={5}>
+      <Col xs={24} sm={12} md={8} lg={5}>
         <div style={{ marginBottom: '8px' }}>
           <Text strong>Date Range</Text>
         </div>
@@ -750,7 +754,7 @@ const getProgressSteps = (resume) => {
           onChange={setDateRange}
         />
       </Col>
-      <Col span={5}>
+      <Col xs={24} sm={24} md={6} lg={5}>
         <div style={{ marginBottom: '8px', opacity: 0 }}>
           <Text>Actions</Text>
         </div>
@@ -800,32 +804,36 @@ const getProgressSteps = (resume) => {
     
     <Divider style={{ margin: '16px 0 8px 0' }} />
     
-    <Row justify="space-between" align="middle">
-      <Col>
-        <Space>
-          <Text strong>{filteredResumes.length}</Text>
-          <Text type="secondary">selected resumes found</Text>
-          {jobId && (
-            <>
-              <Text type="secondary">for Job ID: {jobId}</Text>
-              <Text type="secondary">
-                ({jobTitles.find(job => job.id === jobId)?.title || 'Unknown Job'})
-              </Text>
-            </>
-          )}
+    <Row justify="space-between" align="middle" gutter={[16, 16]}>
+  <Col xs={24} sm={24} md={12} lg={14}>
+    <Space direction="vertical" size="small" style={{ width: '100%' }}>
+      <Space wrap>
+        <Text strong>{filteredResumes.length}</Text>
+        <Text type="secondary">selected resumes</Text>
+      </Space>
+      {jobId && (
+        <Space wrap>
+          <Text type="secondary" style={{ fontSize: '12px' }}>
+            Job ID: {jobId}
+          </Text>
+          <Text type="secondary" style={{ fontSize: '12px' }}>
+            ({jobTitles.find(job => job.id === jobId)?.title || 'Unknown Job'})
+          </Text>
         </Space>
-      </Col>
-      <Col>
-        <Space>
-          <Badge count={filteredResumes.filter(r => !r.mailSentDate).length} showZero>
-            <Tag color="orange">Pending Mails</Tag>
-          </Badge>
-          <Badge count={filteredResumes.filter(r => r.mailSentDate).length} showZero>
-            <Tag color="blue">Mails Sent</Tag>
-          </Badge>
-        </Space>
-      </Col>
-    </Row>
+      )}
+    </Space>
+  </Col>
+  <Col xs={24} sm={24} md={12} lg={10}>
+    <Space wrap style={{ width: '100%', justifyContent: 'flex-start'}}>
+      <Badge count={filteredResumes.filter(r => !r.mailSentDate).length} showZero>
+        <Tag color="orange">Pending Mails</Tag>
+      </Badge>
+      <Badge count={filteredResumes.filter(r => r.mailSentDate).length} showZero>
+        <Tag color="blue">Mails Sent</Tag>
+      </Badge>
+    </Space>
+  </Col>
+</Row>
   </Card>
 
       {/* Resumes Table */}
@@ -836,12 +844,12 @@ const getProgressSteps = (resume) => {
     rowKey="id"
     loading={loading}
     pagination={{
-      pageSize: 10,
-      showSizeChanger: true,
-      showQuickJumper: true,
-      showTotal: (total, range) =>
-        `${range[0]}-${range[1]} of ${total} resumes`,
-    }}
+    pageSize: window.innerWidth > 768 ? 10 : 5, // Less items on mobile
+    showSizeChanger: window.innerWidth > 768,
+    showQuickJumper: window.innerWidth > 768,
+    showTotal: window.innerWidth > 768 ? (total, range) =>
+      `${range[0]}-${range[1]} of ${total} resumes` : false,
+  }}
     scroll={{ x: 800 }} // allows natural scroll
     size="small"
   />
