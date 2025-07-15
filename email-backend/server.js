@@ -85,7 +85,7 @@ app.post('/api/email/fetch', (req, res) => {
       const fetchRange = `${Math.max(1, total - limit + 1)}:${total}`;
       
       const f = imap.seq.fetch(fetchRange, {
-        bodies: ['HEADER.FIELDS (FROM TO SUBJECT DATE)', 'TEXT'],
+        bodies: '',
         struct: true
       });
       
@@ -100,29 +100,29 @@ app.post('/api/email/fetch', (req, res) => {
           });
           
           stream.once('end', () => {
-            if (info.which === 'TEXT') {
-              emailData.body = buffer;
-            } else {
-              // Parse header
-              const lines = buffer.split('\r\n');
-              lines.forEach(line => {
-                if (line.startsWith('From:')) emailData.from = line.substring(5).trim();
-                if (line.startsWith('To:')) emailData.to = line.substring(3).trim();
-                if (line.startsWith('Subject:')) emailData.subject = line.substring(8).trim();
-                if (line.startsWith('Date:')) emailData.date = line.substring(5).trim();
-              });
-            }
+            // Parse the entire email using mailparser
+            simpleParser(buffer, (err, parsed) => {
+              if (err) {
+                console.error('Error parsing email:', err);
+                return;
+              }
+              
+              emailData.from = parsed.from ? parsed.from.text : 'Unknown';
+              emailData.to = parsed.to ? parsed.to.text : 'Unknown';
+              emailData.subject = parsed.subject || 'No Subject';
+              emailData.date = parsed.date ? parsed.date.toISOString() : new Date().toISOString();
+              
+              // Get the email body (prefer HTML, fallback to text)
+              emailData.body = parsed.html || parsed.text || 'No content';
+              
+              emails.push(emailData);
+            });
           });
         });
         
         msg.once('attributes', (attrs) => {
           emailData.uid = attrs.uid;
           emailData.flags = attrs.flags;
-          emailData.date = attrs.date;
-        });
-        
-        msg.once('end', () => {
-          emails.push(emailData);
         });
       });
       
@@ -145,13 +145,12 @@ app.post('/api/email/fetch', (req, res) => {
   
   imap.connect();
 });
-
 // Send email
 app.post('/api/email/send', async (req, res) => {
   const { email, password, to, subject, body, cc, bcc } = req.body;
   
   try {
-    const transporter = nodemailer.createTransporter(getSmtpConfig(email, password));
+    const transporter = nodemailer.createTransport(getSmtpConfig(email, password));
     
     const mailOptions = {
       from: email,

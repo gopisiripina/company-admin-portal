@@ -57,6 +57,8 @@ useEffect(() => {
   if (path.startsWith('/job-application') && !isLoggedIn) {
     setActiveSection('job-application');
     return;
+  }else if (path.includes('/mails')) {
+  setActiveSection('mails');
   }
   else if (path.includes('/exam-conduct-page')) {
   setActiveSection('exam-conduct-page');
@@ -157,6 +159,8 @@ useEffect(() => {
     // Update URL for specific sections
      if (itemId === 'exam-conduct-page') {
       navigate('/dashboard/exam-conduct-page', { replace: true });
+     }else if (itemId === 'mails') {
+  navigate('/dashboard/mails', { replace: true });
      }else if (itemId === 'on-campus-data') {
       navigate('/dashboard/on-campus-data', { replace: true });
      }else if (itemId === 'selected-list') {
