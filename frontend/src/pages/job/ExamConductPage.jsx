@@ -33,6 +33,8 @@ import {
 } from '@ant-design/icons';
 import { supabase } from '../../supabase/config';
 import * as XLSX from 'xlsx';
+import { useMediaQuery } from 'react-responsive';
+
 
 
 
@@ -57,6 +59,9 @@ const [cutoffScore, setCutoffScore] = useState('');
 const [filteredResponses, setFilteredResponses] = useState([]);
 const [selectedStudents, setSelectedStudents] = useState([]);
 const [selectedStudentKeys, setSelectedStudentKeys] = useState([]);
+const isMobile = useMediaQuery({ maxWidth: 768 });
+const isTablet = useMediaQuery({ minWidth: 769, maxWidth: 1024 });
+
 
 const moveToCandidateList = async () => {
   if (selectedStudents.length === 0) {
@@ -673,48 +678,27 @@ const [jobTitles, setJobTitles] = useState([]);
       </div>
 
       {/* Stats Cards */}
-      <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
-        <Col span={6}>
-          <Card>
-            <div style={{ textAlign: 'center' }}>
-              <Title level={3} style={{ color: '#1890ff', margin: 0 }}>
-                {exams.length}
-              </Title>
-              <Text type="secondary">Total Exams</Text>
-            </div>
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <div style={{ textAlign: 'center' }}>
-              <Title level={3} style={{ color: '#52c41a', margin: 0 }}>
-                {exams.filter(exam => exam.status === 'Active').length}
-              </Title>
-              <Text type="secondary">Active Exams</Text>
-            </div>
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <div style={{ textAlign: 'center' }}>
-              <Title level={3} style={{ color: '#faad14', margin: 0 }}>
-                {exams.reduce((sum, exam) => sum + (exam.students_invited || 0), 0)}
-              </Title>
-              <Text type="secondary">Students Invited</Text>
-            </div>
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <div style={{ textAlign: 'center' }}>
-              <Title level={3} style={{ color: '#722ed1', margin: 0 }}>
-                {exams.reduce((sum, exam) => sum + (exam.students_completed || 0), 0)}
-              </Title>
-              <Text type="secondary">Completed</Text>
-            </div>
-          </Card>
-        </Col>
-      </Row>
+<Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
+  {[
+    { value: exams.length, label: 'Total Exams', color: '#1890ff' },
+    { value: exams.filter(exam => exam.status === 'Active').length, label: 'Active Exams', color: '#52c41a' },
+    { value: exams.reduce((sum, exam) => sum + (exam.students_invited || 0), 0), label: 'Students Invited', color: '#faad14' },
+    { value: exams.reduce((sum, exam) => sum + (exam.students_completed || 0), 0), label: 'Completed', color: '#722ed1' }
+  ].map((stat, index) => (
+    <Col xs={12} sm={12} md={6} lg={6} xl={6} key={index}>
+      <Card style={{ height: isMobile ? '80px' : '100px' }}>
+        <div style={{ textAlign: 'center' }}>
+          <Title level={isMobile ? 4 : 3} style={{ color: stat.color, margin: 0, fontSize: isMobile ? '18px' : undefined }}>
+            {stat.value}
+          </Title>
+          <Text type="secondary" style={{ fontSize: isMobile ? '12px' : '14px' }}>
+            {stat.label}
+          </Text>
+        </div>
+      </Card>
+    </Col>
+  ))}
+</Row>
 
       {/* Create Exam Button */}
       <Card style={{ marginBottom: '24px' }}>

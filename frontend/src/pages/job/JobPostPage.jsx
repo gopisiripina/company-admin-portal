@@ -676,34 +676,11 @@ const handlePostJob = async () => {
       padding: '24px',
       backgroundColor: 'transparent'
     }}>
-      <div style={{ marginBottom: '16px' }}>
-  <Space>
-    
-    <Button.Group>
-      <Button 
-        type={hiringTypeFilter === 'all' ? 'primary' : 'default'}
-        onClick={() => setHiringTypeFilter('all')}
-      >
-        All Jobs
-      </Button>
-      <Button 
-        type={hiringTypeFilter === 'off-campus' ? 'primary' : 'default'}
-        onClick={() => setHiringTypeFilter('off-campus')}
-      >
-        Off-Campus
-      </Button>
-      <Button 
-        type={hiringTypeFilter === 'on-campus' ? 'primary' : 'default'}
-        onClick={() => setHiringTypeFilter('on-campus')}
-      >
-        On-Campus
-      </Button>
-    </Button.Group>
-  </Space>
-</div>
+
 
       <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
         {/* Header */}
+{/* Header */}
         <Card 
           style={{ 
             marginBottom: '24px',
@@ -714,41 +691,63 @@ const handlePostJob = async () => {
             boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
           }}
         >
-          <Row align="middle" justify="space-between">
-            <Col>
+          <Row align="middle" justify="space-between" gutter={[16, 16]}>
+            <Col xs={24} sm={24} md={12} lg={8}>
               <Title level={2} style={{ margin: 0, color: '#1890ff' }}>
-                <RocketOutlined style={{ marginRight: '12px' }} />
-                Job Posting Hub
+                Job Posting Page
               </Title>
-              <Text type="secondary" style={{ fontSize: '16px' }}>
-                Select and post job descriptions to multiple platforms
-              </Text>
             </Col>
-            <Col>
-              <Space>
-                <Badge count={getActiveJobsCount()}>
-                  <Button 
-                    icon={<FileTextOutlined />}
-                    onClick={handleActiveJobsClick}
-                  >
-                    Active Jobs
-                  </Button>
-                </Badge>
-                <Badge count={getPostedTodayCount()}>
-                  <Button 
-                    icon={<BellOutlined />}
-                    onClick={handlePostedTodayClick}
-                  >
-                    Posted Today
-                  </Button>
-                </Badge>
-                <Button 
-                  icon={<SettingOutlined />}
-                  onClick={() => setStatusModalVisible(true)}
-                >
-                  Status Jobs
-                </Button>
-              </Space>
+            <Col xs={24} sm={24} md={12} lg={16}>
+              <Row justify="end" gutter={[8, 8]}>
+                <Col xs={24} sm={16} md={14} lg={12}>
+                  <Button.Group style={{ width: '100%' }}>
+                    <Button 
+                      type={hiringTypeFilter === 'all' ? 'primary' : 'default'}
+                      onClick={() => setHiringTypeFilter('all')}
+                      size="small"
+                      style={{ flex: 1 }}
+                    >
+                      All Jobs
+                    </Button>
+                    <Button 
+                      type={hiringTypeFilter === 'off-campus' ? 'primary' : 'default'}
+                      onClick={() => setHiringTypeFilter('off-campus')}
+                      size="small"
+                      style={{ flex: 1 }}
+                    >
+                      Off-Campus
+                    </Button>
+                    <Button 
+                      type={hiringTypeFilter === 'on-campus' ? 'primary' : 'default'}
+                      onClick={() => setHiringTypeFilter('on-campus')}
+                      size="small"
+                      style={{ flex: 1 }}
+                    >
+                      On-Campus
+                    </Button>
+                  </Button.Group>
+                </Col>
+                <Col xs={24} sm={8} md={10} lg={12}>
+                  <Space wrap size="small" style={{ width: '100%', justifyContent: 'flex-end' }}>
+                    <Badge count={getActiveJobsCount()}>
+                      <Button 
+                        icon={<FileTextOutlined />}
+                        onClick={handleActiveJobsClick}
+                        size="small"
+                      >
+                        Active Jobs
+                      </Button>
+                    </Badge>
+                    <Button 
+                      icon={<SettingOutlined />}
+                      onClick={() => setStatusModalVisible(true)}
+                      size="small"
+                    >
+                      Status Jobs
+                    </Button>
+                  </Space>
+                </Col>
+              </Row>
             </Col>
           </Row>
         </Card>
@@ -1104,12 +1103,22 @@ const handlePostJob = async () => {
           </Col>
         </Row>
 
-        {/* Job Preview Modal */}
+{/* Job Preview Modal */}
         <Modal
           title={selectedJob?.job_title}
           open={previewVisible}
           onCancel={() => setPreviewVisible(false)}
-          width={800}
+          width="100%"
+          style={{ 
+            maxWidth: '800px',
+            top: window.innerWidth <= 768 ? '10px' : '20px',
+            margin: window.innerWidth <= 768 ? '0 10px' : 'auto'
+          }}
+          bodyStyle={{
+            padding: window.innerWidth <= 768 ? '16px' : '24px',
+            maxHeight: window.innerWidth <= 768 ? '80vh' : '70vh',
+            overflowY: 'auto'
+          }}
           footer={[
             <Button key="close" onClick={() => setPreviewVisible(false)}>
               Close
@@ -1121,70 +1130,187 @@ const handlePostJob = async () => {
                 handleJobSelect(selectedJob);
                 setPreviewVisible(false);
               }}
+              style={{ marginLeft: '8px' }}
             >
               Select This Job
             </Button>
           ]}
         >
           {selectedJob && (
-            <div>
-              <Descriptions column={2} style={{ marginBottom: '24px' }}>
+            <div style={{ fontSize: window.innerWidth <= 768 ? '14px' : '16px' }}>
+              <Descriptions 
+                column={window.innerWidth <= 768 ? 1 : 2} 
+                style={{ marginBottom: '24px' }}
+                size={window.innerWidth <= 768 ? 'small' : 'default'}
+                labelStyle={{ 
+                  fontWeight: '600',
+                  color: '#1890ff',
+                  width: window.innerWidth <= 768 ? '100px' : 'auto'
+                }}
+                contentStyle={{ 
+                  wordBreak: 'break-word'
+                }}
+              >
                 <Descriptions.Item label="Department">
-                  {selectedJob.department || 'N/A'}
+                  <Text>{selectedJob.department || 'N/A'}</Text>
                 </Descriptions.Item>
                 <Descriptions.Item label="Location">
-                  {selectedJob.location || 'N/A'}
+                  <Text>{selectedJob.location || 'N/A'}</Text>
                 </Descriptions.Item>
                 <Descriptions.Item label="Employment Type">
-                  {selectedJob.employment_type || 'N/A'}
+                  <Tag color="blue">{selectedJob.employment_type || 'N/A'}</Tag>
                 </Descriptions.Item>
                 <Descriptions.Item label="Experience Level">
-                  {selectedJob.experience_level || 'N/A'}
+                  <Tag color="purple">{selectedJob.experience_level || 'N/A'}</Tag>
                 </Descriptions.Item>
                 <Descriptions.Item label="Salary Range">
-                  {selectedJob.salary_range || 'Not specified'}
+                  <Text strong style={{ color: '#52c41a' }}>
+                    {selectedJob.salary_range || 'Not specified'}
+                  </Text>
+                </Descriptions.Item>
+                <Descriptions.Item label="Hiring Type">
+                  <Tag color={selectedJob.hiring_type === 'on-campus' ? 'orange' : 'blue'}>
+                    {selectedJob.hiring_type === 'on-campus' ? 'On-Campus' : 'Off-Campus'}
+                  </Tag>
                 </Descriptions.Item>
               </Descriptions>
 
-              <Divider orientation="left">Skills Required</Divider>
+              <Divider orientation="left" style={{ 
+                fontSize: window.innerWidth <= 768 ? '14px' : '16px',
+                fontWeight: '600',
+                color: '#1890ff'
+              }}>
+                Skills Required
+              </Divider>
               <div style={{ marginBottom: '24px' }}>
                 {selectedJob.skills && Array.isArray(selectedJob.skills) && selectedJob.skills.length > 0 ? (
-                  selectedJob.skills.map((skill, index) => (
-                    <Tag key={index} color="blue" style={{ marginBottom: '8px' }}>
-                      {skill}
-                    </Tag>
-                  ))
+                  <div style={{ 
+                    display: 'flex', 
+                    flexWrap: 'wrap', 
+                    gap: '8px'
+                  }}>
+                    {selectedJob.skills.map((skill, index) => (
+                      <Tag 
+                        key={index} 
+                        color="blue" 
+                        style={{ 
+                          marginBottom: '4px',
+                          fontSize: window.innerWidth <= 768 ? '12px' : '14px'
+                        }}
+                      >
+                        {skill}
+                      </Tag>
+                    ))}
+                  </div>
                 ) : (
                   <Text type="secondary">No skills listed</Text>
                 )}
               </div>
 
-              <Divider orientation="left">Job Description</Divider>
-              <Paragraph>{selectedJob.description || 'No description available'}</Paragraph>
+              <Divider orientation="left" style={{ 
+                fontSize: window.innerWidth <= 768 ? '14px' : '16px',
+                fontWeight: '600',
+                color: '#1890ff'
+              }}>
+                Job Description
+              </Divider>
+              <div style={{ 
+                marginBottom: '24px',
+                padding: '16px',
+                backgroundColor: '#f9f9f9',
+                borderRadius: '8px',
+                border: '1px solid #e8e8e8'
+              }}>
+                <Paragraph style={{ 
+                  margin: 0,
+                  lineHeight: '1.6',
+                  fontSize: window.innerWidth <= 768 ? '14px' : '16px'
+                }}>
+                  {selectedJob.description || 'No description available'}
+                </Paragraph>
+              </div>
 
-              <Divider orientation="left">Key Responsibilities</Divider>
-              <Paragraph style={{ whiteSpace: 'pre-line' }}>
-                {selectedJob.responsibilities || 'No responsibilities listed'}
-              </Paragraph>
+              <Divider orientation="left" style={{ 
+                fontSize: window.innerWidth <= 768 ? '14px' : '16px',
+                fontWeight: '600',
+                color: '#1890ff'
+              }}>
+                Key Responsibilities
+              </Divider>
+              <div style={{ 
+                marginBottom: '24px',
+                padding: '16px',
+                backgroundColor: '#f0f8ff',
+                borderRadius: '8px',
+                border: '1px solid #d4edda'
+              }}>
+                <Paragraph style={{ 
+                  margin: 0,
+                  whiteSpace: 'pre-line',
+                  lineHeight: '1.6',
+                  fontSize: window.innerWidth <= 768 ? '14px' : '16px'
+                }}>
+                  {selectedJob.responsibilities || 'No responsibilities listed'}
+                </Paragraph>
+              </div>
 
-              <Divider orientation="left">Qualifications</Divider>
-              <Paragraph style={{ whiteSpace: 'pre-line' }}>
-                {selectedJob.qualifications || 'No qualifications listed'}
-              </Paragraph>
+              <Divider orientation="left" style={{ 
+                fontSize: window.innerWidth <= 768 ? '14px' : '16px',
+                fontWeight: '600',
+                color: '#1890ff'
+              }}>
+                Qualifications
+              </Divider>
+              <div style={{ 
+                marginBottom: '24px',
+                padding: '16px',
+                backgroundColor: '#fff7e6',
+                borderRadius: '8px',
+                border: '1px solid #ffeaa7'
+              }}>
+                <Paragraph style={{ 
+                  margin: 0,
+                  whiteSpace: 'pre-line',
+                  lineHeight: '1.6',
+                  fontSize: window.innerWidth <= 768 ? '14px' : '16px'
+                }}>
+                  {selectedJob.qualifications || 'No qualifications listed'}
+                </Paragraph>
+              </div>
 
               {selectedJob.benefits && (
                 <>
-                  <Divider orientation="left">Benefits</Divider>
-                  <Paragraph style={{ whiteSpace: 'pre-line' }}>
-                    {selectedJob.benefits}
-                  </Paragraph>
+                  <Divider orientation="left" style={{ 
+                    fontSize: window.innerWidth <= 768 ? '14px' : '16px',
+                    fontWeight: '600',
+                    color: '#1890ff'
+                  }}>
+                    Benefits
+                  </Divider>
+                  <div style={{ 
+                    marginBottom: '16px',
+                    padding: '16px',
+                    backgroundColor: '#f3f5f2ff',
+                    borderRadius: '8px',
+                    border: '1px solid #eef3ebff'
+                  }}>
+                    <Paragraph style={{ 
+                      margin: 0,
+                      whiteSpace: 'pre-line',
+                      lineHeight: '1.6',
+                      fontSize: window.innerWidth <= 768 ? '14px' : '16px'
+                    }}>
+                      {selectedJob.benefits}
+                    </Paragraph>
+                  </div>
                 </>
               )}
             </div>
           )}
         </Modal>
 
-        {/* Status Jobs Modal */}
+{/* Status Jobs Modal */}
+{/* Status Jobs Modal */}
         <Modal
           title="Manage Job Status"
           open={statusModalVisible}
@@ -1196,65 +1322,69 @@ const handlePostJob = async () => {
             </Button>
           ]}
         >
-<List
-  dataSource={jobDescriptions}
-  renderItem={(job) => (
-    <List.Item
-      actions={[
-        <Button
-          key="active"
-          type={job.status === 'Active' ? 'primary' : 'default'}
-          size="small"
-          onClick={() => updateJobStatus(job.id, 'Active')}
-          disabled={job.status === 'Active'}
-        >
-          Active
-        </Button>,
-        <Button
-          key="inactive"
-          type={job.status === 'Inactive' ? 'primary' : 'default'}
-          size="small"
-          onClick={() => updateJobStatus(job.id, 'Inactive')}
-          disabled={job.status === 'Inactive'}
-        >
-          Inactive
-        </Button>,
-        <Popconfirm
-          key="delete"
-          title="Delete this job?"
-          description="This action cannot be undone. Are you sure?"
-          onConfirm={() => deleteJob(job.id, job.job_title)}
-          okText="Yes, Delete"
-          cancelText="Cancel"
-          okType="danger"
-        >
-          <Button
-            type="text"
-            danger
-            size="small"
-            icon={<DeleteOutlined />}
-          >
-            Delete
-          </Button>
-        </Popconfirm>
-      ]}
-    >
-      <List.Item.Meta
-        title={
-          <Space>
-            <Text strong>{job.job_title}</Text>
-            <Badge 
-              status={job.status === 'Active' ? 'success' : 'default'} 
-              text={job.status}
+          <div style={{ overflowX: 'auto' }}>
+            <List
+              dataSource={jobDescriptions}
+              renderItem={(job) => (
+                <List.Item
+                  actions={[
+                    <Button
+                      key="active"
+                      type={job.status === 'Active' ? 'primary' : 'default'}
+                      size="small"
+                      onClick={() => updateJobStatus(job.id, 'Active')}
+                      disabled={job.status === 'Active'}
+                    >
+                      Active
+                    </Button>,
+                    <Button
+                      key="inactive"
+                      type={job.status === 'Inactive' ? 'primary' : 'default'}
+                      size="small"
+                      onClick={() => updateJobStatus(job.id, 'Inactive')}
+                      disabled={job.status === 'Inactive'}
+                    >
+                      Inactive
+                    </Button>,
+                    <Popconfirm
+                      key="delete"
+                      title="Delete this job?"
+                      description="This action cannot be undone. Are you sure?"
+                      onConfirm={() => deleteJob(job.id, job.job_title)}
+                      okText="Yes, Delete"
+                      cancelText="Cancel"
+                      okType="danger"
+                    >
+                      <Button
+                        type="text"
+                        danger
+                        size="small"
+                        icon={<DeleteOutlined />}
+                      >
+                        Delete
+                      </Button>
+                    </Popconfirm>
+                  ]}
+                  style={{ minWidth: '400px' }}
+                >
+                  <List.Item.Meta
+                    title={
+                      <Space>
+                        <Text strong>{job.job_title}</Text>
+                        <Badge 
+                          status={job.status === 'Active' ? 'success' : 'default'} 
+                          text={job.status}
+                        />
+                      </Space>
+                    }
+                    description={`${job.department} • ${job.location} • ${job.employment_type}`}
+                  />
+                </List.Item>
+              )}
             />
-          </Space>
-        }
-        description={`${job.department} • ${job.location} • ${job.employment_type}`}
-      />
-    </List.Item>
-  )}
-/>        </Modal>
-<Modal
+          </div>
+        </Modal>
+        <Modal
   title="Campus Job Link Generated"
   open={campusLinkModal}
   onCancel={() => setCampusLinkModal(false)}
