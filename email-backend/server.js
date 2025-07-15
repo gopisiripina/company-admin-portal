@@ -21,6 +21,13 @@ const getImapConfig = (email, password) => ({
   tls: true,
   tlsOptions: {
     rejectUnauthorized: false
+  },
+  authTimeout: 30000,
+  connTimeout: 30000,
+  keepalive: {
+    interval: 10000,
+    idleInterval: 300000,
+    forceNoop: true
   }
 });
 
@@ -41,11 +48,14 @@ app.post('/api/email/test-connection', (req, res) => {
   const imap = new Imap(getImapConfig(email, password));
   
   imap.once('ready', () => {
+    console.log('IMAP connection established');
     imap.openBox('INBOX', true, (err, box) => {
       if (err) {
-        return res.status(400).json({ success: false, error: 'Failed to connect to mailbox' });
+        console.error('Mailbox error:', err);
+        return res.status(400).json({ success: false, error: 'Failed to connect to mailbox: ' + err.message });
       }
       
+      console.log('Mailbox opened successfully');
       imap.end();
       res.json({ 
         success: true, 
@@ -56,17 +66,28 @@ app.post('/api/email/test-connection', (req, res) => {
   });
   
   imap.once('error', (err) => {
-    res.status(400).json({ success: false, error: err.message });
+    console.error('IMAP connection error:', err);
+    res.status(400).json({ success: false, error: 'Connection failed: ' + err.message });
   });
   
-  imap.connect();
+  imap.once('end', () => {
+    console.log('IMAP connection closed');
+  });
+  
+  try {
+    imap.connect();
+  } catch (err) {
+    console.error('Connection attempt failed:', err);
+    res.status(400).json({ success: false, error: 'Failed to initiate connection: ' + err.message });
+  }
 });
-
 // Fetch emails from specific folder
 app.post('/api/email/fetch', (req, res) => {
-  const { email, password, folder = 'INBOX', limit = 50 } = req.body;
+  const { email, password, folder = 'INBOX', limit = 100 } = req.body;
   
   const imap = new Imap(getImapConfig(email, password));
+  let emailsProcessed = 0;
+  let totalEmails = 0;
   
   imap.once('ready', () => {
     imap.openBox(folder, true, (err, box) => {
@@ -76,15 +97,19 @@ app.post('/api/email/fetch', (req, res) => {
       
       const emails = [];
       const total = box.messages.total;
+      totalEmails = total;
       
       if (total === 0) {
         return res.json({ success: true, emails: [] });
       }
       
-      // Fetch recent emails
-      const fetchRange = `${Math.max(1, total - limit + 1)}:${total}`;
+      // Fetch the most recent emails (last 'limit' emails)
+      const startSeq = Math.max(1, total - limit + 1);
+      const endSeq = total;
       
-      const f = imap.seq.fetch(fetchRange, {
+      console.log(`Fetching emails from ${startSeq} to ${endSeq} (total: ${total})`);
+      
+      const f = imap.seq.fetch(`${startSeq}:${endSeq}`, {
         bodies: '',
         struct: true
       });
@@ -100,22 +125,29 @@ app.post('/api/email/fetch', (req, res) => {
           });
           
           stream.once('end', () => {
-            // Parse the entire email using mailparser
             simpleParser(buffer, (err, parsed) => {
               if (err) {
                 console.error('Error parsing email:', err);
+                emailsProcessed++;
                 return;
               }
               
               emailData.from = parsed.from ? parsed.from.text : 'Unknown';
               emailData.to = parsed.to ? parsed.to.text : 'Unknown';
               emailData.subject = parsed.subject || 'No Subject';
-              emailData.date = parsed.date ? parsed.date.toISOString() : new Date().toISOString();
-              
-              // Get the email body (prefer HTML, fallback to text)
+              emailData.date = parsed.date ? parsed.date.toLocaleDateString() + ' ' + parsed.date.toLocaleTimeString() : new Date().toLocaleDateString();
               emailData.body = parsed.html || parsed.text || 'No content';
               
               emails.push(emailData);
+              emailsProcessed++;
+              
+              // Check if all emails are processed
+              if (emailsProcessed >= (endSeq - startSeq + 1)) {
+                imap.end();
+                // Sort emails by sequence number (newest first)
+                emails.sort((a, b) => b.seqno - a.seqno);
+                res.json({ success: true, emails });
+              }
             });
           });
         });
@@ -127,19 +159,19 @@ app.post('/api/email/fetch', (req, res) => {
       });
       
       f.once('error', (err) => {
+        console.error('Fetch error:', err);
         res.status(400).json({ success: false, error: err.message });
       });
       
       f.once('end', () => {
-        imap.end();
-        // Sort emails by date (newest first)
-        emails.sort((a, b) => new Date(b.date) - new Date(a.date));
-        res.json({ success: true, emails });
+        // This will be handled in the message processing
+        console.log('Fetch completed');
       });
     });
   });
   
   imap.once('error', (err) => {
+    console.error('IMAP error:', err);
     res.status(400).json({ success: false, error: err.message });
   });
   
