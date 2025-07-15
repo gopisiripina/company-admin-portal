@@ -16,6 +16,7 @@ import JobApplicationPage from '../job/JobApplicationPage'
 import SelectedCandidatesPage from '../job/SelectedCandidatespage';
 import CampusJobApplyPage from '../job/CampusJobApplyPage';
 import ExamConductPage from '../job/ExamConductPage';
+import EmailClient from '../email/EmailClient';
 
 const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionChange, onToggleSidebar }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -311,7 +312,16 @@ const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionCh
       type: 'system'
     }
   ];
-
+if (activeSection === 'mails') {
+  return (
+    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+      {renderHeader("Search emails...")}
+      <main className="main-content">
+        <EmailClient userRole={userData?.role} />
+      </main>
+    </div>
+  );
+}
   // Render different sections based on activeSection
   if (activeSection === 'admin') {
     return (

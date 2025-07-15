@@ -42,6 +42,7 @@ useEffect(() => {
 
   const sidebarItems = [
     { icon: Home, label: 'Dashboard', id: 'dashboard', color: '#3b82f6' },
+    { icon: Calendar, label: 'Mails', id: 'mails' },
     
     // Project Management parent with children
    // Project Management (only for superadmin and admin)
