@@ -892,7 +892,7 @@ const handlePostJob = async () => {
             {/* Posting Platforms */}
             <Card 
               title={
-                <div style={{ color: '#1890ff' }}>
+                <div style={{ color: '#0D7139' }}>
                   <SendOutlined style={{ marginRight: '8px' }} />
                   {selectedJob?.hiring_type === 'on-campus' ? 'Campus Job Link' : 'Posting Platforms'}
                 </div>
@@ -920,11 +920,11 @@ const handlePostJob = async () => {
                   <div style={{ textAlign: 'center', marginBottom: '20px' }}>
                     <div style={{ 
                       padding: '16px', 
-                      border: '2px dashed #1890ff', 
+                      border: '2px dashed #0D7139', 
                       borderRadius: '8px',
                       background: '#f0f8ff'
                     }}>
-                      <TeamOutlined style={{ fontSize: '24px', color: '#1890ff', marginBottom: '8px' }} />
+                      <TeamOutlined style={{ fontSize: '24px', color: '#0D7139', marginBottom: '8px' }} />
                       <div>
                         <Text strong>Campus Job Link Generation</Text>
                         <br />
@@ -944,7 +944,7 @@ const handlePostJob = async () => {
                     onClick={handlePostJob}
                     disabled={!selectedJob}
                     style={{
-                      background: 'linear-gradient(45deg, #52c41a 0%, #1890ff 100%)',
+                      background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
                       border: 'none',
                       borderRadius: '8px',
                       height: '48px',
@@ -1023,9 +1023,12 @@ const handlePostJob = async () => {
                         </Col>
                         <Col>
                           <Switch 
-                            checked={postingPlatforms.company}
-                            onChange={(checked) => handlePlatformChange('company', checked)}
-                          />
+  checked={postingPlatforms.company}
+  onChange={(checked) => handlePlatformChange('company', checked)}
+  style={{
+    backgroundColor: postingPlatforms.company ? '#0D7139' : undefined,
+  }}
+/>
                         </Col>
                       </Row>
                       {postingPlatforms.company && (
@@ -1091,7 +1094,7 @@ const handlePostJob = async () => {
                     onClick={handlePostJob}
                     disabled={!selectedJob}
                     style={{
-                      background: 'linear-gradient(45deg, #1890ff 0%, #722ed1 100%)',
+                      background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
                       border: 'none',
                       borderRadius: '8px',
                       height: '48px',
