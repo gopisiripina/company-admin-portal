@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Home, User, ChevronLeft, ChevronRight, Zap, LogOut, UserCheck, FolderKanban, ChevronDown, ChevronUp, Calendar, DollarSign, BarChart3, GitBranch, ClipboardList, AlertTriangle, FileText, BookOpen } from 'lucide-react';
 import './Sidebar.css';
 import Myaccesslogo from '../../assets/Myalogobgr.svg'; // Adjust the path as necessary
+import { InboxOutlined, EditOutlined } from '@ant-design/icons';
 import { X } from 'lucide-react';
-const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
+const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole, isEmailAuthenticated }) => {
   const [hoveredItem, setHoveredItem] = useState(null);
   const [expandedItems, setExpandedItems] = useState({});
 useEffect(() => {
@@ -42,7 +43,17 @@ useEffect(() => {
 
   const sidebarItems = [
     { icon: Home, label: 'Dashboard', id: 'dashboard', color: '#3b82f6' },
-    { icon: Calendar, label: 'Mails', id: 'mails' },
+     {
+      icon: Calendar,
+      label: 'Mails',
+      id: 'mails',
+      color: '#10b981',
+      hasChildren: isEmailAuthenticated, // Only show children if authenticated
+      children: isEmailAuthenticated ? [
+        { icon: InboxOutlined, label: 'Inbox', id: 'inbox' },
+        { icon: EditOutlined, label: 'Compose', id: 'compose' }
+      ] : []
+    },
     
     // Project Management parent with children
    // Project Management (only for superadmin and admin)

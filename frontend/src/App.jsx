@@ -19,6 +19,8 @@ const AppContent = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeSection, setActiveSection] = useState('dashboard');
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const [isEmailAuthenticated, setIsEmailAuthenticated] = useState(false);
+
   const handleToggleSidebar = () => {
   setSidebarOpen(!sidebarOpen);
 };
@@ -159,8 +161,8 @@ useEffect(() => {
     // Update URL for specific sections
      if (itemId === 'exam-conduct-page') {
       navigate('/dashboard/exam-conduct-page', { replace: true });
-     }else if (itemId === 'mails') {
-  navigate('/dashboard/mails', { replace: true });
+     }else if (['inbox', 'compose', 'mails'].includes(itemId)) {
+      navigate('/dashboard/mails', { replace: true });
      }else if (itemId === 'on-campus-data') {
       navigate('/dashboard/on-campus-data', { replace: true });
      }else if (itemId === 'selected-list') {
@@ -277,6 +279,7 @@ useEffect(() => {
                   activeItem={activeSection}
                   onItemClick={handleSidebarItemClick}
                   userRole={userData?.role}
+                  isEmailAuthenticated={isEmailAuthenticated}
                 />
                 <Dashboard
                   sidebarOpen={sidebarOpen}
@@ -285,6 +288,8 @@ useEffect(() => {
                   onLogout={handleLogout}
                    onSectionChange={handleSidebarItemClick}
                    onToggleSidebar={handleToggleSidebar}
+                    isEmailAuthenticated={isEmailAuthenticated} // ✅ ADDED
+  setIsEmailAuthenticated={setIsEmailAuthenticated} // ✅ ADDED
                 />
               </div>
             </AnimatedBackground>
