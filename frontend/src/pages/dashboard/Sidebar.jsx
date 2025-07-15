@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Home, User, ChevronLeft, ChevronRight, Zap, LogOut, UserCheck, FolderKanban, ChevronDown, ChevronUp, Calendar, DollarSign, BarChart3, GitBranch, ClipboardList, AlertTriangle, FileText, BookOpen } from 'lucide-react';
 import './Sidebar.css';
 import Myaccesslogo from '../../assets/Myalogobgr.svg'; // Adjust the path as necessary
+import { X } from 'lucide-react';
 const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole }) => {
   const [hoveredItem, setHoveredItem] = useState(null);
   const [expandedItems, setExpandedItems] = useState({});
@@ -116,7 +117,17 @@ useEffect(() => {
     ] : []),
   ];
 
-  
+   const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Separate logout item
   const logoutItem = { icon: LogOut, label: 'Logout', id: 'logout', color: '#ef4444' };
@@ -196,9 +207,22 @@ useEffect(() => {
     );
   };
 
-  return (
-    <div className={`sidebar ${isOpen ? 'open' : 'closed'}`} onClick={handleOverlayClick}>
-      
+// Remove the duplicate sidebar div and fix the JSX structure
+// Replace the return statement in your Sidebar.jsx with this:
+
+return (
+  <>
+    {/* Mobile overlay */}
+    {isMobile && isOpen && (
+      <div 
+        className="sidebar-overlay"
+        onClick={onToggle}
+      />
+    )}
+
+    <div 
+      className={`sidebar ${isOpen ? 'open' : 'closed'} ${isMobile ? 'mobile' : ''}`}
+    >
       {/* Sidebar Header */}
       <div className="sidebar-header">
         <div className="logo-section">
@@ -207,21 +231,22 @@ useEffect(() => {
           </div>
           {isOpen && (
             <div className="logo-text">
-              <span className="logo-title">
-                MyAccess
-              </span>
-              <span className="logo-subtitle">
-                Portal
-              </span>
+              <span className="logo-title">MyAccess</span>
+              <span className="logo-subtitle">Portal</span>
             </div>
           )}
         </div>
-        <button
-          onClick={onToggle}
-          className="toggle-button"
-        >
-          {isOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
-        </button>
+        
+        {/* Show X (close) icon on mobile when open */}
+        {isMobile && isOpen ? (
+          <button onClick={onToggle} className="toggle-button">
+            <X size={20} />
+          </button>
+        ) : (
+          <button onClick={onToggle} className="toggle-button">
+            {isOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
+          </button>
+        )}
       </div>
 
       {/* Sidebar Navigation */}
@@ -262,7 +287,7 @@ useEffect(() => {
         </div>
       </div>
     </div>
-  );
-};
+  </>
+);};
 
 export default Sidebar;

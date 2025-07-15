@@ -554,7 +554,7 @@ const handleSubmit = async (values) => {
              
 <Title level={2} style={{ margin: 0, color: '#0D7139' }}>
   <FileTextOutlined style={{ marginRight: '12px' }} />
-  Create Job Description 
+  Create Job 
   <Tag 
     color={hiringType === 'on-campus' ? 'green' : '#0D7139'} 
     style={{ marginLeft: '12px', fontSize: '12px' }}
@@ -562,24 +562,11 @@ const handleSubmit = async (values) => {
     {hiringType === 'on-campus' ? 'On-Campus' : 'Off-Campus'}
   </Tag>
 </Title>
-              <Text type="secondary" style={{ fontSize: '16px' }}>
-                Design comprehensive job descriptions with AI assistance
-              </Text>
+              
             </Col>
             <Col>
               <Space>
-                <Button 
-                  type="primary" 
-                  icon={<BulbOutlined />}
-                  onClick={() => setAiChatOpen(true)}
-                  style={{
-                    background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
-                    border: 'none',
-                    borderRadius: '8px'
-                  }}
-                >
-                  Get AI Help
-                </Button>
+               
               </Space>
             </Col>
           </Row>
@@ -616,9 +603,7 @@ const handleSubmit = async (values) => {
           <Title level={5} style={{ margin: 0, color: hiringType === 'off-campus' ? '#0D7139' : '#333' }}>
             Off-Campus Hiring
           </Title>
-          <Text type="secondary" style={{ fontSize: '14px' }}>
-            Open positions for external candidates
-          </Text>
+          
         </div>
       </Card>
     </Col>
@@ -638,9 +623,7 @@ const handleSubmit = async (values) => {
           <Title level={5} style={{ margin: 0, color: hiringType === 'on-campus' ? '#52c41a' : '#333' }}>
             On-Campus Hiring
           </Title>
-          <Text type="secondary" style={{ fontSize: '14px' }}>
-            Campus recruitment for students
-          </Text>
+          
         </div>
       </Card>
     </Col>
@@ -664,29 +647,19 @@ const handleSubmit = async (values) => {
             onFinish={handleSubmit}
             style={{ padding: '24px' }}
           >
-            {hiringType === 'on-campus' && (
-  <Card 
-    style={{ 
-      marginBottom: '24px',
-      background: 'rgba(255, 255, 255, 0.95)',
-      backdropFilter: 'blur(10px)',
-      border: 'none',
-      borderRadius: '16px',
-      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-      ...animationStyles.headerCard
-    }}
-  >
+{hiringType === 'on-campus' && (
+  <div style={{ marginBottom: '24px' }}>
     <Title level={4} style={{ color: '#52c41a', marginBottom: '16px' }}>
       <TeamOutlined style={{ marginRight: '8px' }} />
       College Information
     </Title>
     <Form.Item
-  label="College Name"
-  name="collegeName"  // Make sure this matches what you're accessing in values.collegeName
-  rules={[
-    { required: hiringType === 'on-campus', message: 'Please select or enter college name' }
-  ]}
->
+      label="College Name"
+      name="collegeName"
+      rules={[
+        { required: hiringType === 'on-campus', message: 'Please select or enter college name' }
+      ]}
+    >
       <Select 
         size="large" 
         placeholder="Select or enter college name"
@@ -722,9 +695,8 @@ const handleSubmit = async (values) => {
         ))}
       </Select>
     </Form.Item>
-  </Card>
+  </div>
 )}
-
             <Row gutter={[32, 24]}>
               {/* Left Column - Basic Information */}
               <Col xs={24} lg={12} style={animationStyles.leftColumn}>
@@ -1084,83 +1056,69 @@ const handleSubmit = async (values) => {
 
             <Divider />
 
-            {/* Submit Button */}
-            <Row justify="center">
-              <Col>
-                <Button
-  type="primary"
-  htmlType="submit"
-  size="large"
-  loading={loading}
-  icon={<SaveOutlined />}
-  style={{
-    background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
-    border: 'none',
-    borderRadius: '8px',
-    padding: '0 48px',
-    height: '48px',
-    fontSize: '16px',
-    fontWeight: '600'
-  }}
->
-  {loading 
-    ? 'Saving Job Description...' 
-    : isEditing 
-      ? 'Save as New Copy' 
-      : 'Save Job Description'
-  }
-</Button>
-              </Col>
-            </Row>
+<Row justify="center" style={{ marginTop: '32px' }}>
+  <Col xs={24} sm={24} md={12} lg={8}>
+    <Button
+      type="primary"
+      htmlType="submit"
+      size="large"
+      loading={loading}
+      icon={<SaveOutlined />}
+      block // This makes the button full width on mobile
+      style={{
+        background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
+        border: 'none',
+        borderRadius: '8px',
+        height: '48px',
+        fontSize: '16px',
+        fontWeight: '600',
+        minWidth: '200px' // Minimum width for desktop
+      }}
+    >
+      {loading 
+        ? 'Saving Job Description...' 
+        : isEditing 
+          ? 'Save as New Copy' 
+          : 'Save Job Description'
+      }
+    </Button>
+  </Col>
+</Row>
+
           </Form>
         </Card>
 
         {/* AI Assistant Float Button */}
 
-       <div
-  style={{
-    position: 'fixed',
-    bottom: '24px',
-    right: '24px',
-    width: '64px',
-    height: '64px',
-    backgroundColor: '#0D7139',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
-    zIndex: 1000
-  }}
-  onClick={() => setAiChatOpen(true)}
-  title="AI Assistant - Get help with job descriptions"
->
-  <RobotOutlined style={{ color: 'white', fontSize: '24px' }} />
-</div>
+
+
 
         {/* AI Chat Drawer */}
-        <Drawer
-          title={
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <Avatar 
-                icon={<RobotOutlined />} 
-                style={{ 
-                  background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
-                  marginRight: '12px'
-                }} 
-              />
-              <span>AI Job Description Assistant</span>
-            </div>
-          }
-          placement="right"
-          width={400}
-          open={aiChatOpen}
-          onClose={() => setAiChatOpen(false)}
-          styles={{
-            body: { padding: 0 }
-          }}
-        >
+<Drawer
+  title={
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      <Avatar 
+        icon={<RobotOutlined />} 
+        style={{ 
+          background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
+          marginRight: '12px'
+        }} 
+      />
+      <span>AI Job Description Assistant</span>
+    </div>
+  }
+  placement="right"
+  width={window.innerWidth <= 768 ? '100%' : 400} // Full width on mobile
+  open={aiChatOpen}
+  onClose={() => setAiChatOpen(false)}
+  styles={{
+    body: { padding: 0 }
+  }}
+  style={{
+    zIndex: 1000 // Ensure drawer is below the float button
+  }}
+>
+
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Chat Messages */}
             <div style={{ 

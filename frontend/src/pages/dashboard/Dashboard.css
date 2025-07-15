@@ -514,3 +514,57 @@
   color: #6b7280;
   font-weight: 500;
 }
+/* Add to Dashboard.css */
+.mobile-menu-button {
+  display: none;
+  background: none;
+  border: none;
+  padding: 10px;
+  margin-right: 15px;
+  color: #1F4842;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .mobile-menu-button {
+    display: block;
+  }
+}
+/* Add this to Dashboard.css */
+@media (max-width: 768px) {
+  .dashboard-main {
+    width: 100vw;
+    overflow-x: hidden;
+  }
+  
+  .main-content {
+    width: 100%;
+    padding: 20px;
+  }
+  
+  .content-container {
+    width: 100%;
+    padding: 0;
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .quick-actions-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .search-container {
+    margin-left: 10px;
+    margin-right: 10px;
+  }
+  
+  .dashboard-header {
+    padding: 0 15px;
+  }
+  
+  .header-right {
+    gap: 10px;
+  }
+}

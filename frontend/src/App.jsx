@@ -19,6 +19,9 @@ const AppContent = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeSection, setActiveSection] = useState('dashboard');
   const [checkingAuth, setCheckingAuth] = useState(true);
+  const handleToggleSidebar = () => {
+  setSidebarOpen(!sidebarOpen);
+};
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -277,6 +280,7 @@ useEffect(() => {
                   userData={userData}
                   onLogout={handleLogout}
                    onSectionChange={handleSidebarItemClick}
+                   onToggleSidebar={handleToggleSidebar}
                 />
               </div>
             </AnimatedBackground>

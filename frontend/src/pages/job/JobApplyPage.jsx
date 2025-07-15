@@ -313,25 +313,38 @@ const JobApplyPage = ({ userRole }) => {
       fixed: 'left',
       width: 200, // Set specific width
       render: (_, record) => (
-        <Space>
-          <Avatar size={32} icon={<UserOutlined />} /> {/* Reduced from 40 */}
-          <div>
-            <div style={{ fontWeight: 500, fontSize: '13px' }}>{record.name}</div> {/* Reduced font */}
-            <Text type="secondary" style={{ fontSize: '11px' }}>{record.email}</Text>
-            {record.currentPosition && (
-              <div style={{ fontSize: '10px', color: '#666' }}>
-                {record.currentPosition} {record.currentCompany && `at ${record.currentCompany}`}
-              </div>
-            )}
-          </div>
-        </Space>
+        <Space direction="vertical" size="small">
+      <Space>
+        <Avatar size={32} icon={<UserOutlined />} />
+        <div>
+          <div style={{ fontWeight: 500, fontSize: '13px' }}>{record.name}</div>
+          <Text type="secondary" style={{ fontSize: '11px' }}>{record.email}</Text>
+          {record.currentPosition && (
+            <div style={{ fontSize: '10px', color: '#666' }}>
+              {record.currentPosition} {record.currentCompany && `at ${record.currentCompany}`}
+            </div>
+          )}
+        </div>
+      </Space>
+      {/* Show additional info on mobile */}
+      <div className="mobile-only" style={{ fontSize: '10px' }}>
+        <div>Applied: {record.appliedDate ? new Date(record.appliedDate).toLocaleDateString('en-US', { 
+          month: 'short', day: 'numeric' 
+        }) : 'N/A'}</div>
+        <div>Experience: {record.experience}</div>
+        <Tag color={getStatusColor(record.status)} style={{ fontSize: '10px', marginTop: '2px' }}>
+          {getStatusText(record.status)}
+        </Tag>
+      </div>
+    </Space>
       ),
     },
     {
       title: 'Applied Date',
       dataIndex: 'appliedDate',
       key: 'appliedDate',
-      width: 120, // Set specific width
+      width: 120, 
+      responsive: ['md'],
       render: (date) => (
         <div style={{ fontSize: '11px' }}>
           <CalendarOutlined style={{ color: '#1890ff', marginRight: '4px' }} />
@@ -345,7 +358,8 @@ const JobApplyPage = ({ userRole }) => {
       title: 'Experience',
       dataIndex: 'experience',
       key: 'experience',
-      width: 100, // Set specific width
+      width: 100,
+      responsive: ['lg'],
       render: (exp) => (
         <div style={{ fontSize: '11px' }}>
           <ToolOutlined style={{ color: '#52c41a', marginRight: '4px' }} />
@@ -357,7 +371,8 @@ const JobApplyPage = ({ userRole }) => {
       title: 'Skills',
       dataIndex: 'skills',
       key: 'skills',
-      width: 140, // Set specific width
+      width: 140, 
+      responsive: ['xl'],
       render: (skills) => (
         <div>
           {skills.slice(0, 2).map(skill => ( // Reduced from 3 to 2
@@ -375,7 +390,8 @@ const JobApplyPage = ({ userRole }) => {
       title: 'Salary',
       dataIndex: 'expectedSalary',
       key: 'expectedSalary',
-      width: 100, // Set specific width
+      width: 100, 
+      responsive: ['xl'],
       render: (salary) => (
         <Text style={{ fontSize: '11px' }}>{salary || 'Not specified'}</Text>
       ),
@@ -384,7 +400,8 @@ const JobApplyPage = ({ userRole }) => {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: 100, // Set specific width
+      width: 100,
+      responsive: ['sm'],
       render: (status) => (
         <Tag color={getStatusColor(status)} style={{ fontSize: '10px' }}>
           {getStatusText(status)}
@@ -394,7 +411,8 @@ const JobApplyPage = ({ userRole }) => {
     {
       title: 'Actions',
       key: 'actions',
-      width: 120, // Set specific width
+      width: 120,
+      fixed: 'right',
       render: (_, record) => (
         <Space size="small">
           <Tooltip title="View Details">
@@ -462,12 +480,15 @@ const JobApplyPage = ({ userRole }) => {
   }
 
   return (
+    
     <div style={{ 
       padding: '16px', // Reduced from '24px'
       maxWidth: '100%', // Changed from '1200px' 
       margin: '0 auto', 
       width: '100%' 
     }}>
+
+      
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
         <Title level={2} style={{ margin: 0, color: '#1890ff' }}>
@@ -477,11 +498,21 @@ const JobApplyPage = ({ userRole }) => {
           Manage and review job applications from candidates
         </Text>
       </div>
+      <style>{`@media (min-width: 768px) {
+  .mobile-only {
+    display: none !important;
+  }
+}
 
+@media (max-width: 767px) {
+  .mobile-only {
+    display: block !important;
+  }
+}`}</style>
       {/* Job Selection */}
       <Card style={{ marginBottom: '24px' }}>
         <Row gutter={[16, 16]} align="middle">
-          <Col span={8}>
+          <Col xs={24} sm={24} md={12} lg={8}>
             <div style={{ marginBottom: '8px' }}>
               <Text strong>Select Job Posting</Text>
             </div>
@@ -501,10 +532,13 @@ const JobApplyPage = ({ userRole }) => {
               ))}
             </Select>
           </Col>
-          <Col span={16}>
+          <Col xs={24} sm={24} md={12} lg={16}>
             {selectedJob && (
-              <div style={{ textAlign: 'right' }}>
-                <Space>
+              <div style={{ 
+          textAlign: window.innerWidth < 768 ? 'left' : 'right', // Left align on mobile
+          marginTop: window.innerWidth < 768 ? '16px' : '0' // Add top margin on mobile
+        }}>
+                <Space direction={window.innerWidth < 768 ? 'vertical' : 'horizontal'} size="middle">
                   <div>
                     <Text strong>{filteredApplicants.length}</Text>
                     <Text type="secondary"> applications found</Text>
@@ -517,6 +551,7 @@ const JobApplyPage = ({ userRole }) => {
                     icon={<ReloadOutlined />}
                     onClick={() => fetchApplicants(selectedJob)}
                     loading={loading}
+                    size={window.innerWidth < 768 ? 'small' : 'default'}
                   >
                     Refresh
                   </Button>
@@ -542,7 +577,7 @@ const JobApplyPage = ({ userRole }) => {
       {selectedJob && (
         <Card style={{ marginBottom: '24px' }}>
           <Row gutter={[12, 12]}> {/* Reduced from [16, 16] */}
-            <Col span={6}>
+            <Col xs={24} sm={12} md={8} lg={6}>
               <div style={{ marginBottom: '8px' }}>
                 <Text strong>Search</Text>
               </div>
@@ -554,7 +589,7 @@ const JobApplyPage = ({ userRole }) => {
                 allowClear
               />
             </Col>
-            <Col span={3}> {/* Reduced from 4 */}
+            <Col xs={12} sm={6} md={4} lg={3}> {/* Reduced from 4 */}
               <div style={{ marginBottom: '8px' }}>
                 <Text strong>Status</Text>
               </div>
@@ -569,7 +604,7 @@ const JobApplyPage = ({ userRole }) => {
                 <Option value="rejected">Rejected</Option>
               </Select>
             </Col>
-            <Col span={3}> {/* Reduced from 4 */}
+            <Col xs={12} sm={6} md={4} lg={3}> {/* Reduced from 4 */}
               <div style={{ marginBottom: '8px' }}>
                 <Text strong>Experience</Text>
               </div>
@@ -585,7 +620,7 @@ const JobApplyPage = ({ userRole }) => {
                 <Option value="10+">10+ years</Option>
               </Select>
             </Col>
-            <Col span={5}> {/* Reduced from 6 */}
+            <Col xs={24} sm={12} md={8} lg={5}> {/* Reduced from 6 */}
               <div style={{ marginBottom: '8px' }}>
                 <Text strong>Skills</Text>
               </div>
@@ -595,22 +630,24 @@ const JobApplyPage = ({ userRole }) => {
                 value={skillsFilter}
                 onChange={setSkillsFilter}
                 style={{ width: '100%' }}
+                maxTagCount={window.innerWidth < 768 ? 1 : 'responsive'}
               >
                 {allSkills.map(skill => (
                   <Option key={skill} value={skill}>{skill}</Option>
                 ))}
               </Select>
             </Col>
-            <Col span={4}>
+            <Col xs={24} sm={12} md={6} lg={4}>
               <div style={{ marginBottom: '8px' }}>
                 <Text strong>Date Range</Text>
               </div>
               <RangePicker
                 style={{ width: '100%' }}
                 onChange={setDateRange}
+                size={window.innerWidth < 768 ? 'small' : 'default'}
               />
             </Col>
-            <Col span={3}> {/* Spacer column */}
+            <Col> {/* Spacer column */}
             </Col>
           </Row>
         </Card>
@@ -620,20 +657,21 @@ const JobApplyPage = ({ userRole }) => {
       {selectedJob && (
         <Card>
           <Table
-            columns={columns}
-            dataSource={filteredApplicants}
-            rowKey="id"
-            loading={loading}
-            pagination={{
-              pageSize: 10,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) =>
-                `${range[0]}-${range[1]} of ${total} applications`,
-            }}
-            scroll={{ x: 800 }} // Reduced from 1200
-            size="small" // Add this for more compact table
-          />
+  columns={columns}
+  dataSource={filteredApplicants}
+  rowKey="id"
+  loading={loading}
+  pagination={{
+    pageSize: 10,
+    showSizeChanger: true,
+    showQuickJumper: true,
+    showTotal: (total, range) =>
+      `${range[0]}-${range[1]} of ${total} applications`,
+  }}
+  scroll={{ x: 'max-content' }} // Change this from { x: 800 }
+  size="small"
+/>
+
         </Card>
       )}
 

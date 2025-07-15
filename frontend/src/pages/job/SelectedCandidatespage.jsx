@@ -11,7 +11,8 @@ import {
   CalendarOutlined, CheckCircleOutlined, ClockCircleOutlined, 
   SendOutlined, PhoneOutlined, EnvironmentOutlined, DollarOutlined,
   HistoryOutlined, ReloadOutlined, StarOutlined, TeamOutlined,
-  BankOutlined, IdcardOutlined, HomeOutlined, ContactsOutlined
+  BankOutlined, IdcardOutlined, HomeOutlined, ContactsOutlined,
+  UpOutlined, DownOutlined
 } from '@ant-design/icons';
 import ErrorPage from '../../error/ErrorPage';
 const { Option } = Select;
@@ -34,13 +35,90 @@ const SelectedCandidatesPage = ({ userRole }) => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateRange, setDateRange] = useState(null);
   const [jobTitles, setJobTitles] = useState([]);
-  
+  const [filtersVisible, setFiltersVisible] = useState(false);
+
   // Modal states
   const [candidateModalVisible, setCandidateModalVisible] = useState(false);
   const [offerModalVisible, setOfferModalVisible] = useState(false);
   const [historyDrawerVisible, setHistoryDrawerVisible] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
 
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+const [screenSize, setScreenSize] = useState({
+  isMobile: window.innerWidth < 576,
+  isTablet: window.innerWidth >= 576 && window.innerWidth < 992,
+  isDesktop: window.innerWidth >= 992,
+  isLargeDesktop: window.innerWidth >= 1200
+});
+
+useEffect(() => {
+  const handleResize = () => {
+    setScreenSize({
+      isMobile: window.innerWidth < 576,
+      isTablet: window.innerWidth >= 576 && window.innerWidth < 992,
+      isDesktop: window.innerWidth >= 992,
+      isLargeDesktop: window.innerWidth >= 1200
+    });
+  };
+  
+  window.addEventListener('resize', handleResize);
+  return () => window.removeEventListener('resize', handleResize);
+}, []);
+
+const mobileColumns = [
+  {
+    title: 'Candidate',
+    key: 'candidate',
+    render: (_, record) => (
+      <div>
+        <div style={{ fontWeight: 500, fontSize: '14px' }}>{record.name}</div>
+        <div style={{ fontSize: '12px', color: '#666' }}>{record.jobTitle}</div>
+        <div style={{ fontSize: '11px', color: '#999' }}>{record.email}</div>
+        <div style={{ marginTop: '4px' }}>
+          {record.offerSent ? (
+            <Tag color="green" size="small">Offer Sent</Tag>
+          ) : (
+            <Tag color="orange" size="small">Pending</Tag>
+          )}
+        </div>
+      </div>
+    ),
+  },
+  {
+    title: 'Actions',
+    key: 'actions',
+    width: 100,
+    render: (_, record) => (
+      <Space direction="vertical" size="small">
+        <Button 
+          size="small" 
+          block
+          icon={<EyeOutlined />}
+          onClick={() => {
+            setSelectedCandidate(record);
+            setCandidateModalVisible(true);
+          }}
+        >
+          Details
+        </Button>
+        <Button
+          size="small"
+          block
+          type={record.offerSent ? "default" : "primary"}
+          icon={<SendOutlined />}
+          onClick={() => {
+            setSelectedCandidate(record);
+            setOfferModalVisible(true);
+          }}
+          disabled={record.offerSent}
+        >
+          {record.offerSent ? 'Sent' : 'Send Offer'}
+        </Button>
+      </Space>
+    ),
+  }
+];
   // Fetch selected candidates from Supabase
   const fetchSelectedCandidates = async () => {
     setLoading(true);
@@ -282,7 +360,125 @@ const result = await response.json();
   }
 };
 
-  const columns = [
+  const getColumns = () => {
+  if (screenSize.isMobile) {
+    return [
+      {
+        title: 'Candidate',
+        key: 'candidate',
+        render: (_, record) => (
+          <div>
+            <div style={{ fontWeight: 500, fontSize: '14px' }}>{record.name}</div>
+            <div style={{ fontSize: '12px', color: '#666' }}>{record.jobTitle}</div>
+            <div style={{ fontSize: '11px', color: '#999' }}>{record.email}</div>
+            <div style={{ marginTop: '4px' }}>
+              {record.offerSent ? (
+                <Tag color="green" size="small">Offer Sent</Tag>
+              ) : (
+                <Tag color="orange" size="small">Pending</Tag>
+              )}
+            </div>
+          </div>
+        ),
+      },
+      {
+        title: 'Actions',
+        key: 'actions',
+        width: 100,
+        render: (_, record) => (
+          <Space direction="vertical" size="small">
+            <Button 
+              size="small" 
+              block
+              icon={<EyeOutlined />}
+              onClick={() => {
+                setSelectedCandidate(record);
+                setCandidateModalVisible(true);
+              }}
+            >
+              Details
+            </Button>
+            <Button
+              size="small"
+              block
+              type={record.offerSent ? "default" : "primary"}
+              icon={<SendOutlined />}
+              onClick={() => {
+                setSelectedCandidate(record);
+                setOfferModalVisible(true);
+              }}
+              disabled={record.offerSent}
+            >
+              {record.offerSent ? 'Sent' : 'Send'}
+            </Button>
+          </Space>
+        ),
+      }
+    ];
+  }
+  
+  if (screenSize.isTablet) {
+    return [
+      {
+        title: 'Candidate',
+        key: 'candidate',
+        width: 200,
+        render: (_, record) => (
+          <Space>
+            <Avatar size={32} icon={<UserOutlined />} />
+            <div>
+              <div style={{ fontWeight: 500, fontSize: '13px' }}>{record.name}</div>
+              <Text type="secondary" style={{ fontSize: '11px' }}>{record.jobTitle}</Text>
+            </div>
+          </Space>
+        ),
+      },
+      {
+        title: 'Status',
+        key: 'status',
+        width: 100,
+        render: (_, record) => (
+          <div>
+            {record.offerSent ? (
+              <Tag color="green" size="small">Sent</Tag>
+            ) : (
+              <Tag color="orange" size="small">Pending</Tag>
+            )}
+          </div>
+        ),
+      },
+      {
+        title: 'Actions',
+        key: 'actions',
+        width: 120,
+        render: (_, record) => (
+          <Space size="small">
+            <Button 
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => {
+                setSelectedCandidate(record);
+                setCandidateModalVisible(true);
+              }}
+            />
+            <Button
+              size="small"
+              type={record.offerSent ? "default" : "primary"}
+              icon={<SendOutlined />}
+              onClick={() => {
+                setSelectedCandidate(record);
+                setOfferModalVisible(true);
+              }}
+              disabled={record.offerSent}
+            />
+          </Space>
+        ),
+      }
+    ];
+  }
+  
+  // Desktop - return your existing full columns array
+  return [
   {
     title: 'Candidate',
     key: 'candidate',
@@ -445,14 +641,16 @@ const result = await response.json();
     ),
   }
 ];
+};
 
 
   return (
     <div style={{ 
-  padding: '16px', // Reduced from '24px'
-  maxWidth: '100%', // Changed from '1200px' 
+  padding: screenSize.isMobile ? '8px' : screenSize.isTablet ? '12px' : '16px',
+  maxWidth: '100%',
   margin: '0 auto', 
-  width: '100%' 
+  width: '100%',
+  minHeight: '100vh'
 }}>
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
@@ -465,45 +663,49 @@ const result = await response.json();
       </div>
 
       {/* Statistics Cards */}
-<Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
-  <Col xs={12} sm={12} md={6} lg={6} xl={6}> {/* Added responsive breakpoints */}
-    <Card>
+<Row gutter={[screenSize.isMobile ? 4 : screenSize.isTablet ? 8 : 16, 8]} style={{ marginBottom: '24px' }}>
+  <Col xs={12} sm={12} md={6} lg={6} xl={4}>
+    <Card size={screenSize.isMobile ? "small" : "default"}>
       <Statistic
-        title="Total Selected"
+        title={screenSize.isMobile ? "Selected" : "Total Selected"}
         value={candidates.length}
         prefix={<TeamOutlined />}
-        valueStyle={{ color: '#3f8600' }}
+        valueStyle={{ 
+          color: '#3f8600',
+          fontSize: screenSize.isMobile ? '16px' : screenSize.isTablet ? '20px' : '24px'
+        }}
       />
     </Card>
   </Col>
-  <Col xs={12} sm={12} md={6} lg={6} xl={6}>
-    <Card>
+
+  <Col xs={12} sm={12} md={6} lg={6} xl={4}>
+    <Card size={screenSize.isMobile ? "small" : "default"}>
       <Statistic
         title="Offers Sent"
         value={candidates.filter(c => c.offerSent).length}
         prefix={<SendOutlined />}
-        valueStyle={{ color: '#1890ff' }}
+        valueStyle={{ color: '#1890ff' ,fontSize: screenSize.isMobile ? '16px' : screenSize.isTablet ? '20px' : '24px'}}
       />
     </Card>
   </Col>
   <Col xs={12} sm={12} md={6} lg={6} xl={6}>
-    <Card>
+    <Card size={screenSize.isMobile ? "small" : "default"}>
       <Statistic
         title="Pending Offers"
         value={candidates.filter(c => !c.offerSent).length}
         prefix={<ClockCircleOutlined />}
-        valueStyle={{ color: '#cf1322' }}
+        valueStyle={{ color: '#cf1322',fontSize: screenSize.isMobile ? '16px' : screenSize.isTablet ? '20px' : '24px' }}
       />
     </Card>
   </Col>
   <Col xs={12} sm={12} md={6} lg={6} xl={6}>
-    <Card>
+    <Card size={screenSize.isMobile ? "small" : "default"}>
       <Statistic
         title="Completion Rate"
         value={candidates.length > 0 ? Math.round((candidates.filter(c => c.offerSent).length / candidates.length) * 100) : 0}
         suffix="%"
         prefix={<CheckCircleOutlined />}
-        valueStyle={{ color: '#722ed1' }}
+        valueStyle={{ color: '#722ed1',fontSize: screenSize.isMobile ? '16px' : screenSize.isTablet ? '20px' : '24px' }}
       />
     </Card>
   </Col>
@@ -511,13 +713,54 @@ const result = await response.json();
 
       {/* Filters */}
 <Card style={{ marginBottom: '24px' }}>
-  <Row gutter={[12, 12]}> {/* Reduced from [16, 16] */}
-    <Col xs={24} sm={12} md={6} lg={6} xl={6}> {/* Made responsive */}
+  {screenSize.isMobile ? (
+    <div>
+
+      {filtersVisible && (
+        <div style={{ marginTop: '16px' }}>
+          <Row gutter={[8, 8]}>
+            <Col span={24}>
+              <Select
+                value={jobTitleFilter}
+                onChange={setJobTitleFilter}
+                style={{ width: '100%' }}
+                placeholder="Job Title"
+              >
+                <Option value="all">All Job Titles</Option>
+                {jobTitles.map(title => (
+                  <Option key={title} value={title}>{title}</Option>
+                ))}
+              </Select>
+            </Col>
+            <Col span={24}>
+              <Select
+                value={statusFilter}
+                onChange={setStatusFilter}
+                style={{ width: '100%' }}
+                placeholder="Offer Status"
+              >
+                <Option value="all">All Status</Option>
+                <Option value="offer_sent">Offer Sent</Option>
+                <Option value="offer_pending">Offer Pending</Option>
+              </Select>
+            </Col>
+          </Row>
+        </div>
+      )}
+    </div>
+  ) : (
+    <Row gutter={[12, 12]}>
+      {/* Your existing desktop filters */}
+    </Row>
+  )}
+  <Row gutter={[screenSize.isMobile ? 8 : screenSize.isTablet ? 12 : 16, 12]}>
+    <Col xs={24} sm={12} md={8} lg={6} xl={5}> {/* Made responsive */}
       <div style={{ marginBottom: '8px' }}>
-        <Text strong>Search</Text>
+        <Text strong style={{ fontSize: screenSize.isMobile ? '12px' : '14px' }}>Search</Text>
       </div>
       <Input
-        placeholder="Search by name or email"
+         size={screenSize.isMobile ? "small" : "middle"}
+        placeholder={screenSize.isMobile ? "Search..." : "Search by name or email"}
         prefix={<SearchOutlined />}
         value={searchText}
         onChange={(e) => setSearchText(e.target.value)}
@@ -579,27 +822,32 @@ const result = await response.json();
       {/* Selected Candidates Table */}
       <Card>
         <Table
-  columns={columns}
+  columns={getColumns()}
   dataSource={filteredCandidates}
   rowKey="id"
   loading={loading}
   pagination={{
-    pageSize: 10,
-    showSizeChanger: true,
-    showQuickJumper: true,
-    showTotal: (total, range) =>
-      `${range[0]}-${range[1]} of ${total} candidates`,
+    pageSize: screenSize.isMobile ? 5 : screenSize.isTablet ? 8 : 10,
+    showSizeChanger: screenSize.isDesktop,
+    showQuickJumper: screenSize.isDesktop,
+    showTotal: screenSize.isDesktop ? (total, range) =>
+      `${range[0]}-${range[1]} of ${total} candidates` : null,
+    simple: screenSize.isMobile
   }}
-  scroll={{ x: 900 }} // Reduced from 1200
-  size="small" // Add this for more compact table
+  scroll={{ 
+    x: screenSize.isMobile ? 350 : screenSize.isTablet ? 500 : 900 
+  }}
+  size={screenSize.isMobile ? "small" : "middle"}
 />
       </Card>
 
       {/* Candidate Details Modal */}
-      <Modal
-        title={selectedCandidate ? `${selectedCandidate.name} - Candidate Details` : 'Candidate Details'}
-        open={candidateModalVisible}
-        onCancel={() => setCandidateModalVisible(false)}
+<Modal
+  title={selectedCandidate ? `${selectedCandidate.name} - Candidate Details` : 'Candidate Details'}
+  open={candidateModalVisible}
+  onCancel={() => setCandidateModalVisible(false)}
+  width={screenSize.isMobile ? '95%' : screenSize.isTablet ? '80%' : screenSize.isDesktop ? 900 : 1000}
+  style={{ top: screenSize.isMobile ? 20 : 40 }}
         footer={[
           <Button key="close" onClick={() => setCandidateModalVisible(false)}>
             Close
@@ -613,7 +861,7 @@ const result = await response.json();
             Download Resume
           </Button>
         ]}
-        width={900}
+
       >
         {selectedCandidate && (
           <div>
@@ -683,6 +931,7 @@ const result = await response.json();
 
       {/* Send Offer Letter Modal */}
       <Modal
+      
         title="Send Offer Letter"
         open={offerModalVisible}
         onCancel={() => setOfferModalVisible(false)}
@@ -817,13 +1066,36 @@ HR Team`}
         )}
       </Modal>
 
+      <style>{`@media (max-width: 575px) {
+  .ant-table-thead > tr > th {
+    padding: 8px 4px !important;
+    font-size: 12px !important;
+  }
+  .ant-table-tbody > tr > td {
+    padding: 8px 4px !important;
+    font-size: 11px !important;
+  }
+}
+
+@media (min-width: 576px) and (max-width: 991px) {
+  .ant-table-thead > tr > th {
+    padding: 10px 6px !important;
+    font-size: 13px !important;
+  }
+}
+
+@media (min-width: 1200px) {
+  .ant-table-thead > tr > th {
+    padding: 12px 8px !important;
+  }
+}`}</style>
       {/* History Drawer */}
       <Drawer
         title={selectedCandidate ? `${selectedCandidate.name} - Complete History` : 'Complete History'}
-        placement="right"
-        open={historyDrawerVisible}
-        onClose={() => setHistoryDrawerVisible(false)}
-        width={600}
+  placement="right"
+  open={historyDrawerVisible}
+  onClose={() => setHistoryDrawerVisible(false)}
+  width={screenSize.isMobile ? '95%' : screenSize.isTablet ? '70%' : screenSize.isDesktop ? 600 : 700}
       >
         {selectedCandidate && (
           <div>

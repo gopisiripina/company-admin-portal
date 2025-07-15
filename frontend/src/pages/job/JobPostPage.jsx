@@ -678,7 +678,7 @@ const handlePostJob = async () => {
     }}>
       <div style={{ marginBottom: '16px' }}>
   <Space>
-    <Text strong>Filter by Hiring Type:</Text>
+    
     <Button.Group>
       <Button 
         type={hiringTypeFilter === 'all' ? 'primary' : 'default'}
@@ -869,29 +869,18 @@ const handlePostJob = async () => {
             )}
 
             {/* Posting Logs */}
-            <Card 
-              title={
-                <div style={{ color: '#1890ff' }}>
-                  <HistoryOutlined style={{ marginRight: '8px' }} />
-                  Recent Posting Activity
-                </div>
-              }
-              style={{ 
-                background: 'rgba(255, 255, 255, 0.95)',
-                backdropFilter: 'blur(10px)',
-                border: 'none',
-                borderRadius: '16px',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
-              }}
-            >
-              <Table 
-                columns={logColumns}
-                dataSource={postingLogs}
-                rowKey="id"
-                pagination={{ pageSize: 5 }}
-                size="middle"
-              />
-            </Card>
+           <Card title="Recent Posting Activity" >
+  <div style={{ overflowX: 'auto' }}> {/* ✅ Add this */}
+    <Table 
+      columns={logColumns}
+      dataSource={postingLogs}
+      rowKey="id"
+      pagination={{ pageSize: 5 }}
+      size="middle"
+    />
+  </div>
+</Card>
+
           </Col>
 
           {/* Right Column - Posting Options */}
