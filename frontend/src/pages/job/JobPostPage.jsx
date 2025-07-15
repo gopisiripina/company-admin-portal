@@ -360,7 +360,7 @@ const deleteJob = async (jobId, jobTitle) => {
     width: 200,
     render: (text, record) => (
       <div style={{ maxWidth: '180px' }}>
-        <Text strong style={{ color: '#1890ff' }}>{text}</Text>
+        <Text strong style={{ color: '#0D7139' }}>{text}</Text>
         <br />
         <Text type="secondary" style={{ fontSize: '12px' }}>
           {record.department} • {record.location}
@@ -417,16 +417,18 @@ const deleteJob = async (jobId, jobTitle) => {
     <Space>
       <Button 
         type="link" 
-        icon={<EyeOutlined />}
+        icon={<EyeOutlined style={{ color: '#0D7139' }}/>}
         onClick={() => handleJobPreview(record)}
+        style={{ color: '#0D7139' }}
       >
         
         Preview
       </Button>
       <Button 
           type="link"
-          icon={<EditOutlined />}
+          icon={<EditOutlined style={{ color: '#0D7139' }}/>}
           onClick={() => handleEditJob(record)}
+          style={{ color: '#0D7139' }}
         >
           Edit
         </Button>
@@ -435,6 +437,7 @@ const deleteJob = async (jobId, jobTitle) => {
         size="small"
         onClick={() => handleJobSelect(record)}
         disabled={record.status !== 'Active'}
+        style={{ background: '#0D7139' }}
       >
         Select
       </Button>
@@ -693,7 +696,7 @@ const handlePostJob = async () => {
         >
           <Row align="middle" justify="space-between" gutter={[16, 16]}>
             <Col xs={24} sm={24} md={12} lg={8}>
-              <Title level={2} style={{ margin: 0, color: '#1890ff' }}>
+              <Title level={2} style={{ margin: 0, color: '#0D7139' }}>
                 Job Posting Page
               </Title>
             </Col>
@@ -760,7 +763,7 @@ const handlePostJob = async () => {
             {/* Job Selection Section */}
             <Card 
               title={
-                <div style={{ color: '#1890ff' }}>
+                <div style={{ color: '#0D7139' }}>
                   <FileTextOutlined style={{ marginRight: '8px' }} />
                   Available Job Descriptions
                 </div>
@@ -797,7 +800,7 @@ const handlePostJob = async () => {
             {selectedJob && (
               <Card 
                 title={
-                  <div style={{ color: '#1890ff' }}>
+                  <div style={{ color: '#0D7139' }}>
                     <EyeOutlined style={{ marginRight: '8px' }} />
                     Selected Job Preview
                   </div>
@@ -814,6 +817,7 @@ const handlePostJob = async () => {
                   <Button 
                     type="link" 
                     onClick={() => setPreviewVisible(true)}
+                    style={{ color: '#0D7139' }}
                   >
                     Full Preview
                   </Button>
