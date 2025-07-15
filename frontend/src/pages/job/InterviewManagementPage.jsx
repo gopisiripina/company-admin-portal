@@ -222,11 +222,9 @@ const columns = [
   {
     title: 'Candidate',
     key: 'candidate',
-    fixed: 'left',
     width: 200, // Reduced from 250
     render: (_, record) => (
       <Space>
-        <Avatar size={32} icon={<UserOutlined />} /> {/* Reduced from 40 */}
         <div>
           <div style={{ fontWeight: 500, fontSize: '13px' }}>{record.name}</div> {/* Reduced font */}
           <Text type="secondary" style={{ fontSize: '11px' }}>{record.email}</Text>
@@ -429,7 +427,7 @@ const columns = [
       {/* Filters */}
       <Card style={{ marginBottom: '24px' }}>
         <Row gutter={[16, 16]}>
-          <Col span={8}>
+          <Col xs={24} sm={12} md={8}>
             <div style={{ marginBottom: '8px' }}>
               <Text strong>Search</Text>
             </div>
@@ -441,7 +439,7 @@ const columns = [
               allowClear
             />
           </Col>
-          <Col span={6}>
+          <Col xs={24} sm={12} md={6}>
             <div style={{ marginBottom: '8px' }}>
               <Text strong>Status</Text>
             </div>
@@ -456,7 +454,7 @@ const columns = [
               <Option value="reschedule">Rescheduled</Option>
             </Select>
           </Col>
-          <Col span={6}>
+          <Col xs={24} sm={12} md={6}>
             <div style={{ marginBottom: '8px' }}>
               <Text strong>Interview Type</Text>
             </div>
@@ -470,7 +468,7 @@ const columns = [
               <Option value="hr">HR</Option>
             </Select>
           </Col>
-          <Col span={4}>
+          <Col xs={24} sm={12} md={4}>
             <div style={{ marginBottom: '8px', opacity: 0 }}>
               <Text>Action</Text>
             </div>
@@ -484,7 +482,7 @@ const columns = [
         
         <Divider style={{ margin: '16px 0 8px 0' }} />
         
-        <Row justify="space-between" align="middle">
+        <Row justify="space-between" align="middle" gutter={[16, 8]}>
           <Col>
             <Space>
               <Text strong>{filteredCandidates.length}</Text>
@@ -518,8 +516,9 @@ const columns = [
           showTotal: (total, range) =>
             `${range[0]}-${range[1]} of ${total} candidates`,
         }}
-        scroll={{ x: 800 }} // Reduced from 1200
-        size="small" // Add this for more compact table
+        scroll={{ x: 'max-content' }} // Reduced from 1200
+        size="small"
+        style={{ width: '100%' }}
       />
     </Card>
 

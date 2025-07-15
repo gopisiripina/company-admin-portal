@@ -439,7 +439,7 @@ await Promise.all(emailPromises);
       title: 'College',
       dataIndex: 'collegeName',
       key: 'collegeName',
-      width: 200,
+      width: 100,
       render: (college) => (
         <Text style={{ fontSize: '12px' }}>{college || 'N/A'}</Text>
       ),
@@ -509,7 +509,8 @@ await Promise.all(emailPromises);
       padding: '24px',
       maxWidth: '100%',
       margin: '0 auto',
-      width: '100%'
+      width: '100%',
+      overflowX: 'auto'
     }}>
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
@@ -524,7 +525,7 @@ await Promise.all(emailPromises);
       {/* Filters */}
       <Card style={{ marginBottom: '24px' }}>
         <Row gutter={[16, 16]} align="middle">
-          <Col span={8}>
+          <Col xs={24} sm={12} md={8} lg={8}>
             <div style={{ marginBottom: '8px' }}>
               <Text strong>Search</Text>
             </div>
@@ -536,7 +537,7 @@ await Promise.all(emailPromises);
               allowClear
             />
           </Col>
-          <Col span={4}>
+          <Col xs={12} sm={6} md={4} lg={4}>
             <div style={{ marginBottom: '8px' }}>
               <Text strong>Job ID</Text>
             </div>
@@ -552,7 +553,7 @@ await Promise.all(emailPromises);
               ))}
             </Select>
           </Col>
-          <Col span={6}>
+          <Col xs={12} sm={6} md={6} lg={6}>
             <div style={{ marginBottom: '8px' }}>
               <Text strong>College</Text>
             </div>
@@ -570,7 +571,7 @@ await Promise.all(emailPromises);
               ))}
             </Select>
           </Col>
-          <Col span={6}>
+          <Col xs={24} sm={12} md={6} lg={6}>
             <div style={{ marginBottom: '8px' }}>
               <Text strong>Actions</Text>
             </div>
@@ -594,15 +595,15 @@ await Promise.all(emailPromises);
       {/* Bulk Actions */}
       {selectedStudents.length > 0 && (
         <Card style={{ marginBottom: '24px', backgroundColor: '#f6ffed' }}>
-          <Row align="middle" justify="space-between">
-            <Col>
+          <Row align="middle" justify="space-between" gutter={[16, 16]}>
+            <Col xs={24} sm={12}>
               <Space>
                 <CheckCircleOutlined style={{ color: '#52c41a' }} />
                 <Text strong>{selectedStudents.length} students selected</Text>
               </Space>
             </Col>
-            <Col>
-              <Space>
+            <Col xs={24} sm={12}>
+              <Space direction={window.innerWidth < 768 ? 'vertical' : 'horizontal'} style={{ width: '100%' }}>
                 <Button
                   type="primary"
                   icon={<MailOutlined />}
@@ -640,13 +641,16 @@ await Promise.all(emailPromises);
           rowKey="id"
           loading={loading}
           pagination={{
-            pageSize: 20,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) =>
-              `${range[0]}-${range[1]} of ${total} applications`,
-          }}
-          scroll={{ x: 1000 }}
+  pageSize: 10,
+  showSizeChanger: true,
+  showQuickJumper: true,
+  showTotal: (total, range) =>
+    `${range[0]}-${range[1]} of ${total} applications`,
+  responsive: true, // Add this
+  size: window.innerWidth < 768 ? 'small' : 'default', // Add this
+  pageSizeOptions: ['10', '20', '50', '100'], // Add this
+}}
+          scroll={{ x: 'max-content' }}
           size="small"
         />
       </Card>
