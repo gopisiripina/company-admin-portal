@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect,useMemo  } from 'react';
 import { Home, User, ChevronLeft, ChevronRight, Zap, LogOut, UserCheck, FolderKanban, ChevronDown, ChevronUp, Calendar, DollarSign, BarChart3, GitBranch, ClipboardList, AlertTriangle, FileText, BookOpen } from 'lucide-react';
 import './Sidebar.css';
 import Myaccesslogo from '../../assets/Myalogobgr.svg'; // Adjust the path as necessary
 import { InboxOutlined, EditOutlined } from '@ant-design/icons';
 import { X } from 'lucide-react';
+
 const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole, isEmailAuthenticated }) => {
   const [hoveredItem, setHoveredItem] = useState(null);
   const [expandedItems, setExpandedItems] = useState({});
+  
 useEffect(() => {
   const handleResize = () => {
     if (window.innerWidth <= 768) {
@@ -41,19 +43,20 @@ useEffect(() => {
   }
 };
 
-  const sidebarItems = [
+  const sidebarItems = () =>  [
     { icon: Home, label: 'Dashboard', id: 'dashboard', color: '#3b82f6' },
      {
-      icon: Calendar,
-      label: 'Mails',
-      id: 'mails',
-      color: '#10b981',
-      hasChildren: isEmailAuthenticated, // Only show children if authenticated
-      children: isEmailAuthenticated ? [
-        { icon: InboxOutlined, label: 'Inbox', id: 'inbox' },
-        { icon: EditOutlined, label: 'Compose', id: 'compose' }
-      ] : []
-    },
+  icon: Calendar,
+  label: 'Mails',
+  id: 'mails',
+  color: '#10b981',
+  hasChildren: isEmailAuthenticated, // Only show children if authenticated
+  children: isEmailAuthenticated ? [
+    { icon: InboxOutlined, label: 'Inbox', id: 'inbox' },
+    { icon: EditOutlined, label: 'Compose', id: 'compose' }
+  ] : [isEmailAuthenticated, userRole]
+  
+},
     
     // Project Management parent with children
    // Project Management (only for superadmin and admin)
@@ -127,8 +130,9 @@ useEffect(() => {
     ...(userRole === 'superadmin' ||userRole === 'hr'|| userRole === 'admin' ? [
       { icon: User, label: 'Employee', id: 'employee', color: '#f59e0b' }
     ] : []),
+    
   ];
-
+  
    const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -263,7 +267,7 @@ return (
 
       {/* Sidebar Navigation */}
       <nav className="sidebar-navigation">
-        {sidebarItems.map((item, index) => renderNavItem(item, index))}
+        {sidebarItems().map((item, index) => renderNavItem(item, index))}
       </nav>
 
       {/* Footer with Logout */}

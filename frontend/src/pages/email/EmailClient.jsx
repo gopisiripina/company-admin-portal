@@ -29,14 +29,15 @@ import {
   EditOutlined,
   UserOutlined,
   CloseOutlined,
-  MenuOutlined
+  MenuOutlined,
+  LogoutOutlined
 } from '@ant-design/icons';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 
-const EmailClient = ({ userRole, activeFolder, onFolderChange }) => {
+const EmailClient = ({ userRole, activeFolder, onFolderChange, onAuthSuccess, onLogout }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [emailCredentials, setEmailCredentials] = useState({ email: '', password: '' });
   const [emails, setEmails] = useState([]);
@@ -49,8 +50,37 @@ const EmailClient = ({ userRole, activeFolder, onFolderChange }) => {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [isTablet, setIsTablet] = useState(window.innerWidth > 768 && window.innerWidth <= 1024);
 
+  const handleLogout = () => {
+  setIsAuthenticated(false);
+  setEmailCredentials({ email: '', password: '' });
+  setEmails([]);
+  setSelectedEmail(null);
+  setComposeData({ to: '', subject: '', body: '' });
+  localStorage.removeItem('emailCredentials');
+  
+  // Add this line to notify parent component
+  if (onLogout) {
+    onLogout();
+  }
+};
 
-  const API_BASE = 'http://192.168.68.133:5000/api/email';
+useEffect(() => {
+  const storedCreds = localStorage.getItem('emailCredentials');
+  if (storedCreds) {
+    const creds = JSON.parse(storedCreds);
+    setEmailCredentials(creds);
+    setIsAuthenticated(true);
+    
+    // IMPORTANT: Call onAuthSuccess here too for stored credentials
+    if (onAuthSuccess) {
+      onAuthSuccess();
+    }
+    
+    fetchEmails();
+  }
+}, [onAuthSuccess]);
+
+  const API_BASE = 'http://192.168.68.123:5000/api/email';
 
   useEffect(() => {
   const handleResize = () => {
@@ -66,37 +96,35 @@ const EmailClient = ({ userRole, activeFolder, onFolderChange }) => {
 }, []);
 
 const handleEmailAuth = async (values) => {
-    setLoading(true);
+  setLoading(true);
+  
+  try {
+    const response = await fetch(`${API_BASE}/test-connection`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(values)
+    });
     
-    try {
-      const response = await fetch(`${API_BASE}/test-connection`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values)
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        setIsAuthenticated(true);
-        setEmailCredentials(values);
-        message.success('Successfully connected to email!');
-        
-        // Notify parent component about successful authentication
-        if (onFolderChange) {
-          onFolderChange('inbox'); // Set default folder to inbox
-        }
-        
-        fetchEmails();
-      } else {
-        message.error('Authentication failed: ' + result.error);
-      }
-    } catch (error) {
-      message.error('Connection error: ' + error.message);
-    } finally {
-      setLoading(false);
+    const result = await response.json();
+    
+    if (result.success) {
+      setIsAuthenticated(true);
+      setEmailCredentials(values);
+      message.success('Successfully connected to email!');
+      localStorage.setItem('emailCredentials', JSON.stringify(values));
+       if (onAuthSuccess) {
+    onAuthSuccess();
+  }
+      fetchEmails();
+    } else {
+      message.error('Authentication failed: ' + result.error);
     }
-  };
+  } catch (error) {
+    message.error('Connection error: ' + error.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
 const fetchEmails = async (folder = 'INBOX') => {
   setLoading(true);
@@ -472,7 +500,7 @@ bodyStyle={{
       }}>
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <Space>
-            <Avatar icon={<MailOutlined />} style={{ backgroundColor: '#1890ff' }} />
+            <Avatar icon={<MailOutlined />} style={{ backgroundColor: '#0D7139' }} />
             <Title level={4} style={{ margin: 0 }}>
               {isTablet ? 'Email' : 'Email Client'}
             </Title>
@@ -484,6 +512,13 @@ bodyStyle={{
         }}>
           {emailCredentials.email}
         </Text>
+        <Button 
+    type="text" 
+    onClick={handleLogout}
+    icon={<LogoutOutlined />}
+  >
+    Logout
+  </Button>
       </Header>
 
       {/* Remove the Sider component completely */}
