@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {Table,Card,Select,Input,DatePicker,Button,Tag,Space,Modal,Avatar,Row,Col,Typography,Divider,Tooltip,message,Spin,Alert} from 'antd';
-import {SearchOutlined,EyeOutlined,DownloadOutlined,UserOutlined,CalendarOutlined,ToolOutlined,ReloadOutlined,CheckCircleOutlined,CloseCircleOutlined,MailOutlined,LinkOutlined} from '@ant-design/icons';
+import {SearchOutlined,EyeOutlined,DownloadOutlined,UserOutlined,CalendarOutlined,ToolOutlined,ReloadOutlined,CheckCircleOutlined,CloseCircleOutlined,MailOutlined,LinkOutlined,CopyOutlined } from '@ant-design/icons';
 import ErrorPage from '../../error/ErrorPage';
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -373,15 +373,16 @@ const JobApplyPage = ({ userRole }) => {
       key: 'skills',
       width: 140, 
       responsive: ['xl'],
+      
       render: (skills) => (
         <div>
           {skills.slice(0, 2).map(skill => ( // Reduced from 3 to 2
-            <Tag key={skill} color="blue" style={{ marginBottom: 2, fontSize: '10px' }}>
+            <Tag key={skill} color="#0D7139" style={{ marginBottom: 2, fontSize: '10px' }}>
               {skill}
             </Tag>
           ))}
           {skills.length > 2 && (
-            <Tag color="default" style={{ fontSize: '10px' }}>+{skills.length - 2}</Tag>
+            <Tag color="default" style={{color:"#0D7139", fontSize: '10px' }}>+{skills.length - 2}</Tag>
           )}
         </div>
       ),
@@ -427,12 +428,13 @@ const JobApplyPage = ({ userRole }) => {
             />
           </Tooltip>
           {record.resumeUrl && (
-            <Tooltip title="Download Resume">
+            <Tooltip title="Download Resume" >
               <Button 
                 type="text" 
                 size="small"
-                icon={<DownloadOutlined />}
+                icon={<DownloadOutlined/>}
                 onClick={() => window.open(record.resumeUrl, '_blank')}
+                
               />
             </Tooltip>
           )}
@@ -491,7 +493,7 @@ const JobApplyPage = ({ userRole }) => {
       
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
-        <Title level={2} style={{ margin: 0, color: '#1890ff' }}>
+        <Title level={2} style={{ margin: 0, color: '#0D7139' }}>
           Job Applications Management
         </Title>
         <Text type="secondary">
@@ -629,7 +631,7 @@ const JobApplyPage = ({ userRole }) => {
                 placeholder="Filter by skills"
                 value={skillsFilter}
                 onChange={setSkillsFilter}
-                style={{ width: '100%' }}
+                style={{ width: '100%',color:"#0D7139" }}
                 maxTagCount={window.innerWidth < 768 ? 1 : 'responsive'}
               >
                 {allSkills.map(skill => (
@@ -705,12 +707,18 @@ const JobApplyPage = ({ userRole }) => {
                   <div>
                     <Text strong>Email:</Text>
                     <br />
-                    <Text copyable>{selectedApplicant.email}</Text>
+                    <Text copyable={{
+    icon: <CopyOutlined style={{ color: '#0D7139' }} />,
+    tooltips: ['Copy', 'Copied!']
+  }} >{selectedApplicant.email}</Text>
                   </div>
                   <div>
                     <Text strong>Phone:</Text>
                     <br />
-                    <Text copyable>{selectedApplicant.phone}</Text>
+                    <Text copyable={{
+    icon: <CopyOutlined style={{ color: '#0D7139' }} />,
+    tooltips: ['Copy', 'Copied!']
+  }}>{selectedApplicant.phone}</Text>
                   </div>
                   <div>
                     <Text strong>Location:</Text>
@@ -757,7 +765,7 @@ const JobApplyPage = ({ userRole }) => {
               <br />
               <div style={{ marginTop: '8px' }}>
                 {selectedApplicant.skills.map(skill => (
-                  <Tag key={skill} color="blue" style={{ marginBottom: '4px' }}>
+                  <Tag key={skill} color="#0D7139" style={{ marginBottom: '4px' }}>
                     {skill}
                   </Tag>
                 ))}
@@ -774,6 +782,7 @@ const JobApplyPage = ({ userRole }) => {
                     type="link" 
                     icon={<LinkOutlined />}
                     onClick={() => window.open(selectedApplicant.portfolioUrl, '_blank')}
+                    style={{ color: '#0D7139' }}
                   >
                     View Portfolio
                   </Button>
@@ -791,6 +800,7 @@ const JobApplyPage = ({ userRole }) => {
                     type="link" 
                     icon={<LinkOutlined />}
                     onClick={() => window.open(selectedApplicant.linkedinUrl, '_blank')}
+                    style={{ color: '#0D7139' }}
                   >
                     View LinkedIn Profile
                   </Button>
