@@ -27,8 +27,8 @@ const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionCh
   
 const handleEmailFolderChange = (folder) => {
     setActiveEmailFolder(folder);
-    setIsEmailAuthenticated(true); // Set email as authenticated when folder changes
-  };
+    setIsEmailAuthenticated(true);  
+}
   const fuzzySearch = (query, options) => {
     if (!query) return [];
     
@@ -320,15 +320,17 @@ const handleEmailFolderChange = (folder) => {
 if (activeSection === 'mails') {
     return (
       <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-        {renderHeader("Search emails...")}
-        <main className="main-content">
-          <EmailClient 
-            userRole={userData?.role}
-            activeFolder={activeEmailFolder}
-            onFolderChange={handleEmailFolderChange}
-          />
-        </main>
-      </div>
+      {renderHeader("Search emails...")}
+      <main className="main-content">
+        <EmailClient 
+          userRole={userData?.role}
+          activeFolder={activeEmailFolder}
+          onFolderChange={handleEmailFolderChange}
+          onAuthSuccess={() => setIsEmailAuthenticated(true)} // Make sure this is called
+          onLogout={() => setIsEmailAuthenticated(false)}
+        />
+      </main>
+    </div>
     );
   }
 
