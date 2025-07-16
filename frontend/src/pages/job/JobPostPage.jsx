@@ -397,6 +397,7 @@ const deleteJob = async (jobId, jobTitle) => {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
+      width: 80,
       render: (status) => (
         <Badge 
           status={status === 'Active' ? 'success' : 'default'} 
@@ -702,34 +703,49 @@ const handlePostJob = async () => {
             </Col>
             <Col xs={24} sm={24} md={12} lg={16}>
               <Row justify="end" gutter={[8, 8]}>
-                <Col xs={24} sm={16} md={14} lg={12}>
-                  <Button.Group style={{ width: '100%' }}>
-                    <Button 
-                      type={hiringTypeFilter === 'all' ? 'primary' : 'default'}
-                      onClick={() => setHiringTypeFilter('all')}
-                      size="small"
-                      style={{ flex: 1 }}
-                    >
-                      All Jobs
-                    </Button>
-                    <Button 
-                      type={hiringTypeFilter === 'off-campus' ? 'primary' : 'default'}
-                      onClick={() => setHiringTypeFilter('off-campus')}
-                      size="small"
-                      style={{ flex: 1 }}
-                    >
-                      Off-Campus
-                    </Button>
-                    <Button 
-                      type={hiringTypeFilter === 'on-campus' ? 'primary' : 'default'}
-                      onClick={() => setHiringTypeFilter('on-campus')}
-                      size="small"
-                      style={{ flex: 1 }}
-                    >
-                      On-Campus
-                    </Button>
-                  </Button.Group>
-                </Col>
+               <Col xs={24} sm={16} md={14} lg={12}>
+  <Button.Group style={{ width: '100%' }}>
+    <Button 
+      type={hiringTypeFilter === 'all' ? 'primary' : 'default'}
+      onClick={() => setHiringTypeFilter('all')}
+      size="small"
+      style={{ 
+        flex: 1,
+        backgroundColor: hiringTypeFilter === 'all' ? '#0D7139' : undefined,
+        borderColor: hiringTypeFilter === 'all' ? '#0D7139' : undefined,
+        color: hiringTypeFilter === 'all' ? '#fff' : undefined
+      }}
+    >
+      All Jobs
+    </Button>
+    <Button 
+      type={hiringTypeFilter === 'off-campus' ? 'primary' : 'default'}
+      onClick={() => setHiringTypeFilter('off-campus')}
+      size="small"
+      style={{ 
+        flex: 1,
+        backgroundColor: hiringTypeFilter === 'off-campus' ? '#0D7139' : undefined,
+        borderColor: hiringTypeFilter === 'off-campus' ? '#0D7139' : undefined,
+        color: hiringTypeFilter === 'off-campus' ? '#fff' : undefined
+      }}
+    >
+      Off-Campus
+    </Button>
+    <Button 
+      type={hiringTypeFilter === 'on-campus' ? 'primary' : 'default'}
+      onClick={() => setHiringTypeFilter('on-campus')}
+      size="small"
+      style={{ 
+        flex: 1,
+        backgroundColor: hiringTypeFilter === 'on-campus' ? '#0D7139' : undefined,
+        borderColor: hiringTypeFilter === 'on-campus' ? '#0D7139' : undefined,
+        color: hiringTypeFilter === 'on-campus' ? '#fff' : undefined
+      }}
+    >
+      On-Campus
+    </Button>
+  </Button.Group>
+</Col>
                 <Col xs={24} sm={8} md={10} lg={12}>
                   <Space wrap size="small" style={{ width: '100%', justifyContent: 'flex-end' }}>
                     <Badge count={getActiveJobsCount()}>
@@ -983,9 +999,12 @@ const handlePostJob = async () => {
                         </Col>
                         <Col>
                           <Switch 
-                            checked={postingPlatforms.linkedin}
-                            onChange={(checked) => handlePlatformChange('linkedin', checked)}
-                          />
+  checked={postingPlatforms.linkedin}
+  onChange={(checked) => handlePlatformChange('linkedin', checked)}
+  style={{
+    backgroundColor: postingPlatforms.linkedin ? '#8ac185' : undefined,
+  }}
+/>
                         </Col>
                       </Row>
                       {postingPlatforms.linkedin && (
@@ -1026,7 +1045,7 @@ const handlePostJob = async () => {
   checked={postingPlatforms.company}
   onChange={(checked) => handlePlatformChange('company', checked)}
   style={{
-    backgroundColor: postingPlatforms.company ? '#0D7139' : undefined,
+    backgroundColor: postingPlatforms.company ? '#8ac185' : undefined
   }}
 />
                         </Col>
@@ -1066,9 +1085,12 @@ const handlePostJob = async () => {
                         </Col>
                         <Col>
                           <Switch 
-                            checked={postingPlatforms.internal}
-                            onChange={(checked) => handlePlatformChange('internal', checked)}
-                          />
+  checked={postingPlatforms.internal}
+  onChange={(checked) => handlePlatformChange('internal', checked)}
+  style={{
+    backgroundColor: postingPlatforms.internal ? '#8ac185' : undefined,
+  }}
+/>
                         </Col>
                       </Row>
                       {postingPlatforms.internal && (
@@ -1095,6 +1117,7 @@ const handlePostJob = async () => {
                     disabled={!selectedJob}
                     style={{
                       background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
+                      color: '#fff',
                       border: 'none',
                       borderRadius: '8px',
                       height: '48px',
