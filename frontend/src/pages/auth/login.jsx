@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { User, Lock, Eye, EyeOff, X } from 'lucide-react';
 import authService from '../../supabase/authService';
 import './login.css';
-
+import image1 from '../../assets/image1.svg';
+import image2 from '../../assets/image2.svg';
+import image3 from '../../assets/image3.svg';
 const Login = ({ onLoginSuccess }) => {
   const [formData, setFormData] = useState({
     email: '',
@@ -206,19 +208,19 @@ const Login = ({ onLoginSuccess }) => {
 
   const images = [
     {
-      url: "/src/assets/image1.svg",
+      url: image1,
       alt: "Industrial PCB Assembly",
       title: "Automated PCB Manufacturing Process",
       description: "We specialize in high-performance embedded systems and electronic solutions, tailored for IoT, smart devices, and industrial automation. Our focus is on innovation, reliability, and scalable quality."
     },
     {
-      url: "/src/assets/image2.svg",
+      url: image2,
       alt: "Robotics and Embedded Systems Lab",
       title: "Programmable Robotics for Smart Automation",
       description: "We develop intelligent robotic systems powered by embedded technology, designed for automation, research, and next-generation innovation."
     },
     {
-      url: "/src/assets/image3.svg",
+      url: image3,
       // url: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=500&h=350&fit=crop&crop=center",
       alt: "Business Growth",
       title: "Business Growth Tools",
