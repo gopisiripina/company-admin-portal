@@ -17,7 +17,6 @@ import SelectedCandidatesPage from '../job/SelectedCandidatespage';
 import CampusJobApplyPage from '../job/CampusJobApplyPage';
 import ExamConductPage from '../job/ExamConductPage';
 import EmailClient from '../email/EmailClient';
-import EmployeeAttendance from '../job/EmployeeAttendance';
 
 const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionChange, onToggleSidebar, isEmailAuthenticated, setIsEmailAuthenticated }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -377,16 +376,6 @@ if (activeSection === 'mails') {
       </div>
     );
   }
-if (activeSection === 'employee-attendance') {
-  return (
-    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-      {renderHeader("Search employee attendance...")}
-      <main className="main-content">
-        <EmployeeAttendance userRole={userData?.role} />
-      </main>
-    </div>
-  );
-}
   if (activeSection === 'project-budgeting') {
     return (
       <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
