@@ -80,7 +80,7 @@ useEffect(() => {
   }
 }, [onAuthSuccess]);
 
-  const API_BASE = 'http://192.168.68.123:5000/api/email';
+  const API_BASE = 'http://192.168.68.110:5000/api/email';
 
   useEffect(() => {
   const handleResize = () => {
