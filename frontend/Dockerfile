@@ -3,17 +3,15 @@ FROM node:18 AS builder
 
 WORKDIR /app
 
-# Copy package files and install dependencies
+# Install dependencies
 COPY package*.json ./
 RUN npm install --legacy-peer-deps
 
-# Copy the rest of the source code
+# Copy all app code
 COPY . .
 
-# Set environment for production build
+# Build app
 ENV NODE_ENV=production
-
-# Run build with clearer logs
 RUN echo "===== Listing files in /app =====" && \
     ls -al /app && \
     echo "===== Checking for vite.config.js =====" && \
