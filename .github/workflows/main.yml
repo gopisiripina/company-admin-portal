@@ -18,11 +18,14 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: List files in frontend (for debugging)
+        run: ls -al ./frontend
+
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
-          context: ./frontend              # ✅ Build context points to frontend
-          file: ./frontend/Dockerfile      # ✅ Explicit Dockerfile path
+          context: ./frontend                # ✅ Your build context is 'frontend'
+          file: ./frontend/Dockerfile        # ✅ Dockerfile is in 'frontend'
           push: true
           tags: myaccess2021/cap:latest
 
