@@ -89,7 +89,7 @@ useEffect(() => {
     hasChildren: true,
     children: [
       { icon: Calendar, label: 'Time Sheet', id: 'Time Sheet' },
-      { icon: DollarSign, label: 'Employee Attendance Tracker', id: 'Employee Attendance tracker' },
+      { icon: DollarSign, label: 'Employee Attendance', id: 'employee-attendance' },
       { icon: BarChart3, label: 'Candidate Screening Test', id: 'Candidate Screening Test' },
       { icon: GitBranch, label: 'Recruitnig Plan', id: 'Recruiting Plan' },
       { icon: ClipboardList, label: 'New Hire Check List', id: 'New Hire Check List' },
