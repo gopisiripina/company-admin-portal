@@ -5,7 +5,11 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "npx nodemon server.js"
+    "dev": "nodemon server.js",
+    "start": "pm2 start server.js --name email-backend",
+    "stop": "pm2 stop email-backend",
+    "restart": "pm2 restart email-backend",
+    "logs": "pm2 logs email-backend"
   },
   "keywords": [],
   "author": "",
@@ -19,6 +23,7 @@
     "imap": "^0.8.19",
     "mailparser": "^3.7.4",
     "nodemailer": "^7.0.5",
-    "nodemon": "^3.1.10"
+    "nodemon": "^3.1.10",
+    "pm2": "^6.0.8"
   }
 }
