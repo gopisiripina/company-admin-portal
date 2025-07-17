@@ -230,6 +230,6 @@ app.post('/api/email/folders', (req, res) => {
   imap.connect();
 });
 
-app.listen(PORT,"192.168.68.133", () => {
+app.listen(PORT, () => {
   console.log(`Email backend server running on port ${PORT}`);
 });
