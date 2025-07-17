@@ -8,6 +8,10 @@ jobs:
   build-push-deploy:
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        working-directory: frontend
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -18,14 +22,10 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: List files in frontend (for debugging)
-        run: ls -al ./frontend
-
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
-          context: ./frontend                # ✅ Your build context is 'frontend'
-          file: ./frontend/Dockerfile        # ✅ Dockerfile is in 'frontend'
+          context: ./frontend
           push: true
           tags: myaccess2021/cap:latest
 
