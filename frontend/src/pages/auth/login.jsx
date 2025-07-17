@@ -5,6 +5,7 @@ import './login.css';
 import image1 from '../../assets/image1.svg';
 import image2 from '../../assets/image2.svg';
 import image3 from '../../assets/image3.svg';
+import logo from '../../assets/logo 1.svg'
 const Login = ({ onLoginSuccess }) => {
   const [formData, setFormData] = useState({
     email: '',
@@ -299,7 +300,7 @@ const Login = ({ onLoginSuccess }) => {
                   <div className="">
                     
                   </div>
-                  <img src="src/assets/logo 1.svg" alt="My Access Logo" className="logo-image" />
+                  <img src={logo} alt="My Access Logo" className="logo-image" />
                 </div>
                 
                 <h1 className="form-title">Sign in</h1>
