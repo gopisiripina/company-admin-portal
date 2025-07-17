@@ -1,31 +1,19 @@
-# Stage 1: Build Vite React App
+# Stage 1: Build
 FROM node:18 AS builder
-
 WORKDIR /app
 
-# Install dependencies
 COPY package*.json ./
 RUN npm install --legacy-peer-deps
-
-# Copy all app code
 COPY . .
 
-# Build app
 ENV NODE_ENV=production
-RUN echo "===== Listing files in /app =====" && \
-    ls -al /app && \
-    echo "===== Checking for vite.config.js =====" && \
-    if [ -f vite.config.js ]; then cat vite.config.js; else echo "❌ vite.config.js not found"; fi && \
-    echo "===== Starting build =====" && \
-    npm run build
+RUN npm run build
 
-# Stage 2: Serve with Nginx
+# Stage 2: Serve with nginx
 FROM nginx:alpine
-
 RUN rm -rf /usr/share/nginx/html/*
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
-
 CMD ["nginx", "-g", "daemon off;"]
