@@ -1,9 +1,11 @@
-FROM node:18
+FROM node:20-alpine
 
 WORKDIR /app
-COPY package*.json ./
-RUN npm install
+
 COPY . .
 
-EXPOSE 5000
-CMD ["npm", "start"]
+RUN npm install -g pm2 && npm install
+
+EXPOSE 8000
+
+CMD ["pm2-runtime", "server.js", "--name", "email-backend"]
