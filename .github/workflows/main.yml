@@ -8,10 +8,6 @@ jobs:
   build-push-deploy:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: frontend
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -25,7 +21,8 @@ jobs:
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
-          context: ./frontend
+          context: ./frontend              # ✅ Build context points to frontend
+          file: ./frontend/Dockerfile      # ✅ Explicit Dockerfile path
           push: true
           tags: myaccess2021/cap:latest
 
