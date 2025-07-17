@@ -5,7 +5,11 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "npx nodemon server.js"
+    "dev": "nodemon server.js",
+    "start": "pm2 start server.js --name email-backend",
+    "stop": "pm2 stop email-backend",
+    "restart": "pm2 restart email-backend",
+    "logs": "pm2 logs email-backend"
   },
   "keywords": [],
   "author": "",
