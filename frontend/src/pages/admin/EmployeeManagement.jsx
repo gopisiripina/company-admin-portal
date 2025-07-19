@@ -146,9 +146,9 @@ const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete }) => (
           }}>
             <MailOutlined /> {employee.email}
           </Text>
-          {employee.employeeid && (
+          {employee.employee_id && (
             <Text type="secondary" style={{ fontSize: '12px' }}>
-              ID: {employee.employeeid}
+              ID: {employee.employee_id}
             </Text>
           )}
         </div>
@@ -163,12 +163,12 @@ const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete }) => (
         <Tag color={employee.isactive ? 'green' : 'red'} size="small">
           {employee.isactive ? 'Active' : 'Inactive'}
         </Tag>
-        {employee.employeeid && (
-          <Tag color="geekblue" size="small">{employee.employeeid}</Tag>
+        {employee.employee-id && (
+          <Tag color="geekblue" size="small">{employee.employee-id}</Tag>
         )}
-        {employee.createdat && (
+        {employee.created_at && (
           <Tag color="purple" size="small">
-            {new Date(employee.createdat).toLocaleDateString()}
+            {new Date(employee.created_at).toLocaleDateString()}
           </Tag>
         )}
       </div>
@@ -183,29 +183,29 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
   const [profileImage, setProfileImage] = useState(null);
 
   useEffect(() => {
-    if (isOpen) {
-      if (editingEmployee) {
-        setTimeout(() => {
-          form.setFieldsValue({
-  name: editingEmployee.name,
-  email: editingEmployee.email,
-  employeeId: editingEmployee.employeeid,
-  role: editingEmployee.role,
-  isActive: editingEmployee.isactive !== undefined ? editingEmployee.isactive : true,
-  // ADD THESE LINES:
-  employeeType: editingEmployee.employee_type || 'full-time',
-  startDate: editingEmployee.start_date ? dayjs(editingEmployee.start_date) : null,
-  endDate: editingEmployee.end_date ? dayjs(editingEmployee.end_date) : null
-});
-          setProfileImage(editingEmployee.profileimage || null);
-        }, 0);
-      } else {
-        form.resetFields();
-        form.setFieldsValue({ isActive: false });
-        setProfileImage(null);
-      }
+  if (isOpen) {
+    if (editingEmployee) {
+      setTimeout(() => {
+        form.setFieldsValue({
+          name: editingEmployee.name,
+          email: editingEmployee.email,
+          employeeId: editingEmployee.employee_id, // Make sure this matches your database column
+          role: editingEmployee.role,
+          isActive: editingEmployee.isactive !== undefined ? editingEmployee.isactive : true,
+          // ADD THESE LINES:
+          employeeType: editingEmployee.employee_type || 'full-time',
+          startDate: editingEmployee.start_date ? dayjs(editingEmployee.start_date) : null,
+          endDate: editingEmployee.end_date ? dayjs(editingEmployee.end_date) : null
+        });
+        setProfileImage(editingEmployee.profileimage || null);
+      }, 0);
+    } else {
+      form.resetFields();
+      form.setFieldsValue({ isActive: false });
+      setProfileImage(null);
     }
-  }, [editingEmployee, form, isOpen]);
+  }
+}, [editingEmployee, form, isOpen])
 
   useEffect(() => {
   if (!isOpen) {
@@ -260,14 +260,14 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
           name: values.name,
   email: values.email,
   role: values.role || 'employee',
-  employeeid: values.employeeId,
+  employee_id: values.employeeId,
   isactive: values.isActive,
   profileimage: profileImage,
   // ADD THESE LINES:
   employee_type: values.employeeType,
   start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
-  end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
-  updatedat: new Date().toISOString()
+  end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null)
+  // updatedat: new Date().toISOString()
         };
         
         const { data, error } = await supabaseAdmin
@@ -288,7 +288,7 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
         const employeeData = {
           name: values.name,
   email: values.email,
-  employeeid: values.employeeId,
+  employee_id: values.employeeId,
   role: 'employee',
   isactive: values.isActive !== undefined ? values.isActive : false,
   isfirstlogin: true,
@@ -297,9 +297,9 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
   // ADD THESE LINES:
   employee_type: values.employeeType,
   start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
-  end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
-  createdat: new Date().toISOString(),
-  updatedat: new Date().toISOString()
+  end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null)
+  // createdat: new Date().toISOString(),
+  // updatedat: new Date().toISOString()
         };
         
         const { data, error } = await supabaseAdmin
@@ -551,17 +551,17 @@ const [filters, setFilters] = useState({
     name,
     email,
     role,
-    employeeid,
+    employee_id,
     isactive,
     profileimage,
     employee_type,
     start_date,
     end_date,
-    createdat,
-    updatedat
+    created_at,
+    updated_at
   `)
   .eq('role', 'employee')
-  .order('createdat', { ascending: false });
+  .order('created_at', { ascending: false });
       
       if (error) {
         console.error('Fetch error:', error);
@@ -586,7 +586,7 @@ const [filters, setFilters] = useState({
     filteredEmployees = filteredEmployees.filter(employee =>
       employee.name?.toLowerCase().includes(searchLower) ||
       employee.email?.toLowerCase().includes(searchLower) ||
-      (employee.employeeid && employee.employeeid.toLowerCase().includes(searchLower))
+      (employee.employee_id && employee.employee_id.toLowerCase().includes(searchLower))
     );
   }
   
@@ -626,6 +626,7 @@ const [filters, setFilters] = useState({
     let employeeList = allEmployees;
     if (employeeList.length === 0) {
       employeeList = await fetchAllEmployees();
+      setAllEmployees(employeeList);
     }
     
     applyFiltersAndPagination(employeeList, search, page, pageSize, filterOptions);
@@ -651,10 +652,25 @@ const [filters, setFilters] = useState({
 
   useEffect(() => {
   if (userRole === 'superadmin' || userRole === 'admin' || userRole === 'hr') {
-    fetchEmployees();
+    fetchEmployees(1, 10, '', {});
   }
 }, [userRole, fetchEmployees]);
-
+useEffect(() => {
+  if (userRole === 'superadmin' || userRole === 'admin' || userRole === 'hr') {
+    const initializeData = async () => {
+      try {
+        setLoading(true);
+        const employeeList = await fetchAllEmployees();
+        applyFiltersAndPagination(employeeList, '', 1, 10, {});
+      } catch (error) {
+        console.error('Error initializing data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    initializeData();
+  }
+}, [userRole]);
 const handleEmployeeTypeFilter = useCallback((value) => {
   const newFilters = { ...filters, employeeType: value };
   setFilters(newFilters);
@@ -689,28 +705,41 @@ const handleClearFilters = useCallback(() => {
   }, []);
 
   const handleDelete = useCallback(async (employeeId) => {
-    try {
-      setLoading(true);
-      const { error } = await supabaseAdmin
-        .from('users')
-        .delete()
-        .eq('id', employeeId)
-        .eq('role', 'employee');
+  try {
+    setLoading(true);
+    
+    // First, delete all attendance records for this employee
+    const { error: attendanceError } = await supabaseAdmin
+      .from('attendance')
+      .delete()
+      .eq('user_id', employeeId);
 
-      if (error) {
-        console.error('Delete error:', error);
-        throw error;
-      }
-      
-      message.success('Employee deleted successfully');
-      await refreshData();
-    } catch (error) {
-      console.error('Error deleting employee:', error);
-      message.error('Error deleting employee: ' + (error.message || 'Unknown error'));
-    } finally {
-      setLoading(false);
+    if (attendanceError) {
+      console.error('Delete attendance error:', attendanceError);
+      throw attendanceError;
     }
-  }, [refreshData]);
+
+    // Then delete the employee
+    const { error } = await supabaseAdmin
+      .from('users')
+      .delete()
+      .eq('id', employeeId)
+      .eq('role', 'employee');
+
+    if (error) {
+      console.error('Delete employee error:', error);
+      throw error;
+    }
+    
+    message.success('Employee and all related records deleted successfully');
+    await refreshData();
+  } catch (error) {
+    console.error('Error deleting employee:', error);
+    message.error('Error deleting employee: ' + (error.message || 'Unknown error'));
+  } finally {
+    setLoading(false);
+  }
+}, [refreshData]);
 
   const handleFormClose = useCallback(() => {
     setShowFormModal(false);
@@ -779,8 +808,8 @@ const handleClearFilters = useCallback(() => {
                 <Tag color={record.isactive ? 'green' : 'red'} size="small">
                   {record.isactive ? 'Active' : 'Inactive'}
                 </Tag>
-                {record.employeeid && (
-                  <Tag color="geekblue" size="small">{record.employeeid}</Tag>
+                {record.employee_id && (
+                  <Tag color="geekblue" size="small">{record.employee_id}</Tag>
                 )}
               </div>
             )}
@@ -790,7 +819,7 @@ const handleClearFilters = useCallback(() => {
     },
     {
       title: 'Employee ID',
-      dataIndex: 'employeeid',
+      dataIndex: 'employee_id',
       key: 'employeeId',
       width: 120,
       render: (employeeId) => (
@@ -827,7 +856,7 @@ const handleClearFilters = useCallback(() => {
     },
     {
       title: 'Created Date',
-      dataIndex: 'createdat',
+      dataIndex: 'created_at',
       key: 'createdAt',
       width: 120,
       render: (date) => (
