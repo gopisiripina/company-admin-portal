@@ -115,9 +115,9 @@ const MobileHRCard = React.memo(({ hr, onEdit, onDelete }) => (
           }}>
             <MailOutlined /> {hr.email}
           </Text>
-          {hr.employeeid && (
+          {hr.employee_id && (
             <Text type="secondary" style={{ fontSize: '12px' }}>
-              ID: {hr.employeeid}
+              ID: {hr.employee_id}
             </Text>
           )}
         </div>
@@ -132,12 +132,12 @@ const MobileHRCard = React.memo(({ hr, onEdit, onDelete }) => (
         <Tag color={hr.isactive ? 'green' : 'red'} size="small">
           {hr.isactive ? 'Active' : 'Inactive'}
         </Tag>
-        {hr.employeeid && (
-          <Tag color="geekblue" size="small">{hr.employeeid}</Tag>
+        {hr.employee_id && (
+          <Tag color="geekblue" size="small">{hr.employee_id}</Tag>
         )}
-        {hr.createdat && (
+        {hr.created_at && (
           <Tag color="purple" size="small">
-            {new Date(hr.createdat).toLocaleDateString()}
+            {new Date(hr.created_at).toLocaleDateString()}
           </Tag>
         )}
       </div>
@@ -158,7 +158,7 @@ const HRFormModal = React.memo(({ isOpen, onClose, editingHR, onSuccess }) => {
           form.setFieldsValue({
             name: editingHR.name,
             email: editingHR.email,
-            employeeId: editingHR.employeeid,
+            employeeId: editingHR.employee_id,
             role: editingHR.role,
             isactive: editingHR.isactive !== undefined ? editingHR.isactive : false
           });
@@ -219,10 +219,10 @@ const HRFormModal = React.memo(({ isOpen, onClose, editingHR, onSuccess }) => {
           name: values.name,
           email: values.email,
           role: values.role || 'hr',
-          employeeid: values.employeeId,
+          employee_id: values.employeeId,
           isactive: values.isActive !== undefined ? values.isActive : false,
           profileimage: profileImage,
-          updatedat: new Date().toISOString()
+          updated_at: new Date().toISOString()
         };
         
         const { data, error } = await supabaseAdmin
@@ -242,13 +242,13 @@ const HRFormModal = React.memo(({ isOpen, onClose, editingHR, onSuccess }) => {
         const hrData = {
           name: values.name,
           email: values.email,
-          employeeid: values.employeeId,
+          employee_id: values.employeeId,
           role: 'hr',
           isactive: values.isActive !== undefined ? values.isActive : false,
           profileimage: profileImage,
           password,
-          createdat: new Date().toISOString(),
-          updatedat: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         };
         
         const { data, error } = await supabaseAdmin
@@ -452,14 +452,14 @@ const HRManagement = ({ userRole }) => {
         name,
         email,
         role,
-        employeeid,
+        employee_id,
         isactive,
         profileimage,
-        createdat,
-        updatedat
+        created_at,
+        updated_at
       `)
       .eq('role', 'hr')
-      .order('createdat', { ascending: false });
+      .order('created_at', { ascending: false });
     
     if (error) {
       console.error('Fetch error:', error);
@@ -485,7 +485,7 @@ const applyFiltersAndPagination = useCallback((hrList, search = '', page = 1, pa
       filteredHRs = filteredHRs.filter(hr =>
         hr.name?.toLowerCase().includes(searchLower) ||
         hr.email?.toLowerCase().includes(searchLower) ||
-        (hr.employeeid && hr.employeeid.toLowerCase().includes(searchLower))
+        (hr.employee_id && hr.employee_id.toLowerCase().includes(searchLower))
       );
     }
     
@@ -647,8 +647,8 @@ useEffect(() => {
                 <Tag color={record.isactive ? 'green' : 'red'} size="small">
                   {record.isactive ? 'Active' : 'Inactive'}
                 </Tag>
-                {record.employeeid && (
-                  <Tag color="geekblue" size="small">{record.employeeid}</Tag>
+                {record.employee_id && (
+                  <Tag color="geekblue" size="small">{record.employee_id}</Tag>
                 )}
               </div>
             )}
@@ -658,7 +658,7 @@ useEffect(() => {
     },
     {
       title: 'HR ID',
-      dataIndex: 'employeeid',
+      dataIndex: 'employee_id',
       key: 'employeeId',
       width: 120,
       render: (employeeId) => (
@@ -688,7 +688,7 @@ useEffect(() => {
     },
     {
       title: 'Created Date',
-      dataIndex: 'createdat',
+      dataIndex: 'created_at',
       key: 'createdAt',
       width: 120,
       render: (date) => (

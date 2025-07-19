@@ -128,11 +128,10 @@ async changeFirstLoginPassword(userId, newPassword) {
   .update({
     password: newPassword,
     isfirstlogin: false,
-    updatedat: new Date().toISOString()  // ✅ Correct - matches your schema
+    updated_at: new Date().toISOString()  // ✅ Correct - matches your schema
   })
   .eq('id', userId)
   .select()
-  .single();
     if (error) {
       console.error('Error changing password:', error);
       return {

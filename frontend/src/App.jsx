@@ -59,6 +59,8 @@ useEffect(() => {
   if (path.startsWith('/job-application') && !isLoggedIn) {
     setActiveSection('job-application');
     return;
+  }else if (path.includes('/employee-attendance')) {  // ADD THIS
+    setActiveSection('employee-attendance');
   }else if (path.includes('/mails')) {
   setActiveSection('mails');
   }
@@ -159,9 +161,11 @@ useEffect(() => {
   } else {
     setActiveSection(itemId);
     // Update URL for specific sections
-     if (itemId === 'exam-conduct-page') {
+     if (itemId === 'employee-attendance') {  // ADD THIS
+      navigate('/dashboard/employee-attendance', { replace: true });
+    } else if (itemId === 'exam-conduct-page') {
       navigate('/dashboard/exam-conduct-page', { replace: true });
-     }else if (['inbox', 'compose', 'mails'].includes(itemId)) {
+    }else if (['inbox', 'compose', 'mails'].includes(itemId)) {
       navigate('/dashboard/mails', { replace: true });
      }else if (itemId === 'on-campus-data') {
       navigate('/dashboard/on-campus-data', { replace: true });
@@ -286,10 +290,10 @@ useEffect(() => {
                   activeSection={activeSection}
                   userData={userData}
                   onLogout={handleLogout}
-                   onSectionChange={handleSidebarItemClick}
-                   onToggleSidebar={handleToggleSidebar}
-                    isEmailAuthenticated={isEmailAuthenticated} // ✅ ADDED
-  setIsEmailAuthenticated={setIsEmailAuthenticated} // ✅ ADDED
+                  onSectionChange={handleSidebarItemClick}
+                  onToggleSidebar={handleToggleSidebar}
+                  isEmailAuthenticated={isEmailAuthenticated} // ✅ ADDED
+                  setIsEmailAuthenticated={setIsEmailAuthenticated} // ✅ ADDED
                 />
               </div>
             </AnimatedBackground>
