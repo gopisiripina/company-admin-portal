@@ -9,6 +9,47 @@
     transform: translateY(0);
   }
 }
+.calendar-day {
+  width: 35px;
+  height: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.calendar-day.present {
+  background-color: #22c55e;
+  color: white;
+}
+
+.calendar-day.absent {
+  background-color: #ef4444;
+  color: white;
+}
+
+.calendar-day.no-data {
+  background-color: #f1f5f9;
+  color: #64748b;
+}
+
+.calendar-day.today {
+  border: 2px solid #3b82f6;
+  font-weight: 700;
+}
+
+.calendar-day.empty {
+  background-color: transparent;
+}
+
+.calendar-day:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
 
 /* Main Layout */
 .dashboard-main {
