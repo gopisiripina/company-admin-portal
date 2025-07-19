@@ -356,32 +356,40 @@ const renderAttendanceCalendar = () => {
     </Card>
     
     {/* Calendar Weekdays */}
-    <Row gutter={[4, 4]} style={{ marginBottom: '8px' }}>
-      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-        <Col key={day} span={24/7} style={{ textAlign: 'center' }}>
-          <Text 
-            style={{ 
-              fontSize: '12px', 
-              fontWeight: '600', 
-              color: '#64748b',
-              padding: '8px 4px'
-            }}
-          >
-            {day}
-          </Text>
-        </Col>
-      ))}
-    </Row>
+    <div style={{ 
+  display: 'grid', 
+  gridTemplateColumns: 'repeat(7, 1fr)',
+  gap: '0px',
+  marginBottom: '8px',
+  marginRight:"10px"
+}}>
+  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+    <div key={day} style={{ textAlign: 'center' }}>
+      <Text 
+        style={{ 
+          fontSize: '12px', 
+          fontWeight: '600', 
+          color: '#64748b',
+          padding: '8px 3px'
+        }}
+      >
+        {day}
+      </Text>
+    </div>
+  ))}
+</div>
     
     {/* Calendar Grid */}
     <div style={{ flex: 1, marginBottom: '15px' }}>
       <Row 
         gutter={[4, 4]} 
         style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(7, 1fr)',
-          gap: '4px',
-          height: '100%'
+          flex: 1, 
+  marginBottom: '15px',
+  display: 'grid', 
+  gridTemplateColumns: 'repeat(7, 1fr)',
+  gap: '4px',
+  alignItems: 'start'
         }}
       >
         {calendarDays}
