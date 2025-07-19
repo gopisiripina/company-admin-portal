@@ -181,7 +181,7 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
           form.setFieldsValue({
             name: editingAdmin.name,
             email: editingAdmin.email,
-            adminId: editingAdmin.employeeid,
+            adminId: editingAdmin.employee_id,
             role: editingAdmin.role
           });
           setProfileImage(editingAdmin.profileimage || null);
@@ -242,7 +242,7 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
         name: values.name,
         email: values.email,
         role: values.role || 'admin',
-        employeeid: values.adminId,
+        employee_id: values.adminId,
         isactive: false,
         profileimage: profileImage,
         updatedat: new Date().toISOString()
@@ -268,14 +268,14 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
       const adminData = {
         name: values.name,
         email: values.email,
-        employeeid: values.adminId,
+        employee_id: values.adminId,
         role: 'admin',
         isactive: false,
         isfirstlogin: true,
         profileimage: profileImage,
         password,
-        createdat: new Date().toISOString(),
-        updatedat: new Date().toISOString()
+        // created_at: new Date().toISOString(),
+        // updatedat: new Date().toISOString()
       };
       
       // Use regular supabase instead of supabaseAdmin
@@ -510,14 +510,14 @@ useEffect(() => {
         name,
         email,
         role,
-        employeeid,
+        employee_id,
         isactive,
         profileimage,
-        createdat,
-        updatedat
+        created_at,
+        updated_at
       `)
       .eq('role', 'admin')
-      .order('createdat', { ascending: false });
+      .order('created_at', { ascending: false });
     
     if (error) throw error;
     
@@ -540,7 +540,7 @@ useEffect(() => {
     filteredAdmins = filteredAdmins.filter(admin =>
       admin.name.toLowerCase().includes(searchLower) ||
       admin.email.toLowerCase().includes(searchLower) ||
-      (admin.employeeid && admin.employeeid.toLowerCase().includes(searchLower))  // Changed from adminId to employeeid
+      (admin.employee_id && admin.employee_id.toLowerCase().includes(searchLower))  // Changed from adminId to employeeid
     );
   }
   
@@ -590,7 +590,7 @@ useEffect(() => {
         .from('users')
         .select('*')
         .eq('role', 'admin')
-        .order('createdat', { ascending: false });
+        .order('created_at', { ascending: false });
       
       console.log('Direct fetch result:', { data, error });
       
@@ -745,9 +745,9 @@ useEffect(() => {
               <Tag color="blue" size="small" style={{ fontSize: '10px' }}>
                 {record.role}
               </Tag>
-              {record.employeeid && (
+              {record.employee_id && (
                 <Tag color="geekblue" size="small" style={{ fontSize: '10px' }}>
-                  {record.employeeid}
+                  {record.employee_id}
                 </Tag>
               )}
             </div>
@@ -758,7 +758,7 @@ useEffect(() => {
   },
   {
     title: 'Admin ID',
-    dataIndex: 'employeeid',
+    dataIndex: 'employee_id',
     key: 'adminId',
     width: isMobile ? 80 : 120,
     render: (adminId) => (
@@ -785,7 +785,7 @@ useEffect(() => {
   },
   {
     title: 'Created',
-    dataIndex: 'createdat',
+    dataIndex: 'created_at',
     key: 'createdAt',
     width: isMobile ? 80 : 120,
     render: (date) => (
