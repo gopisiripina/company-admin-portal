@@ -72,7 +72,7 @@ const sendWelcomeEmail = async (employeeData) => {
   }
 };
 // Mobile Admin Card Component
-const MobileAdminCard = React.memo(({ admin, onEdit, onDelete }) => (
+const MobileAdminCard = React.memo(({ admin, onEdit, onDelete}) => (
   <Card 
     size="small" 
     className="mobile-admin-card"
@@ -149,21 +149,35 @@ const MobileAdminCard = React.memo(({ admin, onEdit, onDelete }) => (
         </div>
       </div>
       <div style={{ 
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '6px',
-        justifyContent: 'flex-start'
-      }}>
-        <Tag color="blue" size="small">{admin.role}</Tag>
-        {admin.adminId && (
-          <Tag color="geekblue" size="small">{admin.adminId}</Tag>
-        )}
-        {admin.createdat && (
-  <Tag color="purple" size="small">
-    {new Date(admin.createdat).toLocaleDateString()} 
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '6px',
+  justifyContent: 'space-between',
+  alignItems: 'center'
+}}>
+  <div style={{ 
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '6px',
+  justifyContent: 'flex-start'
+}}>
+  <Tag color="blue" size="small">{admin.role}</Tag>
+  {admin.adminId && (
+    <Tag color="geekblue" size="small">{admin.adminId}</Tag>
+  )}
+  {admin.createdat && (
+    <Tag color="purple" size="small">
+      {new Date(admin.createdat).toLocaleDateString()} 
+    </Tag>
+  )}
+  <Tag 
+    color={admin.isactive ? 'green' : 'red'} 
+    size="small"
+  >
+    {admin.isactive ? 'Active' : 'Inactive'}
   </Tag>
-)}
-      </div>
+</div>
+</div>
     </div>
   </Card>
 ));
@@ -450,6 +464,7 @@ const AdminManagement = ({ userRole }) => {
     pageSize: 10,
     total: 0
   });
+
   // Use useMemo for calculations
   const { totalAdmins, activeAdmins, inactiveAdmins } = useMemo(() => {
     const total = allAdmins.length;
@@ -621,6 +636,8 @@ useEffect(() => {
   
   loadInitialData();
 }, []);
+
+
   // Refresh data
   const refreshData = useCallback(async () => {
     try {
@@ -633,6 +650,51 @@ useEffect(() => {
       setLoading(false);
     }
   }, [fetchAllAdmins, applyFiltersAndPagination, searchQuery, pagination.pageSize]);
+
+  useEffect(() => {
+  const subscription = supabase
+    .channel('users_changes')
+    .on(
+      'postgres_changes',
+      {
+        event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+        schema: 'public',
+        table: 'users',
+        filter: 'role=eq.admin'
+      },
+      (payload) => {
+        console.log('Real-time update received:', payload);
+        
+        if (payload.eventType === 'UPDATE') {
+          // Update the specific admin in state
+          setAllAdmins(prev => 
+            prev.map(admin => 
+              admin.id === payload.new.id ? payload.new : admin
+            )
+          );
+          
+          setAdmins(prev => 
+            prev.map(admin => 
+              admin.id === payload.new.id ? payload.new : admin
+            )
+          );
+        } else if (payload.eventType === 'INSERT') {
+          // Add new admin
+          setAllAdmins(prev => [payload.new, ...prev]);
+          refreshData(); // Refresh to maintain pagination
+        } else if (payload.eventType === 'DELETE') {
+          // Remove deleted admin
+          setAllAdmins(prev => prev.filter(admin => admin.id !== payload.old.id));
+          setAdmins(prev => prev.filter(admin => admin.id !== payload.old.id));
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    subscription.unsubscribe();
+  };
+}, [refreshData]);
   // Event handlers
   const handleTableChange = useCallback((paginationInfo) => {
     applyFiltersAndPagination(allAdmins, searchQuery, paginationInfo.current, paginationInfo.pageSize);
@@ -769,20 +831,20 @@ useEffect(() => {
     responsive: ['md'],
   },
   {
-    title: 'Status',
-    dataIndex: 'isactive',
-    key: 'isActive',
-    width: isMobile ? 70 : 100,
-    render: (isActive) => (
-      <Tag 
-        color={isActive ? 'green' : 'red'} 
-        style={{ fontSize: isMobile ? '10px' : '12px' }}
-      >
-        {isActive ? 'Active' : 'Inactive'}
-      </Tag>
-    ),
-    responsive: ['md'],
-  },
+  title: 'Status',
+  dataIndex: 'isactive',
+  key: 'isActive',
+  width: isMobile ? 70 : 100,
+  render: (isActive) => (
+    <Tag 
+      color={isActive ? 'green' : 'red'} 
+      style={{ fontSize: isMobile ? '10px' : '12px' }}
+    >
+      {isActive ? 'Active' : 'Inactive'}
+    </Tag>
+  ),
+  responsive: ['md'],
+},
   {
     title: 'Created',
     dataIndex: 'created_at',
