@@ -18,6 +18,7 @@
     "express": "^5.1.0",
     "imap": "^0.8.19",
     "mailparser": "^3.7.4",
+    "multer": "^2.0.1",
     "nodemailer": "^7.0.5",
     "nodemon": "^3.1.10"
   }

@@ -20,6 +20,7 @@ const AppContent = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [isEmailAuthenticated, setIsEmailAuthenticated] = useState(false);
+  const [activeEmailFolder, setActiveEmailFolder] = useState('inbox');
 
   const handleToggleSidebar = () => {
   setSidebarOpen(!sidebarOpen);
@@ -61,6 +62,7 @@ useEffect(() => {
     return;
   }else if (path.includes('/mails')) {
   setActiveSection('mails');
+  
   }
   else if (path.includes('/exam-conduct-page')) {
   setActiveSection('exam-conduct-page');
@@ -157,27 +159,36 @@ useEffect(() => {
   if (itemId === 'logout') {
     handleLogout();
   } else {
-    setActiveSection(itemId);
-    // Update URL for specific sections
-     if (itemId === 'exam-conduct-page') {
-      navigate('/dashboard/exam-conduct-page', { replace: true });
-     }else if (['inbox', 'compose', 'mails'].includes(itemId)) {
+    if (['inbox', 'compose', 'sent', 'trash'].includes(itemId)) {
+      setActiveSection('mails'); // Keep mails as the active section
+      setActiveEmailFolder(itemId); // Set the specific folder
       navigate('/dashboard/mails', { replace: true });
-     }else if (itemId === 'on-campus-data') {
+    } else if (itemId === 'mails') {
+      // When clicking on main mails, default to inbox
+      setActiveSection('mails');
+      setActiveEmailFolder('inbox');
+      navigate('/dashboard/mails', { replace: true });
+    } else {
+      setActiveSection(itemId);
+    
+    // Update URL for specific sections
+    if (itemId === 'exam-conduct-page') {
+      navigate('/dashboard/exam-conduct-page', { replace: true });
+    } else if (itemId === 'on-campus-data') {
       navigate('/dashboard/on-campus-data', { replace: true });
-     }else if (itemId === 'selected-list') {
+    } else if (itemId === 'selected-list') {
       navigate('/dashboard/selected-list', { replace: true });
-    }else if (itemId === 'job-application') {
+    } else if (itemId === 'job-application') {
       navigate('/dashboard/job-application', { replace: true });
-    }else if (itemId === 'interview-management') {
+    } else if (itemId === 'interview-management') {
       navigate('/dashboard/interview-management', { replace: true });
-    }else if (itemId === 'resume-list') {
+    } else if (itemId === 'resume-list') {
       navigate('/dashboard/resume-list', { replace: true });
-    }else if (itemId === 'job-apply') {
+    } else if (itemId === 'job-apply') {
       navigate('/dashboard/job-apply', { replace: true });
-    }else if (itemId === 'job-post') {
+    } else if (itemId === 'job-post') {
       navigate('/dashboard/job-post', { replace: true });
-    }else if (itemId === 'job-description') {
+    } else if (itemId === 'job-description') {
       navigate('/dashboard/job-description', { replace: true });
     } else if (itemId === 'Hr') {
       navigate('/dashboard/hr', { replace: true });
@@ -192,8 +203,9 @@ useEffect(() => {
     } else {
       navigate('/dashboard', { replace: true });
     }
-  }
+  }}
 };
+
 
   // Show loading while checking auth state
   if (checkingAuth) {
@@ -284,6 +296,7 @@ useEffect(() => {
                 <Dashboard
                   sidebarOpen={sidebarOpen}
                   activeSection={activeSection}
+                    activeEmailFolder={activeEmailFolder} // ✅ NEW
                   userData={userData}
                   onLogout={handleLogout}
                    onSectionChange={handleSidebarItemClick}
