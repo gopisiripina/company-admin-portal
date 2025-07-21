@@ -159,19 +159,22 @@ const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete }) => (
         gap: '6px',
         justifyContent: 'flex-start'
       }}>
-        <Tag color="blue" size="small">{employee.role}</Tag>
-        <Tag color={employee.isactive ? 'green' : 'red'} size="small">
-          {employee.isactive ? 'Active' : 'Inactive'}
-        </Tag>
-        {employee.employee-id && (
-          <Tag color="geekblue" size="small">{employee.employee-id}</Tag>
-        )}
-        {employee.created_at && (
-          <Tag color="purple" size="small">
-            {new Date(employee.created_at).toLocaleDateString()}
-          </Tag>
-        )}
-      </div>
+         <Tag color="blue" size="small">{employee.role}</Tag>
+    {employee.employee_id && (
+      <Tag color="geekblue" size="small">{employee.employee_id}</Tag>
+    )}
+    {employee.created_at && (
+      <Tag color="purple" size="small">
+        {new Date(employee.created_at).toLocaleDateString()}
+      </Tag>
+    )}
+    <Tag 
+      color={employee.isactive ? 'green' : 'red'} 
+      size="small"
+    >
+      {employee.isactive ? 'Active' : 'Inactive'}
+    </Tag>
+  </div>
     </div>
   </Card>
 ));
@@ -650,6 +653,47 @@ const [filters, setFilters] = useState({
   }
 }, [fetchAllEmployees, applyFiltersAndPagination, searchQuery, pagination.pageSize, filters]);
 
+useEffect(() => {
+  const subscription = supabase
+    .channel('users_changes')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'users',
+        filter: 'role=eq.employee'
+      },
+      (payload) => {
+        console.log('Real-time update received:', payload);
+        
+        if (payload.eventType === 'UPDATE') {
+          setAllEmployees(prev => 
+            prev.map(employee => 
+              employee.id === payload.new.id ? payload.new : employee
+            )
+          );
+          
+          setEmployees(prev => 
+            prev.map(employee => 
+              employee.id === payload.new.id ? payload.new : employee
+            )
+          );
+        } else if (payload.eventType === 'INSERT') {
+          setAllEmployees(prev => [payload.new, ...prev]);
+          refreshData();
+        } else if (payload.eventType === 'DELETE') {
+          setAllEmployees(prev => prev.filter(employee => employee.id !== payload.old.id));
+          setEmployees(prev => prev.filter(employee => employee.id !== payload.old.id));
+        }
+      }
+    )
+    .subscribe();
+  return () => {
+    subscription.unsubscribe();
+  };
+}, [refreshData]);
+
   useEffect(() => {
   if (userRole === 'superadmin' || userRole === 'admin' || userRole === 'hr') {
     fetchEmployees(1, 10, '', {});
@@ -843,17 +887,20 @@ const handleClearFilters = useCallback(() => {
   responsive: ['lg'],
 },
     {
-      title: 'Status',
-      dataIndex: 'isactive',
-      key: 'isActive',
-      width: 100,
-      render: (isActive) => (
-        <Tag color={isActive ? 'green' : 'red'}>
-          {isActive ? 'Active' : 'Inactive'}
-        </Tag>
-      ),
-      responsive: ['md'],
-    },
+  title: 'Status',
+  dataIndex: 'isactive',
+  key: 'isActive',
+  width: isMobile ? 70 : 100,
+  render: (isActive) => (
+    <Tag 
+      color={isActive ? 'green' : 'red'} 
+      style={{ fontSize: isMobile ? '10px' : '12px' }}
+    >
+      {isActive ? 'Active' : 'Inactive'}
+    </Tag>
+  ),
+  responsive: ['md'],
+},
     {
       title: 'Created Date',
       dataIndex: 'created_at',

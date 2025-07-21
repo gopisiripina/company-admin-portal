@@ -129,18 +129,21 @@ const MobileHRCard = React.memo(({ hr, onEdit, onDelete }) => (
         justifyContent: 'flex-start'
       }}>
         <Tag color="orange" size="small">{hr.role}</Tag>
-        <Tag color={hr.isactive ? 'green' : 'red'} size="small">
-          {hr.isactive ? 'Active' : 'Inactive'}
-        </Tag>
-        {hr.employee_id && (
-          <Tag color="geekblue" size="small">{hr.employee_id}</Tag>
-        )}
-        {hr.created_at && (
-          <Tag color="purple" size="small">
-            {new Date(hr.created_at).toLocaleDateString()}
+          {hr.employee_id && (
+            <Tag color="geekblue" size="small">{hr.employee_id}</Tag>
+          )}
+          {hr.created_at && (
+            <Tag color="purple" size="small">
+              {new Date(hr.created_at).toLocaleDateString()}
+            </Tag>
+          )}
+          <Tag 
+            color={hr.isactive ? 'green' : 'red'} 
+            size="small"
+          >
+            {hr.isactive ? 'Active' : 'Inactive'}
           </Tag>
-        )}
-      </div>
+        </div>
     </div>
   </Card>
 ));
@@ -539,6 +542,49 @@ useEffect(() => {
     }
   }, [fetchAllHRs, applyFiltersAndPagination, searchQuery, pagination.pageSize]);
 
+  useEffect(() => {
+  const subscription = supabase
+    .channel('users_changes')
+    .on(
+      'postgres_changes',
+      {
+        event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+        schema: 'public',
+        table: 'users',
+        filter: 'role=eq.hr'
+      },
+      (payload) => {
+        console.log('Real-time update received:', payload);
+        
+        if (payload.eventType === 'UPDATE') {
+          // Update the specific HR in state
+          setAllHRs(prev => 
+            prev.map(hr => 
+              hr.id === payload.new.id ? payload.new : hr
+            )
+          );
+          
+          setHRs(prev => 
+            prev.map(hr => 
+              hr.id === payload.new.id ? payload.new : hr
+            )
+          );
+        } else if (payload.eventType === 'INSERT') {
+          // Add new HR
+          setAllHRs(prev => [payload.new, ...prev]);
+          refreshData(); // Refresh to maintain pagination
+        } else if (payload.eventType === 'DELETE') {
+          // Remove deleted HR
+          setAllHRs(prev => prev.filter(hr => hr.id !== payload.old.id));
+          setHRs(prev => prev.filter(hr => hr.id !== payload.old.id));
+        }
+      }
+    )
+    .subscribe();
+  return () => {
+    subscription.unsubscribe();
+  };
+}, [refreshData]);
 
   // Event handlers
   const handleTableChange = useCallback((paginationInfo) => {
@@ -675,17 +721,20 @@ useEffect(() => {
       responsive: ['md'],
     },
     {
-      title: 'Status',
-      dataIndex: 'isactive',
-      key: 'isActive',
-      width: 100,
-      render: (isActive) => (
-        <Tag color={isActive ? 'green' : 'red'}>
-          {isActive ? 'Active' : 'Inactive'}
-        </Tag>
-      ),
-      responsive: ['md'],
-    },
+  title: 'Status',
+  dataIndex: 'isactive',
+  key: 'isActive',
+  width: isMobile ? 70 : 100,
+  render: (isActive) => (
+    <Tag 
+      color={isActive ? 'green' : 'red'} 
+      style={{ fontSize: isMobile ? '10px' : '12px' }}
+    >
+      {isActive ? 'Active' : 'Inactive'}
+    </Tag>
+  ),
+  responsive: ['md'],
+},
     {
       title: 'Created Date',
       dataIndex: 'created_at',
