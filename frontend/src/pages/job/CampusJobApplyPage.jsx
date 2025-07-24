@@ -336,7 +336,7 @@ const emailPromises = studentsToEmail.map(student => {
     }
   };
 
-  return fetch('https://ksvreddy4.pythonanywhere.com/api/send-recruitment-email', {
+  return fetch('http://cap.myaccessio.com:5000/api/send-recruitment-email', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'

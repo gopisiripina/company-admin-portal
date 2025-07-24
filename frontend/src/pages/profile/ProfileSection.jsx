@@ -34,6 +34,7 @@ const ProfileSection = ({ userData, onLogout }) => {
     try {
       setIsLoggingOut(true);
       console.log('Starting logout process...');
+       localStorage.removeItem('emailCredentials');
       
       // Call the enhanced logout method from authService (Supabase-enabled)
       const logoutSuccess = await authService.logout(userData);

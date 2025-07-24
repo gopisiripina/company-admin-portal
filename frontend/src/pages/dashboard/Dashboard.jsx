@@ -20,16 +20,19 @@ import SelectedCandidatesPage from '../job/SelectedCandidatespage';
 import CampusJobApplyPage from '../job/CampusJobApplyPage';
 import ExamConductPage from '../job/ExamConductPage';
 import EmailClient from '../email/EmailClient';
+
+
+
 import EmployeeAttendancePage from '../hr/EmployeeAttendancePage';
 import { supabase } from '../../supabase/config';
 
-const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionChange, onToggleSidebar, isEmailAuthenticated, setIsEmailAuthenticated }) => {
+const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionChange,activeEmailFolder, onToggleSidebar, isEmailAuthenticated, setIsEmailAuthenticated }) => {
   const { Text, Title } = Typography;
-  const [searchQuery, setSearchQuery] = useState('');
   const [currentJobId, setCurrentJobId] = useState(2);
   const [searchSuggestions, setSearchSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [activeEmailFolder, setActiveEmailFolder] = useState('inbox');
+const [searchQuery, setSearchQuery] = useState('');
+
   const [attendanceData, setAttendanceData] = useState([]);
 const [currentMonth, setCurrentMonth] = useState(new Date());
 const [showCalendarModal, setShowCalendarModal] = useState(false);
@@ -437,9 +440,11 @@ const renderAttendanceCalendar = () => {
 };
 
 const handleEmailFolderChange = (folder) => {
-    setActiveEmailFolder(folder);
-    setIsEmailAuthenticated(true);  
-}
+  if (onSectionChange) {
+    onSectionChange(folder); // ✅ Sidebar logic already handles routing + folder
+  }
+};
+
   const fuzzySearch = (query, options) => {
     if (!query) return [];
     
@@ -745,38 +750,23 @@ const handleEmailFolderChange = (folder) => {
     }
   ];
 if (activeSection === 'mails') {
-    return (
-      <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+  return (
+    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
       {renderHeader("Search emails...")}
       <main className="main-content">
         <EmailClient 
           userRole={userData?.role}
           activeFolder={activeEmailFolder}
           onFolderChange={handleEmailFolderChange}
-          onAuthSuccess={() => setIsEmailAuthenticated(true)} // Make sure this is called
+          onAuthSuccess={() => setIsEmailAuthenticated(true)}
           onLogout={() => setIsEmailAuthenticated(false)}
         />
       </main>
     </div>
-    );
-  }
+  );
+}
 
-  // Handle email child items (inbox, compose)
-  if (activeSection === 'inbox' || activeSection === 'compose') {
-    return (
-      <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-        {renderHeader("Search emails...")}
-        <main className="main-content">
-          <EmailClient 
-            userRole={userData?.role}
-            activeFolder={activeSection}
-            onFolderChange={handleEmailFolderChange}
-          />
-        </main>
-      </div>
-    );
-  }
-  
+
 
   // Handle email section clicks
   const handleEmailSectionClick = (section) => {
@@ -830,7 +820,16 @@ if (activeSection === 'mails') {
       </div>
     );
   }
-
+if (activeSection === 'employee-attendance') {
+    return (
+      <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+        {renderHeader("Search job descriptions...")}
+        <main className="main-content">
+          <EmployeeAttendancePage userRole={userData?.role} />
+        </main>
+      </div>
+    );
+  }
   if (activeSection === 'job-description') {
     return (
       <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>

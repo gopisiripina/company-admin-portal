@@ -2,7 +2,7 @@ import React, { useState, useEffect,useMemo  } from 'react';
 import { Home, User, ChevronLeft, ChevronRight, Zap, LogOut, UserCheck, FolderKanban, ChevronDown, ChevronUp, Calendar, DollarSign, BarChart3, GitBranch, ClipboardList, AlertTriangle, FileText, BookOpen } from 'lucide-react';
 import './Sidebar.css';
 import Myaccesslogo from '../../assets/Myalogobgr.svg'; // Adjust the path as necessary
-import { InboxOutlined, EditOutlined } from '@ant-design/icons';
+import { InboxOutlined, EditOutlined ,SendOutlined,DeleteOutlined} from '@ant-design/icons';
 import { X } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole, isEmailAuthenticated }) => {
@@ -43,20 +43,21 @@ useEffect(() => {
   }
 };
 
-  const sidebarItems = () =>  [
-    { icon: Home, label: 'Dashboard', id: 'dashboard', color: '#3b82f6' },
-     {
-  icon: Calendar,
-  label: 'Mails',
-  id: 'mails',
-  color: '#10b981',
-  hasChildren: isEmailAuthenticated, // Only show children if authenticated
-  children: isEmailAuthenticated ? [
-    { icon: InboxOutlined, label: 'Inbox', id: 'inbox' },
-    { icon: EditOutlined, label: 'Compose', id: 'compose' }
-  ] : [isEmailAuthenticated, userRole]
-  
-},
+ const sidebarItems = () => [
+  { icon: Home, label: 'Dashboard', id: 'dashboard', color: '#3b82f6' },
+  {
+    icon: Calendar,
+    label: 'Mails',
+    id: 'mails',
+    color: '#10b981',
+    hasChildren: isEmailAuthenticated,
+    children: isEmailAuthenticated ? [
+      { icon: InboxOutlined, label: 'Inbox', id: 'inbox' },
+      { icon: EditOutlined, label: 'Compose', id: 'compose' },
+      { icon: SendOutlined, label: 'Sent', id: 'sent' },
+      { icon: DeleteOutlined, label: 'Trash', id: 'trash' }
+    ] : []
+  },
     
     // Project Management parent with children
    // Project Management (only for superadmin and admin)
@@ -80,7 +81,7 @@ useEffect(() => {
     ]
   }
 ] : []),
-...(userRole === 'superadmin' || userRole === 'admin' ? [
+...(userRole === 'superadmin' || userRole === 'admin' || userRole === 'hr'? [
   {
     icon: FolderKanban,
     label: 'Human Resource',
