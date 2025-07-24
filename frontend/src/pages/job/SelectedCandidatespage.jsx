@@ -268,7 +268,7 @@ const sendOfferLetter = async (offerData) => {
 
     console.log('Email params:', emailParams);
 
-    const response = await fetch('https://ksvreddy4.pythonanywhere.com/api/send-job-offer', {
+    const response = await fetch('http://cap.myaccessio.com:5000/api/send-job-offer', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
