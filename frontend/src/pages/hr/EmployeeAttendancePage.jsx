@@ -116,7 +116,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
   .from('users')
   .select('*')
   .in('employee_type', ['full-time', 'internship', 'temporary'])
-  .not('role', 'in', '(superadmin,admin,hr)')
+  .not('role', 'in', '(superadmin,admin)')
     if (error) throw error;
     
     // console.log('Fetched employees:', data); // Add this to debug

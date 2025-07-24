@@ -81,7 +81,7 @@ useEffect(() => {
     ]
   }
 ] : []),
-...(userRole === 'superadmin' || userRole === 'admin' ? [
+...(userRole === 'superadmin' || userRole === 'admin' || userRole === 'hr'? [
   {
     icon: FolderKanban,
     label: 'Human Resource',
@@ -90,7 +90,6 @@ useEffect(() => {
     hasChildren: true,
     children: [
       { icon: Calendar, label: 'Time Sheet', id: 'Time Sheet' },
-      { icon: DollarSign, label: 'Employee Attendance ', id: 'employee-attendance' },
       { icon: DollarSign, label: 'Employee Attendance', id: 'employee-attendance' },
       { icon: BarChart3, label: 'Candidate Screening Test', id: 'Candidate Screening Test' },
       { icon: GitBranch, label: 'Recruitnig Plan', id: 'Recruiting Plan' },
