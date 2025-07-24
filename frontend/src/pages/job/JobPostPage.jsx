@@ -83,7 +83,7 @@ const postToLinkedIn = async (jobData) => {
       `salary=${encodeURIComponent(jobData.salary_range || 'Competitive')}&` +
       `description=${encodeURIComponent(jobData.job_description || '')}`;
 
-    const response = await fetch('https://ksvreddy4.pythonanywhere.com/api/post-job', {
+    const response = await fetch('http://cap.myaccessio.com:5000/api/post-job', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
