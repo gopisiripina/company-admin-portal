@@ -242,6 +242,7 @@ const responseColumns = [
     title: 'Student Name',
     dataIndex: 'student_name',
     key: 'student_name',
+    
   },
   {
     title: 'Email',
@@ -555,6 +556,7 @@ const [jobTitles, setJobTitles] = useState([]);
     title: 'Exam Title',
     dataIndex: 'exam_title',
     key: 'exam_title',
+    width: 200, 
     render: (title) => (
       <Space>
         <FileTextOutlined style={{ color: '#1890ff' }} />
@@ -669,7 +671,7 @@ const [jobTitles, setJobTitles] = useState([]);
     <div style={{ padding: '24px' }}>
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
-        <Title level={2} style={{ margin: 0, color: '#1890ff' }}>
+        <Title level={2} style={{ margin: 0, color: '#0D7139' }}>
           Exam Conduct Center
         </Title>
         <Text type="secondary">
@@ -707,6 +709,7 @@ const [jobTitles, setJobTitles] = useState([]);
           icon={<FileTextOutlined />}
           onClick={() => setCreateExamVisible(true)}
           size="large"
+          style={{ backgroundColor:"#0D7139" }}
         >
           Create New Exam
         </Button>
@@ -715,10 +718,12 @@ const [jobTitles, setJobTitles] = useState([]);
       {/* Exams Table */}
       <Card>
         <Table
+        size="small"
           columns={examColumns}
           dataSource={exams}
           rowKey="id"
           loading={loading}
+          scroll={{ x: 'max-content' }}
           pagination={{
             pageSize: 10,
             showSizeChanger: true,
@@ -893,63 +898,68 @@ const [jobTitles, setJobTitles] = useState([]);
 {showResponses && (
   <Card style={{ marginTop: '24px' }}>
     <div style={{ marginBottom: '16px' }}>
-      <Space>
-        <Button onClick={() => setShowResponses(false)}>
-          ← Back to Exams
-        </Button>
-        <Title level={4} style={{ margin: 0 }}>
-          Responses for: {selectedExam?.exam_title}
-        </Title>
-      </Space>
-    </div>
+  <Space direction={isMobile ? 'vertical' : 'horizontal'} style={{ width: '100%' }}>
+    <Button onClick={() => setShowResponses(false)}>
+      ← Back to Exams
+    </Button>
+    <Title level={isMobile ? 5 : 4} style={{ margin: 0 }}>
+      Responses for: {selectedExam?.exam_title}
+    </Title>
+  </Space>
+</div>
     
     <Row gutter={[16, 16]} style={{ marginBottom: '16px' }}>
-      <Col span={8}>
-        <Input
-          placeholder="Enter cutoff score"
-          value={cutoffScore}
-          onChange={(e) => {
-            setCutoffScore(e.target.value);
-            handleCutoffFilter(e.target.value);
-          }}
-          type="number"
-          addonBefore="Cutoff Score"
-        />
-      </Col>
-      <Col span={16}>
-        <Space>
-          <Text>Total Students: {selectedExamResponses.length}</Text>
-          {cutoffScore && (
-            <>
-              <Text type="success">Passed: {filteredResponses.filter(s => s.total_score >= parseInt(cutoffScore)).length}</Text>
-              <Text type="danger">Failed: {filteredResponses.filter(s => s.total_score < parseInt(cutoffScore)).length}</Text>
-            </>
-          )}
-        </Space>
-      </Col>
-    </Row>
+  <Col xs={24} sm={24} md={8} lg={8}>
+    <Input
+      placeholder="Enter cutoff score"
+      value={cutoffScore}
+      onChange={(e) => {
+        setCutoffScore(e.target.value);
+        handleCutoffFilter(e.target.value);
+      }}
+      type="number"
+      addonBefore="Cutoff Score"
+    />
+  </Col>
+  <Col xs={24} sm={24} md={16} lg={16}>
+    <Space direction={isMobile ? 'vertical' : 'horizontal'} style={{ width: '100%' }}>
+      <Text>Total Students: {selectedExamResponses.length}</Text>
+      {cutoffScore && (
+        <>
+          <Text type="success">Passed: {filteredResponses.filter(s => s.total_score >= parseInt(cutoffScore)).length}</Text>
+          <Text type="danger">Failed: {filteredResponses.filter(s => s.total_score < parseInt(cutoffScore)).length}</Text>
+        </>
+      )}
+    </Space>
+  </Col>
+</Row>
 <Row gutter={[16, 16]} style={{ marginBottom: '16px' }}>
   <Col span={24}>
-    <Space>
+    <Space 
+      direction={isMobile ? 'vertical' : 'horizontal'} 
+      style={{ width: '100%' }}
+      size={isMobile ? 'small' : 'middle'}
+    >
       <Button 
         type="primary" 
         icon={<DownloadOutlined />}
         onClick={downloadExcel}
         disabled={selectedStudents.length === 0}
+        block={isMobile}
       >
         Download Excel ({selectedStudents.length} selected)
       </Button>
       <Button 
-  type="default"
-  icon={<UserAddOutlined />}
-  disabled={selectedStudents.length === 0}
-  onClick={moveToCandidateList} // ✅ Attach this
->
-  Move to Candidate List ({selectedStudents.length} selected)
-</Button>
-
+        type="default"
+        icon={<UserAddOutlined />}
+        disabled={selectedStudents.length === 0}
+        onClick={moveToCandidateList}
+        block={isMobile}
+      >
+        Move to Candidate List ({selectedStudents.length} selected)
+      </Button>
       {selectedStudents.length > 0 && (
-        <Text type="secondary">
+        <Text type="secondary" style={{ fontSize: isMobile ? '12px' : '14px' }}>
           {selectedStudents.length} of {filteredResponses.length} students selected
         </Text>
       )}
@@ -962,6 +972,7 @@ const [jobTitles, setJobTitles] = useState([]);
   dataSource={filteredResponses}
   rowKey="student_email"
   loading={loading}
+  scroll={{ x: 'max-content' }}
   pagination={{ pageSize: 10 }}
   rowSelection={rowSelection}
 />

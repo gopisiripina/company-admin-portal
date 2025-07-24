@@ -23,8 +23,8 @@ const AppContent = () => {
   const [activeEmailFolder, setActiveEmailFolder] = useState('inbox');
 
   const handleToggleSidebar = () => {
-  setSidebarOpen(!sidebarOpen);
-};
+    setSidebarOpen(!sidebarOpen);
+  };
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -52,50 +52,50 @@ const AppContent = () => {
     setCheckingAuth(false);
   }, [location.pathname, navigate]);
 
-useEffect(() => {
-  // Handle URL-based navigation
-  const path = location.pathname;
-  
-  // Skip navigation logic for public job application pages
-  if (path.startsWith('/job-application') && !isLoggedIn) {
-    setActiveSection('job-application');
-    return;
-  }else if (path.includes('/mails')) {
-  setActiveSection('mails');
-  
-  }
-  else if (path.includes('/exam-conduct-page')) {
-  setActiveSection('exam-conduct-page');
-  }else if (path.includes('/on-campus-data')) {
-    setActiveSection('on-campus-data');
-   }else if (path.includes('/selected-list')) {
-    setActiveSection('selected-list');
-  } else if (path.includes('/job-application')) {
-    setActiveSection('job-application');
-  } else if (path.includes('/interview-management')) {
-    setActiveSection('interview-management');
-  } else if (path.includes('/resume-list')) {
-    setActiveSection('resume-list');
-  } else if (path.includes('/job-apply')) {
-    setActiveSection('job-apply');
-  } else if (path.includes('/job-post')) {
-    setActiveSection('job-post');
-  } else if (path.includes('/job-description')) {
-    setActiveSection('job-description');
-  } else if (path.includes('/hr')) {
-    setActiveSection('Hr');
-  } else if (path.includes('/project-budgeting')) {
-    setActiveSection('project-budgeting');
-  } else if (path.includes('/project-timeline')) {
-    setActiveSection('project-timeline');
-  } else if (path.includes('/admin')) {
-    setActiveSection('admin');
-  } else if (path.includes('/employee')) {
-    setActiveSection('employee');
-  } else if (path === '/dashboard') {
-    setActiveSection('dashboard');
-  }
-}, [location.pathname, isLoggedIn]); 
+  useEffect(() => {
+    // Handle URL-based navigation
+    const path = location.pathname;
+    
+    // Skip navigation logic for public job application pages
+    if (path.startsWith('/job-application') && !isLoggedIn) {
+      setActiveSection('job-application');
+      return;
+    } else if (path.includes('/employee-attendance')) {
+      setActiveSection('employee-attendance');
+    } else if (path.includes('/mails')) {
+      setActiveSection('mails');
+    } else if (path.includes('/exam-conduct-page')) {
+      setActiveSection('exam-conduct-page');
+    } else if (path.includes('/on-campus-data')) {
+      setActiveSection('on-campus-data');
+    } else if (path.includes('/selected-list')) {
+      setActiveSection('selected-list');
+    } else if (path.includes('/job-application')) {
+      setActiveSection('job-application');
+    } else if (path.includes('/interview-management')) {
+      setActiveSection('interview-management');
+    } else if (path.includes('/resume-list')) {
+      setActiveSection('resume-list');
+    } else if (path.includes('/job-apply')) {
+      setActiveSection('job-apply');
+    } else if (path.includes('/job-post')) {
+      setActiveSection('job-post');
+    } else if (path.includes('/job-description')) {
+      setActiveSection('job-description');
+    } else if (path.includes('/hr')) {
+      setActiveSection('Hr');
+    } else if (path.includes('/project-budgeting')) {
+      setActiveSection('project-budgeting');
+    } else if (path.includes('/project-timeline')) {
+      setActiveSection('project-timeline');
+    } else if (path.includes('/admin')) {
+      setActiveSection('admin');
+    } else if (path.includes('/employee')) {
+      setActiveSection('employee');
+    } else if (path === '/dashboard') {
+      setActiveSection('dashboard');
+    }
+  }, [location.pathname, isLoggedIn]); 
 
   const handleLoginSuccess = (user) => {
     console.log('=== Login Success Debug ===');
@@ -109,7 +109,7 @@ useEffect(() => {
       name: user.name || 'User',
       email: user.email,
       role: user.role || 'User',
-      profileImage: user.profileImage, // CRITICAL: Include profile image
+      profileImage: user.profileImage,
       photoURL: user.photoURL,
       isActive: user.isActive,
       createdAt: user.createdAt,
@@ -146,8 +146,7 @@ useEffect(() => {
     setIsLoggedIn(false);
     setUserData(null);
     localStorage.removeItem('userData');
-    setActiveSection('dashboard'); // Reset to default section
-    // Navigate to login page after logout
+    setActiveSection('dashboard');
     navigate('/', { replace: true });
   };
 
@@ -159,22 +158,13 @@ useEffect(() => {
   if (itemId === 'logout') {
     handleLogout();
   } else {
-    if (['inbox', 'compose', 'sent', 'trash'].includes(itemId)) {
-      setActiveSection('mails'); // Keep mails as the active section
-      setActiveEmailFolder(itemId); // Set the specific folder
-      navigate('/dashboard/mails', { replace: true });
-    } else if (itemId === 'mails') {
-      // When clicking on main mails, default to inbox
-      setActiveSection('mails');
-      setActiveEmailFolder('inbox');
-      navigate('/dashboard/mails', { replace: true });
-    } else {
-      setActiveSection(itemId);
-    
+    setActiveSection(itemId);
     // Update URL for specific sections
-    if (itemId === 'exam-conduct-page') {
+     if (itemId === 'exam-conduct-page') {
       navigate('/dashboard/exam-conduct-page', { replace: true });
-    } else if (itemId === 'on-campus-data') {
+    }else if (['inbox', 'compose', 'mails'].includes(itemId)) {
+      navigate('/dashboard/mails', { replace: true });
+     }else if (itemId === 'on-campus-data') {
       navigate('/dashboard/on-campus-data', { replace: true });
     } else if (itemId === 'selected-list') {
       navigate('/dashboard/selected-list', { replace: true });
@@ -203,9 +193,8 @@ useEffect(() => {
     } else {
       navigate('/dashboard', { replace: true });
     }
-  }}
+  }
 };
-
 
   // Show loading while checking auth state
   if (checkingAuth) {
@@ -224,15 +213,18 @@ useEffect(() => {
 
   return (
     <Routes>
-      <Route path="/campus-job-view" element={ <div style={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            alignItems: 'center', 
-            minHeight: '100vh',
-            width: '100vw'
-          }}><CampusJobViewPage /></div>} />
+      <Route path="/campus-job-view" element={ 
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          minHeight: '100vh',
+          width: '100vw'
+        }}>
+          <CampusJobViewPage />
+        </div>
+      } />
       
-      {/* ExamTakePage with centered content */}
       <Route 
         path="/exam/:linkId" 
         element={
@@ -250,7 +242,6 @@ useEffect(() => {
       
       <Route path='/job-apply' element={<Navigate to='/dashboard/job-apply' replace />} />
       
-      {/* Login Route */}
       <Route 
         path="/" 
         element={
@@ -261,24 +252,25 @@ useEffect(() => {
           )
         } 
       />
-   <Route 
-  path="/job-application/*" 
-  element={
-    <AnimatedBackground>
-      <div style={{ display: 'flex', height: '100vh', width: '100vw' }}>
-        <Dashboard
-          sidebarOpen={false}
-          activeSection="job-application"
-          userData={null}
-          onLogout={null}
-          isPublicAccess={true}
-          onSectionChange={handleSidebarItemClick}
-        />
-      </div>
-    </AnimatedBackground>
-  } 
-/>
-      {/* Dashboard Route */}
+      
+      <Route 
+        path="/job-application/*" 
+        element={
+          <AnimatedBackground>
+            <div style={{ display: 'flex', height: '100vh', width: '100vw' }}>
+              <Dashboard
+                sidebarOpen={false}
+                activeSection="job-application"
+                userData={null}
+                onLogout={null}
+                isPublicAccess={true}
+                onSectionChange={handleSidebarItemClick}
+              />
+            </div>
+          </AnimatedBackground>
+        } 
+      />
+      
       <Route 
         path="/dashboard/*" 
         element={
@@ -296,13 +288,13 @@ useEffect(() => {
                 <Dashboard
                   sidebarOpen={sidebarOpen}
                   activeSection={activeSection}
-                    activeEmailFolder={activeEmailFolder} // ✅ NEW
+                  activeEmailFolder={activeEmailFolder}
                   userData={userData}
                   onLogout={handleLogout}
-                   onSectionChange={handleSidebarItemClick}
-                   onToggleSidebar={handleToggleSidebar}
-                    isEmailAuthenticated={isEmailAuthenticated} // ✅ ADDED
-  setIsEmailAuthenticated={setIsEmailAuthenticated} // ✅ ADDED
+                  onSectionChange={handleSidebarItemClick}
+                  onToggleSidebar={handleToggleSidebar}
+                  isEmailAuthenticated={isEmailAuthenticated}
+                  setIsEmailAuthenticated={setIsEmailAuthenticated}
                 />
               </div>
             </AnimatedBackground>
@@ -310,7 +302,6 @@ useEffect(() => {
         } 
       />
       
-      {/* Catch all route - redirect to appropriate page */}
       <Route 
         path="*" 
         element={<Navigate to={isLoggedIn ? "/dashboard" : "/"} replace />} 

@@ -72,7 +72,7 @@ const sendWelcomeEmail = async (employeeData) => {
   }
 };
 // Mobile Admin Card Component
-const MobileAdminCard = React.memo(({ admin, onEdit, onDelete }) => (
+const MobileAdminCard = React.memo(({ admin, onEdit, onDelete}) => (
   <Card 
     size="small" 
     className="mobile-admin-card"
@@ -149,21 +149,35 @@ const MobileAdminCard = React.memo(({ admin, onEdit, onDelete }) => (
         </div>
       </div>
       <div style={{ 
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '6px',
-        justifyContent: 'flex-start'
-      }}>
-        <Tag color="blue" size="small">{admin.role}</Tag>
-        {admin.adminId && (
-          <Tag color="geekblue" size="small">{admin.adminId}</Tag>
-        )}
-        {admin.createdat && (
-  <Tag color="purple" size="small">
-    {new Date(admin.createdat).toLocaleDateString()} 
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '6px',
+  justifyContent: 'space-between',
+  alignItems: 'center'
+}}>
+  <div style={{ 
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '6px',
+  justifyContent: 'flex-start'
+}}>
+  <Tag color="blue" size="small">{admin.role}</Tag>
+  {admin.adminId && (
+    <Tag color="geekblue" size="small">{admin.adminId}</Tag>
+  )}
+  {admin.createdat && (
+    <Tag color="purple" size="small">
+      {new Date(admin.createdat).toLocaleDateString()} 
+    </Tag>
+  )}
+  <Tag 
+    color={admin.isactive ? 'green' : 'red'} 
+    size="small"
+  >
+    {admin.isactive ? 'Active' : 'Inactive'}
   </Tag>
-)}
-      </div>
+</div>
+</div>
     </div>
   </Card>
 ));
@@ -181,7 +195,7 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
           form.setFieldsValue({
             name: editingAdmin.name,
             email: editingAdmin.email,
-            adminId: editingAdmin.employeeid,
+            adminId: editingAdmin.employee_id,
             role: editingAdmin.role
           });
           setProfileImage(editingAdmin.profileimage || null);
@@ -242,7 +256,7 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
         name: values.name,
         email: values.email,
         role: values.role || 'admin',
-        employeeid: values.adminId,
+        employee_id: values.adminId,
         isactive: false,
         profileimage: profileImage,
         updatedat: new Date().toISOString()
@@ -268,14 +282,14 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
       const adminData = {
         name: values.name,
         email: values.email,
-        employeeid: values.adminId,
+        employee_id: values.adminId,
         role: 'admin',
         isactive: false,
         isfirstlogin: true,
         profileimage: profileImage,
         password,
-        createdat: new Date().toISOString(),
-        updatedat: new Date().toISOString()
+        // created_at: new Date().toISOString(),
+        // updatedat: new Date().toISOString()
       };
       
       // Use regular supabase instead of supabaseAdmin
@@ -450,6 +464,7 @@ const AdminManagement = ({ userRole }) => {
     pageSize: 10,
     total: 0
   });
+
   // Use useMemo for calculations
   const { totalAdmins, activeAdmins, inactiveAdmins } = useMemo(() => {
     const total = allAdmins.length;
@@ -510,14 +525,14 @@ useEffect(() => {
         name,
         email,
         role,
-        employeeid,
+        employee_id,
         isactive,
         profileimage,
-        createdat,
-        updatedat
+        created_at,
+        updated_at
       `)
       .eq('role', 'admin')
-      .order('createdat', { ascending: false });
+      .order('created_at', { ascending: false });
     
     if (error) throw error;
     
@@ -540,7 +555,7 @@ useEffect(() => {
     filteredAdmins = filteredAdmins.filter(admin =>
       admin.name.toLowerCase().includes(searchLower) ||
       admin.email.toLowerCase().includes(searchLower) ||
-      (admin.employeeid && admin.employeeid.toLowerCase().includes(searchLower))  // Changed from adminId to employeeid
+      (admin.employee_id && admin.employee_id.toLowerCase().includes(searchLower))  // Changed from adminId to employeeid
     );
   }
   
@@ -590,7 +605,7 @@ useEffect(() => {
         .from('users')
         .select('*')
         .eq('role', 'admin')
-        .order('createdat', { ascending: false });
+        .order('created_at', { ascending: false });
       
       console.log('Direct fetch result:', { data, error });
       
@@ -621,6 +636,8 @@ useEffect(() => {
   
   loadInitialData();
 }, []);
+
+
   // Refresh data
   const refreshData = useCallback(async () => {
     try {
@@ -633,6 +650,51 @@ useEffect(() => {
       setLoading(false);
     }
   }, [fetchAllAdmins, applyFiltersAndPagination, searchQuery, pagination.pageSize]);
+
+  useEffect(() => {
+  const subscription = supabase
+    .channel('users_changes')
+    .on(
+      'postgres_changes',
+      {
+        event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+        schema: 'public',
+        table: 'users',
+        filter: 'role=eq.admin'
+      },
+      (payload) => {
+        console.log('Real-time update received:', payload);
+        
+        if (payload.eventType === 'UPDATE') {
+          // Update the specific admin in state
+          setAllAdmins(prev => 
+            prev.map(admin => 
+              admin.id === payload.new.id ? payload.new : admin
+            )
+          );
+          
+          setAdmins(prev => 
+            prev.map(admin => 
+              admin.id === payload.new.id ? payload.new : admin
+            )
+          );
+        } else if (payload.eventType === 'INSERT') {
+          // Add new admin
+          setAllAdmins(prev => [payload.new, ...prev]);
+          refreshData(); // Refresh to maintain pagination
+        } else if (payload.eventType === 'DELETE') {
+          // Remove deleted admin
+          setAllAdmins(prev => prev.filter(admin => admin.id !== payload.old.id));
+          setAdmins(prev => prev.filter(admin => admin.id !== payload.old.id));
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    subscription.unsubscribe();
+  };
+}, [refreshData]);
   // Event handlers
   const handleTableChange = useCallback((paginationInfo) => {
     applyFiltersAndPagination(allAdmins, searchQuery, paginationInfo.current, paginationInfo.pageSize);
@@ -745,9 +807,9 @@ useEffect(() => {
               <Tag color="blue" size="small" style={{ fontSize: '10px' }}>
                 {record.role}
               </Tag>
-              {record.employeeid && (
+              {record.employee_id && (
                 <Tag color="geekblue" size="small" style={{ fontSize: '10px' }}>
-                  {record.employeeid}
+                  {record.employee_id}
                 </Tag>
               )}
             </div>
@@ -758,7 +820,7 @@ useEffect(() => {
   },
   {
     title: 'Admin ID',
-    dataIndex: 'employeeid',
+    dataIndex: 'employee_id',
     key: 'adminId',
     width: isMobile ? 80 : 120,
     render: (adminId) => (
@@ -769,23 +831,23 @@ useEffect(() => {
     responsive: ['md'],
   },
   {
-    title: 'Status',
-    dataIndex: 'isactive',
-    key: 'isActive',
-    width: isMobile ? 70 : 100,
-    render: (isActive) => (
-      <Tag 
-        color={isActive ? 'green' : 'red'} 
-        style={{ fontSize: isMobile ? '10px' : '12px' }}
-      >
-        {isActive ? 'Active' : 'Inactive'}
-      </Tag>
-    ),
-    responsive: ['md'],
-  },
+  title: 'Status',
+  dataIndex: 'isactive',
+  key: 'isActive',
+  width: isMobile ? 70 : 100,
+  render: (isActive) => (
+    <Tag 
+      color={isActive ? 'green' : 'red'} 
+      style={{ fontSize: isMobile ? '10px' : '12px' }}
+    >
+      {isActive ? 'Active' : 'Inactive'}
+    </Tag>
+  ),
+  responsive: ['md'],
+},
   {
     title: 'Created',
-    dataIndex: 'createdat',
+    dataIndex: 'created_at',
     key: 'createdAt',
     width: isMobile ? 80 : 120,
     render: (date) => (

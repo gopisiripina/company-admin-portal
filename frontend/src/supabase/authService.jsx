@@ -26,7 +26,7 @@ class AuthService {
         .from('users')
         .update({
           isactive: isActive, // Changed to match your schema
-          updatedat: new Date().toISOString()
+          updated_at: new Date().toISOString()
         })
         .eq('id', userId);
 
@@ -87,10 +87,10 @@ class AuthService {
             profileImage: userData.profileimage, // Note: using profileimage from schema
             photoURL: userData.photourl,
             isActive: true, // Set to true since user just logged in
-            employeeId: userData.employeeid,
+            employeeId: userData.employee_id,
             isFirstLogin: userData.isfirstlogin !== undefined ? userData.isfirstlogin : false,
-            createdAt: createdAt,
-            updatedAt: updatedat,
+            createdAt: userData.created_at ? new Date(userData.created_at) : new Date(),
+            updatedAt: new Date(),
             password: undefined // Don't include password in the returned object
           };
           
@@ -128,11 +128,10 @@ async changeFirstLoginPassword(userId, newPassword) {
   .update({
     password: newPassword,
     isfirstlogin: false,
-    updatedat: new Date().toISOString()  // ✅ Correct - matches your schema
+    updated_at: new Date().toISOString()  // ✅ Correct - matches your schema
   })
   .eq('id', userId)
   .select()
-  .single();
     if (error) {
       console.error('Error changing password:', error);
       return {
@@ -323,7 +322,7 @@ async changeFirstLoginPassword(userId, newPassword) {
       if (currentUser && currentUser.id) {
         if (currentUser.id && !currentUser.id.startsWith('demo_')) {
           console.log('Setting isActive to false for user:', currentUser.id);
-          await this.updateUserActiveStatus(currentUser.id, false);
+          await this.updateUserActiveStatus(userData.id, false);
         } else {
           console.log('Demo user logout - no Supabase update needed');
         }

@@ -1,4 +1,4 @@
-name: Build & Deploy
+name: Build & Deploy the emailbackend
 
 on:
   push:
@@ -10,7 +10,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: frontend
+        working-directory: email-backend
 
     steps:
       - name: Checkout code
@@ -27,7 +27,7 @@ jobs:
         with:
           context: ./frontend
           push: true
-          tags: myaccess2021/cap:latest
+          tags: myaccess2021/email-backend:latest
 
       - name: Deploy to Dedicated Server
         uses: appleboy/ssh-action@v1.0.3
@@ -36,11 +36,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            docker pull myaccess2021/cap:latest
-            docker stop react-container2 || true
-            docker rm react-container2 || true
-            docker run -d \
-              --name react-container2 \
-              --network cap-network \
-              -p 80:80 \
-              myaccess2021/cap:latest
+            docker pull myaccess2021/email-backend:latest
+            docker stop email-backend-container || true
+            docker rm email-backend-container || true
+            docker run -d --name email-backend-container --netwrok cap-network  -p 5000:5000   myaccess2021/email-backend:latest
