@@ -162,9 +162,12 @@ const AppContent = () => {
     // Update URL for specific sections
      if (itemId === 'exam-conduct-page') {
       navigate('/dashboard/exam-conduct-page', { replace: true });
-    }else if (['inbox', 'compose', 'mails'].includes(itemId)) {
-      navigate('/dashboard/mails', { replace: true });
-     }else if (itemId === 'on-campus-data') {
+    } else if (['inbox', 'compose', 'sent', 'trash'].includes(itemId)) {
+  setActiveSection('mails'); // This makes Dashboard show EmailClient
+  setActiveEmailFolder(itemId); // This tells EmailClient which folder to open
+  navigate('/dashboard/mails', { replace: true });
+}
+else if (itemId === 'on-campus-data') {
       navigate('/dashboard/on-campus-data', { replace: true });
     } else if (itemId === 'selected-list') {
       navigate('/dashboard/selected-list', { replace: true });

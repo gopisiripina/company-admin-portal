@@ -26,7 +26,7 @@ import EmailClient from '../email/EmailClient';
 import EmployeeAttendancePage from '../hr/EmployeeAttendancePage';
 import { supabase } from '../../supabase/config';
 
-const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionChange, onToggleSidebar, isEmailAuthenticated, setIsEmailAuthenticated }) => {
+const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionChange,activeEmailFolder, onToggleSidebar, isEmailAuthenticated, setIsEmailAuthenticated }) => {
   const { Text, Title } = Typography;
   const [currentJobId, setCurrentJobId] = useState(2);
   const [searchSuggestions, setSearchSuggestions] = useState([]);
