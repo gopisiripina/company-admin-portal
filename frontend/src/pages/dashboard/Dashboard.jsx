@@ -28,7 +28,6 @@ import { supabase } from '../../supabase/config';
 
 const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionChange, onToggleSidebar, isEmailAuthenticated, setIsEmailAuthenticated }) => {
   const { Text, Title } = Typography;
-  const [searchQuery, setSearchQuery] = useState('');
   const [currentJobId, setCurrentJobId] = useState(2);
   const [searchSuggestions, setSearchSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
