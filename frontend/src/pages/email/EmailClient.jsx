@@ -60,6 +60,9 @@ const [trashEmails, setTrashEmails] = useState([]);
 const [showReply, setShowReply] = useState(false);
   const [showForward, setShowForward] = useState(false);
 
+  const [trashOffset, setTrashOffset] = useState(0);
+const [sentOffset, setSentOffset] = useState(0);
+
 
 
 const handleLogout = () => {
@@ -122,6 +125,37 @@ useEffect(() => {
   return () => window.removeEventListener('resize', handleResize);
 }, []);
 
+// EmailClient.jsx
+useEffect(() => {
+  // We only run this logic when the user becomes authenticated
+  if (isAuthenticated && emailCredentials.email) {
+    
+    // 1. Fetch Inbox immediately and set it as the active folder
+    message.info('Fetching Inbox...');
+    fetchEmails('INBOX', 10, 0).then(() => {
+        setActiveFolder('inbox');
+    });
+
+    // 2. Fetch Sent emails after 4 seconds to reduce server load
+    const sentTimeout = setTimeout(() => {
+      message.info('Fetching Sent folder...');
+      fetchEmails('sent', 10, 0);
+    }, 4000);
+
+    // 3. Fetch Trash emails after 8 seconds
+    const trashTimeout = setTimeout(() => {
+      message.info('Fetching Trash folder...');
+      fetchEmails('trash', 10, 0);
+    }, 8000);
+
+    // This is a cleanup function to prevent memory leaks
+    // It will clear the timers if the component unmounts
+    return () => {
+      clearTimeout(sentTimeout);
+      clearTimeout(trashTimeout);
+    };
+  }
+}, [isAuthenticated, emailCredentials.email]); 
 const handleEmailAuth = async (values) => {
   setLoading(true);
   
@@ -140,11 +174,14 @@ const handleEmailAuth = async (values) => {
       localStorage.setItem('emailCredentials', JSON.stringify(values));
       if (onAuthSuccess) onAuthSuccess();
       
-      // ✅ Add delay and then fetch inbox
+      // ❌ REMOVE THE SETTIMEOUT BLOCK FROM HERE
+      /*
       setTimeout(() => {
         fetchEmails('INBOX', 10, 0);
         setActiveFolder('inbox');
       }, 1000);
+      */
+
     } else {
       message.error('Authentication failed: ' + result.error);
     }
@@ -154,15 +191,14 @@ const handleEmailAuth = async (values) => {
     setLoading(false);
   }
 };
-
 const handleManualRefresh = async () => {
   switch (activeFolder) {
     case 'sent':
     case 'SENT':
-      await fetchEmails('sent', 100, 0);
+      await fetchEmails('sent', 10, 0);
       break;
     case 'trash':
-      await fetchEmails('trash', 100, 0);
+      await fetchEmails('trash', 10, 0);
       break;
     case 'inbox':
     default:
@@ -173,37 +209,30 @@ const handleManualRefresh = async () => {
 };
 
 
+// In EmailClient.jsx, replace the existing fetchEmails function with this updated version.
+
 const fetchEmails = async (folder = 'INBOX', limit = 10, offset = 0) => {
   setLoading(true);
   
   try {
     let endpoint = '/fetch';
+    let folderDisplayName = 'Inbox';
+    
+    // Standardize the request body for all folder types
     let requestBody = {
       ...emailCredentials,
-      folder,
       limit,
       offset
     };
     
-    let folderDisplayName = 'Inbox';
-
-    // Handle different folder types
     if (folder === 'SENT' || folder === 'sent') {
       endpoint = '/fetch-sent';
-      requestBody = {
-        ...emailCredentials,
-        limit: 100
-      };
       folderDisplayName = 'Sent';
     } else if (folder === 'trash') {
       endpoint = '/fetch-trash';
-      requestBody = {
-        ...emailCredentials,
-        limit: 100
-      };
       folderDisplayName = 'Trash';
     } else {
-      folderDisplayName = 'Inbox';
+      requestBody.folder = folder; // For INBOX
     }
 
     const response = await fetch(`${API_BASE}${endpoint}`, {
@@ -215,36 +244,32 @@ const fetchEmails = async (folder = 'INBOX', limit = 10, offset = 0) => {
     const result = await response.json();
     
     if (result.success) {
-      // ✅ FIX: Always update the state with fresh data
+      const fetchedEmails = result.emails || [];
       if (folder === 'SENT' || folder === 'sent') {
-        setSentEmails(result.emails || []);
-        message.success(`Loaded ${(result.emails || []).length} emails from ${folderDisplayName}`);
+        setSentEmails(fetchedEmails);
       } else if (folder === 'trash') {
-        setTrashEmails(result.emails || []);
-        message.success(`Loaded ${(result.emails || []).length} emails from ${folderDisplayName}`);
+        setTrashEmails(fetchedEmails); // Replace existing trash emails with the newly fetched ones
       } else {
         if (offset === 0) {
-          // Fresh load, replace all emails
-          setEmails(result.emails || []);
+          setEmails(fetchedEmails); // Fresh load for inbox
         } else {
-          // Pagination, append emails
-          setEmails(prev => [...prev, ...(result.emails || [])]);
+          setEmails(prev => [...prev, ...fetchedEmails]); // Pagination for inbox
         }
-        message.success(`Loaded ${(result.emails || []).length} emails from ${folderDisplayName}`);
       }
-      return result.emails || [];
+      message.success(`Loaded ${fetchedEmails.length} emails from ${folderDisplayName}`);
+      return fetchedEmails;
     } else {
-      message.error('Failed to fetch emails: ' + result.error);
+      // Display the specific error message from the server
+      message.error(`Error fetching ${folderDisplayName}: ${result.error || 'Request failed'}`);
       return [];
     }
   } catch (error) {
-    message.error('Error fetching emails: ' + error.message);
+    message.error('Network error while fetching emails: ' + error.message);
     return [];
   } finally {
     setLoading(false);
   }
-};
-// Updated sendEmail function in EmailClient.jsx
+};// Updated sendEmail function in EmailClient.jsx
 const sendEmail = async (values) => {
   setLoading(true);
 
@@ -293,6 +318,31 @@ const sendEmail = async (values) => {
   setSelectedEmail(email);
   setEmailDetailVisible(true); // Always show modal for all devices
 };
+const handleDeleteEmail = async (email) => {
+  try {
+    const response = await fetch(`${API_BASE}/move-to-trash`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: emailCredentials.email,
+        password: emailCredentials.password,
+        uid: email.uid
+      })
+    });
+
+    const result = await response.json();
+    if (result.success) {
+      message.success('Email moved to trash');
+      // Refresh inbox
+      await fetchEmails('INBOX', 10, inboxOffset);
+    } else {
+      message.error('Delete failed: ' + result.error);
+    }
+  } catch (err) {
+    message.error('Error deleting email: ' + err.message);
+  }
+};
+
 
 const menuItems = [
  {
@@ -338,7 +388,7 @@ const menuItems = [
     onClick: async () => {
       if (activeFolder === 'trash') return; // ✅ Prevent reload if already active
       setActiveFolder('trash');
-      await fetchEmails('trash', 100, 0);
+      await fetchEmails('trash', 10, 0);
       if (onFolderChange) onFolderChange('trash');
       setMobileDrawerVisible(false);
     }
@@ -509,6 +559,8 @@ const renderEmailList = () => {
                     </div>
                   }
                 />
+  
+
               </List.Item>
             )}
           />
@@ -822,27 +874,35 @@ const renderEmailInterface = () => (
     
     {/* ✅ NEW: Pagination controls */}
     {(['inbox', 'sent', 'trash'].includes(activeFolder)) && (
-      <Button
-        type="primary"
-        size="small"
-        onClick={async () => {
-          if (activeFolder === 'inbox') {
-            const nextOffset = inboxOffset + 10;
-            const result = await fetchEmails('INBOX', 10, nextOffset);
-            if (result?.length) {
-              setInboxOffset(nextOffset);
-            }
-          } else if (activeFolder === 'sent') {
-            await fetchEmails('sent', sentEmails.length + 100, 0);
-          } else if (activeFolder === 'trash') {
-            await fetchEmails('trash', trashEmails.length + 100, 0);
-          }
-        }}
-        loading={loading}
-        style={{ display: isMobile ? 'none' : 'block' }}
-      >
-        Load More
-      </Button>
+<Button
+  type="primary"
+  size="small"
+  onClick={async () => {
+    if (activeFolder === 'inbox') {
+      const nextOffset = inboxOffset + 10;
+      const result = await fetchEmails('INBOX', 10, nextOffset);
+      if (result?.length) setInboxOffset(nextOffset);
+    } else if (activeFolder === 'sent') {
+      const nextOffset = sentOffset + 10;
+      const result = await fetchEmails('sent', 10, nextOffset);
+      if (result?.length) {
+        setSentEmails(prev => [...prev, ...result]);
+        setSentOffset(nextOffset);
+      }
+    } else if (activeFolder === 'trash') {
+      const nextOffset = trashOffset + 10;
+      const result = await fetchEmails('trash', 10, nextOffset);
+      if (result?.length) {
+        setTrashEmails(prev => [...prev, ...result]);
+        setTrashOffset(nextOffset);
+      }
+    }
+  }}
+  loading={loading}
+  style={{ display: isMobile ? 'none' : 'block' }}
+>
+  Load More
+</Button>
     )}
     
     <Button 
