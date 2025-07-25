@@ -813,18 +813,31 @@ app.post('/api/email/test-connection', (req, res) => {
     });
   }
 });// Fetch emails from specific folder
+// In server.js, replace the existing '/api/email/fetch-trash' endpoint with this updated version.
+
 app.post('/api/email/fetch-trash', (req, res) => {
   const { email, password, limit = 100 } = req.body;
   const imap = new Imap(getImapConfig(email, password));
 
+  const closeConnection = () => {
+    try {
+      if (imap.state !== 'disconnected') {
+        imap.end();
+        console.log('IMAP connection for trash fetch has been closed.');
+      }
+    } catch (e) {
+      console.error('Error attempting to end IMAP connection:', e.message);
+    }
+  };
+
   imap.once('ready', () => {
-    // ✅ FIX: Try multiple trash folder names with INBOX prefix
     const possibleTrashFolders = ['INBOX.Trash', 'Trash', 'INBOX.Deleted Items', 'Deleted Items'];
     let currentFolderIndex = 0;
     
     const tryNextFolder = () => {
       if (currentFolderIndex >= possibleTrashFolders.length) {
-        return res.status(400).json({ success: false, error: 'No trash folder found' });
+        closeConnection();
+        return res.status(404).json({ success: false, error: 'Could not find a Trash folder on the server.' });
       }
       
       const folder = possibleTrashFolders[currentFolderIndex];
@@ -836,39 +849,44 @@ app.post('/api/email/fetch-trash', (req, res) => {
           return;
         }
 
+        if (box.messages.total === 0) {
+          closeConnection();
+          return res.json({ success: true, emails: [] });
+        }
+
         const emails = [];
         const startSeq = Math.max(1, box.messages.total - limit + 1);
         const f = imap.seq.fetch(`${startSeq}:${box.messages.total}`, { bodies: '', struct: true });
 
         f.on('message', (msg, seqno) => {
           const emailData = { seqno };
-
           msg.on('body', stream => {
-            let buffer = '';
-            stream.on('data', chunk => buffer += chunk.toString('utf8'));
-            stream.on('end', () => {
-              simpleParser(buffer, (err, parsed) => {
-                if (!err) {
-                  emailData.from = parsed.from?.text || '';
-                  emailData.to = parsed.to?.text || '';
-                  emailData.subject = parsed.subject || '';
-                  emailData.date = parsed.date?.toLocaleString() || '';
-                  emailData.body = parsed.html || parsed.text;
-                  emails.push(emailData);
-                }
-              });
+            simpleParser(stream, (err, parsed) => {
+              if (!err) {
+                emailData.from = parsed.from?.text || '';
+                emailData.to = parsed.to?.text || '';
+                emailData.subject = parsed.subject || '';
+                emailData.date = parsed.date?.toLocaleString() || '';
+                emailData.body = parsed.html || parsed.text;
+                emails.push(emailData);
+              }
             });
           });
-
           msg.once('attributes', attrs => {
             emailData.uid = attrs.uid;
             emailData.flags = attrs.flags;
           });
         });
 
+        f.once('error', (fetchErr) => {
+            res.status(500).json({ success: false, error: 'Failed to fetch emails from trash: ' + fetchErr.message });
+            closeConnection();
+        });
+
         f.once('end', () => {
           emails.sort((a, b) => b.seqno - a.seqno);
           res.json({ success: true, emails });
+          closeConnection();
         });
       });
     };
@@ -876,7 +894,11 @@ app.post('/api/email/fetch-trash', (req, res) => {
     tryNextFolder();
   });
 
-  imap.once('error', err => res.status(400).json({ success: false, error: err.message }));
+  imap.once('error', err => {
+      res.status(400).json({ success: false, error: 'IMAP Connection Error: ' + err.message });
+      closeConnection();
+  });
+
   imap.connect();
 });
 app.post('/api/email/fetch', (req, res) => {
