@@ -20,7 +20,7 @@ import SelectedCandidatesPage from '../job/SelectedCandidatespage';
 import CampusJobApplyPage from '../job/CampusJobApplyPage';
 import ExamConductPage from '../job/ExamConductPage';
 import EmailClient from '../email/EmailClient';
-import PayrollApp from '../hr/payroll';
+import PayrollApp from '../hr/Payroll';
 
 
 
