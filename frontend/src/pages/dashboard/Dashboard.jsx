@@ -20,6 +20,7 @@ import SelectedCandidatesPage from '../job/SelectedCandidatespage';
 import CampusJobApplyPage from '../job/CampusJobApplyPage';
 import ExamConductPage from '../job/ExamConductPage';
 import EmailClient from '../email/EmailClient';
+import PayrollApp from '../hr/payroll';
 
 
 
@@ -858,6 +859,27 @@ if (activeSection === 'employee-attendance') {
         {renderHeader("Search campus data...")}
         <main className="main-content">
           <CampusJobApplyPage userRole={userData?.role} />
+        </main>
+      </div>
+    );
+  }
+if (activeSection === 'payroll') {
+    return (
+      <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+        {renderHeader("Search payroll...")}
+        <main className="main-content">
+          <PayrollApp userRole={userData?.role} />
+        </main>
+      </div>
+    );
+  }
+
+  if (activeSection === 'selected-list') {
+    return (
+      <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+        {renderHeader("Search selected candidates...")}
+        <main className="main-content">
+          <SelectedCandidatesPage userRole={userData?.role} />
         </main>
       </div>
     );
