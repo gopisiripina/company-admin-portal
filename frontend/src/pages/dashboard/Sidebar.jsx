@@ -95,7 +95,7 @@ useEffect(() => {
       { icon: GitBranch, label: 'Recruitnig Plan', id: 'Recruiting Plan' },
       { icon: ClipboardList, label: 'New Hire Check List', id: 'New Hire Check List' },
       { icon: AlertTriangle, label: 'Employee Training Plan', id: 'issue-tracker' },
-      { icon: AlertTriangle, label: 'Payroll', id: 'Payroll' },
+      { icon: AlertTriangle, label: 'Payroll', id: 'payroll' },
       { icon: FileText, label: 'Payroll Check Template', id: 'Payroll Check Template' },
       { icon: FileText, label: 'Weekly Schedule Template', id: 'Weekly Schedule Template' },
       { icon: BookOpen, label: 'Work Schedule', id: 'Work Schedule' }
