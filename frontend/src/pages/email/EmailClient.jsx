@@ -118,7 +118,7 @@ useEffect(() => {
 
 
 
-  const API_BASE = '/api/email';
+  const API_BASE = 'https://cap.myaccessio.com/api/email';
 
   useEffect(() => {
   const handleResize = () => {
