@@ -6,6 +6,6 @@ COPY . .
 
 RUN npm install -g pm2 && npm install
 
-EXPOSE 8000
+EXPOSE 5000
 
 CMD ["pm2-runtime", "server.js", "--name", "email-backend"]
