@@ -118,7 +118,7 @@ useEffect(() => {
 
 
 
-  const API_BASE = 'http://localhost:5000/api/email';
+  const API_BASE = 'http://192.210.241.34:5000/api/email';
 
   useEffect(() => {
   const handleResize = () => {
