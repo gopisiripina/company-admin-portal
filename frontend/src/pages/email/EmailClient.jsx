@@ -19,7 +19,10 @@ import {
   Row,
   Col,
   Affix,
-  Upload
+  Upload,
+   Dropdown,
+
+  
 } from 'antd';
 import { 
   MailOutlined, 
@@ -32,7 +35,8 @@ import {
   CloseOutlined,
   MenuOutlined,
   LogoutOutlined,
-  UploadOutlined
+  UploadOutlined,
+  
 } from '@ant-design/icons';
 
 const { Header, Sider, Content } = Layout;
@@ -62,7 +66,11 @@ const [showReply, setShowReply] = useState(false);
 
   const [trashOffset, setTrashOffset] = useState(0);
 const [sentOffset, setSentOffset] = useState(0);
-
+const [hasMore, setHasMore] = useState(true);
+const [searchQuery, setSearchQuery] = useState('');
+const [isSearching, setIsSearching] = useState(false);
+const [searchDropdownVisible, setSearchDropdownVisible] = useState(false);
+const [searchResults, setSearchResults] = useState([]);
 
 
 const handleLogout = () => {
@@ -103,14 +111,14 @@ useEffect(() => {
     setEmailCredentials(creds);
     setIsAuthenticated(true);
     onAuthSuccess?.();
-    // ❌ REMOVE THIS LINE - Don't fetch on initial load
-    // fetchEmails('INBOX', 10, 0);
+    // ✅ ONLY set lastFetchTime to prevent re-fetch, don't fetch here
+    setLastFetchTime(1); // Set to 1 to prevent the fetch in the next useEffect
   }
 }, [onAuthSuccess]);
 
 
 
-  const API_BASE = 'http://192.210.241.34:5000/api/email';
+  const API_BASE = 'http://localhost:5000/api/email';
 
   useEffect(() => {
   const handleResize = () => {
@@ -126,37 +134,41 @@ useEffect(() => {
 }, []);
 
 // EmailClient.jsx
+// In EmailClient.jsx
+
 useEffect(() => {
   // We only run this logic when the user becomes authenticated
-  if (isAuthenticated && emailCredentials.email) {
+  if (isAuthenticated && emailCredentials.email && lastFetchTime === 0) {
     
     // 1. Fetch Inbox immediately and set it as the active folder
-    message.info('Fetching Inbox...');
-    fetchEmails('INBOX', 10, 0).then(() => {
+    message.info('Loading...');
+    fetchEmails('INBOX', 10, 0).then((fetchedEmails) => {
         setActiveFolder('inbox');
+        setLastFetchTime(Date.now());
+        // ✅ Initialize hasMore based on fetched emails
+        setHasMore(fetchedEmails.length === 10);
     });
 
     // 2. Fetch Sent emails after 4 seconds to reduce server load
     const sentTimeout = setTimeout(() => {
-      message.info('Fetching Sent folder...');
+      // message.info('Loading...');
       fetchEmails('sent', 10, 0);
     }, 4000);
 
     // 3. Fetch Trash emails after 8 seconds
     const trashTimeout = setTimeout(() => {
-      message.info('Fetching Trash folder...');
+      // message.info('Loading...');
       fetchEmails('trash', 10, 0);
     }, 8000);
 
     // This is a cleanup function to prevent memory leaks
-    // It will clear the timers if the component unmounts
     return () => {
       clearTimeout(sentTimeout);
       clearTimeout(trashTimeout);
     };
   }
-}, [isAuthenticated, emailCredentials.email]); 
-const handleEmailAuth = async (values) => {
+}, [isAuthenticated, emailCredentials.email, lastFetchTime]);
+ const handleEmailAuth = async (values) => {
   setLoading(true);
   
   try {
@@ -211,6 +223,8 @@ const handleManualRefresh = async () => {
 
 // In EmailClient.jsx, replace the existing fetchEmails function with this updated version.
 
+// In EmailClient.jsx, replace the existing fetchEmails function
+
 const fetchEmails = async (folder = 'INBOX', limit = 10, offset = 0) => {
   setLoading(true);
   
@@ -218,7 +232,6 @@ const fetchEmails = async (folder = 'INBOX', limit = 10, offset = 0) => {
     let endpoint = '/fetch';
     let folderDisplayName = 'Inbox';
     
-    // Standardize the request body for all folder types
     let requestBody = {
       ...emailCredentials,
       limit,
@@ -232,7 +245,7 @@ const fetchEmails = async (folder = 'INBOX', limit = 10, offset = 0) => {
       endpoint = '/fetch-trash';
       folderDisplayName = 'Trash';
     } else {
-      requestBody.folder = folder; // For INBOX
+      requestBody.folder = folder;
     }
 
     const response = await fetch(`${API_BASE}${endpoint}`, {
@@ -245,31 +258,39 @@ const fetchEmails = async (folder = 'INBOX', limit = 10, offset = 0) => {
     
     if (result.success) {
       const fetchedEmails = result.emails || [];
+      
+      // Always replace the email list for pagination view
       if (folder === 'SENT' || folder === 'sent') {
         setSentEmails(fetchedEmails);
       } else if (folder === 'trash') {
-        setTrashEmails(fetchedEmails); // Replace existing trash emails with the newly fetched ones
+        setTrashEmails(fetchedEmails);
       } else {
-        if (offset === 0) {
-          setEmails(fetchedEmails); // Fresh load for inbox
-        } else {
-          setEmails(prev => [...prev, ...fetchedEmails]); // Pagination for inbox
-        }
+        setEmails(fetchedEmails);
       }
-      message.success(`Loaded ${fetchedEmails.length} emails from ${folderDisplayName}`);
+      
+      // ✅ FIXED: Set hasMore based on actual fetched email count
+      // If we got exactly the limit, there might be more
+      // If we got less than limit, there are no more
+      setHasMore(fetchedEmails.length === limit);
+      
+      if (offset === 0) {
+          // message.success(`Refreshed ${folderDisplayName}`);
+      }
+      
       return fetchedEmails;
     } else {
-      // Display the specific error message from the server
       message.error(`Error fetching ${folderDisplayName}: ${result.error || 'Request failed'}`);
+      setHasMore(false);
       return [];
     }
   } catch (error) {
     message.error('Network error while fetching emails: ' + error.message);
+    setHasMore(false);
     return [];
   } finally {
     setLoading(false);
   }
-};// Updated sendEmail function in EmailClient.jsx
+};
 const sendEmail = async (values) => {
   setLoading(true);
 
@@ -318,32 +339,98 @@ const sendEmail = async (values) => {
   setSelectedEmail(email);
   setEmailDetailVisible(true); // Always show modal for all devices
 };
-const handleDeleteEmail = async (email) => {
-  try {
-    const response = await fetch(`${API_BASE}/move-to-trash`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: emailCredentials.email,
-        password: emailCredentials.password,
-        uid: email.uid
-      })
+// ✅ NEW: Function to move an email from Inbox or Sent to Trash
+// ✅ NEW: Function to move an email from Inbox or Sent to Trash
+// ✅ IMPROVED: Function to move email to trash with optimistic UI update
+const handleMoveToTrash = async (email, sourceFolder) => {
+    // We keep the Modal.confirm for safety
+    Modal.confirm({
+        title: 'Move to Trash?',
+        content: 'Are you sure you want to move this email to the trash?',
+        okText: 'Move',
+        okType: 'danger',
+        onOk: async () => {
+            // Send the request to the server in the background
+            try {
+                const response = await fetch(`${API_BASE}/move-to-trash`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...emailCredentials,
+                        uid: email.uid,
+                        sourceFolder: sourceFolder,
+                    }),
+                });
+
+                const result = await response.json();
+                if (!result.success) {
+                    // If the server fails, show an error and stop.
+                    message.error('Move to trash failed: ' + result.error);
+                    return; 
+                }
+
+            } catch (err) {
+                message.error('Error moving email: ' + err.message);
+                return;
+            }
+
+            // --- Optimistic UI Update ---
+            // This code runs immediately after the server call starts,
+            // assuming it will be successful.
+
+            message.success('Email moved to trash');
+
+            // 1. Remove the email from its original folder's state
+            if (sourceFolder === 'inbox') {
+                setEmails(prevEmails => prevEmails.filter(e => e.uid !== email.uid));
+            } else if (sourceFolder === 'sent') {
+                setSentEmails(prevEmails => prevEmails.filter(e => e.uid !== email.uid));
+            }
+
+            // 2. Add the email to the beginning of the trash folder's state
+            setTrashEmails(prevTrash => [email, ...prevTrash]);
+
+            // 3. Close the email detail modal if it's open
+            if (selectedEmail?.uid === email.uid) {
+                setEmailDetailVisible(false);
+                setSelectedEmail(null);
+            }
+        },
     });
+};// ✅ NEW: Function to permanently delete an email from the Trash folder
+const handlePermanentDelete = async (email) => {
+    Modal.confirm({
+        title: 'Permanently Delete?',
+        content: 'This action is irreversible. Are you sure you want to permanently delete this email?',
+        okText: 'Delete Forever',
+        okType: 'danger',
+        onOk: async () => {
+            setLoading(true);
+            try {
+                const response = await fetch(`${API_BASE}/delete-permanently`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...emailCredentials,
+                        uid: email.uid,
+                    }),
+                });
 
-    const result = await response.json();
-    if (result.success) {
-      message.success('Email moved to trash');
-      // Refresh inbox
-      await fetchEmails('INBOX', 10, inboxOffset);
-    } else {
-      message.error('Delete failed: ' + result.error);
-    }
-  } catch (err) {
-    message.error('Error deleting email: ' + err.message);
-  }
+                const result = await response.json();
+                if (result.success) {
+                    message.success('Email permanently deleted');
+                    await handleManualRefresh(); // Refresh the trash folder
+                } else {
+                    message.error('Permanent delete failed: ' + result.error);
+                }
+            } catch (err) {
+                message.error('Error deleting email: ' + err.message);
+            } finally {
+                setLoading(false);
+            }
+        },
+    });
 };
-
-
 const menuItems = [
  {
     key: 'inbox',
@@ -467,111 +554,111 @@ const menuItems = [
     </div>
   );
 
+// ✅ UPDATED: Function to render the list of emails with mobile-friendly UI and delete functionality
 const renderEmailList = () => {
-  let currentEmails = [];
-  let folderTitle = '';
-  let folderIcon = null;
-  let showLoadMore = false;
-  
-  switch (activeFolder) {
-    case 'sent':
-    case 'SENT':
-      currentEmails = sentEmails;
-      folderTitle = 'Sent';
-      folderIcon = <SendOutlined />;
-      showLoadMore = sentEmails.length >= 100 && sentEmails.length % 100 === 0;
-      break;
-    case 'trash':
-      currentEmails = trashEmails;
-      folderTitle = 'Trash';
-      folderIcon = <DeleteOutlined />;
-      showLoadMore = trashEmails.length >= 100 && trashEmails.length % 100 === 0;
-      break;
-    default:
-      currentEmails = emails;
-      folderTitle = 'Inbox';
-      folderIcon = <InboxOutlined />;
-      showLoadMore = emails.length > 0;
-  }
-  
-  return (
-    <>
-      <Card 
-        title={
-          <Space>
-            {folderIcon}
-            <span>{folderTitle}</span>
-            <Badge count={currentEmails.length} style={{ backgroundColor: '#52c41a' }} />
-          </Space>
-        }
-        extra={
-          <Button 
-            icon={<ReloadOutlined />}
-            onClick={handleManualRefresh}
-            loading={loading}
-            type="text"
-          >
-            {!isMobile && 'Refresh'}
-          </Button>
-        }
-        style={{ height: '100%' }}
-        bodyStyle={{ 
-          height: 'calc(100% - 57px)', 
-          overflow: 'auto',
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-          '&::-webkit-scrollbar': {
-            display: 'none'
-          }
-        }}
-      >
-        <Spin spinning={loading}>
-          <List
-            itemLayout="horizontal"
-            dataSource={currentEmails}
-            renderItem={(email, index) => (
-              <List.Item
-                onClick={() => handleEmailClick(email)}
-                style={{
-                  cursor: 'pointer',
-                  padding: isTablet ? '16px 20px' : '12px 16px',
-                  backgroundColor: selectedEmail === email ? '#f0f2ff' : 'white',
-                  borderBottom: '1px solid #f0f0f0'
-                }}
-              >
-                <List.Item.Meta
-                  avatar={<Avatar icon={<UserOutlined />} size={isTablet ? 'large' : 'default'} />}
-                  title={
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text strong style={{ fontSize: isMobile ? 14 : isTablet ? 15 : 16 }}>
-                        {(activeFolder === 'sent' || activeFolder === 'SENT') ? `To: ${email.to}` : email.from}
-                      </Text>
-                      <Text type="secondary" style={{ fontSize: isTablet ? 13 : 12 }}>
-                        {email.date}
-                      </Text>
-                    </div>
-                  }
-                  description={
-                    <div>
-                      <Text style={{ fontSize: isMobile ? 13 : isTablet ? 14 : 14 }}>
-                        {email.subject}
-                      </Text>
-                    </div>
-                  }
-                />
-  
+    let currentEmails = [];
+    let folderTitle = '';
+    let folderIcon = null;
 
-              </List.Item>
-            )}
-          />
-        </Spin>
-      </Card>
-      
-      {/* ✅ NEW: Universal Load More Button */}
-    
-    </>
-  );
-};// Update renderCompose to use form instance
+    switch (activeFolder) {
+        case 'sent':
+        case 'SENT':
+            currentEmails = sentEmails;
+            folderTitle = 'Sent';
+            folderIcon = <SendOutlined />;
+            break;
+        case 'trash':
+            currentEmails = trashEmails;
+            folderTitle = 'Trash';
+            folderIcon = <DeleteOutlined />;
+            break;
+        default:
+            currentEmails = emails;
+            folderTitle = 'Inbox';
+            folderIcon = <InboxOutlined />;
+    }
+
+    return (
+        <Card
+            title={
+                <Space>
+                    {folderIcon}
+                    <span>{folderTitle}</span>
+                    <Badge count={currentEmails.length} style={{ backgroundColor: '#52c41a' }} />
+                </Space>
+            }
+            extra={
+                <Button
+                    icon={<ReloadOutlined />}
+                    onClick={handleManualRefresh}
+                    loading={loading}
+                    type="text"
+                >
+                    {!isMobile && 'Refresh'}
+                </Button>
+            }
+            style={{ height: '100%' }}
+            bodyStyle={{ height: 'calc(100% - 57px)', overflowY: 'auto', padding: '0' }}
+        >
+            <Spin spinning={loading && currentEmails.length === 0}>
+                <List
+                    itemLayout="horizontal"
+                    dataSource={currentEmails}
+                    renderItem={(email) => {
+                        const isSentFolder = activeFolder === 'sent' || activeFolder === 'SENT';
+                        const fromOrTo = isSentFolder ? `To: ${email.to}` : email.from;
+
+                        return (
+                            <List.Item
+                                style={{
+                                    cursor: 'pointer',
+                                    padding: '12px 16px',
+                                    backgroundColor: selectedEmail?.uid === email.uid ? '#e6f7ff' : 'white',
+                                    borderBottom: '1px solid #f0f0f0',
+                                }}
+                                actions={!loading ? [
+                                    <Button
+                                        type="text"
+                                        danger
+                                        icon={<DeleteOutlined />}
+                                        onClick={(e) => {
+                                            e.stopPropagation(); // Prevent modal from opening
+                                            if (activeFolder === 'trash') {
+                                                handlePermanentDelete(email);
+                                            } else {
+                                                handleMoveToTrash(email, activeFolder);
+                                            }
+                                        }}
+                                    />
+                                ] : []}
+                                onClick={() => handleEmailClick(email)}
+                            >
+                                <List.Item.Meta
+                                    avatar={<Avatar icon={<UserOutlined />} style={{ marginTop: '4px' }} />}
+                                    title={
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', alignItems: 'center' }}>
+                                            <Text strong style={{ flex: '1 1 auto', marginRight: '8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {fromOrTo}
+                                            </Text>
+                                            <Text type="secondary" style={{ fontSize: 12, flexShrink: 0 }}>
+                                                {email.date}
+                                            </Text>
+                                        </div>
+                                    }
+                                    description={
+                                        <Paragraph ellipsis={{ rows: 2 }} style={{ margin: 0, fontSize: 14 }}>
+                                            {email.subject}
+                                        </Paragraph>
+                                    }
+                                />
+                            </List.Item>
+                        );
+                    }}
+                />
+            </Spin>
+        </Card>
+    );
+};
 const renderCompose = () => (
   <Card 
     title={
@@ -843,83 +930,244 @@ const renderEmailDetail = () => {
     </div>
   );
 };// Update the main render to handle sent folder
+// In EmailClient.jsx, replace the existing renderEmailInterface function
+const handleSearch = async (query) => {
+  setSearchQuery(query);
+  
+  if (!query.trim()) {
+    setSearchDropdownVisible(false);
+    setSearchResults([]);
+    return;
+  }
+  
+  setIsSearching(true);
+  
+  try {
+    let currentEmails = [];
+    
+    // Get current folder emails
+    switch (activeFolder) {
+      case 'sent':
+        currentEmails = sentEmails.length > 0 ? sentEmails : await fetchEmails('sent', 100, 0);
+        break;
+      case 'trash':
+        currentEmails = trashEmails.length > 0 ? trashEmails : await fetchEmails('trash', 50, 0);
+        break;
+      default:
+        currentEmails = emails.length > 0 ? emails : await fetchEmails('INBOX', 50, 0);
+    }
+    
+    // Fuzzy search with scoring
+    const scoredResults = currentEmails
+      .map(email => ({
+        ...email,
+        score: calculateFuzzyScore(email, query)
+      }))
+      .filter(email => email.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8); // Limit to 8 results for dropdown
+    
+    setSearchResults(scoredResults);
+    setSearchDropdownVisible(scoredResults.length > 0);
+    
+  } catch (error) {
+    console.error('Search failed:', error);
+    setSearchResults([]);
+    setSearchDropdownVisible(false);
+  } finally {
+    setIsSearching(false);
+  }
+};
+const calculateFuzzyScore = (email, query) => {
+  const queryLower = query.toLowerCase();
+  let score = 0;
+  
+  // Subject matching (highest priority)
+  if (email.subject) {
+    const subject = email.subject.toLowerCase();
+    if (subject.includes(queryLower)) {
+      score += 10;
+    } else if (fuzzyMatch(subject, queryLower)) {
+      score += 6;
+    }
+  }
+  
+  // From/To matching
+  if (email.from && email.from.toLowerCase().includes(queryLower)) {
+    score += 8;
+  } else if (email.from && fuzzyMatch(email.from.toLowerCase(), queryLower)) {
+    score += 4;
+  }
+  
+  if (email.to && email.to.toLowerCase().includes(queryLower)) {
+    score += 8;
+  } else if (email.to && fuzzyMatch(email.to.toLowerCase(), queryLower)) {
+    score += 4;
+  }
+  
+  // Body matching (lowest priority)
+  if (email.body) {
+    const bodyText = email.body.replace(/<[^>]*>/g, '').toLowerCase();
+    if (bodyText.includes(queryLower)) {
+      score += 3;
+    } else if (fuzzyMatch(bodyText, queryLower)) {
+      score += 1;
+    }
+  }
+  
+  return score;
+};
+
+// 4. Add this function to handle search result selection
+const handleSearchResultSelect = (email) => {
+  setSelectedEmail(email);
+  setEmailDetailVisible(true);
+  setSearchDropdownVisible(false);
+  setSearchQuery('');
+};
+
+const fuzzyMatch = (text, query) => {
+  if (!text || !query) return false;
+  
+  text = text.toLowerCase();
+  query = query.toLowerCase();
+  
+  // Exact match gets highest priority
+  if (text.includes(query)) return true;
+  
+  // Fuzzy matching - check if all characters of query exist in text in order
+  let textIndex = 0;
+  let queryIndex = 0;
+  
+  while (textIndex < text.length && queryIndex < query.length) {
+    if (text[textIndex] === query[queryIndex]) {
+      queryIndex++;
+    }
+    textIndex++;
+  }
+  
+  return queryIndex === query.length;
+};
+
 const renderEmailInterface = () => (
-  <Layout style={{ height: '100vh', overflow: 'hidden' }}>
-<Header style={{ 
-  background: '#fff', 
+  
+  <Layout style={{ height: '100vh', overflow: 'hidden', background: 'transparent' }}>
+<Header style={{
+  background: '#fff',
   padding: '0 16px',
   boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
   display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between'
+  alignItems: 'center', // ✅ This ensures vertical centering
+  justifyContent: 'space-between',
+  height: 64,
+  minHeight: 64 // ✅ Add minHeight for consistency
 }}>
-  
-  <div style={{ display: 'flex', alignItems: 'center' }}>
-    <Space>
-      <Avatar icon={<MailOutlined />} style={{ backgroundColor: '#0D7139' }} />
-      <Title level={4} style={{ margin: 0 }}>
-        {isTablet ? 'Email' : 'Email Client'}
-      </Title>
-    </Space>
+  <div style={{ 
+    display: 'flex', 
+    alignItems: 'center', // ✅ Ensure items are vertically centered
+    flex: 1,
+    maxWidth: 'calc(100% - 200px)',
+    gap: 12 // ✅ Add consistent gap instead of margin
+  }}>
+    <Avatar 
+      icon={<MailOutlined />} 
+      style={{ 
+        backgroundColor: '#0D7139',
+        flexShrink: 0 // ✅ Prevent avatar from shrinking
+      }} 
+    />
+    <Input.Search
+      placeholder="Search emails..."
+      value={searchQuery}
+      onChange={(e) => setSearchQuery(e.target.value)}
+      onSearch={handleSearch}
+      style={{ 
+        width: isMobile ? 200 : 300,
+        flexShrink: 0 // ✅ Prevent search from shrinking
+      }}
+      loading={isSearching}
+    />
   </div>
-  
-  {/* ✅ FIX: Add pagination beside logout */}
-  <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-    <Text type="secondary" style={{ 
-      fontSize: isTablet ? 14 : 16,
-      display: isMobile ? 'none' : 'block'
-    }}>
-      {emailCredentials.email}
-    </Text>
-    
-    {/* ✅ NEW: Pagination controls */}
-    {(['inbox', 'sent', 'trash'].includes(activeFolder)) && (
-<Button
-  type="primary"
-  size="small"
-  onClick={async () => {
-    if (activeFolder === 'inbox') {
-      const nextOffset = inboxOffset + 10;
-      const result = await fetchEmails('INBOX', 10, nextOffset);
-      if (result?.length) setInboxOffset(nextOffset);
-    } else if (activeFolder === 'sent') {
-      const nextOffset = sentOffset + 10;
-      const result = await fetchEmails('sent', 10, nextOffset);
-      if (result?.length) {
-        setSentEmails(prev => [...prev, ...result]);
-        setSentOffset(nextOffset);
+      {/* Professional Pagination and Logout */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+
+        {/* Pagination Buttons */}
+
+{/* Pagination Buttons */}
+{(['inbox', 'sent', 'trash'].includes(activeFolder)) && (
+  <Space size={8}>
+    <Button
+      size={isMobile ? "middle" : "small"}
+      onClick={() => {
+        if (activeFolder === 'inbox') {
+          const prevOffset = Math.max(0, inboxOffset - 10);
+          setInboxOffset(prevOffset);
+          fetchEmails('INBOX', 10, prevOffset);
+        } else if (activeFolder === 'sent') {
+          const prevOffset = Math.max(0, sentOffset - 10);
+          setSentOffset(prevOffset);
+          fetchEmails('sent', 10, prevOffset);
+        } else if (activeFolder === 'trash') {
+          const prevOffset = Math.max(0, trashOffset - 10);
+          setTrashOffset(prevOffset);
+          fetchEmails('trash', 10, trashOffset);
+        }
+      }}
+      disabled={
+        (activeFolder === 'inbox' && inboxOffset === 0) ||
+        (activeFolder === 'sent' && sentOffset === 0) ||
+        (activeFolder === 'trash' && trashOffset === 0) ||
+        loading
       }
-    } else if (activeFolder === 'trash') {
-      const nextOffset = trashOffset + 10;
-      const result = await fetchEmails('trash', 10, nextOffset);
-      if (result?.length) {
-        setTrashEmails(prev => [...prev, ...result]);
-        setTrashOffset(nextOffset);
-      }
-    }
-  }}
-  loading={loading}
-  style={{ display: isMobile ? 'none' : 'block' }}
->
-  Load More
-</Button>
-    )}
-    
-    <Button 
-      type="text" 
-      onClick={handleLogout}
-      icon={<LogoutOutlined />}
+      title="Previous" // This shows on hover
+      style={{ minWidth: 32 }}
     >
-      Logout
+      ←
     </Button>
-  </div>
-</Header>    
-    <Content style={{ 
-      padding: isTablet ? 12 : 16, 
-      background: '#f0f2f5',
-      height: 'calc(100vh - 64px)', 
-      overflow: 'hidden'
-    }}>
+    <Button
+      size={isMobile ? "middle" : "small"}
+      onClick={() => {
+        if (activeFolder === 'inbox') {
+          const nextOffset = inboxOffset + 10;
+          setInboxOffset(nextOffset);
+          fetchEmails('INBOX', 10, nextOffset);
+        } else if (activeFolder === 'sent') {
+          const nextOffset = sentOffset + 10;
+          setSentOffset(nextOffset);
+          fetchEmails('sent', 10, nextOffset);
+        } else if (activeFolder === 'trash') {
+          const nextOffset = trashOffset + 10;
+          setTrashOffset(nextOffset);
+          fetchEmails('trash', 10, nextOffset);
+        }
+      }}
+      disabled={!hasMore || loading}
+      title="Next" // This shows on hover
+      style={{ minWidth: 32 }}
+    >
+      →
+    </Button>
+  </Space>
+)}
+        <Button
+          type="text"
+          onClick={handleLogout}
+          icon={<LogoutOutlined />}
+          size={isMobile ? "middle" : "small"}
+        >
+          {!isMobile && 'Logout'}
+        </Button>
+      </div>
+    </Header>
+    <Content
+      style={{
+        padding: isTablet ? 12 : 16,
+        background: 'transparent',
+        height: 'calc(100vh - 64px)',
+        overflow: 'hidden'
+      }}
+    >
+
       <div style={{ height: '100%', overflow: 'hidden' }}>
         {(['inbox', 'sent', 'trash'].includes(activeFolder)) && renderEmailList()}
         {activeFolder === 'compose' && renderCompose()}
@@ -927,27 +1175,26 @@ const renderEmailInterface = () => (
       </div>
     </Content>
 
- <Modal
-  title={selectedEmail?.subject}
-  open={emailDetailVisible}
-  onCancel={() => {
-    setEmailDetailVisible(false);
-    setSelectedEmail(null);
-  }}
-  footer={null}
-  width={isMobile ? "95%" : isTablet ? "90%" : "70%"}
-  style={{ top: isMobile ? 20 : isTablet ? 40 : 50 }}
-  bodyStyle={{ 
-    padding: isMobile ? 16 : isTablet ? 20 : 24,
-    maxHeight: isMobile ? '80vh' : isTablet ? '70vh' : '75vh',
-    overflow: 'auto'
-  }}
->
-  {selectedEmail && renderEmailDetail()}
-</Modal>
+    <Modal
+      title={selectedEmail?.subject}
+      open={emailDetailVisible}
+      onCancel={() => {
+        setEmailDetailVisible(false);
+        setSelectedEmail(null);
+      }}
+      footer={null}
+      width={isMobile ? "95%" : isTablet ? "90%" : "70%"}
+      style={{ top: isMobile ? 20 : isTablet ? 40 : 50 }}
+      bodyStyle={{
+        padding: isMobile ? 16 : isTablet ? 20 : 24,
+        maxHeight: isMobile ? '80vh' : isTablet ? '70vh' : '75vh',
+        overflow: 'auto'
+      }}
+    >
+      {selectedEmail && renderEmailDetail()}
+    </Modal>
   </Layout>
-);  // Update the return statement
-  return (
+);  return (
     <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       {!isAuthenticated ? renderAuthForm() : renderEmailInterface()}
     </div>

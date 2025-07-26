@@ -726,7 +726,8 @@ authTimeout: 10000,
   keepalive: {
     interval: 10000,
     forceNoop: true
-  }
+  },
+  family: 4 
 });
 
 
@@ -746,7 +747,8 @@ greetingTimeout: 60000,
 
   tls: {
     rejectUnauthorized: false
-  }
+  },
+  family: 4 
 });
 // Test email connection
 app.post('/api/email/test-connection', (req, res) => {
@@ -815,90 +817,61 @@ app.post('/api/email/test-connection', (req, res) => {
 });// Fetch emails from specific folder
 // In server.js, replace the existing '/api/email/fetch-trash' endpoint with this updated version.
 
+// ✅ FINAL FIX: Fetch trash items directly from the correct folder
 app.post('/api/email/fetch-trash', (req, res) => {
   const { email, password, limit = 100 } = req.body;
+  const trashFolderName = 'INBOX.Trash'; // Use the correct, fully-qualified name.
   const imap = new Imap(getImapConfig(email, password));
 
-  const closeConnection = () => {
-    try {
-      if (imap.state !== 'disconnected') {
-        imap.end();
-        console.log('IMAP connection for trash fetch has been closed.');
-      }
-    } catch (e) {
-      console.error('Error attempting to end IMAP connection:', e.message);
-    }
-  };
-
   imap.once('ready', () => {
-    const possibleTrashFolders = ['INBOX.Trash', 'Trash', 'INBOX.Deleted Items', 'Deleted Items'];
-    let currentFolderIndex = 0;
-    
-    const tryNextFolder = () => {
-      if (currentFolderIndex >= possibleTrashFolders.length) {
-        closeConnection();
-        return res.status(404).json({ success: false, error: 'Could not find a Trash folder on the server.' });
+    imap.openBox(trashFolderName, true, (err, box) => {
+      if (err) {
+        imap.end();
+        return res.status(400).json({ success: false, error: `Could not open Trash folder (${trashFolderName}): ${err.message}` });
       }
-      
-      const folder = possibleTrashFolders[currentFolderIndex];
-      
-      imap.openBox(folder, true, (err, box) => {
-        if (err) {
-          currentFolderIndex++;
-          tryNextFolder();
-          return;
-        }
 
-        if (box.messages.total === 0) {
-          closeConnection();
-          return res.json({ success: true, emails: [] });
-        }
+      if (box.messages.total === 0) {
+        imap.end();
+        return res.json({ success: true, emails: [] });
+      }
 
-        const emails = [];
-        const startSeq = Math.max(1, box.messages.total - limit + 1);
-        const f = imap.seq.fetch(`${startSeq}:${box.messages.total}`, { bodies: '', struct: true });
+      const emails = [];
+      const startSeq = Math.max(1, box.messages.total - limit + 1);
+      const f = imap.seq.fetch(`${startSeq}:${box.messages.total}`, { bodies: '', struct: true });
 
-        f.on('message', (msg, seqno) => {
-          const emailData = { seqno };
-          msg.on('body', stream => {
+      f.on('message', (msg, seqno) => {
+        let emailData = { seqno };
+        msg.once('attributes', (attrs) => {
+            emailData.uid = attrs.uid; // Make sure UID is captured
+        });
+        msg.on('body', (stream) => {
             simpleParser(stream, (err, parsed) => {
-              if (!err) {
-                emailData.from = parsed.from?.text || '';
-                emailData.to = parsed.to?.text || '';
-                emailData.subject = parsed.subject || '';
-                emailData.date = parsed.date?.toLocaleString() || '';
-                emailData.body = parsed.html || parsed.text;
-                emails.push(emailData);
-              }
+                if (parsed) {
+                    emailData.from = parsed.from?.text || '';
+                    emailData.to = parsed.to?.text || '';
+                    emailData.subject = parsed.subject || '';
+                    emailData.date = parsed.date?.toLocaleString() || '';
+                    emailData.body = parsed.html || parsed.text || '';
+                    emails.push(emailData);
+                }
             });
-          });
-          msg.once('attributes', attrs => {
-            emailData.uid = attrs.uid;
-            emailData.flags = attrs.flags;
-          });
-        });
-
-        f.once('error', (fetchErr) => {
-            res.status(500).json({ success: false, error: 'Failed to fetch emails from trash: ' + fetchErr.message });
-            closeConnection();
-        });
-
-        f.once('end', () => {
-          emails.sort((a, b) => b.seqno - a.seqno);
-          res.json({ success: true, emails });
-          closeConnection();
         });
       });
-    };
-    
-    tryNextFolder();
+
+      f.once('error', (fetchErr) => {
+        imap.end();
+        res.status(500).json({ success: false, error: 'Failed to fetch emails from trash: ' + fetchErr.message });
+      });
+
+      f.once('end', () => {
+        imap.end();
+        emails.sort((a, b) => b.seqno - a.seqno);
+        res.json({ success: true, emails });
+      });
+    });
   });
 
-  imap.once('error', err => {
-      res.status(400).json({ success: false, error: 'IMAP Connection Error: ' + err.message });
-      closeConnection();
-  });
-
+  imap.once('error', (err) => res.status(400).json({ success: false, error: 'IMAP Connection Error: ' + err.message }));
   imap.connect();
 });
 app.post('/api/email/fetch', (req, res) => {
@@ -1010,19 +983,35 @@ const endSeq = Math.max(1, end);
 // Send email
 
 // Get email folders
+// Get email folders
+// Get email folders
 app.post('/api/email/folders', (req, res) => {
   const { email, password } = req.body;
   
   const imap = new Imap(getImapConfig(email, password));
   
   imap.once('ready', () => {
-    imap.getBoxes((err, boxes) => {
+    // ✅ FIX: Change getBoxes() to getBoxes('*', ...).
+    // The '*' wildcard tells the IMAP server to list ALL folders,
+    // including nested ones like 'INBOX.Sent' and 'INBOX.Trash'.
+    imap.getBoxes('*', (err, boxes) => {
       if (err) {
+        imap.end();
         return res.status(400).json({ success: false, error: err.message });
       }
       
       imap.end();
-      res.json({ success: true, folders: boxes });
+
+      const sanitizedFolders = Object.keys(boxes).reduce((acc, key) => {
+        if (boxes[key]) { 
+            acc[key] = {
+                attribs: boxes[key].attribs || []
+            };
+        }
+        return acc;
+      }, {});
+
+      res.json({ success: true, folders: sanitizedFolders });
     });
   });
   
@@ -1166,108 +1155,196 @@ if (result.messageId) {
     code: lastError.code || 'UNKNOWN_ERROR'
   });
 });// Add this new endpoint after the existing fetch endpoint
-app.post('/api/email/fetch-sent', (req, res) => {
-  const { email, password, limit = 100 } = req.body;
-  
-  const imap = new Imap(getImapConfig(email, password));
-  let emailsProcessed = 0;
-  let totalEmails = 0;
-  
-  imap.once('ready', () => {
-    // Try different possible sent folder names
-    const possibleSentFolders = ['INBOX.Sent', 'Sent', 'SENT', 'Sent Items', 'Sent Mail'];
-    
-    let currentFolderIndex = 0;
-    
-    const tryNextFolder = () => {
-      if (currentFolderIndex >= possibleSentFolders.length) {
-        return res.status(400).json({ success: false, error: 'No sent folder found' });
-      }
-      
-      const folder = possibleSentFolders[currentFolderIndex];
-      
-      imap.openBox(folder, true, (err, box) => { // ✅ Fixed: Use the correct folder variable
-        if (err) {
-          currentFolderIndex++;
-          tryNextFolder();
-          return;
+// Helper function to find a mailbox from a list of possible names
+// ✅ REVISED AND MORE ROBUST HELPER FUNCTION
+// ✅ REVISED AND MORE ROBUST HELPER FUNCTION
+// This single function replaces both `findTrashFolder` and the old `findMailbox`.
+const findMailbox = (boxes, commonNames, attribute) => {
+    // 1. Best Method: Check for the special-use attribute (e.g., \Trash, \Sent)
+    if (attribute) {
+        for (const key in boxes) {
+            if (
+                boxes[key] &&
+                Array.isArray(boxes[key].attribs) &&
+                boxes[key].attribs.some(attr => attr.toUpperCase() === attribute.toUpperCase())
+            ) {
+                console.log(`Found mailbox '${key}' by attribute '${attribute}'`);
+                return key;
+            }
         }
-        
-        const emails = [];
-        const total = box.messages.total;
-        totalEmails = total;
-        
-        if (total === 0) {
-          return res.json({ success: true, emails: [] });
+    }
+
+    // 2. Fallback Method: Check a comprehensive list of common names (case-insensitive)
+    const boxNames = Object.keys(boxes);
+    for (const name of commonNames) {
+        const foundKey = boxNames.find(key =>
+            key.toUpperCase() === name.toUpperCase() ||
+            // Also handles cases like 'INBOX.Trash'
+            key.toUpperCase().endsWith(`.${name.toUpperCase()}`)
+        );
+        if (foundKey) {
+            console.log(`Found mailbox '${foundKey}' by common name '${name}'`);
+            return foundKey;
         }
-        
-        // Same email fetching logic as inbox
-        const startSeq = Math.max(1, total - limit + 1);
-        const endSeq = total;
-        
-        const f = imap.seq.fetch(`${startSeq}:${endSeq}`, {
-          bodies: '',
-          struct: true
-        });
-        
-        f.on('message', (msg, seqno) => {
-          const emailData = { seqno };
-          
-          msg.on('body', (stream, info) => {
-            let buffer = '';
-            
-            stream.on('data', (chunk) => {
-              buffer += chunk.toString('utf8');
-            });
-            
-            stream.once('end', () => {
-              simpleParser(buffer, (err, parsed) => {
-                if (err) {
-                  console.error('Error parsing email:', err);
-                  emailsProcessed++;
-                  return;
-                }
-                
-                emailData.from = parsed.from ? parsed.from.text : 'Unknown';
-                emailData.to = parsed.to ? parsed.to.text : 'Unknown';
-                emailData.subject = parsed.subject || 'No Subject';
-                emailData.date = parsed.date ? parsed.date.toLocaleDateString() + ' ' + parsed.date.toLocaleTimeString() : new Date().toLocaleDateString();
-                emailData.body = parsed.html || parsed.text || 'No content';
-                
-                emails.push(emailData);
-                emailsProcessed++;
-                
-                if (emailsProcessed >= (endSeq - startSeq + 1)) {
-                  imap.end();
-                  emails.sort((a, b) => b.seqno - a.seqno);
-                  res.json({ success: true, emails });
-                }
-              });
-            });
-          });
-          
-          msg.once('attributes', (attrs) => {
-            emailData.uid = attrs.uid;
-            emailData.flags = attrs.flags;
-          });
-        });
-        
-        f.once('error', (err) => {
-          console.error('Fetch error:', err);
-          res.status(400).json({ success: false, error: err.message });
-        });
-      });
+    }
+
+    console.log(`Could not find a mailbox with attribute '${attribute}' or any of the common names.`);
+    return null;
+};
+// ✅ NEW: Endpoint to move an email to the trash folder
+// ✅ NEW: Endpoint to move an email to the trash folder
+// ✅ REVISED: Endpoint to move an email to the trash folder
+// ✅ FINAL FIX: Endpoint to move an email to the trash folder
+// ✅ FINAL, DEFINITIVE FIX: Endpoint to move an email to the trash folder
+app.post('/api/email/move-to-trash', (req, res) => {
+    const { email, password, uid, sourceFolder: friendlySourceFolder } = req.body;
+
+    if (!uid || !friendlySourceFolder) {
+        return res.status(400).json({ success: false, error: 'Missing UID or source folder.' });
+    }
+
+    const imap = new Imap(getImapConfig(email, password));
+
+    // Define the REAL, fully-qualified folder names.
+    // The server error message confirmed we must use the 'INBOX.' prefix.
+    const realFolderNames = {
+        inbox: 'INBOX',
+        sent: 'INBOX.Sent',
+        trash: 'INBOX.Trash'
     };
     
-    tryNextFolder();
-  });
-  
-  imap.once('error', (err) => {
-    console.error('IMAP error:', err);
-    res.status(400).json({ success: false, error: err.message });
-  });
-  
-  imap.connect();
+    const actualSourceFolder = realFolderNames[friendlySourceFolder.toLowerCase()];
+    const trashFolderName = realFolderNames.trash; // This is 'INBOX.Trash'
+
+    if (!actualSourceFolder) {
+        imap.end(); // End connection if folder is invalid
+        return res.status(404).json({ success: false, error: `Source folder '${friendlySourceFolder}' is not valid.` });
+    }
+
+    imap.once('ready', () => {
+        imap.openBox(actualSourceFolder, false, (err, box) => {
+            if (err) {
+                imap.end();
+                return res.status(500).json({ success: false, error: `Could not open source folder ${actualSourceFolder}: ${err.message}` });
+            }
+
+            // Move the message to the 'INBOX.Trash' folder.
+            imap.move(uid, trashFolderName, (err) => {
+                if (err) {
+                    imap.end();
+                    return res.status(500).json({ success: false, error: `Failed to move email to ${trashFolderName}: ${err.message}` });
+                }
+                console.log(`Moved message ${uid} from ${actualSourceFolder} to ${trashFolderName}`);
+                imap.end();
+                res.json({ success: true, message: 'Email moved to trash successfully.' });
+            });
+        });
+    });
+
+    imap.once('error', (err) => res.status(400).json({ success: false, error: 'IMAP Connection Error: ' + err.message }));
+    imap.connect();
+});// ✅ FINAL FIX: Endpoint to permanently delete an email from the trash
+// ✅ FINAL, DEFINITIVE FIX: Endpoint to permanently delete an email from the trash
+app.post('/api/email/delete-permanently', (req, res) => {
+    const { email, password, uid } = req.body;
+
+    if (!uid) {
+        return res.status(400).json({ success: false, error: 'Missing email UID.' });
+    }
+
+    const imap = new Imap(getImapConfig(email, password));
+    const trashFolderName = 'INBOX.Trash'; // Use the correct, fully-qualified name.
+
+    imap.once('ready', () => {
+        // Open the 'INBOX.Trash' folder directly.
+        imap.openBox(trashFolderName, false, (err, box) => {
+            if (err) {
+                imap.end();
+                return res.status(500).json({ success: false, error: `Could not open Trash folder: ${err.message}` });
+            }
+
+            imap.addFlags(uid, '\\Deleted', (err) => {
+                if (err) {
+                    imap.end();
+                    return res.status(500).json({ success: false, error: 'Failed to mark email for deletion: ' + err.message });
+                }
+                
+                console.log(`Marked message ${uid} as deleted.`);
+                imap.closeBox(true, (err) => {
+                    if (err) {
+                        return res.status(500).json({ success: false, error: 'Failed to expunge email: ' + err.message });
+                    }
+                    console.log('Permanently deleted email.');
+                    res.json({ success: true, message: 'Email permanently deleted.' });
+                });
+            });
+        });
+    });
+
+    imap.once('error', (err) => res.status(400).json({ success: false, error: 'IMAP Connection Error: ' + err.message }));
+    imap.connect();
+});
+// ✅ FINAL, DEFINITIVE FIX: Fetch sent items directly from the correct folder
+// ✅ FINAL, DEFINITIVE FIX: Fetch sent items directly from the correct folder
+app.post('/api/email/fetch-sent', (req, res) => {
+    const { email, password, limit = 100 } = req.body;
+    const sentFolderName = 'INBOX.Sent'; // Use the correct, fully-qualified name.
+    const imap = new Imap(getImapConfig(email, password));
+
+    imap.once('ready', () => {
+        imap.openBox(sentFolderName, true, (err, box) => {
+            if (err) {
+                imap.end();
+                return res.status(400).json({ success: false, error: `Could not open Sent folder (${sentFolderName}): ${err.message}` });
+            }
+
+            if (box.messages.total === 0) {
+                imap.end();
+                return res.json({ success: true, emails: [] });
+            }
+
+            const emails = [];
+            const startSeq = Math.max(1, box.messages.total - limit + 1);
+            const f = imap.seq.fetch(`${startSeq}:${box.messages.total}`, { bodies: '', struct: true });
+
+            f.on('message', (msg, seqno) => {
+                let emailData = { seqno };
+                
+                // Correctly capture UID from attributes event
+                msg.once('attributes', (attrs) => {
+                    emailData.uid = attrs.uid;
+                });
+
+                // Listen for the body event to get the stream
+                msg.on('body', (stream) => {
+                    simpleParser(stream, (err, parsed) => {
+                        if (parsed) {
+                            emailData.from = parsed.from?.text || '';
+                            emailData.to = parsed.to?.text || '';
+                            emailData.subject = parsed.subject || '';
+                            emailData.date = parsed.date?.toLocaleString() || '';
+                            emailData.body = parsed.html || parsed.text || '';
+                            emails.push(emailData);
+                        }
+                    });
+                });
+            });
+
+            f.once('error', (fetchErr) => {
+                imap.end();
+                res.status(500).json({ success: false, error: 'Failed to fetch emails from sent: ' + fetchErr.message });
+            });
+
+            f.once('end', () => {
+                imap.end();
+                emails.sort((a, b) => b.seqno - a.seqno); // Sort newest first
+                res.json({ success: true, emails });
+            });
+        });
+    });
+
+    imap.once('error', (err) => res.status(400).json({ success: false, error: 'IMAP Connection Error: ' + err.message }));
+    imap.connect();
 });
 app.listen(PORT, () => {
   console.log(`Email backend server running on port ${PORT}`);
