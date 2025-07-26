@@ -184,6 +184,8 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [profileImage, setProfileImage] = useState(null);
+  const [faceEmbedding, setFaceEmbedding] = useState(null);
+  const [uploadedFile, setUploadedFile] = useState(null);
 
   useEffect(() => {
   if (isOpen) {
@@ -201,11 +203,13 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
           endDate: editingEmployee.end_date ? dayjs(editingEmployee.end_date) : null
         });
         setProfileImage(editingEmployee.profileimage || null);
+        setFaceEmbedding(editingEmployee.face_embedding || null);
       }, 0);
     } else {
       form.resetFields();
       form.setFieldsValue({ isActive: false });
       setProfileImage(null);
+      setFaceEmbedding(null);
     }
   }
 }, [editingEmployee, form, isOpen])
@@ -214,6 +218,8 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
   if (!isOpen) {
     form.resetFields();
     setProfileImage(null);
+    setFaceEmbedding(null);
+    setUploadedFile(null); // ADD THIS LINE
     // Reset to default values
     form.setFieldsValue({ 
       isActive: false,
@@ -231,128 +237,219 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
     return password;
   }, []);
 
-  const handleImageUpload = useCallback((file) => {
-    const isJpgOrPng = file.type === 'image/jpeg' || file.type === 'image/png' || file.type === 'image/jpg';
-    if (!isJpgOrPng) {
-      message.error('You can only upload JPG/PNG files!');
-      return false;
-    }
-    
-    const isLt2M = file.size / 1024 / 1024 < 2;
-    if (!isLt2M) {
-      message.error('Image must be smaller than 2MB!');
-      return false;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setProfileImage(e.target.result);
-    };
-    reader.readAsDataURL(file);
-    
+  const handleImageUpload = useCallback(async (file) => {
+  const isJpgOrPng = file.type === 'image/jpeg' || file.type === 'image/png' || file.type === 'image/jpg';
+  if (!isJpgOrPng) {
+    message.error('You can only upload JPG/PNG files!');
     return false;
-  }, []);
-
-  const handleSubmit = useCallback(async (values) => {
-    setLoading(true);
-    
-    try {
-      if (editingEmployee) {
-        // Update existing employee
-        const updateData = {
-          name: values.name,
-  email: values.email,
-  role: values.role || 'employee',
-  employee_id: values.employeeId,
-  isactive: values.isActive,
-  profileimage: profileImage,
-  // ADD THESE LINES:
-  employee_type: values.employeeType,
-  start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
-  end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null)
-  // updatedat: new Date().toISOString()
-        };
-        
-        const { data, error } = await supabaseAdmin
-          .from('users')
-          .update(updateData)
-          .eq('id', editingEmployee.id)
-          .select();
-
-        if (error) {
-          console.error('Supabase update error:', error);
-          throw error;
-        }
-        
-        message.success('Employee updated successfully');
-      } else {
-        // Create new employee
-        const password = generatePassword();
-        const employeeData = {
-          name: values.name,
-  email: values.email,
-  employee_id: values.employeeId,
-  role: 'employee',
-  isactive: values.isActive !== undefined ? values.isActive : false,
-  isfirstlogin: true,
-  profileimage: profileImage,
-  password: password,
-  // ADD THESE LINES:
-  employee_type: values.employeeType,
-  start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
-  end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null)
-  // createdat: new Date().toISOString(),
-  // updatedat: new Date().toISOString()
-        };
-        
-        const { data, error } = await supabaseAdmin
-          .from('users')
-          .insert([employeeData])
-          .select();
-
-        if (error) {
-          console.error('Supabase insert error:', error);
-          throw error;
-        }
-        
-        message.success('Employee created successfully!');
-        
-        // Send welcome email
-try {
-  const emailResult = await sendWelcomeEmail({
-    name: values.name,
-    email: values.email,
-    password: password,
-    role: 'employee'
-  });
-
-  if (emailResult.success) {
-    message.success('Welcome email sent to employee!');
-  } else {
-    message.warning('Employee created but email could not be sent. Please share credentials manually.');
   }
-} catch (emailError) {
-  console.error('Email send failed:', emailError);
-  message.warning('Employee created but email could not be sent.');
-}
+  
+  const isLt2M = file.size / 1024 / 1024 < 2;
+  if (!isLt2M) {
+    message.error('Image must be smaller than 2MB!');
+    return false;
+  }
+
+  try {
+    // Generate unique filename
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const filePath = `profile-images/${fileName}`;
+
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('profile-images')
+      .upload(filePath, file);
+
+    if (error) {
+      console.error('Upload error:', error);
+      message.error('Failed to upload image');
+      return false;
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('profile-images')
+      .getPublicUrl(filePath);
+
+    setProfileImage(publicUrl);
+    setUploadedFile(file); // Store the file for face embedding processing
+    message.success('Image uploaded successfully');
+  } catch (error) {
+    console.error('Upload error:', error);
+    message.error('Failed to upload image');
+  }
+
+  return false;
+}, []);
+
+const deleteOldProfileImage = useCallback(async (imageUrl) => {
+  if (!imageUrl || !imageUrl.includes('profile-images')) return;
+  
+  try {
+    // Extract file path from URL
+    const urlParts = imageUrl.split('/');
+    const fileName = urlParts[urlParts.length - 1];
+    const filePath = `profile-images/${fileName}`;
+
+    const { error } = await supabase.storage
+      .from('profile-images')
+      .remove([filePath]);
+
+    if (error) {
+      console.error('Error deleting old image:', error);
+    }
+  } catch (error) {
+    console.error('Error deleting old image:', error);
+  }
+}, []);
+const handleSubmit = useCallback(async (values) => {
+  setLoading(true);
+  
+  let finalFaceEmbedding = faceEmbedding;
+  
+  // If there's a new image file, get its embedding
+  if (uploadedFile && profileImage !== editingEmployee?.profileimage) {
+    try {
+      console.log('Getting face embedding for new image...');
+      const formData = new FormData();
+      formData.append('image', uploadedFile);
+      
+      const embeddingResponse = await fetch('http://192.210.241.34:8000/api/get-face-embedding/', {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (embeddingResponse.ok) {
+        const embeddingData = await embeddingResponse.json();
+        console.log('Raw embedding data:', embeddingData);
+        
+        // Check if embedding exists and is an array
+        if (embeddingData && embeddingData.embedding && Array.isArray(embeddingData.embedding)) {
+          // CONVERT STRING ARRAY TO NUMERIC ARRAY
+          finalFaceEmbedding = embeddingData.embedding.map(value => parseFloat(value));
+          console.log('Face embedding received (converted to numbers):', finalFaceEmbedding);
+          console.log('First few values:', finalFaceEmbedding.slice(0, 5));
+        } else {
+          console.error('Invalid embedding data structure:', embeddingData);
+          finalFaceEmbedding = null;
+        }
+      } else {
+        const errorText = await embeddingResponse.text();
+        console.error('Failed to get face embedding:', embeddingResponse.status, errorText);
+        finalFaceEmbedding = null;
+      }
+    } catch (error) {
+      console.error('Face embedding API error:', error);
+      finalFaceEmbedding = null;
+    }
+  }
+  
+  try {
+    if (editingEmployee) {
+      // If updating and there's a new image, delete the old one
+      if (profileImage && profileImage !== editingEmployee.profileimage) {
+        await deleteOldProfileImage(editingEmployee.profileimage);
       }
 
-      form.resetFields();
-      setProfileImage(null);
-      onSuccess();
-      onClose();
-    } catch (error) {
-      console.error('Error saving employee:', error);
+      // Update existing employee
+      const updateData = {
+        name: values.name,
+        email: values.email,
+        role: values.role || 'employee',
+        employee_id: values.employeeId,
+        isactive: values.isActive,
+        profileimage: profileImage,
+        employee_type: values.employeeType,
+        start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
+        end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
+        face_embedding: finalFaceEmbedding
+      };
       
-      if (error.code === '23505') {
-        message.error('An employee with this email already exists.');
-      } else {
-        message.error(`Error saving employee: ${error.message || 'Unknown error'}`);
+      console.log('Updating employee with data:', updateData);
+      
+      const { data, error } = await supabaseAdmin
+        .from('users')
+        .update(updateData)
+        .eq('id', editingEmployee.id)
+        .select();
+
+      if (error) {
+        console.error('Supabase update error:', error);
+        throw error;
       }
-    } finally {
-      setLoading(false);
+      
+      message.success('Employee updated successfully');
+    } else {
+      // Create new employee
+      const password = generatePassword();
+      const employeeData = {
+        name: values.name,
+        email: values.email,
+        employee_id: values.employeeId,
+        role: 'employee',
+        isactive: values.isActive !== undefined ? values.isActive : false,
+        isfirstlogin: true,
+        profileimage: profileImage,
+        password: password,
+        employee_type: values.employeeType,
+        start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
+        end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
+        face_embedding: finalFaceEmbedding
+      };
+      
+      console.log('Creating employee with data:', employeeData);
+      
+      const { data, error } = await supabaseAdmin
+        .from('users')
+        .insert([employeeData])
+        .select();
+
+      if (error) {
+        console.error('Supabase insert error:', error);
+        throw error;
+      }
+      
+      message.success('Employee created successfully!');
+      
+      // Send welcome email
+      try {
+        const emailResult = await sendWelcomeEmail({
+          name: values.name,
+          email: values.email,
+          password: password,
+          role: 'employee'
+        });
+
+        if (emailResult.success) {
+          message.success('Welcome email sent to employee!');
+        } else {
+          message.warning('Employee created but email could not be sent. Please share credentials manually.');
+        }
+      } catch (emailError) {
+        console.error('Email send failed:', emailError);
+        message.warning('Employee created but email could not be sent.');
+      }
     }
-  }, [editingEmployee, generatePassword, onSuccess, onClose, form, profileImage]);
+
+    form.resetFields();
+    setProfileImage(null);
+    setFaceEmbedding(null);
+    setUploadedFile(null);
+    onSuccess();
+    onClose();
+  } catch (error) {
+    console.error('Error saving employee:', error);
+    
+    if (error.code === '23505') {
+      message.error('An employee with this email already exists.');
+    } else {
+      message.error(`Error saving employee: ${error.message || 'Unknown error'}`);
+    }
+  } finally {
+    setLoading(false);
+  }
+}, [editingEmployee, generatePassword, onSuccess, onClose, form, profileImage, deleteOldProfileImage, faceEmbedding, uploadedFile]);
 
   return (
     <Modal
@@ -392,15 +489,20 @@ try {
               </Button>
             </Upload>
             {profileImage && (
-              <Button 
-                type="link" 
-                danger 
-                onClick={() => setProfileImage(null)}
-                size="small"
-              >
-                Remove
-              </Button>
-            )}
+  <Button 
+    type="link" 
+    danger 
+    onClick={async () => {
+      if (profileImage.includes('profile-images')) {
+        await deleteOldProfileImage(profileImage);
+      }
+      setProfileImage(null);
+    }}
+    size="small"
+  >
+    Remove
+  </Button>
+)}
           </div>
         </Form.Item>
 
@@ -561,7 +663,8 @@ const [filters, setFilters] = useState({
     start_date,
     end_date,
     created_at,
-    updated_at
+    updated_at,
+    face_embedding
   `)
   .eq('role', 'employee')
   .order('created_at', { ascending: false });
@@ -570,6 +673,17 @@ const [filters, setFilters] = useState({
         console.error('Fetch error:', error);
         throw error;
       }
+      console.log('All employees with face embeddings:');
+    data?.forEach((employee, index) => {
+      console.log(`Employee ${index + 1}:`, {
+        name: employee.name,
+        email: employee.email,
+        employee_id: employee.employee_id,
+        face_embedding: employee.face_embedding,
+        face_embedding_length: employee.face_embedding ? employee.face_embedding.length : 0,
+        has_face_embedding: !!employee.face_embedding
+      });
+    });
       
       setAllEmployees(data || []);
       return data || [];
