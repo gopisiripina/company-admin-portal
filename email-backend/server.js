@@ -13,10 +13,6 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const multer = require('multer');
 const upload = multer().array('attachments');
-const sslServer = https.createServer({
-  key: fs.readFileSync('./ssl/key.pem'),
-  cert: fs.readFileSync('./ssl/cert.pem'),
-}, app);
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
@@ -1349,6 +1345,6 @@ app.post('/api/email/fetch-sent', (req, res) => {
     imap.once('error', (err) => res.status(400).json({ success: false, error: 'IMAP Connection Error: ' + err.message }));
     imap.connect();
 });
-sslServer.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`Email backend server running on port ${PORT}`);
 });
