@@ -38,7 +38,7 @@ import {
   UploadOutlined,
   
 } from '@ant-design/icons';
-
+import axios from 'axios';
 const { Header, Sider, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -172,13 +172,7 @@ useEffect(() => {
   setLoading(true);
   
   try {
-    const response = await fetch(`${API_BASE}/test-connection`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(values)
-    });
-    
-    const result = await response.json();
+    const { data: result } = await axios.post(`${API_BASE}/test-connection`, values);
     
     if (result.success) {
       setIsAuthenticated(true);
@@ -248,13 +242,7 @@ const fetchEmails = async (folder = 'INBOX', limit = 10, offset = 0) => {
       requestBody.folder = folder;
     }
 
-    const response = await fetch(`${API_BASE}${endpoint}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody)
-    });
-    
-    const result = await response.json();
+    const { data: result } = await axios.post(`${API_BASE}${endpoint}`, requestBody);
     
     if (result.success) {
       const fetchedEmails = result.emails || [];
