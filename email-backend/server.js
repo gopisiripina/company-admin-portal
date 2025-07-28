@@ -13,7 +13,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const multer = require('multer');
 const upload = multer().array('attachments');
-import https from 'https';
+const https = require('https');
 const options = {
   key: fs.readFileSync('/etc/letsencrypt/live/cap.myaccessio.com/privkey.pem'),
   cert: fs.readFileSync('/etc/letsencrypt/live/cap.myaccessio.com/fullchain.pem')
