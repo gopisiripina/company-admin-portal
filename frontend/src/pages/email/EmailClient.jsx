@@ -203,7 +203,7 @@ useEffect(() => {
 }, [isAuthenticated, emailCredentials.email]); // Dependencies are correct
 
 
-  const API_BASE = 'https://cap.myaccessio.com:5000/api/email';
+  const API_BASE = '/api/email';
 
   useEffect(() => {
   const handleResize = () => {
