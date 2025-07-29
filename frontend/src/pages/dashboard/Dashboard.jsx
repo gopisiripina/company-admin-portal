@@ -1,8 +1,7 @@
-import React, { useState, useEffect} from 'react';
-import { Search, Bell, Users, DollarSign, ShoppingCart, TrendingUp, Calendar, Clock, Star, ArrowUpRight, ArrowDownRight, Activity, Zap, Menu} from 'lucide-react';
-import { Row, Col, Statistic, Button, Card, Space,Typography, Badge, Modal, Flex} from 'antd';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, Bell, Users, DollarSign, ShoppingCart,  TrendingUp, Calendar,Camera , Clock, Star, ArrowUpRight, ArrowDownRight, Activity, Zap, Menu} from 'lucide-react';
+import {Row, Col, Statistic, Button, Card, Space,Typography,  Spin, Alert,Badge, Modal, Flex} from 'antd';
 import {LeftOutlined, RightOutlined, CalendarOutlined } from '@ant-design/icons';
-
 import './Dashboard.css';
 import ProfileSection from '../profile/ProfileSection';
 import AdminManagement from '../admin/AdminManagement';
@@ -21,27 +20,198 @@ import CampusJobApplyPage from '../job/CampusJobApplyPage';
 import ExamConductPage from '../job/ExamConductPage';
 import EmailClient from '../email/EmailClient';
 import PayrollApp from '../hr/Payroll';
-
-
-
 import EmployeeAttendancePage from '../hr/EmployeeAttendancePage';
 import { supabase } from '../../supabase/config';
-
+import Webcam from "react-webcam";
+import * as faceapi from 'face-api.js';
 const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionChange,activeEmailFolder, onToggleSidebar, isEmailAuthenticated, setIsEmailAuthenticated }) => {
   const { Text, Title } = Typography;
   const [currentJobId, setCurrentJobId] = useState(2);
   const [searchSuggestions, setSearchSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-const [searchQuery, setSearchQuery] = useState('');
-
+  const [searchQuery, setSearchQuery] = useState('');
   const [attendanceData, setAttendanceData] = useState([]);
-const [currentMonth, setCurrentMonth] = useState(new Date());
-const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [showCalendarModal, setShowCalendarModal] = useState(false);
+  const webcamRef = useRef(null);
+  const [isCameraModalVisible, setIsCameraModalVisible] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationError, setVerificationError] = useState('');
+  const [alreadyCheckedIn, setAlreadyCheckedIn] = useState(false);
+  const [isFaceDetected, setIsFaceDetected] = useState(false);
+  const [faceDetectionInterval, setFaceDetectionInterval] = useState(null);
+  const [isModelLoaded, setIsModelLoaded] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showRetryButton, setShowRetryButton] = useState(false);
+  const [attendanceType, setAttendanceType] = useState('check-in');
+  const [hasStartedDetection, setHasStartedDetection] = useState(false);
+  const [cameraStream, setCameraStream] = useState(null);
+  const [isCameraOn, setIsCameraOn] = useState(false);
 useEffect(() => {
   console.log('Current userData:', userData);
   console.log('User ID:', userData?.id);
   console.log('User object keys:', userData ? Object.keys(userData) : 'No userData');
 }, [userData]);
+
+const loadFaceDetectionModels = async () => {
+  try {
+    console.log('Starting to load face detection models...');
+    
+    // Load from CDN instead of local files first to test
+    await faceapi.nets.tinyFaceDetector.loadFromUri('https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights');
+    
+    console.log('Face detection models loaded successfully');
+    setIsModelLoaded(true);
+    return true;
+  } catch (error) {
+    console.error('Failed to load face detection models:', error);
+    setIsModelLoaded(false);
+    return false;
+  }
+};
+
+const startCamera = () => {
+  setIsCameraOn(true);
+  if (isModelLoaded && !hasStartedDetection) {
+    setHasStartedDetection(true);
+    setTimeout(startFaceDetection, 1000);
+  }
+};
+
+const stopCamera = () => {
+  // Stop the webcam stream
+  if (webcamRef.current && webcamRef.current.stream) {
+    webcamRef.current.stream.getTracks().forEach(track => track.stop());
+  }
+  
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(track => track.stop());
+    setCameraStream(null);
+  }
+  
+  if (faceDetectionInterval) {
+    clearInterval(faceDetectionInterval);
+    setFaceDetectionInterval(null);
+  }
+  
+  setIsCameraOn(false);
+  setHasStartedDetection(false);
+  setIsFaceDetected(false);
+};
+
+const startFaceDetection = () => {
+  // Prevent multiple calls
+  if (faceDetectionInterval || isProcessing) {
+    console.log('Detection already running or processing');
+    return;
+  }
+
+  if (!webcamRef.current || !isModelLoaded) return;
+
+  const interval = setInterval(async () => {
+    if (isProcessing) {
+      clearInterval(interval);
+      setFaceDetectionInterval(null);
+      return;
+    }
+
+    if (webcamRef.current && webcamRef.current.video) {
+      const video = webcamRef.current.video;
+      
+      if (video.readyState !== 4) return;
+      
+      try {
+        const detection = await faceapi.detectSingleFace(
+          video, 
+          new faceapi.TinyFaceDetectorOptions()
+        );
+        
+        if (detection && detection.score > 0.5 && !isProcessing) {
+          setIsFaceDetected(true);
+          clearInterval(interval);
+          setFaceDetectionInterval(null);
+          
+          // Call only once
+          handleVerifyAndCheckIn();
+        } else {
+          setIsFaceDetected(false);
+        }
+      } catch (error) {
+        console.error('Face detection error:', error);
+      }
+    }
+  }, 1000);
+
+  setFaceDetectionInterval(interval);
+};
+
+useEffect(() => {
+  if (isCameraModalVisible && !isModelLoaded) {
+    loadFaceDetectionModels();
+  }
+}, [isCameraModalVisible]);
+
+const handleVerifyAndCheckIn = async () => {
+  if (isProcessing || isVerifying) {
+    console.log('Already processing, ignoring duplicate call');
+    return;
+  }
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayRecord = attendanceData.find(d => d.date === todayStr);
+  
+  if (todayRecord && todayRecord.check_in && todayRecord.check_out) {
+    setVerificationError('You have already completed both check-in and check-out for today.');
+    return;
+  }
+
+
+  setVerificationError('');
+  setIsProcessing(true);
+  setIsVerifying(true);
+  setShowRetryButton(false);
+
+  const imageSrc = webcamRef.current.getScreenshot();
+  if (!imageSrc) {
+    setVerificationError("Could not capture image. Please try again.");
+    setIsVerifying(false);
+    setIsProcessing(false);
+    setShowRetryButton(true);
+    return;
+  }
+
+  const fetchRes = await fetch(imageSrc);
+  const blob = await fetchRes.blob();
+  const imageFile = new File([blob], "snapshot.jpg", { type: "image/jpeg" });
+
+  const formData = new FormData();
+  formData.append('email', userData.email);
+  formData.append('image', imageFile);
+
+  try {
+    const apiResponse = await fetch('http://192.210.241.34:8001/api/verify-face/', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const result = await apiResponse.json();
+
+    if (!apiResponse.ok) {
+      throw new Error(result.error || 'Verification failed. Please try again.');
+    }
+
+    // If verification successful, proceed with attendance marking
+    await markAttendance();
+
+  } catch (error) {
+    console.error('Verification Error:', error);
+    setVerificationError(error.message);
+    setShowRetryButton(true);
+  } finally {
+    setIsVerifying(false);
+    setIsProcessing(false);
+  }
+};
 
 const fetchAttendanceData = async () => {
   // Check if we have user data and ID
@@ -121,6 +291,101 @@ const fetchAttendanceData = async () => {
     console.error('Fetch attendance error:', error);
   }
 };
+
+const markAttendance = async () => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const currentTime = new Date().toLocaleTimeString('en-GB');
+
+    // Check if user already has a record for today
+    const { data: existingRecord, error: fetchError } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('user_id', userData.id)
+      .eq('date', today)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      throw new Error('Failed to check existing attendance record');
+    }
+
+    let attendanceData;
+    let message;
+
+    if (!existingRecord) {
+      // First time today - Check In
+      attendanceData = {
+        user_id: userData.id,
+        date: today,
+        check_in: currentTime,
+        is_present: true,
+      };
+      message = 'Check-in successful! Your attendance has been recorded.';
+    } else if (existingRecord.check_in && !existingRecord.check_out) {
+      // Already checked in - Check Out
+      const checkInTime = new Date(`${today}T${existingRecord.check_in}`);
+      const checkOutTime = new Date(`${today}T${currentTime}`);
+      const totalHours = (checkOutTime - checkInTime) / (1000 * 60 * 60);
+
+      attendanceData = {
+        ...existingRecord,
+        check_out: currentTime,
+        total_hours: totalHours.toFixed(2)
+      };
+      message = `Check-out successful! Total hours worked: ${totalHours.toFixed(2)} hours`;
+    } else {
+      // Already completed both actions
+      throw new Error('You have already completed check-in and check-out for today.');
+    }
+
+    const { error: attendanceError } = await supabase
+      .from('attendance')
+      .upsert(attendanceData, { onConflict: 'user_id,date' });
+
+    if (attendanceError) {
+      throw new Error(attendanceError.message || 'Failed to save attendance record.');
+    }
+
+    stopCamera(); // This will handle all cleanup
+    setIsCameraModalVisible(false); 
+
+//     // Success - Always close modal after action
+//     if (cameraStream) {
+//   cameraStream.getTracks().forEach(track => track.stop());
+//   setCameraStream(null);
+// }
+
+// stopCamera();
+
+// Success - Always close modal after action
+Modal.success({
+  title: 'Attendance Marked!',
+  content: message,
+});
+
+// Close modal and reset all states
+// setIsCameraModalVisible(false);
+fetchAttendanceData(); // Refresh calendar data
+
+  } catch (error) {
+    console.error('Attendance marking error:', error);
+    setVerificationError(error.message);
+    setShowRetryButton(true);
+  }
+};
+const handleRetry = () => {
+  setVerificationError('');
+  setShowRetryButton(false);
+  setIsFaceDetected(false);
+  setIsProcessing(false);
+  setIsVerifying(false);
+  
+  // // Restart face detection
+  // if (isModelLoaded) {
+  //   setTimeout(startFaceDetection, 1000);
+  // }
+};
+
 useEffect(() => {
   console.log('useEffect triggered - userData:', userData, 'currentMonth:', currentMonth);
   
@@ -131,6 +396,9 @@ useEffect(() => {
     console.log('Skipping fetch - no user data');
   }
 }, [userData, currentMonth]);
+
+
+
 // Move these calculations here, after the useEffect hooks
 const presentDays = attendanceData.filter(record => record.is_present === true).length;
 const absentDays = attendanceData.filter(record => record.is_present === false).length;
@@ -1155,6 +1423,57 @@ if (activeSection === 'payroll') {
               Quick Actions
             </h2>
             <div className="quick-actions-grid">
+                  <div
+      key="take-attendance"
+      className="quick-action-card animate-1"
+      onClick={() => {
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayRecord = attendanceData.find(d => d.date === todayStr);
+  
+  // Check current status and show appropriate message
+  if (todayRecord && todayRecord.check_in && todayRecord.check_out) {
+    Modal.info({
+      title: 'Attendance Complete',
+      content: `You have already completed both check-in (${todayRecord.check_in}) and check-out (${todayRecord.check_out}) for today.`,
+    });
+    return; // Don't open camera modal
+  }
+  
+  // Set attendance type based on current status
+  if (todayRecord && todayRecord.check_in && !todayRecord.check_out) {
+    setAttendanceType('check-out');
+  } else {
+    setAttendanceType('check-in');
+  }
+  
+  // Reset all states and open modal
+  setHasStartedDetection(false);
+  setIsCameraModalVisible(true);
+  setVerificationError('');
+  setShowRetryButton(false);
+  setIsProcessing(false);
+  setIsVerifying(false);
+  setIsFaceDetected(false);
+  setAlreadyCheckedIn(false);
+}}
+
+    >
+      <div className="quick-action-content">
+        <div
+          className="quick-action-icon"
+          style={{
+            backgroundColor: '#3b82f6',
+            boxShadow: `0 4px 15px #3b82f630`
+          }}
+        >
+          <Camera size={22} color="white" />
+        </div>
+        <span className="quick-action-title">
+          Take Attendance
+        </span>
+      </div>
+    </div>
+
               {quickActions.map((action, index) => (
                 <div
                   key={index}
@@ -1212,6 +1531,188 @@ if (activeSection === 'payroll') {
           </div>
         </div>
       </main>
+            <Modal
+  title={`Take Attendance via Face Recognition - ${
+    attendanceType === 'check-in' ? 'Check In' : 
+    attendanceType === 'check-out' ? 'Check Out' : 'Completed'
+  }`}
+  open={isCameraModalVisible}
+  onCancel={() => {
+    stopCamera();
+    setIsCameraModalVisible(false);
+    setIsProcessing(false);
+    setIsVerifying(false);
+    setAttendanceType('check-in');
+    if (faceDetectionInterval) {
+      clearInterval(faceDetectionInterval);
+      setFaceDetectionInterval(null);
+    }
+    setHasStartedDetection(false);
+    setIsFaceDetected(false);
+  }}
+  centered
+  footer={null}
+  width="100%" // Make it full width on mobile
+  style={{ 
+    maxWidth: '680px', // Max width for desktop
+    margin: '0 16px' // Margin for mobile
+  }}
+  bodyStyle={{
+    padding: '16px 8px' // Reduced padding for mobile
+  }}
+>
+  <div style={{ padding: '20px 0' }}>
+    {alreadyCheckedIn ? (
+      <Alert
+        message="Already Checked In"
+        description="You have already marked your attendance for today."
+        type="success"
+        showIcon
+      />
+    ) : (
+      <>
+        <div style={{ 
+  position: 'relative', 
+  width: '100%', // Changed from fixed 640px
+  maxWidth: '640px', // Add max width
+  height: 'auto', // Changed from fixed 480px
+  aspectRatio: '4/3', // Maintain aspect ratio
+  background: '#000', 
+  borderRadius: '8px', 
+  overflow: 'hidden', 
+  margin: '0 auto',
+  border: isFaceDetected ? '3px solid #52c41a' : '3px solid #ff4d4f'
+}}>
+  {isVerifying && (
+    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+      <Spin size="large" />
+      <span style={{ marginTop: '20px', fontSize: '16px' }}>Verifying your identity...</span>
+    </div>
+  )}
+  
+  {!isCameraOn ? (
+    // Camera OFF state - show button to turn on
+    <div style={{ 
+      width: '100%', 
+      height: '100%', 
+      display: 'flex', 
+      flexDirection: 'column',
+      alignItems: 'center', 
+      justifyContent: 'center',
+      color: 'white',
+      background: '#1f1f1f'
+    }}>
+      <Camera size={64} style={{ marginBottom: '20px' }} />
+      <Button 
+        type="primary" 
+        size="large"
+        onClick={startCamera}
+        icon={<Camera />}
+        style={{ 
+          height: '50px',
+          fontSize: '16px',
+          borderRadius: '8px'
+        }}
+      >
+        Turn On Camera
+      </Button>
+    </div>
+  ) : (
+    // Camera ON state - show webcam
+    <Webcam
+  audio={false}
+  ref={webcamRef}
+  screenshotFormat="image/jpeg"
+  width="100%" // Changed from fixed width
+  height="100%" // Changed from fixed height
+  onUserMedia={(stream) => {
+    console.log('Camera initialized');
+    setCameraStream(stream);
+    if (hasStartedDetection || isProcessing) {
+      return;
+    }
+    
+    const checkAndStart = () => {
+      if (isModelLoaded && webcamRef.current?.video?.readyState === 4 && !hasStartedDetection) {
+        setHasStartedDetection(true);
+        setTimeout(startFaceDetection, 1000);
+      } else if (!hasStartedDetection) {
+        setTimeout(checkAndStart, 500);
+      }
+    };
+    checkAndStart();
+  }}
+  videoConstraints={{ 
+    width: { ideal: 1280, min: 640 }, // Add min width
+    height: { ideal: 720, min: 480 }, // Add min height
+    facingMode: "user" 
+  }}
+  style={{ 
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover' 
+  }}
+/>
+  )}
+</div>
+
+{/* Camera Controls - Show only when camera is on */}
+{isCameraOn && (
+  <Row gutter={[8, 8]} justify="center" style={{ marginTop: '15px' }}>
+    <Col xs={24} sm={12} style={{ textAlign: 'center' }}>
+      <Button 
+        danger
+        onClick={stopCamera}
+        icon={<Camera />}
+        size="large"
+        block // Make button full width on mobile
+      >
+        Turn Off Camera
+      </Button>
+    </Col>
+    <Col xs={24} sm={12} style={{ textAlign: 'center' }}>
+      <span style={{ 
+        fontSize: '14px', // Slightly smaller for mobile
+        color: isFaceDetected ? '#52c41a' : '#ff4d4f',
+        fontWeight: '500',
+        display: 'block', // Stack on mobile
+        marginTop: '8px'
+      }}>
+        {attendanceType === 'completed' ? 
+          '✅ Attendance Complete for Today' :
+          isFaceDetected ? 
+            `✅ Face Detected - ${attendanceType === 'check-in' ? 'Checking In' : 'Checking Out'}...` : 
+            `❌ Please position your face for ${attendanceType === 'check-in' ? 'Check In' : 'Check Out'}`
+        }
+      </span>
+    </Col>
+  </Row>
+)}
+
+        {verificationError && (
+          <Alert message={verificationError} type="error" showIcon style={{ marginTop: '20px' }} />
+        )}
+      </>
+    )}
+  </div>
+  {verificationError && (
+  <div style={{ marginTop: '20px' }}>
+    <Alert message={verificationError} type="error" showIcon />
+    {showRetryButton && (
+      <Button
+        type="primary"
+        size="large"
+        block
+        onClick={handleRetry}
+        style={{ marginTop: '15px', height: '50px', fontSize: '18px' }}
+      >
+        Try Again
+      </Button>
+    )}
+  </div>
+)}
+</Modal>
+
     </div>
   );
 };
