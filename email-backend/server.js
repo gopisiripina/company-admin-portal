@@ -23,7 +23,13 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cors({
+  origin: 'https://cap.myaccessio.com',
+  credentials: true
+}));
 
+// Add proxy trust
+app.set('trust proxy', true);
 
 const multerStorage = multer({ 
     dest: 'uploads/',
@@ -1350,6 +1356,9 @@ app.post('/api/email/fetch-sent', (req, res) => {
     imap.once('error', (err) => res.status(400).json({ success: false, error: 'IMAP Connection Error: ' + err.message }));
     imap.connect();
 });
+// app.listen(PORT, () => {
+//   console.log('HTTPS Backend running on port 5000');
+// });
 https.createServer(options, app).listen(PORT, () => {
   console.log('HTTPS Backend running on port 5000');
 });
