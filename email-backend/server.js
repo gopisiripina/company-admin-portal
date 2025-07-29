@@ -1458,6 +1458,8 @@ app.post('/api/email/fetch-sent', (req, res) => {
 wss.on('connection', (ws) => {
   console.log('[WebSocket] Client connected.');
 
+    ws.send('Hello World');
+
   // 1. When a client sends its credentials for authentication
   ws.on('message', (message) => {
     try {
