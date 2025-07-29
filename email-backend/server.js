@@ -35,7 +35,13 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cors({
+  origin: 'https://cap.myaccessio.com',
+  credentials: true
+}));
 
+// Add proxy trust
+app.set('trust proxy', true);
 
 const multerStorage = multer({ 
     dest: 'uploads/',
