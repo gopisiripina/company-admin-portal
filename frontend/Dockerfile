@@ -10,9 +10,15 @@ RUN npm run build
 
 # Stage 2: Serve with Nginx
 FROM nginx:alpine
-RUN rm -rf /usr/share/nginx/html/*
-COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Remove default config and add ours
+RUN rm -rf /etc/nginx/conf.d/*
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 80
+# Copy built assets
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Expose both HTTP and HTTPS ports
+EXPOSE 80 443
+
 CMD ["nginx", "-g", "daemon off;"]
