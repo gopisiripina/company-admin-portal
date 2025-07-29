@@ -34,7 +34,7 @@ import {
   LogoutOutlined,
   UploadOutlined
 } from '@ant-design/icons';
-
+import axios from 'axios';
 const { Header, Sider, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -110,7 +110,7 @@ useEffect(() => {
 
 
 
-  const API_BASE = 'http://192.210.241.34:5000/api/email';
+  const API_BASE = 'https://cap.myaccessio.com:5000/api/email';
 
   useEffect(() => {
   const handleResize = () => {
@@ -160,13 +160,8 @@ const handleEmailAuth = async (values) => {
   setLoading(true);
   
   try {
-    const response = await fetch(`${API_BASE}/test-connection`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(values)
-    });
-    
-    const result = await response.json();
+    const { data: result } = await axios.post(`${API_BASE}/test-connection`, values);
+
     
     if (result.success) {
       setIsAuthenticated(true);
