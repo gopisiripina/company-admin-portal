@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect,useRef } from 'react';
 import { 
   Layout, 
   Form, 
@@ -63,6 +63,7 @@ const [inboxOffset, setInboxOffset] = useState(0);
 const [trashEmails, setTrashEmails] = useState([]);
 const [showReply, setShowReply] = useState(false);
   const [showForward, setShowForward] = useState(false);
+  const [showReplyAll, setShowReplyAll] = useState(false);
 
   const [trashOffset, setTrashOffset] = useState(0);
 const [sentOffset, setSentOffset] = useState(0);
@@ -71,10 +72,27 @@ const [searchQuery, setSearchQuery] = useState('');
 const [isSearching, setIsSearching] = useState(false);
 const [searchDropdownVisible, setSearchDropdownVisible] = useState(false);
 const [searchResults, setSearchResults] = useState([]);
+// In EmailClient.jsx, add this state variable near the others
+const [showCcBcc, setShowCcBcc] = useState(false);
+// In EmailClient.jsx, near your other state variables
 
+const [replyAttachments, setReplyAttachments] = useState([]);
+const [replyAllAttachments, setReplyAllAttachments] = useState([]);
+const [forwardAttachments, setForwardAttachments] = useState([]);
+const ws = useRef(null);
+const activeFolderRef = useRef(activeFolder);
+useEffect(() => { activeFolderRef.current = activeFolder; }, [activeFolder]);
+
+// In EmailClient.jsx, replace the handleLogout function
+
+// In EmailClient.jsx
 
 const handleLogout = () => {
   // Clear all email-related states
+   if (ws.current) {
+    ws.current.close(); // <-- ADD THIS LINE
+    ws.current = null;
+  }
   setIsAuthenticated(false);
   setEmailCredentials({ email: '', password: '' });
   setEmails([]);
@@ -85,8 +103,14 @@ const handleLogout = () => {
   setAttachments([]);
   setLastFetchTime(0);
   setInboxOffset(0);
+  setSentOffset(0); // Also reset sent offset
+  setTrashOffset(0); // Also reset trash offset
   setEmailDetailVisible(false);
-  setActiveFolder('inbox'); // Reset to default folder
+  
+  // ✅ FIXED: Use the onFolderChange prop to reset the active folder
+  if (onFolderChange) {
+    onFolderChange('inbox');
+  }
   
   // Clear localStorage
   localStorage.removeItem('emailCredentials');
@@ -115,10 +139,71 @@ useEffect(() => {
     setLastFetchTime(1); // Set to 1 to prevent the fetch in the next useEffect
   }
 }, [onAuthSuccess]);
+// In EmailClient.jsx, add this new useEffect hook
+
+// In EmailClient.jsx
+
+useEffect(() => {
+  // 1. Don't run if the user is not authenticated
+  if (!isAuthenticated || !emailCredentials.email) {
+    return;
+  }
+
+  // 2. A custom cleanup function to be called ONLY on logout or true unmount
+  const cleanup = () => {
+    if (ws.current) {
+      console.log('[WebSocket] Cleanup: Closing connection.');
+      ws.current.close();
+      ws.current = null;
+    }
+  };
+
+  // 3. Create the connection
+  const socket = new WebSocket('ws://cap.myaccessio.com:5000');
+  ws.current = socket;
+
+  socket.onopen = () => {
+    console.log('[WebSocket] Connection established.');
+    socket.send(JSON.stringify({
+      type: 'auth',
+      email: emailCredentials.email,
+      password: emailCredentials.password,
+    }));
+  };
+
+  socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    
+    if (data.type === 'new_mail') {
+      console.log('New mail notification received!');
+      message.info('You have new mail!', 2);
+      
+      // 4. Use the ref to get the LATEST activeFolder value
+      if (activeFolderRef.current === 'inbox') {
+        handleManualRefresh();
+      }
+    }
+  };
+
+  socket.onclose = () => {
+    console.log('[WebSocket] Connection closed.');
+    ws.current = null; // Clear the ref on close
+  };
+
+  socket.onerror = (error) => {
+    console.error('[WebSocket] Error:', error);
+    ws.current = null;
+  };
+
+  // 5. Return the cleanup function. React will call this when isAuthenticated
+  // or emailCredentials change (i.e., on logout). StrictMode will still
+  // call it, but our handleLogout function ensures a clean state.
+  return cleanup;
+
+}, [isAuthenticated, emailCredentials.email]); // Dependencies are correct
 
 
-
-  const API_BASE = 'http://192.210.241.34:5000/api/email';
+  const API_BASE = 'https://cap.myaccessio.com:5000/api/email';
 
   useEffect(() => {
   const handleResize = () => {
@@ -136,39 +221,48 @@ useEffect(() => {
 // EmailClient.jsx
 // In EmailClient.jsx
 
+// In EmailClient.jsx, replace the main useEffect hook
+
+// In EmailClient.jsx, replace the main useEffect hook
+
 useEffect(() => {
   // We only run this logic when the user becomes authenticated
   if (isAuthenticated && emailCredentials.email && lastFetchTime === 0) {
     
-    // 1. Fetch Inbox immediately and set it as the active folder
-    message.info('Loading...');
-    fetchEmails('INBOX', 10, 0).then((fetchedEmails) => {
-        setActiveFolder('inbox');
+    const fetchAllFolders = async () => {
+        message.loading({ content: 'Loading Inbox...', key: 'loading' });
+        // Fetch Inbox first and set the active folder
+        const inboxEmails = await fetchEmails('INBOX', 10, 0);
+        
+        // ✅ FIX: Use the onFolderChange prop instead of the non-existent setActiveFolder
+        if (onFolderChange) {
+          onFolderChange('inbox');
+        }
+
         setLastFetchTime(Date.now());
-        // ✅ Initialize hasMore based on fetched emails
-        setHasMore(fetchedEmails.length === 10);
-    });
+        setHasMore(inboxEmails.length === 10);
+        message.success({ content: 'Inbox loaded!', key: 'loading', duration: 2 });
 
-    // 2. Fetch Sent emails after 4 seconds to reduce server load
-    const sentTimeout = setTimeout(() => {
-      // message.info('Loading...');
-      fetchEmails('sent', 10, 0);
-    }, 4000);
+        // Now that the crash is fixed, these will run correctly.
+        setTimeout(async () => {
+            // message.loading({ content: 'Getting Sent items...', key: 'sent' });
+            await fetchEmails('sent', 10, 0);
+            //  message.success({ content: 'Sent items loaded!', key: 'sent', duration: 2 });
+        }, 1000);
 
-    // 3. Fetch Trash emails after 8 seconds
-    const trashTimeout = setTimeout(() => {
-      // message.info('Loading...');
-      fetchEmails('trash', 10, 0);
-    }, 8000);
-
-    // This is a cleanup function to prevent memory leaks
-    return () => {
-      clearTimeout(sentTimeout);
-      clearTimeout(trashTimeout);
+        setTimeout(async () => {
+            //  message.loading({ content: 'Getting Trash items...', key: 'trash' });
+            await fetchEmails('trash', 10, 0);
+            //  message.success({ content: 'Trash items loaded!', key: 'trash', duration: 2 });
+        }, 2000);
     };
+    
+    fetchAllFolders();
   }
-}, [isAuthenticated, emailCredentials.email, lastFetchTime]);
- const handleEmailAuth = async (values) => {
+}, [isAuthenticated, emailCredentials.email, lastFetchTime, onFolderChange]); // Added onFolderChange to dependency array
+
+
+const handleEmailAuth = async (values) => {
   setLoading(true);
   
   try {
@@ -203,13 +297,17 @@ useEffect(() => {
     setLoading(false);
   }
 };
+// In EmailClient.jsx, replace the existing handleManualRefresh function
+
 const handleManualRefresh = async () => {
   switch (activeFolder) {
     case 'sent':
     case 'SENT':
+      setSentOffset(0); // ✅ ADDED: Reset pagination for sent folder
       await fetchEmails('sent', 10, 0);
       break;
     case 'trash':
+      setTrashOffset(0); // ✅ ADDED: Reset pagination for trash folder
       await fetchEmails('trash', 10, 0);
       break;
     case 'inbox':
@@ -220,32 +318,34 @@ const handleManualRefresh = async () => {
   }
 };
 
-
 // In EmailClient.jsx, replace the existing fetchEmails function with this updated version.
 
 // In EmailClient.jsx, replace the existing fetchEmails function
 
+// In EmailClient.jsx, replace the fetchEmails function
+
 const fetchEmails = async (folder = 'INBOX', limit = 10, offset = 0) => {
   setLoading(true);
   
+  let endpoint = '/fetch';
+  let folderDisplayName = 'Inbox';
+  // Define a key to identify the folder being fetched, matching 'activeFolder' state
+  let fetchedFolderKey = 'inbox'; 
+  
   try {
-    let endpoint = '/fetch';
-    let folderDisplayName = 'Inbox';
-    
-    let requestBody = {
-      ...emailCredentials,
-      limit,
-      offset
-    };
+    let requestBody = { ...emailCredentials, limit, offset };
     
     if (folder === 'SENT' || folder === 'sent') {
       endpoint = '/fetch-sent';
       folderDisplayName = 'Sent';
+      fetchedFolderKey = 'sent';
     } else if (folder === 'trash') {
       endpoint = '/fetch-trash';
       folderDisplayName = 'Trash';
+      fetchedFolderKey = 'trash';
     } else {
       requestBody.folder = folder;
+      // fetchedFolderKey is already 'inbox'
     }
 
     const response = await fetch(`${API_BASE}${endpoint}`, {
@@ -259,33 +359,36 @@ const fetchEmails = async (folder = 'INBOX', limit = 10, offset = 0) => {
     if (result.success) {
       const fetchedEmails = result.emails || [];
       
-      // Always replace the email list for pagination view
-      if (folder === 'SENT' || folder === 'sent') {
+      // Update the correct email list based on the fetched folder
+      if (fetchedFolderKey === 'sent') {
         setSentEmails(fetchedEmails);
-      } else if (folder === 'trash') {
+      } else if (fetchedFolderKey === 'trash') {
         setTrashEmails(fetchedEmails);
       } else {
         setEmails(fetchedEmails);
       }
       
-      // ✅ FIXED: Set hasMore based on actual fetched email count
-      // If we got exactly the limit, there might be more
-      // If we got less than limit, there are no more
-      setHasMore(fetchedEmails.length === limit);
-      
-      if (offset === 0) {
-          // message.success(`Refreshed ${folderDisplayName}`);
+      // ✅ THE FIX: Only update pagination status if the fetched folder
+      // is the one currently being viewed by the user.
+      if (fetchedFolderKey === activeFolder) {
+        setHasMore(fetchedEmails.length === limit);
       }
-      
+
       return fetchedEmails;
+
     } else {
       message.error(`Error fetching ${folderDisplayName}: ${result.error || 'Request failed'}`);
-      setHasMore(false);
+      // Also check here to disable the button on error for the active folder
+      if (fetchedFolderKey === activeFolder) {
+        setHasMore(false);
+      }
       return [];
     }
   } catch (error) {
-    message.error('Network error while fetching emails: ' + error.message);
-    setHasMore(false);
+    message.error('Network error: ' + error.message);
+    if (fetchedFolderKey === activeFolder) {
+      setHasMore(false);
+    }
     return [];
   } finally {
     setLoading(false);
@@ -301,7 +404,10 @@ const sendEmail = async (values) => {
     formData.append('to', values.to);
     formData.append('subject', values.subject);
     formData.append('body', values.body || '');
-    formData.append('saveSent', 'true'); // ✅ Add flag to save to sent folder
+    
+    // ✅ ADDED: Append cc and bcc if they exist
+    if (values.cc) formData.append('cc', values.cc);
+    if (values.bcc) formData.append('bcc', values.bcc);
 
     attachments.forEach((file) => {
       formData.append('attachments', file);
@@ -319,13 +425,12 @@ const sendEmail = async (values) => {
       composeForm.resetFields();
       setComposeData({ to: '', subject: '', body: '' });
       setAttachments([]);
+      setShowCcBcc(false); // ✅ ADDED: Hide CC/BCC fields after sending
 
-      // ✅ Only refresh sent folder if user is viewing it
-      if (activeFolder === 'sent') {
-        setTimeout(async () => {
-          await fetchEmails('sent', 100, 0);
-        }, 2000);
-      }
+      setTimeout(() => {
+        fetchEmails('sent', 10, 0);
+      }, 2000);
+
     } else {
       message.error('Failed to send email: ' + (result.error || 'Unknown error'));
     }
@@ -335,7 +440,7 @@ const sendEmail = async (values) => {
     setLoading(false);
   }
 };
- const handleEmailClick = (email) => {
+const handleEmailClick = (email) => {
   setSelectedEmail(email);
   setEmailDetailVisible(true); // Always show modal for all devices
 };
@@ -431,17 +536,21 @@ const handlePermanentDelete = async (email) => {
         },
     });
 };
+// In EmailClient.jsx, replace the menuItems array
+
+// In EmailClient.jsx, replace the menuItems array
+
 const menuItems = [
  {
     key: 'inbox',
     icon: <InboxOutlined />,
     label: 'Inbox',
     onClick: async () => {
-      if (activeFolder === 'inbox') return; // ✅ Prevent reload if already active
-      setActiveFolder('inbox');
+      if (activeFolder === 'inbox') return; 
+      // ✅ FIX: Use the onFolderChange prop
+      if (onFolderChange) onFolderChange('inbox');
       setInboxOffset(0);
       await fetchEmails('INBOX', 10, 0);
-      if (onFolderChange) onFolderChange('inbox');
       setMobileDrawerVisible(false);
     }
   },
@@ -450,10 +559,9 @@ const menuItems = [
     icon: <EditOutlined />,
     label: 'Compose',
     onClick: () => {
-      setActiveFolder('compose');
+      // ✅ FIX: Use the onFolderChange prop
       if (onFolderChange) onFolderChange('compose');
       setMobileDrawerVisible(false);
-      // Remove any email fetching from here
     }
   },
  {
@@ -461,10 +569,11 @@ const menuItems = [
     icon: <SendOutlined />,
     label: 'Sent',
     onClick: async () => {
-      if (activeFolder === 'sent') return; // ✅ Prevent reload if already active
-      setActiveFolder('sent');
-      await fetchEmails('sent', 100, 0);
+      if (activeFolder === 'sent') return;
+      // ✅ FIX: Use the onFolderChange prop
       if (onFolderChange) onFolderChange('sent');
+      setSentOffset(0); // Also reset pagination
+      await fetchEmails('sent', 10, 0); // Fetch first page of sent
       setMobileDrawerVisible(false);
     }
   },
@@ -473,10 +582,11 @@ const menuItems = [
     icon: <DeleteOutlined />,
     label: 'Trash',
     onClick: async () => {
-      if (activeFolder === 'trash') return; // ✅ Prevent reload if already active
-      setActiveFolder('trash');
-      await fetchEmails('trash', 10, 0);
+      if (activeFolder === 'trash') return;
+      // ✅ FIX: Use the onFolderChange prop
       if (onFolderChange) onFolderChange('trash');
+      setTrashOffset(0); // Also reset pagination
+      await fetchEmails('trash', 10, 0); // Fetch first page of trash
       setMobileDrawerVisible(false);
     }
   }
@@ -555,14 +665,14 @@ const menuItems = [
   );
 
 // ✅ UPDATED: Function to render the list of emails with mobile-friendly UI and delete functionality
+// In EmailClient.jsx, replace the renderEmailList function
 const renderEmailList = () => {
     let currentEmails = [];
     let folderTitle = '';
     let folderIcon = null;
 
     switch (activeFolder) {
-        case 'sent':
-        case 'SENT':
+        case 'sent': case 'SENT':
             currentEmails = sentEmails;
             folderTitle = 'Sent';
             folderIcon = <SendOutlined />;
@@ -580,23 +690,8 @@ const renderEmailList = () => {
 
     return (
         <Card
-            title={
-                <Space>
-                    {folderIcon}
-                    <span>{folderTitle}</span>
-                    <Badge count={currentEmails.length} style={{ backgroundColor: '#52c41a' }} />
-                </Space>
-            }
-            extra={
-                <Button
-                    icon={<ReloadOutlined />}
-                    onClick={handleManualRefresh}
-                    loading={loading}
-                    type="text"
-                >
-                    {!isMobile && 'Refresh'}
-                </Button>
-            }
+            title={ <Space> {folderIcon} <span>{folderTitle}</span> <Badge count={currentEmails.length} style={{ backgroundColor: '#52c41a' }} /> </Space> }
+            extra={ <Button icon={<ReloadOutlined />} onClick={handleManualRefresh} loading={loading} type="text"> {!isMobile && 'Refresh'} </Button> }
             style={{ height: '100%' }}
             bodyStyle={{ height: 'calc(100% - 57px)', overflowY: 'auto', padding: '0' }}
         >
@@ -622,7 +717,7 @@ const renderEmailList = () => {
                                         danger
                                         icon={<DeleteOutlined />}
                                         onClick={(e) => {
-                                            e.stopPropagation(); // Prevent modal from opening
+                                            e.stopPropagation();
                                             if (activeFolder === 'trash') {
                                                 handlePermanentDelete(email);
                                             } else {
@@ -636,13 +731,11 @@ const renderEmailList = () => {
                                 <List.Item.Meta
                                     avatar={<Avatar icon={<UserOutlined />} style={{ marginTop: '4px' }} />}
                                     title={
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', alignItems: 'center' }}>
-                                            <Text strong style={{ flex: '1 1 auto', marginRight: '8px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <Text strong style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                 {fromOrTo}
                                             </Text>
-                                            <Text type="secondary" style={{ fontSize: 12, flexShrink: 0 }}>
-                                                {email.date}
-                                            </Text>
+                                            {/* ✅ REMOVED: The date is no longer displayed here */}
                                         </div>
                                     }
                                     description={
@@ -659,6 +752,26 @@ const renderEmailList = () => {
         </Card>
     );
 };
+// In EmailClient.jsx, add this new function
+
+const validateEmails = (message = 'One or more emails are invalid') => ({
+  validator(_, value) {
+    if (!value) {
+      // If the field is optional and empty, it's valid.
+      return Promise.resolve();
+    }
+    const emails = value.split(',').map(e => e.trim()).filter(e => e);
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    for (const email of emails) {
+      if (!emailRegex.test(email)) {
+        return Promise.reject(new Error(message));
+      }
+    }
+    return Promise.resolve();
+  },
+});
+// In EmailClient.jsx, replace the entire renderCompose function
 const renderCompose = () => (
   <Card 
     title={
@@ -671,42 +784,69 @@ const renderCompose = () => (
     bodyStyle={{ height: 'calc(100% - 57px)', overflow: 'auto' }}
   >
     <Form
-      form={composeForm} // Add form instance
+      form={composeForm}
       name="compose-email"
       layout="vertical"
       onFinish={sendEmail}
       initialValues={composeData}
     >
-      {/* Rest of the form remains the same */}
-      <Form.Item
-        label="To"
-        name="to"
-        rules={[
-          { required: true, message: 'Please input recipient email!' },
-          { type: 'email', message: 'Please enter a valid email!' }
-        ]}
-      >
-        <Input 
-          placeholder="recipient@example.com"
-          size="large"
-        />
-      </Form.Item>
+      <Row gutter={16}>
+          <Col span={24}>
+              <Form.Item
+                  label="To"
+                  name="to"
+                  rules={[
+                      { required: true, message: 'Please input at least one recipient email!' },
+                      // ✅ UPDATED: Use the custom validator for multiple emails
+                      validateEmails('A recipient email is invalid.')
+                  ]}
+              >
+                  <Input placeholder="recipient@example.com, another@example.com" size="large" />
+              </Form.Item>
+          </Col>
+          <Col span={24} style={{ textAlign: 'right', marginBottom: 8 }}>
+              <Button type="link" size="small" onClick={() => setShowCcBcc(!showCcBcc)}>
+                  {showCcBcc ? 'Hide Cc/Bcc' : 'Show Cc/Bcc'}
+              </Button>
+          </Col>
+      </Row>
+      
+      {showCcBcc && (
+          <Row gutter={16}>
+              <Col span={12}>
+                  <Form.Item 
+                    label="Cc" 
+                    name="cc"
+                    // ✅ UPDATED: Use the custom validator for multiple emails
+                    rules={[validateEmails('A Cc email is invalid.')]}
+                  >
+                      <Input placeholder="cc@example.com" size="large" />
+                  </Form.Item>
+              </Col>
+              <Col span={12}>
+                  <Form.Item 
+                    label="Bcc" 
+                    name="bcc"
+                    // ✅ UPDATED: Use the custom validator for multiple emails
+                    rules={[validateEmails('A Bcc email is invalid.')]}
+                  >
+                      <Input placeholder="bcc@example.com" size="large" />
+                  </Form.Item>
+              </Col>
+          </Row>
+      )}
 
       <Form.Item
         label="Subject"
         name="subject"
         rules={[{ required: true, message: 'Please input email subject!' }]}
       >
-        <Input 
-          placeholder="Email subject"
-          size="large"
-        />
+        <Input placeholder="Email subject" size="large" />
       </Form.Item>
 
       <Form.Item
         label="Message"
         name="body"
-        rules={[{ required: false, message: 'Please input email body!' }]}
       >
         <TextArea 
           placeholder="Write your email here..."
@@ -717,14 +857,9 @@ const renderCompose = () => (
 
       <Form.Item label="Attachments">
         <Upload
-          beforeUpload={(file) => {
-            setAttachments((prev) => [...prev, file]);
-            return false;
-          }}
+          beforeUpload={(file) => { setAttachments((prev) => [...prev, file]); return false; }}
           fileList={attachments}
-          onRemove={(file) => {
-            setAttachments((prev) => prev.filter((f) => f.uid !== file.uid));
-          }}
+          onRemove={(file) => { setAttachments((prev) => prev.filter((f) => f.uid !== file.uid)); }}
           multiple
         >
           <Button icon={<UploadOutlined />}>Attach Files</Button>
@@ -739,10 +874,6 @@ const renderCompose = () => (
           size="large"
           icon={<SendOutlined />}
           block={isMobile || isTablet}
-          style={{ 
-            borderRadius: 6,
-            height: isTablet ? 44 : 40
-          }}
         >
           Send Email
         </Button>
@@ -759,16 +890,68 @@ const extractEmailOnly = (text) => {
   if (text.includes('@')) return text;
   return text;
 };
+// In EmailClient.jsx, replace the renderEmailDetail function
+// In EmailClient.jsx, replace the entire renderEmailDetail function
+
 const renderEmailDetail = () => {
   if (!selectedEmail) return null;
-  
-  // New state for reply/forward visibility
-  
-  
-  // Extract just the email address from "Name <email@example.com>" format
-  const extractEmail = (str) => {
-    const match = str?.match(/<([^>]+)>/);
-    return match ? match[1] : str;
+
+  const getReplyAllRecipients = (email) => {
+    const currentUserEmail = emailCredentials.email.toLowerCase();
+    const from = extractEmailOnly(email.from).toLowerCase();
+    const toList = (email.to || '').split(',').map(e => extractEmailOnly(e).toLowerCase());
+    const ccList = (email.cc || '').split(',').map(e => extractEmailOnly(e).toLowerCase());
+    const allRecipients = new Set([from, ...toList, ...ccList]);
+    allRecipients.delete(currentUserEmail);
+    allRecipients.delete('');
+    return Array.from(allRecipients);
+  };
+
+  // Generic function to handle sending replies/forwards with attachments
+  const handleSendWithAttachments = async (values, attachments, type) => {
+    const formData = new FormData();
+    formData.append('email', emailCredentials.email);
+    formData.append('password', emailCredentials.password);
+    formData.append('to', values.to);
+    formData.append('subject', values.subject);
+    
+    let body = values.body || '';
+
+    // Append original message context
+    if (type === 'reply' || type === 'replyAll') {
+      body += `<br><br>--- Original Message ---<br>${selectedEmail.body}`;
+    } else if (type === 'forward') {
+      body += `<br><br>--- Forwarded Message ---<br>From: ${selectedEmail.from}<br>To: ${selectedEmail.to}<br>Date: ${selectedEmail.date}<br><br>${selectedEmail.body}`;
+    }
+    formData.append('body', body);
+    
+    attachments.forEach(file => {
+      formData.append('attachments', file);
+    });
+
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/send`, {
+        method: 'POST',
+        body: formData,
+      });
+      const result = await response.json();
+      if (response.ok && result.success) {
+        message.success('Email sent successfully!');
+        // Reset and close the specific form
+        if (type === 'reply') { setShowReply(false); setReplyAttachments([]); }
+        if (type === 'replyAll') { setShowReplyAll(false); setReplyAllAttachments([]); }
+        if (type === 'forward') { setShowForward(false); setForwardAttachments([]); }
+        // Refresh sent items
+        setTimeout(() => fetchEmails('sent', 10, 0), 1000);
+      } else {
+        message.error('Failed to send email: ' + (result.error || 'Unknown error'));
+      }
+    } catch (error) {
+      message.error('Network error: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -781,156 +964,84 @@ const renderEmailDetail = () => {
         <Text strong>To: </Text>
         <Text>{selectedEmail.to}</Text>
       </div>
+      {selectedEmail.cc && (
+        <div style={{ marginBottom: 16 }}>
+          <Text strong>Cc: </Text>
+          <Text>{selectedEmail.cc}</Text>
+        </div>
+      )}
       <div style={{ marginBottom: 16 }}>
         <Text strong>Date: </Text>
         <Text>{selectedEmail.date}</Text>
       </div>
       <Divider />
-      
       <div style={{ marginBottom: 16 }}>
         <Space>
-          <Button 
-            type="default"
-            onClick={() => {
-              setShowReply(true);
-              setShowForward(false);
-            }}
-          >
-            Reply
-          </Button>
-          <Button 
-            type="default"
-            onClick={() => {
-              setShowForward(true);
-              setShowReply(false);
-            }}
-          >
-            Forward
-          </Button>
+          <Button type="default" onClick={() => { setShowReply(true); setShowReplyAll(false); setShowForward(false); }}>Reply</Button>
+          {selectedEmail.cc && (
+            <Button type="default" onClick={() => { setShowReplyAll(true); setShowReply(false); setShowForward(false); }}>Reply All</Button>
+          )}
+          <Button type="default" onClick={() => { setShowForward(true); setShowReply(false); setShowReplyAll(false); }}>Forward</Button>
         </Space>
       </div>
-
-      {/* Original Message */}
-      <div 
-        style={{ 
-          maxHeight: '40vh', 
-          overflow: 'auto',
-          lineHeight: '1.6',
-          marginBottom: 16,
-          padding: 16,
-          backgroundColor: '#f9f9f9',
-          border: '1px solid #f0f0f0',
-          borderRadius: 4
-        }}
+      <div style={{ maxHeight: '40vh', overflow: 'auto', lineHeight: '1.6', marginBottom: 16, padding: 16, backgroundColor: '#f9f9f9', border: '1px solid #f0f0f0', borderRadius: 4 }}
         dangerouslySetInnerHTML={{ __html: selectedEmail.body }}
       />
       
-      {/* Reply Form */}
       {showReply && (
-        <Card 
-          title="Reply"
-          extra={
-            <Button 
-              type="text" 
-              icon={<CloseOutlined />}
-              onClick={() => setShowReply(false)}
-            />
-          }
-          style={{ marginBottom: 16 }}
-        >
-          <Form
-            onFinish={(values) => {
-              sendEmail({
-                ...values,
-                to: extractEmail(selectedEmail.from),
-                subject: selectedEmail.subject.startsWith('Re:') ? 
-                  selectedEmail.subject : `Re: ${selectedEmail.subject}`,
-                body: `${values.body}<br><br>--- Original Message ---<br>${selectedEmail.body}`
-              });
-              setShowReply(false);
-            }}
-          >
-            <Form.Item
-              name="to"
-              initialValue={extractEmail(selectedEmail.from)}
-            >
-              <Input disabled />
+        <Card title="Reply" extra={<Button type="text" icon={<CloseOutlined />} onClick={() => { setShowReply(false); setReplyAttachments([]); }} />} style={{ marginBottom: 16 }} >
+          <Form onFinish={(values) => handleSendWithAttachments(values, replyAttachments, 'reply')}>
+            <Form.Item label="To"><Input disabled value={extractEmailOnly(selectedEmail.from)} /></Form.Item>
+            <Form.Item name="to" initialValue={extractEmailOnly(selectedEmail.from)} hidden><Input /></Form.Item>
+            <Form.Item label="Subject" name="subject" initialValue={selectedEmail.subject.startsWith('Re:') ? selectedEmail.subject : `Re: ${selectedEmail.subject}`}><Input /></Form.Item>
+            <Form.Item name="body"><TextArea rows={4} placeholder="Your reply..." /></Form.Item>
+            <Form.Item>
+              <Upload beforeUpload={(file) => { setReplyAttachments(prev => [...prev, file]); return false; }} fileList={replyAttachments} onRemove={(file) => setReplyAttachments(prev => prev.filter(f => f.uid !== file.uid))} multiple>
+                <Button icon={<UploadOutlined />}>Attach Files</Button>
+              </Upload>
             </Form.Item>
-            <Form.Item
-              name="subject"
-              initialValue={selectedEmail.subject.startsWith('Re:') ? 
-                selectedEmail.subject : `Re: ${selectedEmail.subject}`}
-            >
-              <Input />
+            <Button type="primary" htmlType="submit" loading={loading}>Send Reply</Button>
+          </Form>
+        </Card>
+      )}
+
+      {showReplyAll && (
+        <Card title="Reply to All" extra={<Button type="text" icon={<CloseOutlined />} onClick={() => { setShowReplyAll(false); setReplyAllAttachments([]); }} />} style={{ marginBottom: 16 }}>
+          <Form onFinish={(values) => handleSendWithAttachments(values, replyAllAttachments, 'replyAll')}>
+             <Form.Item label="To" name="to" initialValue={getReplyAllRecipients(selectedEmail).join(', ')}>
+                <Input.TextArea autoSize={{ minRows: 1, maxRows: 3 }} />
+             </Form.Item>
+            <Form.Item label="Subject" name="subject" initialValue={selectedEmail.subject.startsWith('Re:') ? selectedEmail.subject : `Re: ${selectedEmail.subject}`}><Input /></Form.Item>
+            <Form.Item name="body"><TextArea rows={4} placeholder="Your reply..." /></Form.Item>
+            <Form.Item>
+              <Upload beforeUpload={(file) => { setReplyAllAttachments(prev => [...prev, file]); return false; }} fileList={replyAllAttachments} onRemove={(file) => setReplyAllAttachments(prev => prev.filter(f => f.uid !== file.uid))} multiple>
+                <Button icon={<UploadOutlined />}>Attach Files</Button>
+              </Upload>
             </Form.Item>
-            <Form.Item
-              name="body"
-            >
-              <TextArea rows={4} />
-            </Form.Item>
-            <Button type="primary" htmlType="submit">
-              Send Reply
-            </Button>
+            <Button type="primary" htmlType="submit" loading={loading}>Send Reply to All</Button>
           </Form>
         </Card>
       )}
       
-      {/* Forward Form */}
       {showForward && (
-        <Card 
-          title="Forward"
-          extra={
-            <Button 
-              type="text" 
-              icon={<CloseOutlined />}
-              onClick={() => setShowForward(false)}
-            />
-          }
-          style={{ marginBottom: 16 }}
-        >
-          <Form
-            onFinish={(values) => {
-              sendEmail({
-                ...values,
-                subject: selectedEmail.subject.startsWith('Fwd:') ? 
-                  selectedEmail.subject : `Fwd: ${selectedEmail.subject}`,
-                body: `${values.body}<br><br>--- Forwarded Message ---<br>
-                  From: ${selectedEmail.from}<br>
-                  To: ${selectedEmail.to}<br>
-                  Date: ${selectedEmail.date}<br><br>
-                  ${selectedEmail.body}`
-              });
-              setShowForward(false);
-            }}
-          >
-            <Form.Item
-              name="to"
-              rules={[{ required: true, message: 'Please enter recipient email' }]}
-            >
-              <Input placeholder="recipient@example.com" />
+        <Card title="Forward" extra={<Button type="text" icon={<CloseOutlined />} onClick={() => { setShowForward(false); setForwardAttachments([]); }} />} style={{ marginBottom: 16 }}>
+          <Form onFinish={(values) => handleSendWithAttachments(values, forwardAttachments, 'forward')}>
+            <Form.Item name="to" rules={[{ required: true, message: 'Please enter recipient email' }, validateEmails()]}><Input placeholder="recipient@example.com" /></Form.Item>
+            <Form.Item label="Subject" name="subject" initialValue={selectedEmail.subject.startsWith('Fwd:') ? selectedEmail.subject : `Fwd: ${selectedEmail.subject}`}><Input /></Form.Item>
+            <Form.Item name="body"><TextArea rows={4} /></Form.Item>
+            <Form.Item>
+              <Upload beforeUpload={(file) => { setForwardAttachments(prev => [...prev, file]); return false; }} fileList={forwardAttachments} onRemove={(file) => setForwardAttachments(prev => prev.filter(f => f.uid !== file.uid))} multiple>
+                <Button icon={<UploadOutlined />}>Attach Files</Button>
+              </Upload>
             </Form.Item>
-            <Form.Item
-              name="subject"
-              initialValue={selectedEmail.subject.startsWith('Fwd:') ? 
-                selectedEmail.subject : `Fwd: ${selectedEmail.subject}`}
-            >
-              <Input />
-            </Form.Item>
-            <Form.Item
-              name="body"
-            >
-              <TextArea rows={4} />
-            </Form.Item>
-            <Button type="primary" htmlType="submit">
-              Send Forward
-            </Button>
+            <Button type="primary" htmlType="submit" loading={loading}>Send Forward</Button>
           </Form>
         </Card>
       )}
     </div>
   );
-};// Update the main render to handle sent folder
-// In EmailClient.jsx, replace the existing renderEmailInterface function
+};
+
 const handleSearch = async (query) => {
   setSearchQuery(query);
   
@@ -1110,7 +1221,8 @@ const renderEmailInterface = () => (
         } else if (activeFolder === 'trash') {
           const prevOffset = Math.max(0, trashOffset - 10);
           setTrashOffset(prevOffset);
-          fetchEmails('trash', 10, trashOffset);
+          // ✅ FIXED: Use the calculated prevOffset here
+          fetchEmails('trash', 10, prevOffset);
         }
       }}
       disabled={
@@ -1119,7 +1231,7 @@ const renderEmailInterface = () => (
         (activeFolder === 'trash' && trashOffset === 0) ||
         loading
       }
-      title="Previous" // This shows on hover
+      title="Previous"
       style={{ minWidth: 32 }}
     >
       ←
@@ -1142,13 +1254,14 @@ const renderEmailInterface = () => (
         }
       }}
       disabled={!hasMore || loading}
-      title="Next" // This shows on hover
+      title="Next"
       style={{ minWidth: 32 }}
     >
       →
     </Button>
   </Space>
 )}
+
         <Button
           type="text"
           onClick={handleLogout}
@@ -1175,25 +1288,27 @@ const renderEmailInterface = () => (
       </div>
     </Content>
 
-    <Modal
-      title={selectedEmail?.subject}
-      open={emailDetailVisible}
-      onCancel={() => {
-        setEmailDetailVisible(false);
-        setSelectedEmail(null);
-      }}
-      footer={null}
-      width={isMobile ? "95%" : isTablet ? "90%" : "70%"}
-      style={{ top: isMobile ? 20 : isTablet ? 40 : 50 }}
-      bodyStyle={{
-        padding: isMobile ? 16 : isTablet ? 20 : 24,
-        maxHeight: isMobile ? '80vh' : isTablet ? '70vh' : '75vh',
-        overflow: 'auto'
-      }}
+ 
+      <Modal
+  title={selectedEmail?.subject}
+  open={emailDetailVisible}
+  onCancel={() => {
+    setEmailDetailVisible(false);
+    setSelectedEmail(null);
+    // ✅ ADD THESE LINES TO RESET ALL STATES
+    setShowReply(false);
+    setShowForward(false);
+    setShowReplyAll(false);
+    setReplyAttachments([]);    // <-- ADD THIS
+    setReplyAllAttachments([]); // <-- ADD THIS
+    setForwardAttachments([]);   // <-- ADD THIS
+  }}
+  footer={null}
+      // ... rest of the modal props
     >
       {selectedEmail && renderEmailDetail()}
     </Modal>
-  </Layout>
+ </Layout>
 );  return (
     <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       {!isAuthenticated ? renderAuthForm() : renderEmailInterface()}
