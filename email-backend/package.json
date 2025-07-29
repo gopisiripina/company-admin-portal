@@ -22,6 +22,7 @@
     "dotenv": "^17.2.0",
     "express": "^5.1.0",
     "imap": "^0.8.19",
+    "https": "^1.0.0",
     "mailparser": "^3.7.4",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.5",

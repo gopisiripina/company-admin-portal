@@ -1,4 +1,4 @@
-name: Build & Deploy the emailbackend
+name: Build & Deploy the Email Backend
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
-          context: ./frontend
+          context: ./email-backend
           push: true
           tags: myaccess2021/email-backend:latest
 
@@ -39,4 +39,9 @@ jobs:
             docker pull myaccess2021/email-backend:latest
             docker stop email-backend-container || true
             docker rm email-backend-container || true
-            docker run -d --name email-backend-container --netwrok cap-network  -p 5000:5000   myaccess2021/email-backend:latest
+            docker run -d \
+              --name email-backend-container \
+              --network cap-network \
+              -p 5000:5000 \
+              -v /etc/letsencrypt:/etc/letsencrypt:ro \
+              myaccess2021/email-backend:latest
