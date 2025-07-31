@@ -204,7 +204,7 @@ useEffect(() => {
 
 
 
-  const API_BASE = 'https://cap.myaccessio.com:5000/api/email';
+  const API_BASE = 'https://cap.myaccessio.com/api/email';
 
   useEffect(() => {
   const handleResize = () => {
