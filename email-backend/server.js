@@ -36,7 +36,7 @@ app.use(bodyParser.json());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors({
-  origin: 'https://cap.myaccessio.com',
+  origin: ['https://cap.myaccessio.com', 'http://localhost:5173'],
   credentials: true
 }));
 
@@ -215,6 +215,222 @@ app.post('/api/send-email', async (req, res) => {
         res.status(500).json({
             success: false,
             error: error.message
+        });
+    }
+});
+
+const pay_upload = multer({ storage: multer.memoryStorage() });
+app.post('/api/payslip', pay_upload.single('payslip'), async (req, res) => {
+    try {
+        const {
+            employeeName,
+            employeeEmail,
+            companyName,
+            payPeriod,
+            senderEmail,
+            senderPassword,
+            smtpServer = 'smtp.gmail.com',
+            smtpPort = 587
+        } = req.body;
+
+        console.log("Received payslip data:", req.body);
+
+        // Validate required fields
+        if (!employeeName || !employeeEmail || !senderEmail || !senderPassword) {
+            return res.status(400).json({
+                success: false,
+                error: "Missing required fields: employeeName, employeeEmail, senderEmail, or senderPassword"
+            });
+        }
+
+        // Check if PDF file is attached
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                error: "PDF file is required"
+            });
+        }
+
+        // Create transporter
+        const transporter = nodemailer.createTransport({
+    host: smtpServer,
+    port: smtpPort,
+    secure: false,
+    auth: {
+        user: senderEmail,
+        pass: senderPassword
+    },
+    tls: {
+        rejectUnauthorized: false
+    }
+});     
+        // Verify transporter
+        await transporter.verify();
+
+        // Email template for payslip
+        const emailTemplate = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Payslip - ${payPeriod}</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                    margin: 0;
+                    padding: 0;
+                    background-color: #f4f4f4;
+                }
+                .email-container {
+                    max-width: 600px;
+                    margin: 20px auto;
+                    background: white;
+                    border-radius: 10px;
+                    overflow: hidden;
+                    box-shadow: 0 0 20px rgba(0,0,0,0.1);
+                }
+                .header {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 30px 20px;
+                    text-align: center;
+                }
+                .header h1 {
+                    margin: 0;
+                    font-size: 24px;
+                }
+                .content {
+                    padding: 30px 20px;
+                }
+                .greeting {
+                    font-size: 18px;
+                    margin-bottom: 20px;
+                    color: #2c3e50;
+                }
+                .info-box {
+                    background: #f8f9fa;
+                    border-left: 4px solid #667eea;
+                    padding: 15px;
+                    margin: 20px 0;
+                    border-radius: 5px;
+                }
+                .footer {
+                    background: #2c3e50;
+                    color: white;
+                    text-align: center;
+                    padding: 20px;
+                    font-size: 14px;
+                }
+                .attachment-note {
+                    background: #e8f5e8;
+                    border: 1px solid #4caf50;
+                    border-radius: 5px;
+                    padding: 15px;
+                    margin: 20px 0;
+                    text-align: center;
+                }
+                .attachment-icon {
+                    font-size: 24px;
+                    color: #4caf50;
+                    margin-bottom: 10px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="email-container">
+                <div class="header">
+                    <h1>💼 Payslip Notification</h1>
+                    <p style="margin: 5px 0 0 0; opacity: 0.9;">${companyName || 'Your Company'}</p>
+                </div>
+                
+                <div class="content">
+                    <div class="greeting">
+                        Dear ${employeeName},
+                    </div>
+                    
+                    <p>We hope this email finds you well. Your payslip for <strong>${payPeriod}</strong> is now ready and attached to this email.</p>
+                    
+                    <div class="info-box">
+                        <strong>📋 Payslip Details:</strong><br>
+                        <strong>Employee:</strong> ${employeeName}<br>
+                        <strong>Pay Period:</strong> ${payPeriod}<br>
+                        <strong>Generated Date:</strong> ${new Date().toLocaleDateString()}
+                    </div>
+                    
+                    <div class="attachment-note">
+                        <div class="attachment-icon">📎</div>
+                        <strong>Your payslip is attached as a PDF file</strong><br>
+                        <small>Please download and save this document for your records</small>
+                    </div>
+                    
+                    <p>If you have any questions regarding your payslip or notice any discrepancies, please don't hesitate to contact the HR department.</p>
+                    
+                    <p style="margin-top: 30px;">
+                        Best regards,<br>
+                        <strong>HR Department</strong><br>
+                        ${companyName || 'Your Company'}
+                    </p>
+                </div>
+                
+                <div class="footer">
+                    <p style="margin: 0;">This is an automated email. Please do not reply to this message.</p>
+                    <p style="margin: 5px 0 0 0; opacity: 0.8;">© ${new Date().getFullYear()} ${companyName || 'Your Company'}. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        // Mail options
+        const mailOptions = {
+            from: {
+                name: companyName || 'HR Department',
+                address: senderEmail
+            },
+            to: employeeEmail,
+            subject: `Payslip for ${payPeriod} - ${employeeName}`,
+            html: emailTemplate,
+            attachments: [
+                {
+                    filename: `Payslip_${employeeName.replace(/\s+/g, '_')}_${payPeriod.replace(/\s+/g, '_')}.pdf`,
+                    content: req.file.buffer,
+                    contentType: 'application/pdf'
+                }
+            ]
+        };
+
+        // Send email
+        const info = await transporter.sendMail(mailOptions);
+        
+        console.log('Payslip email sent successfully:', info.messageId);
+
+        res.status(200).json({
+            success: true,
+            message: 'Payslip sent successfully',
+            messageId: info.messageId,
+            recipient: employeeEmail,
+            payPeriod: payPeriod
+        });
+
+    } catch (error) {
+        console.error('Error sending payslip email:', error);
+        
+        let errorMessage = 'Failed to send payslip email';
+        if (error.code === 'EAUTH') {
+            errorMessage = 'Email authentication failed. Please check credentials.';
+        } else if (error.code === 'ENOTFOUND') {
+            errorMessage = 'SMTP server not found. Please check server settings.';
+        } else if (error.responseCode === 550) {
+            errorMessage = 'Recipient email address rejected.';
+        }
+
+        res.status(500).json({
+            success: false,
+            error: errorMessage,
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 });
