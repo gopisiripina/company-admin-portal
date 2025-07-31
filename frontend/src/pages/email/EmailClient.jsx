@@ -203,7 +203,9 @@ useEffect(() => {
 }, [isAuthenticated, emailCredentials.email]); // Dependencies are correct
 
 
-  const API_BASE = '/api/email';
+
+  const API_BASE = 'https://cap.myaccessio.com:5000/api/email';
+  main
 
   useEffect(() => {
   const handleResize = () => {
@@ -267,6 +269,7 @@ const handleEmailAuth = async (values) => {
   
   try {
     const { data: result } = await axios.post(`${API_BASE}/test-connection`, values);
+
     
     if (result.success) {
       setIsAuthenticated(true);

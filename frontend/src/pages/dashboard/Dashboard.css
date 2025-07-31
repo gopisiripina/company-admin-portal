@@ -50,7 +50,33 @@
   transform: scale(1.05);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
+/* Mobile-first responsive styles */
+@media (max-width: 576px) {
+  .ant-modal {
+    margin: 8px !important;
+    max-width: calc(100vw - 16px) !important;
+  }
+  
+  .ant-modal-content {
+    border-radius: 8px;
+  }
+  
+  .ant-modal-body {
+    padding: 12px 8px !important;
+  }
+  
+  .ant-modal-title {
+    font-size: 16px !important;
+  }
+}
 
+/* Tablet styles */
+@media (min-width: 577px) and (max-width: 768px) {
+  .ant-modal {
+    margin: 16px !important;
+    max-width: calc(100vw - 32px) !important;
+  }
+}
 /* Main Layout */
 .dashboard-main {
   flex: 1;
