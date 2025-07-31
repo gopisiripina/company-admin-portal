@@ -335,7 +335,42 @@
   margin-bottom: 35px;
   animation: fadeInUp 0.6s ease-out;
 }
+.calendar-tooltip {
+  position: fixed;
+  background: #1f2937;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  pointer-events: none;
+}
 
+.tooltip-date {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.tooltip-time {
+  margin: 2px 0;
+}
+
+.calendar-day.checked-in {
+  background-color: #fde047; /* A yellow color to indicate pending status */
+  color: #713f12;
+  font-weight: bold;
+}
+.tooltip-pending {
+  margin: 2px 0;
+  color: #f59e0b;
+  font-style: italic;
+}
+.tooltip-hours {
+  margin-top: 4px;
+  color: #10b981;
+  font-weight: 500;
+}
 .welcome-title {
   font-size: 36px;
   font-weight: 800;
