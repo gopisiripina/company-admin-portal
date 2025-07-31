@@ -114,6 +114,7 @@ const AppContent = () => {
       profileImage: user.profileImage,
       photoURL: user.photoURL,
       isActive: user.isActive,
+      employeeId: user.employeeId,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       displayName: user.displayName,

@@ -57,7 +57,9 @@ class AuthService {
         .select('*')
         .eq('email', email)
         .limit(1);
-      
+      console.log('Raw Supabase response:', users);
+console.log('First user data:', users?.[0]);
+console.log('employee_id from DB:', users?.[0]?.employee_id);
       if (error) {
         console.error('Supabase query error:', error);
         throw new Error('Database connection error');
