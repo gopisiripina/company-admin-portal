@@ -159,7 +159,7 @@ useEffect(() => {
   };
 
   // 3. Create the connection
-  const socket = new WebSocket('ws://cap.myaccessio.com:5000');
+  const socket = new WebSocket('wss://cap.myaccessio.com/api/ws');
   ws.current = socket;
 
   socket.onopen = () => {
@@ -205,6 +205,7 @@ useEffect(() => {
 
 
   const API_BASE = 'https://cap.myaccessio.com:5000/api/email';
+  main
 
   useEffect(() => {
   const handleResize = () => {
