@@ -189,7 +189,7 @@ const handleVerifyAndCheckIn = async () => {
   formData.append('image', imageFile);
 
   try {
-    const apiResponse = await fetch('https://cap.myaccessio.com:8001/api/verify-face/', {
+    const apiResponse = await fetch('https://cap.myaccessio.com/api/verify-face/', {
       method: 'POST',
       body: formData,
     });
