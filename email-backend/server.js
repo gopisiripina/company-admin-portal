@@ -61,7 +61,8 @@ const getImapConfig = (email, password) => ({
 wss.on('connection', (ws) => {
   console.log('[WebSocket] Client connected.');
 
-  // When a client sends its credentials for authentication
+  // 1. When a client sends its credentials for authentication
+
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message);
