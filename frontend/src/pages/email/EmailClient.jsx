@@ -159,7 +159,7 @@ useEffect(() => {
   };
 
   // 3. Create the connection
-  const socket = new WebSocket('wss://cap.myaccessio.com:5000/api/');
+  const socket = new WebSocket('wss://cap.myaccessio.com/api/ws');
   ws.current = socket;
 
   socket.onopen = () => {
