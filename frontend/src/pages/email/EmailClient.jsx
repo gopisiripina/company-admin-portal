@@ -64,7 +64,7 @@ const [trashEmails, setTrashEmails] = useState([]);
 const [showReply, setShowReply] = useState(false);
   const [showForward, setShowForward] = useState(false);
   const [showReplyAll, setShowReplyAll] = useState(false);
-
+  const storageKey = 'emailCredentials_main';
   const [trashOffset, setTrashOffset] = useState(0);
 const [sentOffset, setSentOffset] = useState(0);
 const [hasMore, setHasMore] = useState(true);
@@ -72,6 +72,7 @@ const [searchQuery, setSearchQuery] = useState('');
 const [isSearching, setIsSearching] = useState(false);
 const [searchDropdownVisible, setSearchDropdownVisible] = useState(false);
 const [searchResults, setSearchResults] = useState([]);
+const [readMessages, setReadMessages] = useState(new Set());
 // In EmailClient.jsx, add this state variable near the others
 const [showCcBcc, setShowCcBcc] = useState(false);
 // In EmailClient.jsx, near your other state variables
@@ -83,6 +84,19 @@ const ws = useRef(null);
 const activeFolderRef = useRef(activeFolder);
 useEffect(() => { activeFolderRef.current = activeFolder; }, [activeFolder]);
 
+useEffect(() => {
+  const storedReadMessages = sessionStorage.getItem('readMessages');
+  if (storedReadMessages) {
+    setReadMessages(new Set(JSON.parse(storedReadMessages)));
+  }
+}, []);
+
+// Save read messages to sessionStorage whenever it changes
+useEffect(() => {
+  if (readMessages.size > 0) {
+    sessionStorage.setItem('readMessages', JSON.stringify([...readMessages]));
+  }
+}, [readMessages]);
 // In EmailClient.jsx, replace the handleLogout function
 
 // In EmailClient.jsx
@@ -101,19 +115,21 @@ const handleLogout = () => {
   setSelectedEmail(null);
   setComposeData({ to: '', subject: '', body: '' });
   setAttachments([]);
+  setReadMessages(new Set());
   setLastFetchTime(0);
   setInboxOffset(0);
   setSentOffset(0); // Also reset sent offset
   setTrashOffset(0); // Also reset trash offset
   setEmailDetailVisible(false);
-  
+  sessionStorage.removeItem('readMessages');
   // ✅ FIXED: Use the onFolderChange prop to reset the active folder
   if (onFolderChange) {
     onFolderChange('inbox');
   }
   
   // Clear localStorage
-  localStorage.removeItem('emailCredentials');
+   localStorage.removeItem(storageKey);
+  sessionStorage.removeItem(storageKey);
   
   // Reset form
   if (composeForm) {
@@ -129,16 +145,21 @@ const handleLogout = () => {
 };
 
 useEffect(() => {
-  const stored = localStorage.getItem('emailCredentials');
+  const stored = sessionStorage.getItem(storageKey);
   if (stored) {
-    const creds = JSON.parse(stored);
-    setEmailCredentials(creds);
-    setIsAuthenticated(true);
-    onAuthSuccess?.();
-    // ✅ ONLY set lastFetchTime to prevent re-fetch, don't fetch here
-    setLastFetchTime(1); // Set to 1 to prevent the fetch in the next useEffect
+    const { credentials, timestamp } = JSON.parse(stored);
+    const threeHours = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
+    
+    if (Date.now() - timestamp < threeHours) {
+      setEmailCredentials(credentials);
+      setIsAuthenticated(true);
+      onAuthSuccess?.();
+      setLastFetchTime(1);
+    } else {
+      sessionStorage.removeItem(storageKey);
+    }
   }
-}, [onAuthSuccess]);
+}, [onAuthSuccess, storageKey]);
 // In EmailClient.jsx, add this new useEffect hook
 
 // In EmailClient.jsx
@@ -205,7 +226,6 @@ useEffect(() => {
 
 
   const API_BASE = 'https://cap.myaccessio.com:5000/api/email';
-  main
 
   useEffect(() => {
   const handleResize = () => {
@@ -274,7 +294,10 @@ const handleEmailAuth = async (values) => {
     if (result.success) {
       setIsAuthenticated(true);
       setEmailCredentials(values);
-      localStorage.setItem('emailCredentials', JSON.stringify(values));
+      sessionStorage.setItem(storageKey, JSON.stringify({
+  credentials: values,
+  timestamp: Date.now()
+}));
       if (onAuthSuccess) onAuthSuccess();
       
       // ❌ REMOVE THE SETTIMEOUT BLOCK FROM HERE
@@ -433,7 +456,9 @@ const sendEmail = async (values) => {
 };
 const handleEmailClick = (email) => {
   setSelectedEmail(email);
-  setEmailDetailVisible(true); // Always show modal for all devices
+  setEmailDetailVisible(true);
+  // Mark as read
+  setReadMessages(prev => new Set(prev).add(email.uid));
 };
 // ✅ NEW: Function to move an email from Inbox or Sent to Trash
 // ✅ NEW: Function to move an email from Inbox or Sent to Trash
@@ -696,12 +721,40 @@ const renderEmailList = () => {
 
                         return (
                             <List.Item
+                            title={
+  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <Text 
+      strong={!readMessages.has(email.uid)} // Bold for unread
+      style={{ 
+        whiteSpace: 'nowrap', 
+        overflow: 'hidden', 
+        textOverflow: 'ellipsis',
+        color: readMessages.has(email.uid) ? '#666' : '#000' // Darker for unread
+      }}
+    >
+      {!readMessages.has(email.uid) && (
+        <Badge 
+          status="processing" 
+          style={{ marginRight: 8 }} 
+        />
+      )}
+      {fromOrTo}
+    </Text>
+  </div>
+}
                                 style={{
-                                    cursor: 'pointer',
-                                    padding: '12px 16px',
-                                    backgroundColor: selectedEmail?.uid === email.uid ? '#e6f7ff' : 'white',
-                                    borderBottom: '1px solid #f0f0f0',
-                                }}
+  cursor: 'pointer',
+  padding: '12px 16px',
+  backgroundColor: selectedEmail?.uid === email.uid 
+    ? '#e6f7ff' 
+    : readMessages.has(email.uid) 
+      ? '#f9f9f9'  // Light gray for read messages
+      : '#ffffff', // White for unread messages
+  borderBottom: '1px solid #f0f0f0',
+  borderLeft: readMessages.has(email.uid) 
+    ? '3px solid #8ac185'  // Green border for read
+    : '3px solid #0D7139', // Blue border for unread
+}}
                                 actions={!loading ? [
                                     <Button
                                         type="text"
@@ -730,10 +783,18 @@ const renderEmailList = () => {
                                         </div>
                                     }
                                     description={
-                                        <Paragraph ellipsis={{ rows: 2 }} style={{ margin: 0, fontSize: 14 }}>
-                                            {email.subject}
-                                        </Paragraph>
-                                    }
+  <Paragraph 
+    ellipsis={{ rows: 2 }} 
+    style={{ 
+      margin: 0, 
+      fontSize: 14,
+      fontWeight: readMessages.has(email.uid) ? 'normal' : '500', // Semi-bold for unread
+      color: readMessages.has(email.uid) ? '#999' : '#333' // Darker for unread
+    }}
+  >
+    {email.subject}
+  </Paragraph>
+}
                                 />
                             </List.Item>
                         );

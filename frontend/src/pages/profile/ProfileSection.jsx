@@ -392,9 +392,9 @@ const ProfileSection = ({ userData, onLogout }) => {
           <span style={profileRoleStyle}>
             {userData?.role || userData?.userType || 'User'}
           </span>
-          {/* <span style={headerEmailStyle}>
+          <span style={headerEmailStyle}>
             {userData?.employeeId ||'N/A'}
-          </span> */}
+          </span>
         </div>
         <ChevronDown 
           size={16} 

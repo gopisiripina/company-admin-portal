@@ -53,6 +53,8 @@ const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionCh
   const [userPayslips, setUserPayslips] = useState([]);
   const [showPayslipModal, setShowPayslipModal] = useState(false);
   const [selectedPayslipMonth, setSelectedPayslipMonth] = useState(dayjs());
+  const [tabId] = useState(() => Date.now() + Math.random());
+    const storageKey = `emailCredentials_${tabId}`;
 useEffect(() => {
   console.log('Current userData:', userData);
   console.log('User ID:', userData?.id);
@@ -1180,7 +1182,7 @@ const handleEmailFolderChange = (folder) => {
           <Bell size={22} />
           <span className="notification-badge"></span>
         </button>
-        <ProfileSection userData={userData} onLogout={onLogout}/>
+        <ProfileSection userData={userData} onLogout={onLogout} storageKey={storageKey}/>
       </div>
     </header>
   );
@@ -1295,6 +1297,7 @@ if (activeSection === 'mails') {
           onFolderChange={handleEmailFolderChange}
           onAuthSuccess={() => setIsEmailAuthenticated(true)}
           onLogout={() => setIsEmailAuthenticated(false)}
+          userData={userData} 
         />
       </main>
     </div>
