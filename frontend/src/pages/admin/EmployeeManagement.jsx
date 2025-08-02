@@ -341,7 +341,7 @@ const handleSubmit = useCallback(async (values) => {
       const formData = new FormData();
       formData.append('image', uploadedFile);
       
-      const embeddingResponse = await fetch('http://192.210.241.34:8000/api/get-face-embedding/', {
+      const embeddingResponse = await fetch('https://cap.myaccessio.com/api/get-face-embedding/', {
         method: 'POST',
         body: formData
       });
