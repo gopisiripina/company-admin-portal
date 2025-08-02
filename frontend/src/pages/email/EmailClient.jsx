@@ -36,7 +36,8 @@ import {
   MenuOutlined,
   LogoutOutlined,
   UploadOutlined,
-  
+  PaperClipOutlined,
+  DownloadOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 const { Header, Sider, Content } = Layout;
@@ -222,6 +223,7 @@ useEffect(() => {
   return cleanup;
 
 }, [isAuthenticated, emailCredentials.email]); // Dependencies are correct
+
 
 
 
@@ -455,12 +457,84 @@ const sendEmail = async (values) => {
     setLoading(false);
   }
 };
-const handleEmailClick = (email) => {
+const handleEmailClick = async (email) => {
   setSelectedEmail(email);
   setEmailDetailVisible(true);
-  // Mark as read
-  setReadMessages(prev => new Set(prev).add(email.uid));
+  
+  // Only mark as read if it's currently unread
+  if (email.unread) {
+    try {
+      // Determine the folder for the API call
+      let folder = 'INBOX';
+      if (activeFolder === 'sent') folder = 'INBOX.Sent';
+      if (activeFolder === 'trash') folder = 'INBOX.Trash';
+      
+      const response = await fetch(`${API_BASE}/mark-read`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...emailCredentials,
+          uid: email.uid,
+          folder: folder
+        }),
+      });
+      
+      if (response.ok) {
+        // Update local state immediately for better UX
+        const updateEmailInList = (emailList) => 
+          emailList.map(e => e.uid === email.uid ? { ...e, unread: false, seen: true } : e);
+        
+        if (activeFolder === 'inbox') setEmails(updateEmailInList);
+        else if (activeFolder === 'sent') setSentEmails(updateEmailInList);
+        else if (activeFolder === 'trash') setTrashEmails(updateEmailInList);
+        
+        setReadMessages(prev => new Set(prev).add(email.uid));
+      }
+    } catch (error) {
+      console.error('Failed to mark email as read:', error);
+    }
+  }
 };
+
+// Add download attachment handler
+const handleDownloadAttachment = async (emailUid, attachment) => {
+  try {
+    let folder = 'INBOX';
+    if (activeFolder === 'sent') folder = 'INBOX.Sent';
+    if (activeFolder === 'trash') folder = 'INBOX.Trash';
+    
+    const response = await fetch(`${API_BASE}/download-attachment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...emailCredentials,
+        uid: emailUid,
+        attachmentId: attachment.id || attachment.filename,
+        folder: folder
+      }),
+    });
+    
+    if (response.ok) {
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = attachment.filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      message.success(`Downloaded ${attachment.filename}`);
+    } else {
+      message.error('Failed to download attachment');
+    }
+  } catch (error) {
+    console.error('Download error:', error);
+    message.error('Error downloading attachment');
+  }
+};
+
 // ✅ NEW: Function to move an email from Inbox or Sent to Trash
 // ✅ NEW: Function to move an email from Inbox or Sent to Trash
 // ✅ IMPROVED: Function to move email to trash with optimistic UI update
@@ -707,7 +781,20 @@ const renderEmailList = () => {
 
     return (
         <Card
-            title={ <Space> {folderIcon} <span>{folderTitle}</span> <Badge count={currentEmails.length} style={{ backgroundColor: '#52c41a' }} /> </Space> }
+            title={ <Space> 
+  {folderIcon} 
+  <span>{folderTitle}</span> 
+  <Badge 
+    count={currentEmails.filter(email => email.unread).length} 
+    style={{ backgroundColor: '#1890ff' }} 
+    title="Unread emails"
+  />
+  <Badge 
+    count={currentEmails.length} 
+    style={{ backgroundColor: '#52c41a' }} 
+    title="Total emails"
+  />
+</Space> }
             extra={ <Button icon={<ReloadOutlined />} onClick={handleManualRefresh} loading={loading} type="text"> {!isMobile && 'Refresh'} </Button> }
             style={{ height: '100%' }}
             bodyStyle={{ height: 'calc(100% - 57px)', overflowY: 'auto', padding: '0' }}
@@ -722,82 +809,81 @@ const renderEmailList = () => {
 
                         return (
                             <List.Item
-                            title={
-  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-    <Text 
-      strong={!readMessages.has(email.uid)} // Bold for unread
-      style={{ 
-        whiteSpace: 'nowrap', 
-        overflow: 'hidden', 
-        textOverflow: 'ellipsis',
-        color: readMessages.has(email.uid) ? '#666' : '#000' // Darker for unread
+  style={{
+    cursor: 'pointer',
+    padding: '12px 16px',
+    backgroundColor: selectedEmail?.uid === email.uid 
+      ? '#e6f7ff' 
+      : email.unread 
+        ? '#dfd6d6ff'  // Light red for unread
+        : '#ffffff', // White for read
+    borderBottom: '1px solid #f0f0f0',
+    borderLeft: email.unread 
+      ? '4px solid #0D7139'  // Red border for unread
+      : '4px solid #d9d9d9', // Gray border for read
+  }}
+  actions={!loading ? [
+    <Button
+      type="text"
+      danger
+      icon={<DeleteOutlined />}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (activeFolder === 'trash') {
+          handlePermanentDelete(email);
+        } else {
+          handleMoveToTrash(email, activeFolder);
+        }
       }}
-    >
-      {!readMessages.has(email.uid) && (
-        <Badge 
-          status="processing" 
-          style={{ marginRight: 8 }} 
-        />
-      )}
-      {fromOrTo}
-    </Text>
-  </div>
-}
-                                style={{
-  cursor: 'pointer',
-  padding: '12px 16px',
-  backgroundColor: selectedEmail?.uid === email.uid 
-    ? '#e6f7ff' 
-    : readMessages.has(email.uid) 
-      ? '#f9f9f9'  // Light gray for read messages
-      : '#ffffff', // White for unread messages
-  borderBottom: '1px solid #f0f0f0',
-  borderLeft: readMessages.has(email.uid) 
-    ? '3px solid #8ac185'  // Green border for read
-    : '3px solid #0D7139', // Blue border for unread
-}}
-                                actions={!loading ? [
-                                    <Button
-                                        type="text"
-                                        danger
-                                        icon={<DeleteOutlined />}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            if (activeFolder === 'trash') {
-                                                handlePermanentDelete(email);
-                                            } else {
-                                                handleMoveToTrash(email, activeFolder);
-                                            }
-                                        }}
-                                    />
-                                ] : []}
-                                onClick={() => handleEmailClick(email)}
-                            >
-                                <List.Item.Meta
-                                    avatar={<Avatar icon={<UserOutlined />} style={{ marginTop: '4px' }} />}
-                                    title={
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <Text strong style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                {fromOrTo}
-                                            </Text>
-                                            {/* ✅ REMOVED: The date is no longer displayed here */}
-                                        </div>
-                                    }
-                                    description={
-  <Paragraph 
-    ellipsis={{ rows: 2 }} 
-    style={{ 
-      margin: 0, 
-      fontSize: 14,
-      fontWeight: readMessages.has(email.uid) ? 'normal' : '500', // Semi-bold for unread
-      color: readMessages.has(email.uid) ? '#999' : '#333' // Darker for unread
-    }}
-  >
-    {email.subject}
-  </Paragraph>
-}
-                                />
-                            </List.Item>
+    />
+  ] : []}
+  onClick={() => handleEmailClick(email)}
+>
+  <List.Item.Meta
+    avatar={
+      <Badge  color="#0D7139">
+        <Avatar icon={<UserOutlined />} style={{ marginTop: '4px' }} />
+      </Badge>
+    }
+    title={
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Space>
+          {email.unread && <Badge status="error" />}
+          <Text 
+            strong={email.unread}
+            style={{ 
+              whiteSpace: 'nowrap', 
+              overflow: 'hidden', 
+              textOverflow: 'ellipsis',
+              color: email.unread ? '#000' : '#666',
+              fontWeight: email.unread ? 'bold' : 'normal'
+            }}
+          >
+            {isSentFolder ? `To: ${email.to}` : email.from}
+          </Text>
+        </Space>
+        {email.attachments && email.attachments.length > 0 && (
+          <Badge count={email.attachments.length} size="small" style={{ backgroundColor: '#52c41a' }}>
+            <PaperClipOutlined style={{ color: '#0D7139' }} />
+          </Badge>
+        )}
+      </div>
+    }
+    description={
+      <Paragraph 
+        ellipsis={{ rows: 2 }} 
+        style={{ 
+          margin: 0, 
+          fontSize: 14,
+          fontWeight: email.unread ? '500' : 'normal',
+          color: email.unread ? '#000' : '#666'
+        }}
+      >
+        {email.subject}
+      </Paragraph>
+    }
+  />
+</List.Item>
                         );
                     }}
                 />
@@ -1040,6 +1126,41 @@ const renderEmailDetail = () => {
       <div style={{ maxHeight: '40vh', overflow: 'auto', lineHeight: '1.6', marginBottom: 16, padding: 16, backgroundColor: '#f9f9f9', border: '1px solid #f0f0f0', borderRadius: 4 }}
         dangerouslySetInnerHTML={{ __html: selectedEmail.body }}
       />
+      
+      {/* Show attachments if they exist */}
+      {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <Text strong>Attachments ({selectedEmail.attachments.length}): </Text>
+          <div style={{ marginTop: 8 }}>
+            <Space wrap>
+              {selectedEmail.attachments.map((attachment, index) => (
+                <Card 
+                  key={attachment.id || index}
+                  size="small"
+                  style={{ minWidth: 200 }}
+                  actions={[
+                    <Button 
+                    style={{ backgroundColor: '#0D7139' }}
+                      type="primary" 
+                      size="small"
+                      icon={<DownloadOutlined/>}
+                      onClick={() => handleDownloadAttachment(selectedEmail.uid, attachment)}
+                    >
+                      Download
+                    </Button>
+                  ]}
+                >
+                  <Card.Meta
+                    avatar={<PaperClipOutlined style={{ fontSize: 16, color: '#0D7139' }} />}
+                    title={attachment.filename || 'Attachment'}
+                    description={`${((attachment.size || 0) / 1024).toFixed(1)} KB`}
+                  />
+                </Card>
+              ))}
+            </Space>
+          </div>
+        </div>
+      )}
       
       {showReply && (
         <Card title="Reply" extra={<Button type="text" icon={<CloseOutlined />} onClick={() => { setShowReply(false); setReplyAttachments([]); }} />} style={{ marginBottom: 16 }} >

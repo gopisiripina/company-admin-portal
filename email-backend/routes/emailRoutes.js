@@ -190,10 +190,15 @@ router.post('/fetch', (req, res) => {
       const startSeq = Math.max(1, start);
       const endSeq = Math.max(1, end);
       
-      const f = imap.seq.fetch(`${startSeq}:${endSeq}`, { bodies: '', struct: true });
+      const f = imap.seq.fetch(`${startSeq}:${endSeq}`, { 
+    bodies: '', 
+    struct: true,
+    envelope: true,
+    markSeen: false  // Don't auto-mark as read when fetching
+});
       
       f.on('message', (msg, seqno) => {
-        const emailData = { seqno };
+        const emailData = { seqno, attachments: [] };
         
         msg.on('body', (stream, info) => {
           simpleParser(stream, (err, parsed) => {
@@ -205,6 +210,21 @@ router.post('/fetch', (req, res) => {
                   emailData.subject = parsed.subject || '';
                   emailData.date = parsed.date?.toLocaleString() || '';
                   emailData.body = parsed.html || parsed.text || '';
+
+                  // Process attachments properly
+                  if (parsed.attachments && parsed.attachments.length > 0) {
+                      emailData.attachments = parsed.attachments.map((attachment, index) => ({
+                          id: attachment.contentId || `attachment_${index}`,
+                          filename: attachment.filename || `attachment_${index}`,
+                          size: attachment.size || 0,
+                          contentType: attachment.contentType || 'application/octet-stream',
+                          contentId: attachment.contentId,
+                          cid: attachment.cid,
+                          related: attachment.related || false,
+                          content: attachment.content // Keep content for download
+                      }));
+                  }
+                  
                   emails.push(emailData);
               }
 
@@ -220,6 +240,8 @@ router.post('/fetch', (req, res) => {
         msg.once('attributes', (attrs) => {
           emailData.uid = attrs.uid;
           emailData.flags = attrs.flags;
+          emailData.seen = attrs.flags.includes('\\Seen');
+          emailData.unread = !attrs.flags.includes('\\Seen');
         });
       });
       
@@ -237,6 +259,138 @@ router.post('/fetch', (req, res) => {
   });
   
   imap.connect();
+});
+
+router.post('/mark-read', (req, res) => {
+    const { email, password, uid, folder = 'INBOX' } = req.body;
+    
+    if (!uid) {
+        return res.status(400).json({ success: false, error: 'Missing UID.' });
+    }
+
+    const imap = new Imap(getImapConfig(email, password));
+
+    imap.once('ready', () => {
+        imap.openBox(folder, false, (err, box) => {
+            if (err) {
+                imap.end();
+                return res.status(500).json({ success: false, error: `Could not open folder: ${err.message}` });
+            }
+
+            imap.addFlags(uid, '\\Seen', (err) => {
+                if (err) {
+                    imap.end();
+                    return res.status(500).json({ success: false, error: 'Failed to mark as read: ' + err.message });
+                }
+                imap.end();
+                res.json({ success: true, message: 'Email marked as read.' });
+            });
+        });
+    });
+
+    imap.once('error', (err) => {
+        res.status(400).json({ success: false, error: 'IMAP Connection Error: ' + err.message });
+    });
+
+    imap.connect();
+});
+
+// Mark email as unread
+router.post('/mark-unread', (req, res) => {
+    const { email, password, uid, folder = 'INBOX' } = req.body;
+    
+    if (!uid) {
+        return res.status(400).json({ success: false, error: 'Missing UID.' });
+    }
+
+    const imap = new Imap(getImapConfig(email, password));
+
+    imap.once('ready', () => {
+        imap.openBox(folder, false, (err, box) => {
+            if (err) {
+                imap.end();
+                return res.status(500).json({ success: false, error: `Could not open folder: ${err.message}` });
+            }
+
+            imap.delFlags(uid, '\\Seen', (err) => {
+                if (err) {
+                    imap.end();
+                    return res.status(500).json({ success: false, error: 'Failed to mark as unread: ' + err.message });
+                }
+                imap.end();
+                res.json({ success: true, message: 'Email marked as unread.' });
+            });
+        });
+    });
+
+    imap.once('error', (err) => {
+        res.status(400).json({ success: false, error: 'IMAP Connection Error: ' + err.message });
+    });
+
+    imap.connect();
+});
+
+// Download attachment
+router.post('/download-attachment', (req, res) => {
+    const { email, password, uid, attachmentId, folder = 'INBOX' } = req.body;
+    
+    if (!uid || !attachmentId) {
+        return res.status(400).json({ success: false, error: 'Missing UID or attachment ID.' });
+    }
+
+    const imap = new Imap(getImapConfig(email, password));
+
+    imap.once('ready', () => {
+        imap.openBox(folder, true, (err, box) => {
+            if (err) {
+                imap.end();
+                return res.status(500).json({ success: false, error: `Could not open folder: ${err.message}` });
+            }
+
+            const f = imap.fetch(uid, { 
+                bodies: '', 
+                struct: true,
+                markSeen: false
+            });
+
+            f.on('message', (msg, seqno) => {
+                msg.on('body', (stream, info) => {
+                    simpleParser(stream, (err, parsed) => {
+                        if (err) {
+                            imap.end();
+                            return res.status(500).json({ success: false, error: 'Failed to parse email: ' + err.message });
+                        }
+
+                        const attachment = parsed.attachments.find(att => 
+                            att.filename === attachmentId || att.contentId === attachmentId || att.cid === attachmentId
+                        );
+
+                        if (!attachment) {
+                            imap.end();
+                            return res.status(404).json({ success: false, error: 'Attachment not found.' });
+                        }
+
+                        imap.end();
+                        
+                        res.setHeader('Content-Disposition', `attachment; filename="${attachment.filename}"`);
+                        res.setHeader('Content-Type', attachment.contentType || 'application/octet-stream');
+                        res.send(attachment.content);
+                    });
+                });
+            });
+
+            f.once('error', (err) => {
+                imap.end();
+                res.status(500).json({ success: false, error: 'Failed to fetch email: ' + err.message });
+            });
+        });
+    });
+
+    imap.once('error', (err) => {
+        res.status(400).json({ success: false, error: 'IMAP Connection Error: ' + err.message });
+    });
+
+    imap.connect();
 });
 
 // Fetch trash emails
@@ -272,8 +426,8 @@ router.post('/fetch-trash', (req, res) => {
       const f = imap.seq.fetch(`${startSeq}:${endSeq}`, { bodies: '', struct: true });
 
       f.on('message', (msg, seqno) => {
-        let emailData = { seqno };
-        msg.once('attributes', (attrs) => { emailData.uid = attrs.uid; });
+        let emailData = { seqno, attachments: [] };
+        
         msg.on('body', (stream) => {
             simpleParser(stream, (err, parsed) => {
                 if (parsed) {
@@ -284,6 +438,21 @@ router.post('/fetch-trash', (req, res) => {
                     emailData.subject = parsed.subject || '';
                     emailData.date = parsed.date?.toLocaleString() || '';
                     emailData.body = parsed.html || parsed.text || '';
+                    
+                    // Process attachments
+                    if (parsed.attachments && parsed.attachments.length > 0) {
+                        emailData.attachments = parsed.attachments.map((attachment, index) => ({
+                            id: attachment.contentId || `attachment_${index}`,
+                            filename: attachment.filename || `attachment_${index}`,
+                            size: attachment.size || 0,
+                            contentType: attachment.contentType || 'application/octet-stream',
+                            contentId: attachment.contentId,
+                            cid: attachment.cid,
+                            related: attachment.related || false,
+                            content: attachment.content
+                        }));
+                    }
+                    
                     emails.push(emailData);
                 }
 
@@ -294,6 +463,13 @@ router.post('/fetch-trash', (req, res) => {
                     res.json({ success: true, emails });
                 }
             });
+        });
+        
+        msg.once('attributes', (attrs) => { 
+            emailData.uid = attrs.uid; 
+            emailData.flags = attrs.flags;
+            emailData.seen = attrs.flags.includes('\\Seen');
+            emailData.unread = !attrs.flags.includes('\\Seen');
         });
       });
 
@@ -341,8 +517,7 @@ router.post('/fetch-sent', (req, res) => {
             const f = imap.seq.fetch(`${startSeq}:${endSeq}`, { bodies: '', struct: true });
 
             f.on('message', (msg, seqno) => {
-                const emailData = { seqno };
-                msg.once('attributes', (attrs) => { emailData.uid = attrs.uid; });
+                const emailData = { seqno, attachments: [] };
                 
                 msg.on('body', (stream) => {
                     simpleParser(stream, (err, parsed) => {
@@ -354,6 +529,21 @@ router.post('/fetch-sent', (req, res) => {
                             emailData.subject = parsed.subject || '';
                             emailData.date = parsed.date?.toLocaleString() || '';
                             emailData.body = parsed.html || parsed.text || '';
+                            
+                            // Process attachments
+                            if (parsed.attachments && parsed.attachments.length > 0) {
+                                emailData.attachments = parsed.attachments.map((attachment, index) => ({
+                                    id: attachment.contentId || `attachment_${index}`,
+                                    filename: attachment.filename || `attachment_${index}`,
+                                    size: attachment.size || 0,
+                                    contentType: attachment.contentType || 'application/octet-stream',
+                                    contentId: attachment.contentId,
+                                    cid: attachment.cid,
+                                    related: attachment.related || false,
+                                    content: attachment.content
+                                }));
+                            }
+                            
                             emails.push(emailData);
                         }
                         
@@ -364,6 +554,13 @@ router.post('/fetch-sent', (req, res) => {
                             res.json({ success: true, emails });
                         }
                     });
+                });
+                
+                msg.once('attributes', (attrs) => { 
+                    emailData.uid = attrs.uid; 
+                    emailData.flags = attrs.flags;
+                    emailData.seen = attrs.flags.includes('\\Seen');
+                    emailData.unread = !attrs.flags.includes('\\Seen');
                 });
             });
 
