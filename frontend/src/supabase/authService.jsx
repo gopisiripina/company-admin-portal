@@ -57,9 +57,7 @@ class AuthService {
         .select('*')
         .eq('email', email)
         .limit(1);
-      console.log('Raw Supabase response:', users);
-console.log('First user data:', users?.[0]);
-console.log('employee_id from DB:', users?.[0]?.employee_id);
+
       if (error) {
         console.error('Supabase query error:', error);
         throw new Error('Database connection error');
@@ -69,7 +67,6 @@ console.log('employee_id from DB:', users?.[0]?.employee_id);
       if (users && users.length > 0) {
         const userData = users[0];
         
-        console.log('Raw Supabase userData:', userData);
         
         // Check if password matches (Note: In production, use proper password hashing)
         if (userData.password === password) {
@@ -96,7 +93,7 @@ console.log('employee_id from DB:', users?.[0]?.employee_id);
             password: undefined // Don't include password in the returned object
           };
           
-          console.log('Constructed user object:', user);
+         
           return user;
         }
       }
@@ -219,7 +216,7 @@ async changeFirstLoginPassword(userId, newPassword) {
         user = await this.checkSupabaseCredentials(email, password);
         if (user) {
           authMethod = 'supabase';
-          console.log('Supabase authentication successful:', user);
+          
         }
       } catch (supabaseError) {
         console.error('Supabase authentication failed:', supabaseError);
@@ -243,7 +240,7 @@ async changeFirstLoginPassword(userId, newPassword) {
         error: user ? null : 'Invalid email or password. Please try again.'
       };
 
-      console.log('Final authentication result:', result);
+      
       return result;
     } catch (error) {
       console.error('Authentication error:', error);
@@ -301,7 +298,7 @@ async changeFirstLoginPassword(userId, newPassword) {
   clearStoredUserData() {
     try {
       sessionStorage.removeItem('userData');
-      console.log('User data cleared from localStorage');
+     
     } catch (error) {
       console.error('Error clearing stored user data:', error);
     }
@@ -323,7 +320,7 @@ async changeFirstLoginPassword(userId, newPassword) {
       
       if (currentUser && currentUser.id) {
         if (currentUser.id && !currentUser.id.startsWith('demo_')) {
-          console.log('Setting isActive to false for user:', currentUser.id);
+         
           await this.updateUserActiveStatus(userData.id, false);
         } else {
           console.log('Demo user logout - no Supabase update needed');
@@ -331,7 +328,6 @@ async changeFirstLoginPassword(userId, newPassword) {
       }
       
       this.clearStoredUserData();
-      console.log('User logged out successfully');
       
       return true;
     } catch (error) {

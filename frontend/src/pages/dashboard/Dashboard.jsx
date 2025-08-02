@@ -60,9 +60,9 @@ const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionCh
   const [tabId] = useState(() => Date.now() + Math.random());
     const storageKey = `emailCredentials_${tabId}`;
 useEffect(() => {
-  console.log('Current userData:', userData);
-  console.log('User ID:', userData?.id);
-  console.log('User object keys:', userData ? Object.keys(userData) : 'No userData');
+  
+  
+  
 }, [userData]);
 
 const loadFaceDetectionModels = async () => {
@@ -355,7 +355,7 @@ const startFaceDetection = () => {
 
 useEffect(() => {
   if (userData && userData.id && selectedPayslipMonth) {
-    console.log('Fetching payslips for month:', selectedPayslipMonth.format('YYYY-MM')); // ❌ ADD DEBUG
+   
     fetchUserPayslips();
   }
 }, [selectedPayslipMonth]);
@@ -445,8 +445,7 @@ const fetchAttendanceData = async () => {
   
   // --- MODIFICATION START ---
   // Added clearer logging to diagnose fetching issues.
-  console.log(`[FETCHING DATA] For User ID: ${userId}, Month Range: ${startOfMonth} to ${endOfMonth}`);
-
+ 
   try {
     const { data, error } = await supabase
       .from('attendance')
@@ -464,7 +463,7 @@ const fetchAttendanceData = async () => {
 
     // This is the most critical log. Check your browser console for this output after you check in.
     // It shows you exactly what the database returned.
-    console.log('[FETCHING DATA] Raw data received from database:', data);
+   
 
     setAttendanceData(data || []);
 
@@ -491,7 +490,7 @@ const fetchUserPayslips = async () => {
       .order('pay_period', { ascending: false });
     
     if (error) throw error;
-    console.log('Filtered payslips for month:', data); // ❌ ADD DEBUG
+    
     setUserPayslips(data || []);
   } catch (error) {
     console.error('Error fetching payslips:', error);
@@ -592,10 +591,10 @@ const handleRetry = () => {
 };
 
 useEffect(() => {
-  console.log('useEffect triggered - userData:', userData, 'currentMonth:', currentMonth);
+ 
   
   if (userData && userData.id) {
-    console.log('Calling fetchAttendanceData...');
+    
     fetchAttendanceData();
   } else {
     console.log('Skipping fetch - no user data');
@@ -620,7 +619,7 @@ const renderAttendanceCalendar = () => {
   // Create attendance lookup map
   const attendanceMap = {};
   
-  console.log('Processing attendance data:', attendanceData);
+ 
   
   attendanceData.forEach(record => {
   // Handle different date formats
@@ -1797,7 +1796,7 @@ if (activeSection === 'payroll') {
             </div>
           </div>
 
-          <Modal
+       <Modal
   title={
     <div style={{ 
       textAlign: 'center', 
@@ -1815,6 +1814,9 @@ if (activeSection === 'payroll') {
   width={700}
   centered
   style={{ borderRadius: '12px' }}
+  styles={{
+    body: { padding: '20px 0' }  // Changed from bodyStyle to styles.body
+  }}
 >
   <div style={{ padding: '20px 0' }}>
     {/* Month Selector */}
@@ -1956,7 +1958,7 @@ if (activeSection === 'payroll') {
           </div>
         </div>
       </main>
-            <Modal
+<Modal
   title={`Take Attendance via Face Recognition - ${
     attendanceType === 'check-in' ? 'Check In' : 
     attendanceType === 'check-out' ? 'Check Out' : 'Completed'
@@ -1977,13 +1979,13 @@ if (activeSection === 'payroll') {
   }}
   centered
   footer={null}
-  width="100%" // Make it full width on mobile
+  width="100%"
   style={{ 
-    maxWidth: '680px', // Max width for desktop
-    margin: '0 16px' // Margin for mobile
+    maxWidth: '680px',
+    margin: '0 16px'
   }}
-  bodyStyle={{
-    padding: '16px 8px' // Reduced padding for mobile
+  styles={{
+    body: { padding: '16px 8px' }  // Changed from bodyStyle to styles.body
   }}
 >
   <div style={{ padding: '20px 0' }}>
