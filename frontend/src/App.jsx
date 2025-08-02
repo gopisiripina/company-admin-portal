@@ -31,7 +31,7 @@ const AppContent = () => {
 
   // Check for existing session on initial load
   useEffect(() => {
-    const savedUserData = localStorage.getItem('userData');
+    const savedUserData = sessionStorage.getItem('userData');
     if (savedUserData) {
       try {
         const parsedData = JSON.parse(savedUserData);
@@ -46,7 +46,7 @@ const AppContent = () => {
         }
       } catch (error) {
         console.error('Error parsing saved user data:', error);
-        localStorage.removeItem('userData');
+        sessionStorage.removeItem('userData');
       }
     }
     setCheckingAuth(false);
@@ -116,6 +116,7 @@ const AppContent = () => {
       profileImage: user.profileImage,
       photoURL: user.photoURL,
       isActive: user.isActive,
+      employeeId: user.employeeId,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       displayName: user.displayName,
@@ -130,12 +131,12 @@ const AppContent = () => {
     
     // Store complete user data in localStorage
     try {
-      localStorage.setItem('userData', JSON.stringify(completeUserData));
+      sessionStorage.setItem('userData', JSON.stringify(completeUserData));
       
       // Verify storage
-      const storedData = localStorage.getItem('userData');
+      const storedData = sessionStorage.getItem('userData');
       const parsedStoredData = JSON.parse(storedData);
-      console.log('Verified localStorage data:', parsedStoredData);
+      console.log('Verified sessionStorage data:', parsedStoredData);
       console.log('Verified profileImage in storage:', parsedStoredData.profileImage);
     } catch (error) {
       console.error('Error storing user data:', error);
@@ -149,7 +150,7 @@ const AppContent = () => {
     console.log('Logging out user');
     setIsLoggedIn(false);
     setUserData(null);
-    localStorage.removeItem('userData');
+    sessionStorage.removeItem('userData');
     setActiveSection('dashboard');
     navigate('/', { replace: true });
   };

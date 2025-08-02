@@ -57,7 +57,9 @@ class AuthService {
         .select('*')
         .eq('email', email)
         .limit(1);
-      
+      console.log('Raw Supabase response:', users);
+console.log('First user data:', users?.[0]);
+console.log('employee_id from DB:', users?.[0]?.employee_id);
       if (error) {
         console.error('Supabase query error:', error);
         throw new Error('Database connection error');
@@ -276,7 +278,7 @@ async changeFirstLoginPassword(userId, newPassword) {
         };
         
         console.log('Data to store:', dataToStore);
-        localStorage.setItem('userData', JSON.stringify(dataToStore));
+        sessionStorage.setItem('userData', JSON.stringify(dataToStore));
         
       } catch (error) {
         console.error('Error storing user data:', error);
@@ -286,7 +288,7 @@ async changeFirstLoginPassword(userId, newPassword) {
 
   getStoredUserData() {
     try {
-      const userData = localStorage.getItem('userData');
+      const userData = sessionStorage.getItem('userData');
       const parsedData = userData ? JSON.parse(userData) : null;
       console.log('Retrieved stored user data:', parsedData);
       return parsedData;
@@ -298,7 +300,7 @@ async changeFirstLoginPassword(userId, newPassword) {
 
   clearStoredUserData() {
     try {
-      localStorage.removeItem('userData');
+      sessionStorage.removeItem('userData');
       console.log('User data cleared from localStorage');
     } catch (error) {
       console.error('Error clearing stored user data:', error);
