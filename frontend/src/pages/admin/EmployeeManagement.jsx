@@ -36,6 +36,32 @@ import ErrorPage from '../../error/ErrorPage';
 const { Title, Text } = Typography;
 const { Search } = Input;
 
+const generateEmployeeId = (name) => {
+  // Extract first and last word
+  const words = name.trim().split(/\s+/);
+  const firstWord = words[0];
+  const lastWord = words.length > 1 ? words[words.length - 1] : words[0];
+  
+  // Get initials
+  const initials = (firstWord.charAt(0) + lastWord.charAt(0)).toUpperCase();
+  
+  // Create hash from name + timestamp
+  const timestamp = Math.floor(Date.now() / 1000);
+  const hashInput = name + timestamp;
+  
+  // Generate hash (you can use crypto-js library or this simple hash)
+  let hash = 0;
+  for (let i = 0; i < hashInput.length; i++) {
+    const char = hashInput.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  
+  // Get last 3 characters equivalent
+  const hashSuffix = Math.abs(hash).toString(16).slice(-3).toUpperCase();
+  
+  return `EMP${initials}${hashSuffix}`;
+};
 const sendWelcomeEmail = async (employeeData) => {
   try {
     const response = await fetch('https://ksvreddy4.pythonanywhere.com/api/send-email', {
@@ -192,16 +218,16 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
     if (editingEmployee) {
       setTimeout(() => {
         form.setFieldsValue({
-          name: editingEmployee.name,
-          email: editingEmployee.email,
-          employeeId: editingEmployee.employee_id, // Make sure this matches your database column
-          role: editingEmployee.role,
-          isActive: editingEmployee.isactive !== undefined ? editingEmployee.isactive : true,
-          // ADD THESE LINES:
-          employeeType: editingEmployee.employee_type || 'full-time',
-          startDate: editingEmployee.start_date ? dayjs(editingEmployee.start_date) : null,
-          endDate: editingEmployee.end_date ? dayjs(editingEmployee.end_date) : null
-        });
+  name: editingEmployee.name,
+  email: editingEmployee.email,
+  employeeId: editingEmployee.employee_id,
+  department: editingEmployee.department, // Add this line
+  role: editingEmployee.role,
+  isActive: editingEmployee.isactive !== undefined ? editingEmployee.isactive : true,
+  employeeType: editingEmployee.employee_type || 'full-time',
+  startDate: editingEmployee.start_date ? dayjs(editingEmployee.start_date) : null,
+  endDate: editingEmployee.end_date ? dayjs(editingEmployee.end_date) : null
+});
         setProfileImage(editingEmployee.profileimage || null);
         setFaceEmbedding(editingEmployee.face_embedding || null);
       }, 0);
@@ -354,17 +380,18 @@ const handleSubmit = useCallback(async (values) => {
 
       // Update existing employee
       const updateData = {
-        name: values.name,
-        email: values.email,
-        role: values.role || 'employee',
-        employee_id: values.employeeId,
-        isactive: values.isActive,
-        profileimage: profileImage,
-        employee_type: values.employeeType,
-        start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
-        end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
-        face_embedding: finalFaceEmbedding
-      };
+  name: values.name,
+  email: values.email,
+  department: values.department, // Add this line
+  role: values.role || 'employee',
+  employee_id: editingEmployee.employee_id, // Keep existing ID
+  isactive: values.isActive,
+  profileimage: profileImage,
+  employee_type: values.employeeType,
+  start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
+  end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
+  face_embedding: finalFaceEmbedding
+};
       
       console.log('Updating employee with data:', updateData);
       
@@ -384,19 +411,20 @@ const handleSubmit = useCallback(async (values) => {
       // Create new employee
       const password = generatePassword();
       const employeeData = {
-        name: values.name,
-        email: values.email,
-        employee_id: values.employeeId,
-        role: 'employee',
-        isactive: values.isActive !== undefined ? values.isActive : false,
-        isfirstlogin: true,
-        profileimage: profileImage,
-        password: password,
-        employee_type: values.employeeType,
-        start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
-        end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
-        face_embedding: finalFaceEmbedding
-      };
+  name: values.name,
+  email: values.email,
+  department: values.department, // Add this line
+  employee_id: generateEmployeeId(values.name), // Auto-generate ID
+  role: 'employee',
+  isactive: values.isActive !== undefined ? values.isActive : false,
+  isfirstlogin: true,
+  profileimage: profileImage,
+  password: password,
+  employee_type: values.employeeType,
+  start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
+  end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
+  face_embedding: finalFaceEmbedding
+};
       
       console.log('Creating employee with data:', employeeData);
       
@@ -577,21 +605,26 @@ const handleSubmit = useCallback(async (values) => {
 </Form.Item>
 
         <Form.Item
-          name="employeeId"
-          label="Employee ID"
-          rules={[
-            { required: true, message: 'Please enter employee ID' },
-            { pattern: /^[A-Z0-9]+$/, message: 'Employee ID should contain only uppercase letters and numbers' }
-          ]}
-        >
-          <Input 
-            placeholder="Enter employee ID (e.g., EMP001)" 
-            style={{ textTransform: 'uppercase' }}
-            onChange={(e) => {
-              e.target.value = e.target.value.toUpperCase();
-            }}
-          />
-        </Form.Item>
+  name="department"
+  label="Department"
+  rules={[{ required: true, message: 'Please enter department' }]}
+>
+  <Input placeholder="Enter department (e.g., Software Engineer)" />
+</Form.Item>
+
+<Form.Item
+  name="employeeId"
+  label="Employee ID"
+>
+  <Input 
+    placeholder="Auto-generated on save"
+    disabled
+    style={{ 
+      backgroundColor: '#f5f5f5',
+      color: '#666'
+    }}
+  />
+</Form.Item>
 
 
         <Form.Item>
@@ -664,7 +697,8 @@ const [filters, setFilters] = useState({
     end_date,
     created_at,
     updated_at,
-    face_embedding
+    face_embedding,
+    department
   `)
   .eq('role', 'employee')
   .order('created_at', { ascending: false });

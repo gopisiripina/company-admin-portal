@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Bell, Users, DollarSign, ShoppingCart,  TrendingUp, Calendar,Camera , Clock, Star, ArrowUpRight, ArrowDownRight, Activity, Zap, Menu} from 'lucide-react';
-import {Row, Col, Statistic, Button, Card, Space,Typography,  Spin, Alert,Badge, Modal, Flex} from 'antd';
-import {LeftOutlined, RightOutlined, CalendarOutlined } from '@ant-design/icons';
+import {Row, Col, Statistic, Button, Card, Space,Typography,  Spin, Alert,Badge, Modal, Flex,DatePicker} from 'antd';
+import {LeftOutlined, RightOutlined, CalendarOutlined,FilePdfOutlined, } from '@ant-design/icons';
 import './Dashboard.css';
 import ProfileSection from '../profile/ProfileSection';
 import AdminManagement from '../admin/AdminManagement';
@@ -20,10 +20,17 @@ import CampusJobApplyPage from '../job/CampusJobApplyPage';
 import ExamConductPage from '../job/ExamConductPage';
 import EmailClient from '../email/EmailClient';
 import PayrollApp from '../hr/Payroll';
+import LeaveManagementPage from '../hr/LeaveManagementPage';
+
+
+
 import EmployeeAttendancePage from '../hr/EmployeeAttendancePage';
 import { supabase } from '../../supabase/config';
 import Webcam from "react-webcam";
 import * as faceapi from 'face-api.js';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+import dayjs from 'dayjs';
 const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionChange,activeEmailFolder, onToggleSidebar, isEmailAuthenticated, setIsEmailAuthenticated }) => {
   const { Text, Title } = Typography;
   const [currentJobId, setCurrentJobId] = useState(2);
@@ -47,6 +54,11 @@ const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionCh
   const [hasStartedDetection, setHasStartedDetection] = useState(false);
   const [cameraStream, setCameraStream] = useState(null);
   const [isCameraOn, setIsCameraOn] = useState(false);
+  const [userPayslips, setUserPayslips] = useState([]);
+  const [showPayslipModal, setShowPayslipModal] = useState(false);
+  const [selectedPayslipMonth, setSelectedPayslipMonth] = useState(dayjs());
+  const [tabId] = useState(() => Date.now() + Math.random());
+    const storageKey = `emailCredentials_${tabId}`;
 useEffect(() => {
   console.log('Current userData:', userData);
   console.log('User ID:', userData?.id);
@@ -99,6 +111,202 @@ const stopCamera = () => {
   setIsFaceDetected(false);
 };
 
+const generatePayslipPDF = async (employee, returnBlob = false) => {
+    const earningsData = employee.earnings_data || {
+      basic: { label: 'Basic', value: employee.basic || 0 },
+      hra: { label: 'House Rent Allowance', value: employee.hra || 0 }
+    };
+    
+    const deductionsData = employee.deductions_data || {
+      incomeTax: { label: 'Income Tax', value: employee.income_tax || 0 },
+      pf: { label: 'Provident Fund', value: employee.pf || 0 }
+    };
+    
+    const totalEarnings = employee.total_earnings || Object.values(earningsData).reduce((sum, item) => sum + item.value, 0);
+    const totalDeductions = employee.total_deductions || Object.values(deductionsData).reduce((sum, item) => sum + item.value, 0);
+    const netPay = employee.net_pay || (totalEarnings - totalDeductions);
+    
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 800px;">
+        <div style="border-bottom: 2px solid #2d5a4a; padding-bottom: 20px; margin-bottom: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <h1 style="margin: 0; font-size: 24px; color: #2d5a4a;">${employee.company_name || 'Company Name'}</h1>
+              <p style="margin: 5px 0; color: #666;">${employee.company_address || 'Company Address'}</p>
+            </div>
+            <div style="text-align: right;">
+              <h2 style="margin: 0; font-size: 14px; color: #666;">Payslip For the Month</h2>
+              <h3 style="margin: 5px 0; font-size: 20px; color: #2d5a4a;">${dayjs(employee.pay_period).format('MMMM YYYY')}</h3>
+            </div>
+          </div>
+        </div>
+        
+        <div style="margin-bottom: 30px;">
+          <h3 style="font-size: 16px; margin-bottom: 15px; text-transform: uppercase; color: #2d5a4a;">Employee Summary</h3>
+          <div style="display: flex; justify-content: space-between;">
+            <div style="flex: 1;">
+              <p><strong>Employee Name:</strong> ${employee.employee_name || 'N/A'}</p>
+              <p><strong>Employee ID:</strong> ${employee.employee_id || 'N/A'}</p>
+              <p><strong>Pay Period:</strong> ${dayjs(employee.pay_period).format('MMMM YYYY')}</p>
+              <p><strong>Pay Date:</strong> ${dayjs(employee.pay_date).format('DD/MM/YYYY')}</p>
+            </div>
+            <div style="width: 200px; background: #f0f9f4; border: 2px solid #10b981; border-radius: 8px; padding: 15px; text-align: center;">
+              <div style="font-size: 18px; font-weight: bold; color: #059669;">Rs.${netPay.toFixed(2)}</div>
+              <div style="font-size: 12px; color: #059669;">Total Net Pay</div>
+              <div style="margin-top: 10px; font-size: 12px;">
+                <div>Paid Days: ${employee.paid_days || 0}</div>
+                <div>LOP Days: ${employee.lop_days || 0}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div style="display: flex; gap: 20px; margin-bottom: 30px;">
+          <div style="flex: 1; border: 1px solid #ddd; border-radius: 5px;">
+            <div style="background: #f0f9f4; padding: 10px; border-bottom: 1px solid #ddd; color: #2d5a4a;">
+              <strong>EARNINGS</strong>
+              <span style="float: right;"><strong>AMOUNT</strong></span>
+            </div>
+            <div style="padding: 10px;">
+              ${Object.values(earningsData).map(item => 
+                `<div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                  <span>${item.label}</span>
+                  <span>Rs.${item.value.toFixed(2)}</span>
+                </div>`
+              ).join('')}
+              <div style="border-top: 1px solid #ddd; padding-top: 8px; margin-top: 8px; display: flex; justify-content: space-between; font-weight: bold; color: #059669;">
+                <span>Gross Earnings</span>
+                <span>Rs.${totalEarnings.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+          
+          <div style="flex: 1; border: 1px solid #ddd; border-radius: 5px;">
+            <div style="background: #fef2f2; padding: 10px; border-bottom: 1px solid #ddd; color: #991b1b;">
+              <strong>DEDUCTIONS</strong>
+              <span style="float: right;"><strong>AMOUNT</strong></span>
+            </div>
+            <div style="padding: 10px;">
+              ${Object.values(deductionsData).map(item => 
+                `<div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                  <span>${item.label}</span>
+                  <span>Rs.${item.value.toFixed(2)}</span>
+                </div>`
+              ).join('')}
+              <div style="border-top: 1px solid #ddd; padding-top: 8px; margin-top: 8px; display: flex; justify-content: space-between; font-weight: bold; color: #dc2626;">
+                <span>Total Deductions</span>
+                <span>Rs.${totalDeductions.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div style="background: #f0f9f4; border: 2px solid #10b981; border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 20px;">
+          <h3 style="margin: 0 0 10px 0; color: #059669;">TOTAL NET PAYABLE</h3>
+          <div style="font-size: 24px; font-weight: bold; color: #047857;">Rs.${netPay.toFixed(2)}</div>
+        </div>
+        
+        <div style="text-align: center; margin-bottom: 20px; font-size: 13px;">
+          <strong>Amount In Words:</strong> ${netPay >= 0 ? `Indian Rupee ${Math.abs(netPay).toFixed(2)} Only` : `Minus Indian Rupee ${Math.abs(netPay).toFixed(2)} Only`}
+        </div>
+        
+        <div style="text-align: center; font-size: 11px; color: #666; font-style: italic; border-top: 1px solid #ddd; padding-top: 15px;">
+          -- This is a system-generated document. --
+        </div>
+      </div>
+    `;
+
+    if (returnBlob) {
+      return new Promise((resolve) => {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = htmlContent;
+        tempDiv.style.position = 'absolute';
+        tempDiv.style.left = '-9999px';
+        tempDiv.style.width = '800px';
+        tempDiv.style.background = 'white';
+        document.body.appendChild(tempDiv);
+        
+        html2canvas(tempDiv, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff'
+        }).then(canvas => {
+          document.body.removeChild(tempDiv);
+          
+          const pdf = new jsPDF('p', 'mm', 'a4');
+          const imgData = canvas.toDataURL('image/png');
+          
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = pdf.internal.pageSize.getHeight();
+          const imgWidth = canvas.width;
+          const imgHeight = canvas.height;
+          const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+          const imgX = (pdfWidth - imgWidth * ratio) / 2;
+          const imgY = 0;
+          
+          pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+          const blob = pdf.output('blob');
+          resolve(blob);
+        }).catch(error => {
+          document.body.removeChild(tempDiv);
+          console.error('Error generating PDF:', error);
+          resolve(new Blob()); // Return empty blob on error
+        });
+      });
+    } else {
+      // For email sending, we also need blob
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = htmlContent;
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.left = '-9999px';
+      tempDiv.style.width = '800px';
+      tempDiv.style.background = 'white';
+      document.body.appendChild(tempDiv);
+      
+      return new Promise((resolve) => {
+        html2canvas(tempDiv, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff'
+        }).then(canvas => {
+          document.body.removeChild(tempDiv);
+          
+          const pdf = new jsPDF('p', 'mm', 'a4');
+          const imgData = canvas.toDataURL('image/png');
+          
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = pdf.internal.pageSize.getHeight();
+          const imgWidth = canvas.width;
+          const imgHeight = canvas.height;
+          const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+          const imgX = (pdfWidth - imgWidth * ratio) / 2;
+          const imgY = 0;
+          
+          pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+          
+          // For print dialog
+          pdf.save(`payslip_${employee.employee_name}_${dayjs(employee.pay_period).format('YYYY-MM')}.pdf`);
+resolve(true);
+        });
+      });
+    }
+  };
+
+const downloadUserPayslip = async (payslipData) => {
+  try {
+    await generatePayslipPDF(payslipData, false);
+    console.log('Payslip downloaded successfully');
+  } catch (error) {
+    console.error('Error downloading payslip:', error);
+    Modal.error({
+      title: 'Download Failed',
+      content: 'Failed to download payslip. Please try again.',
+    });
+  }
+};
+
 const startFaceDetection = () => {
   // Prevent multiple calls
   if (faceDetectionInterval || isProcessing) {
@@ -145,6 +353,18 @@ const startFaceDetection = () => {
   setFaceDetectionInterval(interval);
 };
 
+useEffect(() => {
+  if (userData && userData.id && selectedPayslipMonth) {
+    console.log('Fetching payslips for month:', selectedPayslipMonth.format('YYYY-MM')); // ❌ ADD DEBUG
+    fetchUserPayslips();
+  }
+}, [selectedPayslipMonth]);
+useEffect(() => {
+  if (userData && userData.id) {
+    fetchAttendanceData();
+    fetchUserPayslips(); // Add this line
+  }
+}, [userData, currentMonth]);
 useEffect(() => {
   if (isCameraModalVisible && !isModelLoaded) {
     loadFaceDetectionModels();
@@ -202,7 +422,7 @@ const handleVerifyAndCheckIn = async () => {
 
     // If verification successful, proceed with attendance marking
     await markAttendance();
-
+    await fetchAttendanceData();
   } catch (error) {
     console.error('Verification Error:', error);
     setVerificationError(error.message);
@@ -214,81 +434,67 @@ const handleVerifyAndCheckIn = async () => {
 };
 
 const fetchAttendanceData = async () => {
-  // Check if we have user data and ID
   if (!userData || !userData.id) {
-    console.log('No user data or user ID available:', userData);
+    // This check is important. If there's no user, we can't fetch data.
     return;
   }
 
-  const userId = userData.id; // Get user ID from userData
-  const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-  const endOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+  const userId = userData.id;
+  const startOfMonth = dayjs(currentMonth).startOf('month').format('YYYY-MM-DD');
+  const endOfMonth = dayjs(currentMonth).endOf('month').format('YYYY-MM-DD');
   
-  // Format dates as YYYY-MM-DD
-  const startDate = startOfMonth.toISOString().split('T')[0];
-  const endDate = endOfMonth.toISOString().split('T')[0];
-
-  console.log('Fetching attendance with params:', {
-    userId: userId,
-    userDataFull: userData,
-    startDate: startDate,
-    endDate: endDate,
-    currentMonth: currentMonth
-  });
+  // --- MODIFICATION START ---
+  // Added clearer logging to diagnose fetching issues.
+  console.log(`[FETCHING DATA] For User ID: ${userId}, Month Range: ${startOfMonth} to ${endOfMonth}`);
 
   try {
-    // Make sure you're importing supabase client correctly
     const { data, error } = await supabase
       .from('attendance')
-      .select('*') // Select all columns first to see what's there
+      .select('*')
       .eq('user_id', userId)
-      .gte('date', startDate)
-      .lte('date', endDate)
+      .gte('date', startOfMonth)
+      .lte('date', endOfMonth)
       .order('date', { ascending: true });
 
-    console.log('Supabase query result:', { data, error });
-
     if (error) {
-      console.error('Supabase error details:', error);
+      // This will show you if Supabase itself is returning an error.
+      console.error('[FETCHING DATA] Supabase Error:', error);
       return;
     }
 
-    if (!data || data.length === 0) {
-      console.log('No attendance records found for user:', userId);
-      console.log('Date range:', startDate, 'to', endDate);
-      
-      // Let's also check if there's any data at all for this user
-      const { data: allUserData, error: allError } = await supabase
-        .from('attendance')
-        .select('*')
-        .eq('user_id', userId)
-        .limit(5);
-      
-      console.log('All attendance records for user (first 5):', allUserData);
-      
-      setAttendanceData([]);
-      return;
-    }
+    // This is the most critical log. Check your browser console for this output after you check in.
+    // It shows you exactly what the database returned.
+    console.log('[FETCHING DATA] Raw data received from database:', data);
 
-    console.log('Successfully fetched attendance data:', data);
-    console.log('Number of records found:', data.length);
-    
-    // Log each record to see the structure
-    data.forEach((record, index) => {
-      console.log(`Record ${index}:`, {
-        id: record.id,
-        date: record.date,
-        user_id: record.user_id,
-        is_present: record.is_present,
-        check_in: record.check_in,
-        check_out: record.check_out
-      });
-    });
-
-    setAttendanceData(data);
+    setAttendanceData(data || []);
 
   } catch (error) {
-    console.error('Fetch attendance error:', error);
+    console.error('[FETCHING DATA] An unexpected error occurred:', error);
+  }
+  // --- MODIFICATION END ---
+};
+
+const fetchUserPayslips = async () => {
+  if (!userData || !userData.id) return;
+  
+  try {
+    // ❌ CHANGE THIS - Add month filtering
+    const startOfMonth = selectedPayslipMonth.startOf('month').format('YYYY-MM-DD');
+    const endOfMonth = selectedPayslipMonth.endOf('month').format('YYYY-MM-DD');
+    
+    const { data, error } = await supabase
+      .from('payroll')
+      .select('*')
+      .eq('user_id', userData.id)
+      .gte('pay_period', startOfMonth)  // ❌ ADD THIS
+      .lte('pay_period', endOfMonth)    // ❌ ADD THIS
+      .order('pay_period', { ascending: false });
+    
+    if (error) throw error;
+    console.log('Filtered payslips for month:', data); // ❌ ADD DEBUG
+    setUserPayslips(data || []);
+  } catch (error) {
+    console.error('Error fetching payslips:', error);
   }
 };
 
@@ -345,7 +551,7 @@ const markAttendance = async () => {
     if (attendanceError) {
       throw new Error(attendanceError.message || 'Failed to save attendance record.');
     }
-
+    await fetchAttendanceData();
     stopCamera(); // This will handle all cleanup
     setIsCameraModalVisible(false); 
 
@@ -365,7 +571,6 @@ Modal.success({
 
 // Close modal and reset all states
 // setIsCameraModalVisible(false);
-fetchAttendanceData(); // Refresh calendar data
 
   } catch (error) {
     console.error('Attendance marking error:', error);
@@ -418,31 +623,38 @@ const renderAttendanceCalendar = () => {
   console.log('Processing attendance data:', attendanceData);
   
   attendanceData.forEach(record => {
-    // Handle different date formats
-    let dateKey;
-    if (record.date) {
-      // Ensure date is in YYYY-MM-DD format
-      if (typeof record.date === 'string') {
-        dateKey = record.date.split('T')[0]; // Remove time part if exists
-      } else {
-        dateKey = new Date(record.date).toISOString().split('T')[0];
-      }
-      
-      attendanceMap[dateKey] = {
-        isPresent: record.is_present,
-        checkIn: record.check_in,
-        checkOut: record.check_out,
-        totalHours: record.total_hours
-      };
-      
-      console.log('Mapped attendance:', {
-        date: dateKey,
-        isPresent: record.is_present,
-        checkIn: record.check_in,
-        checkOut: record.check_out
-      });
+  // Handle different date formats
+  let dateKey;
+  if (record.date) {
+    // Ensure date is in YYYY-MM-DD format
+    if (typeof record.date === 'string') {
+      dateKey = record.date.split('T')[0]; // Remove time part if exists
+    } else {
+      dateKey = new Date(record.date).toISOString().split('T')[0];
     }
-  });
+    
+    attendanceMap[dateKey] = {
+      isPresent: record.is_present,
+      checkIn: record.check_in,
+      checkOut: record.check_out,
+      totalHours: record.total_hours,
+      // Add these fields to track current status
+      hasCheckedIn: !!record.check_in,
+      hasCheckedOut: !!record.check_out,
+      isCurrentlyCheckedIn: !!record.check_in && !record.check_out
+    };
+    
+    console.log('Mapped attendance:', {
+      date: dateKey,
+      isPresent: record.is_present,
+      checkIn: record.check_in,
+      checkOut: record.check_out,
+      hasCheckedIn: !!record.check_in,
+      hasCheckedOut: !!record.check_out,
+      isCurrentlyCheckedIn: !!record.check_in && !record.check_out
+    });
+  }
+});
 
   const calendarDays = [];
   
@@ -453,32 +665,82 @@ const renderAttendanceCalendar = () => {
   
   // Add days of current month
   for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const attendanceInfo = attendanceMap[dateStr];
-    const isToday = new Date().toDateString() === new Date(year, month, day).toDateString();
-    
-    let dayClass = 'no-data';
-    let tooltipText = `No data for ${dateStr}`;
-    
-    if (attendanceInfo) {
-      if (attendanceInfo.isPresent === true) {
-        dayClass = 'present';
-        tooltipText = `Present - Check in: ${attendanceInfo.checkIn || 'N/A'}, Check out: ${attendanceInfo.checkOut || 'N/A'}`;
-      } else if (attendanceInfo.isPresent === false) {
-        dayClass = 'absent';
-        tooltipText = `Absent on ${dateStr}`;
-      }
+  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const attendanceInfo = attendanceMap[dateStr];
+  const isToday = new Date().toDateString() === new Date(year, month, day).toDateString();
+  
+  let dayClass = 'no-data';
+  let tooltipText = `No data for ${dateStr}`;
+  
+  if (attendanceInfo) {
+    // MODIFICATION START
+    // This logic differentiates between a "checked-in" state and a completed "present" state.
+    if (attendanceInfo.hasCheckedIn && !attendanceInfo.hasCheckedOut) {
+      dayClass = 'checked-in'; // A new class for the checked-in but not-out state.
+      tooltipText = `Checked In at ${attendanceInfo.checkIn} - Not checked out yet`;
+    } else if (attendanceInfo.hasCheckedIn && attendanceInfo.hasCheckedOut) {
+      dayClass = 'present'; // The user has completed check-in and check-out.
+      tooltipText = `Present - Check in: ${attendanceInfo.checkIn}, Check out: ${attendanceInfo.checkOut}`;
+    } else if (attendanceInfo.isPresent === false) {
+      dayClass = 'absent';
+      tooltipText = `Absent on ${dateStr}`;
     }
+    // MODIFICATION END
+  }
     
     calendarDays.push(
-      <div 
-        key={day}
-        className={`calendar-day ${dayClass} ${isToday ? 'today' : ''}`}
-        title={tooltipText}
-      >
-        {day}
-      </div>
-    );
+  <div 
+    key={day}
+    className={`calendar-day ${dayClass} ${isToday ? 'today' : ''}`}
+    title={tooltipText} // This basic title will be overridden by the more detailed onMouseEnter tooltip.
+    onMouseEnter={(e) => {
+      // This logic creates a more detailed tooltip on hover.
+      const attendanceInfo = attendanceMap[dateStr];
+      if (attendanceInfo) {
+        const tooltip = document.createElement('div');
+        tooltip.className = 'calendar-tooltip';
+        
+        let tooltipContent = ``;
+        
+        if (attendanceInfo.checkIn) {
+          tooltipContent += `<div class="tooltip-time check-in">Check In: ${attendanceInfo.checkIn}</div>`;
+        }
+        
+        if (attendanceInfo.checkOut) {
+          tooltipContent += `<div class="tooltip-time check-out">Check Out: ${attendanceInfo.checkOut}</div>`;
+        } else if (attendanceInfo.checkIn && !attendanceInfo.checkOut) {
+          // Explicitly show that the user is still checked in.
+          tooltipContent += `<div class="tooltip-time pending">⏳ Not checked out yet</div>`;
+        }
+        
+        tooltip.innerHTML = tooltipContent;
+        document.body.appendChild(tooltip);
+        
+        const rect = e.target.getBoundingClientRect();
+        tooltip.style.left = rect.left + 'px';
+        tooltip.style.top = (rect.top - tooltip.offsetHeight - 10) + 'px';
+      } else {
+        const tooltip = document.createElement('div');
+        tooltip.className = 'calendar-tooltip';
+        tooltip.innerHTML = `
+          <div class="tooltip-date">${dateStr}</div>
+          <div class="tooltip-no-data">No attendance data</div>
+        `;
+        document.body.appendChild(tooltip);
+        
+        const rect = e.target.getBoundingClientRect();
+        tooltip.style.left = rect.left + 'px';
+        tooltip.style.top = (rect.top - tooltip.offsetHeight - 10) + 'px';
+      }
+    }}
+    onMouseLeave={() => {
+      const tooltip = document.querySelector('.calendar-tooltip');
+      if (tooltip) tooltip.remove();
+    }}
+  >
+    {day}
+  </div>
+);
   }
 
   const monthNames = [
@@ -924,7 +1186,7 @@ const handleEmailFolderChange = (folder) => {
           <Bell size={22} />
           <span className="notification-badge"></span>
         </button>
-        <ProfileSection userData={userData} onLogout={onLogout}/>
+        <ProfileSection userData={userData} onLogout={onLogout} storageKey={storageKey}/>
       </div>
     </header>
   );
@@ -976,7 +1238,17 @@ const handleEmailFolderChange = (folder) => {
   bgGradient: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
   isCalendar: true,
   showOverview: false // Add this state flag
-}
+},
+{ 
+    title: 'Pay Slips', 
+    value: 'Download', // or show count of available payslips
+    change: 'Select Month', 
+    trend: 'payslip', 
+    icon: FilePdfOutlined, // Import this icon
+    color: '#f59e0b',
+    bgGradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+    isPayslip: true
+  }
   ];
 
   const quickActions = [
@@ -1029,6 +1301,7 @@ if (activeSection === 'mails') {
           onFolderChange={handleEmailFolderChange}
           onAuthSuccess={() => setIsEmailAuthenticated(true)}
           onLogout={() => setIsEmailAuthenticated(false)}
+          userData={userData} 
         />
       </main>
     </div>
@@ -1095,6 +1368,20 @@ if (activeSection === 'employee-attendance') {
         {renderHeader("Search job descriptions...")}
         <main className="main-content">
           <EmployeeAttendancePage userRole={userData?.role} />
+        </main>
+      </div>
+    );
+  }
+  if (activeSection === 'leave-management') {
+    return (
+      <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+        {renderHeader("Search job descriptions...")}
+        <main className="main-content">
+ <LeaveManagementPage 
+    userRole={userData?.role} 
+    currentUserId={userData?.id} 
+  />
+
         </main>
       </div>
     );
@@ -1262,7 +1549,9 @@ if (activeSection === 'payroll') {
   {statsData.map((stat, index) => (
     <div
       key={index}
-      className={`stats-card ${stat.isCalendar ? 'calendar-card' : ''} animate-${index + 1}`}
+      className={`stats-card ${stat.isCalendar ? 'calendar-card' : ''} ${stat.isPayslip ? 'payslip-card' : ''} animate-${index + 1}`}
+      onClick={stat.isPayslip ? () => setShowPayslipModal(true) : undefined}
+      style={{ cursor: stat.isPayslip ? 'pointer' : 'default' }}
     >
       <div 
         className="stats-bg-decoration"
@@ -1497,6 +1786,132 @@ if (activeSection === 'payroll') {
               ))}
             </div>
           </div>
+
+          <Modal
+  title={
+    <div style={{ 
+      textAlign: 'center', 
+      padding: '10px 0',
+      borderBottom: '1px solid #f0f0f0',
+      marginBottom: '20px'
+    }}>
+      <FilePdfOutlined style={{ fontSize: '24px', color: '#1890ff', marginRight: '8px' }} />
+      <span style={{ fontSize: '18px', fontWeight: '600' }}>Download Pay Slips</span>
+    </div>
+  }
+  open={showPayslipModal}
+  onCancel={() => setShowPayslipModal(false)}
+  footer={null}
+  width={700}
+  centered
+  style={{ borderRadius: '12px' }}
+>
+  <div style={{ padding: '20px 0' }}>
+    {/* Month Selector */}
+    <div style={{ marginBottom: '24px' }}>
+      <Text strong style={{ display: 'block', marginBottom: '8px', fontSize: '14px' }}>
+        Select Month:
+      </Text>
+      <DatePicker
+        picker="month"
+        value={selectedPayslipMonth}
+        onChange={(date) => {
+          setSelectedPayslipMonth(date);
+        }}
+        style={{ 
+          width: '100%', 
+          height: '45px',
+          borderRadius: '8px'
+        }}
+        placeholder="Select month to view payslips"
+      />
+    </div>
+
+    {/* Payslips List */}
+    <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+      {userPayslips.filter(payslip => 
+        dayjs(payslip.pay_period).format('YYYY-MM') === selectedPayslipMonth.format('YYYY-MM')
+      ).map(payslip => (
+        <Card 
+          key={payslip.id} 
+          size="small"
+          style={{ 
+            marginBottom: '16px',
+            borderRadius: '8px',
+            border: '1px solid #e6f7ff',
+            background: 'linear-gradient(135deg, #f6ffed 0%, #f0f9ff 100%)'
+          }}
+          bodyStyle={{ padding: '16px' }}
+        >
+          <Row gutter={[16, 8]} align="middle">
+            <Col xs={24} sm={14}>
+              <div>
+                <Text strong style={{ fontSize: '16px', color: '#1e293b' }}>
+                  {payslip.employee_name}
+                </Text>
+                <div style={{ marginTop: '4px' }}>
+                  <Text type="secondary" style={{ fontSize: '13px' }}>
+                    Pay Period: {dayjs(payslip.pay_period).format('MMMM YYYY')}
+                  </Text>
+                </div>
+              </div>
+            </Col>
+            <Col xs={12} sm={5}>
+              <Statistic
+                title="Net Pay"
+                value={payslip.net_pay}
+                prefix="₹"
+                valueStyle={{ 
+                  fontSize: '18px', 
+                  fontWeight: '700',
+                  color: '#059669'
+                }}
+              />
+            </Col>
+            <Col xs={12} sm={5}>
+              <Button 
+                type="primary" 
+                onClick={() => downloadUserPayslip(payslip)}
+                icon={<FilePdfOutlined />}
+                style={{
+                  height: '40px',
+                  borderRadius: '6px',
+                  background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)',
+                  border: 'none',
+                  boxShadow: '0 2px 8px rgba(24, 144, 255, 0.3)'
+                }}
+                block
+              >
+                Download
+              </Button>
+            </Col>
+          </Row>
+        </Card>
+      ))}
+    </div>
+    
+    {/* Empty State */}
+    {userPayslips.filter(payslip => 
+      dayjs(payslip.pay_period).format('YYYY-MM') === selectedPayslipMonth.format('YYYY-MM')
+    ).length === 0 && (
+      <div style={{ 
+        textAlign: 'center', 
+        padding: '40px 20px',
+        background: '#fafafa',
+        borderRadius: '8px',
+        border: '2px dashed #d9d9d9'
+      }}>
+        <FilePdfOutlined style={{ fontSize: '48px', color: '#bfbfbf', marginBottom: '16px' }} />
+        <Title level={4} type="secondary">
+          No payslip found
+        </Title>
+        <Text type="secondary">
+          No payslip available for {selectedPayslipMonth.format('MMMM YYYY')}
+        </Text>
+      </div>
+    )}
+  </div>
+</Modal>
 
           {/* Recent Activity */}
           <div className="activity-card">
