@@ -778,8 +778,8 @@ const renderEmailList = () => {
     }
 
     return (
-        <Card
-            title={ <Space> 
+       <Card
+    title={ <Space> 
   {folderIcon} 
   <span>{folderTitle}</span> 
   <Badge 
@@ -793,10 +793,10 @@ const renderEmailList = () => {
     title="Total emails"
   />
 </Space> }
-            extra={ <Button icon={<ReloadOutlined />} onClick={handleManualRefresh} loading={loading} type="text"> {!isMobile && 'Refresh'} </Button> }
-            style={{ height: '100%' }}
-            bodyStyle={{ height: 'calc(100% - 57px)', overflowY: 'auto', padding: '0' }}
-        >
+    extra={ <Button icon={<ReloadOutlined />} onClick={handleManualRefresh} loading={loading} type="text"> {!isMobile && 'Refresh'} </Button> }
+    style={{ height: '100%' }}
+    styles={{ body: { height: 'calc(100% - 57px)', overflowY: 'auto', padding: '0' } }}
+>
             <Spin spinning={loading && currentEmails.length === 0}>
                 <List
                     itemLayout="horizontal"
@@ -910,7 +910,7 @@ const validateEmails = (message = 'One or more emails are invalid') => ({
 });
 // In EmailClient.jsx, replace the entire renderCompose function
 const renderCompose = () => (
-  <Card 
+ <Card 
     title={
       <Space>
         <EditOutlined />
@@ -918,8 +918,9 @@ const renderCompose = () => (
       </Space>
     }
     style={{ height: '100%' }}
-    bodyStyle={{ height: 'calc(100% - 57px)', overflow: 'auto' }}
-  >
+    styles={{ body: { height: 'calc(100% - 57px)', overflow: 'auto' } }}
+>
+
     <Form
       form={composeForm}
       name="compose-email"
@@ -1467,19 +1468,18 @@ const renderEmailInterface = () => (
   onCancel={() => {
     setEmailDetailVisible(false);
     setSelectedEmail(null);
-    // ✅ ADD THESE LINES TO RESET ALL STATES
     setShowReply(false);
     setShowForward(false);
     setShowReplyAll(false);
-    setReplyAttachments([]);    // <-- ADD THIS
-    setReplyAllAttachments([]); // <-- ADD THIS
-    setForwardAttachments([]);   // <-- ADD THIS
+    setReplyAttachments([]);
+    setReplyAllAttachments([]);
+    setForwardAttachments([]);
   }}
   footer={null}
-      // ... rest of the modal props
-    >
-      {selectedEmail && renderEmailDetail()}
-    </Modal>
+  styles={{ body: { maxHeight: '70vh', overflow: 'auto' } }}
+>
+  {selectedEmail && renderEmailDetail()}
+</Modal>
  </Layout>
 );  return (
     <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>

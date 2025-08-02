@@ -33,7 +33,6 @@ const fetchShortlistedCandidates = async (jobId) => {
       throw error; // Throw error instead of returning empty array
     }
     
-    console.log('Fetched candidates:', data); // Add this for debugging
     return data || [];
   } catch (error) {
     console.error('Error in fetchShortlistedCandidates:', error);
@@ -108,7 +107,7 @@ const fetchJobTitles = async () => {
       return acc;
     }, []);
     
-    console.log('Available jobs with shortlisted candidates:', uniqueJobs);
+   
     return uniqueJobs;
   } catch (error) {
     console.error('Error in fetchJobTitles:', error);
@@ -153,10 +152,10 @@ useEffect(() => {
       
       // Load candidates for the current jobId
       if (jobId) {
-        console.log('Loading candidates for job ID:', jobId);
+        
         
         const candidates = await fetchShortlistedCandidates(jobId);
-        console.log('Raw candidates data:', candidates);
+       
         
         // Transform the data to match your existing structure
         const transformedData = candidates.map(candidate => ({
@@ -185,7 +184,7 @@ useEffect(() => {
           currentStep: candidate.status === 'shortlisted' ? 1 : candidate.status === 'technical' || candidate.status === 'hr' ? 2 : candidate.status === 'selected' ? 3 : 0
         }));
         
-        console.log('Transformed data:', transformedData);
+        
         setResumes(transformedData);
       }
     } catch (error) {

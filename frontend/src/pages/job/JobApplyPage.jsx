@@ -99,7 +99,7 @@ const JobApplyPage = ({ userRole }) => {
         avatar: null
       }));
 
-      console.log('Transformed applicants:', transformedApplicants); // Debug log
+      
 
       setApplicants(transformedApplicants);
       setFilteredApplicants(transformedApplicants);

@@ -385,7 +385,7 @@ const ProfileSection = ({ userData, onLogout }) => {
           {renderAvatar('small')}
           {renderStatusIndicator()}
         </div>
-        <div style={profileInfoStyle}>
+       <div style={profileInfoStyle}>
           <span style={profileNameStyle}>
             {userData?.name || userData?.displayName || 'User'}
           </span>

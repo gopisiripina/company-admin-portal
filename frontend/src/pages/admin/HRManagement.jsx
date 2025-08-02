@@ -303,14 +303,14 @@ const HRFormModal = React.memo(({ isOpen, onClose, editingHR, onSuccess }) => {
   }, [editingHR, generatePassword, onSuccess, onClose, form, profileImage]);
 
   return (
-    <Modal
-      title={editingHR ? 'Edit HR' : 'Add New HR'}
-      open={isOpen}
-      onCancel={onClose}
-      footer={null}
-      destroyOnClose
-      className="employee-form-modal"
-    >
+   <Modal
+  title={editingHR ? 'Edit HR' : 'Add New HR'}
+  open={isOpen}
+  onCancel={onClose}
+  footer={null}
+  destroyOnHidden  // ✅ Use this instead
+  className="employee-form-modal"
+>
       <Form
         form={form}
         layout="vertical"

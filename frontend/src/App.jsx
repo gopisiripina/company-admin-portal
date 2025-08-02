@@ -35,8 +35,8 @@ const AppContent = () => {
     if (savedUserData) {
       try {
         const parsedData = JSON.parse(savedUserData);
-        console.log('Loading saved user data:', parsedData);
-        console.log('Saved profileImage:', parsedData.profileImage);
+       
+       
         
         setUserData(parsedData);
         setIsLoggedIn(true);
@@ -102,10 +102,10 @@ const AppContent = () => {
   }, [location.pathname, isLoggedIn]); 
 
   const handleLoginSuccess = (user) => {
-    console.log('=== Login Success Debug ===');
-    console.log('Received user object:', user);
-    console.log('User profileImage:', user.profileImage);
-    console.log('User object keys:', Object.keys(user || {}));
+    
+   
+   
+    
     
     // Store the COMPLETE user object, not just selected fields
     const completeUserData = {
@@ -123,8 +123,8 @@ const AppContent = () => {
       userType: user.userType
     };
     
-    console.log('Setting complete user data:', completeUserData);
-    console.log('Profile image in complete data:', completeUserData.profileImage);
+   
+    
     
     setUserData(completeUserData);
     setIsLoggedIn(true);
@@ -136,8 +136,7 @@ const AppContent = () => {
       // Verify storage
       const storedData = sessionStorage.getItem('userData');
       const parsedStoredData = JSON.parse(storedData);
-      console.log('Verified sessionStorage data:', parsedStoredData);
-      console.log('Verified profileImage in storage:', parsedStoredData.profileImage);
+     
     } catch (error) {
       console.error('Error storing user data:', error);
     }
@@ -147,7 +146,7 @@ const AppContent = () => {
   };
 
   const handleLogout = () => {
-    console.log('Logging out user');
+    
     setIsLoggedIn(false);
     setUserData(null);
     sessionStorage.removeItem('userData');

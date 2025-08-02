@@ -707,18 +707,7 @@ const [filters, setFilters] = useState({
         console.error('Fetch error:', error);
         throw error;
       }
-      console.log('All employees with face embeddings:');
-    data?.forEach((employee, index) => {
-      console.log(`Employee ${index + 1}:`, {
-        name: employee.name,
-        email: employee.email,
-        employee_id: employee.employee_id,
-        face_embedding: employee.face_embedding,
-        face_embedding_length: employee.face_embedding ? employee.face_embedding.length : 0,
-        has_face_embedding: !!employee.face_embedding
-      });
-    });
-      
+  
       setAllEmployees(data || []);
       return data || [];
     } catch (error) {
