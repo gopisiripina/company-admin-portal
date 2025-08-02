@@ -151,7 +151,7 @@ const Login = ({ onLoginSuccess }) => {
       const authResult = await authService.authenticate(formData.email, formData.password);
       
       if (authResult.success) {
-        console.log('Login successful:', authResult.user);
+        
         
         // Check if this is first time login
         if (authResult.isFirstLogin) {

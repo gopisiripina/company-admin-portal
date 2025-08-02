@@ -748,16 +748,16 @@ const config = getLeaveTypeConfig(leaveTypeNames[key]);
           const percentage = balance.total > 0 ? (balance.remaining / balance.total) * 100 : 0;
     return (
       <Col xs={12} sm={8} md={6} lg={4} xl={4} key={key}> {/* Updated responsive breakpoints */}
-        <Card 
-          style={{ 
-            borderRadius: '12px',
-            background: '#ffffff', 
-            border: '1px solid #f0f0f0',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
-            ...animationStyles.statsCard 
-          }}
-          bodyStyle={{ padding: '12px' }} // Reduced padding for mobile
-        >
+      <Card 
+  style={{ 
+    borderRadius: '12px',
+    background: '#ffffff', 
+    border: '1px solid #f0f0f0',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+    ...animationStyles.statsCard 
+  }}
+  styles={{ body: { padding: '12px' } }} // Changed from bodyStyle
+>
           <div style={{ textAlign: 'center' }}>
             <div style={{ 
               fontSize: 'clamp(18px, 4vw, 24px)', // Responsive icon size
@@ -848,16 +848,16 @@ const config = getLeaveTypeConfig(leaveTypeNames[key]);
                     boxShadow: '0 2px 8px rgba(0,0,0,0.15)' 
                   }} />}
                 >
-                  <Card 
-                    size="small" 
-                    style={{ 
-                      marginBottom: '8px',
-                      borderRadius: '8px',
-                      border: `1px solid ${config.color}20`,
-                      background: `linear-gradient(135deg, ${config.color}08 0%, ${config.color}03 100%)`
-                    }}
-                    bodyStyle={{ padding: '12px' }}
-                  >
+                 <Card 
+  size="small" 
+  style={{ 
+    marginBottom: '8px',
+    borderRadius: '8px',
+    border: `1px solid ${config.color}20`,
+    background: `linear-gradient(135deg, ${config.color}08 0%, ${config.color}03 100%)`
+  }}
+  styles={{ body: { padding: '12px' } }} // Changed from bodyStyle
+>
                     <Row align="middle" justify="space-between">
                       <Col flex="auto">
                         <Space>
@@ -1715,12 +1715,12 @@ const handleEventAction = async (eventData, action = 'create') => {
                 </Space>
               }
               style={{ 
-                borderRadius: '12px',
-                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
-                minHeight: '400px'
-              }}
-              bodyStyle={{ padding: '16px' }}
-            >
+    borderRadius: '12px',
+    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+    minHeight: '400px'
+  }}
+  styles={{ body: { padding: '16px' } }} // Changed from bodyStyle
+>
               {todayEvents.length === 0 ? (
                 <Empty 
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -1769,7 +1769,7 @@ const handleEventAction = async (eventData, action = 'create') => {
                 boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
                 minHeight: '400px'
               }}
-              bodyStyle={{ padding: '16px' }}
+              styles={{ body: { padding: '16px' } }}
             >
               {upcomingEvents.length === 0 ? (
                 <Empty 
@@ -1820,7 +1820,7 @@ const handleEventAction = async (eventData, action = 'create') => {
                 boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
                 minHeight: '400px'
               }}
-              bodyStyle={{ padding: '16px' }}
+             styles={{ body: { padding: '16px' } }} 
             >
               {pastEvents.length === 0 ? (
                 <Empty 
@@ -1930,17 +1930,17 @@ selectedEvent && (
     const timeFromNow = eventDate.fromNow();
 
     return (
-      <Card 
-        size="small" 
-        style={{ 
-          marginBottom: '8px',
-          borderRadius: '8px',
-          border: `1px solid ${isPast ? '#d9d9d9' : isToday ? '#ff4d4f' : '#52c41a'}20`,
-          background: isPast ? '#fafafa' : isToday ? '#fff2f0' : '#f6ffed',
-          opacity: isPast ? 0.8 : 1
-        }}
-        bodyStyle={{ padding: '12px' }}
-        actions={userRole !== 'employee' && !isPast ? [
+   <Card 
+  size="small" 
+  style={{ 
+    marginBottom: '8px',
+    borderRadius: '8px',
+    border: `1px solid ${isPast ? '#d9d9d9' : isToday ? '#ff4d4f' : '#52c41a'}20`,
+    background: isPast ? '#fafafa' : isToday ? '#fff2f0' : '#f6ffed',
+    opacity: isPast ? 0.8 : 1
+  }}
+  styles={{ body: { padding: '12px' } }} // Changed from bodyStyle
+  actions={userRole !== 'employee' && !isPast ? [
           <Button 
             type="text" 
             size="small" 

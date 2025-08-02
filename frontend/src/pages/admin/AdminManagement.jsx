@@ -1,21 +1,31 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
-  Table, 
-  Button, 
-  Modal, 
   Form, 
   Input, 
-  Space, 
-  Popconfirm, 
+  Select, 
+  Button, 
   Card, 
-  Statistic, 
   Row, 
-  Col,
-  message,
-  Avatar,
+  Col, 
+  Table, 
+  Switch, 
+  Space, 
+  Typography, 
+  Divider, 
+  Modal,
   Tag,
-  Typography,
-  Switch
+  message,
+  Statistic,
+  
+  Checkbox,
+  Tooltip,
+  Alert,
+  Badge,
+  Avatar,
+  Timeline,
+  Descriptions,
+  List,
+  Popconfirm
 } from 'antd';
 import { 
   UserAddOutlined, 
@@ -344,20 +354,21 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
 }, [editingAdmin, generatePassword, onSuccess, onClose, form, profileImage]);
 
   return (
-    <Modal
-      title={editingAdmin ? 'Edit Admin' : 'Add New Admin'}
-      open={isOpen}
-      onCancel={onClose}
-      footer={null}
-      destroyOnClose
-      className="admin-form-modal"
-    >
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={handleSubmit}
-        initialValues={{ role: 'admin' }}
-      >
+     <Modal
+  title={editingAdmin ? 'Edit Admin' : 'Add New Admin'}
+  open={isOpen}
+  onCancel={onClose}
+  footer={null}
+  destroyOnHidden  // Changed from destroyOnHidden to destroyOnClose
+  className="admin-form-modal"
+>
+  <Form
+    form={form}  // This line should already be present - ensure it's there
+    layout="vertical"
+    onFinish={handleSubmit}
+    initialValues={{ role: 'admin' }}
+    preserve={false}  // Add this to prevent form state persistence
+  >
         {/* Profile Image Upload */}
         <Form.Item
           label="Profile Image"
@@ -515,7 +526,7 @@ useEffect(() => {
   const fetchAllAdmins = useCallback(async () => {
   try {
     setLoading(true);
-    console.log('Starting to fetch admins...');
+   
     
     // Use only regular supabase client
     const { data, error } = await supabaseAdmin
@@ -576,7 +587,7 @@ useEffect(() => {
   // Fetch admins with pagination
  const fetchAdmins = useCallback(async (page = 1, pageSize = 10, search = '') => {
   try {
-    console.log('fetchAdmins called with:', { page, pageSize, search });
+   
     
     let adminList = allAdmins;
     if (adminList.length === 0) {
@@ -591,13 +602,13 @@ useEffect(() => {
   }
 }, [allAdmins, fetchAllAdmins, applyFiltersAndPagination]);
 useEffect(() => {
-  console.log('Component mounted, fetching admins...');
+ 
   fetchAdmins();
 }, []);
 useEffect(() => {
   const loadInitialData = async () => {
     try {
-      console.log('Loading initial data...');
+     
       setLoading(true);
       
       // Direct fetch without going through fetchAdmins
@@ -607,7 +618,7 @@ useEffect(() => {
         .eq('role', 'admin')
         .order('created_at', { ascending: false });
       
-      console.log('Direct fetch result:', { data, error });
+     
       
       if (error) {
         console.error('Direct fetch error:', error);
@@ -616,7 +627,7 @@ useEffect(() => {
       }
       
       const adminData = data || [];
-      console.log('Setting admin data:', adminData);
+     
       
       setAllAdmins(adminData);
       setAdmins(adminData.slice(0, 10)); // Show first 10

@@ -703,8 +703,8 @@ const handlePostJob = async () => {
             </Col>
             <Col xs={24} sm={24} md={12} lg={16}>
               <Row justify="end" gutter={[8, 8]}>
-               <Col xs={24} sm={16} md={14} lg={12}>
-  <Button.Group style={{ width: '100%' }}>
+<Col xs={24} sm={16} md={14} lg={12}>
+  <Space.Compact style={{ width: '100%' }}>
     <Button 
       type={hiringTypeFilter === 'all' ? 'primary' : 'default'}
       onClick={() => setHiringTypeFilter('all')}
@@ -744,7 +744,7 @@ const handlePostJob = async () => {
     >
       On-Campus
     </Button>
-  </Button.Group>
+  </Space.Compact>
 </Col>
                 <Col xs={24} sm={8} md={10} lg={12}>
                   <Space wrap size="small" style={{ width: '100%', justifyContent: 'flex-end' }}>
@@ -1134,38 +1134,41 @@ const handlePostJob = async () => {
         </Row>
 
 {/* Job Preview Modal */}
-        <Modal
-          title={selectedJob?.job_title}
-          open={previewVisible}
-          onCancel={() => setPreviewVisible(false)}
-          width="100%"
-          style={{ 
-            maxWidth: '800px',
-            top: window.innerWidth <= 768 ? '10px' : '20px',
-            margin: window.innerWidth <= 768 ? '0 10px' : 'auto'
-          }}
-          bodyStyle={{
-            padding: window.innerWidth <= 768 ? '16px' : '24px',
-            maxHeight: window.innerWidth <= 768 ? '80vh' : '70vh',
-            overflowY: 'auto'
-          }}
-          footer={[
-            <Button key="close" onClick={() => setPreviewVisible(false)}>
-              Close
-            </Button>,
-            <Button 
-              key="select" 
-              type="primary" 
-              onClick={() => {
-                handleJobSelect(selectedJob);
-                setPreviewVisible(false);
-              }}
-              style={{ marginLeft: '8px' }}
-            >
-              Select This Job
-            </Button>
-          ]}
-        >
+<Modal
+  title={selectedJob?.job_title}
+  open={previewVisible}
+  onCancel={() => setPreviewVisible(false)}
+  width="100%"
+  style={{ 
+    maxWidth: '800px',
+    top: window.innerWidth <= 768 ? '10px' : '20px',
+    margin: window.innerWidth <= 768 ? '0 10px' : 'auto'
+  }}
+  styles={{
+    body: {
+      padding: window.innerWidth <= 768 ? '16px' : '24px',
+      maxHeight: window.innerWidth <= 768 ? '80vh' : '70vh',
+      overflowY: 'auto'
+    }
+  }}
+  footer={[
+    <Button key="close" onClick={() => setPreviewVisible(false)}>
+      Close
+    </Button>,
+    <Button 
+      key="select" 
+      type="primary" 
+      onClick={() => {
+        handleJobSelect(selectedJob);
+        setPreviewVisible(false);
+      }}
+      style={{ marginLeft: '8px' }}
+    >
+      Select This Job
+    </Button>
+  ]}
+>
+
           {selectedJob && (
             <div style={{ fontSize: window.innerWidth <= 768 ? '14px' : '16px' }}>
               <Descriptions 

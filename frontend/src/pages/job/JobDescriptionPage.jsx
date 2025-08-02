@@ -109,7 +109,7 @@ useEffect(() => {
 }, [location?.state?.editData, form]);
 
 useEffect(() => {
-  console.log('Edit data received:', location?.state?.editData); // Add this line
+  
   if (location?.state?.editData) {
     // ... rest of your code
   }
@@ -660,36 +660,37 @@ const handleSubmit = async (values) => {
         { required: hiringType === 'on-campus', message: 'Please select or enter college name' }
       ]}
     >
-      <Select 
-        size="large" 
-        placeholder="Select or enter college name"
-        showSearch
-        filterOption={(input, option) =>
-          option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
-        }
-        dropdownRender={menu => (
-          <div>
-            {menu}
-            <Divider style={{ margin: '8px 0' }} />
-            <Space style={{ padding: '0 8px 4px' }}>
-              <Input
-                placeholder="Add new college"
-                onChange={(e) => {
-                  e.target.value = smartTitleCase(e.target.value);
-                }}
-                onPressEnter={e => {
-                  const value = smartTitleCase(e.target.value.trim());
-                  if (value && !colleges.includes(value)) {
-                    setColleges([...colleges, value]);
-                    form.setFieldsValue({ collegeName: value });
-                  }
-                  e.target.value = '';
-                }}
-              />
-            </Space>
-          </div>
-        )}
-      >
+<Select 
+  size="large" 
+  placeholder="Select or enter college name"
+  showSearch
+  filterOption={(input, option) =>
+    option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+  }
+  popupRender={menu => (  // ✅ Changed from dropdownRender
+    <div>
+      {menu}
+      <Divider style={{ margin: '8px 0' }} />
+      <Space style={{ padding: '0 8px 4px' }}>
+        <Input
+          placeholder="Add new college"
+          onChange={(e) => {
+            e.target.value = smartTitleCase(e.target.value);
+          }}
+          onPressEnter={e => {
+            const value = smartTitleCase(e.target.value.trim());
+            if (value && !colleges.includes(value)) {
+              setColleges([...colleges, value]);
+              form.setFieldsValue({ collegeName: value });
+            }
+            e.target.value = '';
+          }}
+        />
+      </Space>
+    </div>
+  )}
+>
+
         {colleges.map(college => (
           <Option key={college} value={college}>{college}</Option>
         ))}
@@ -725,34 +726,34 @@ const handleSubmit = async (values) => {
   name="department"
   rules={[{ required: true, message: 'Please select department' }]}
 >
-  <Select 
-    size="large" 
-    placeholder="Select Department"
-    style={{ borderRadius: '8px' }}
-    dropdownRender={menu => (
-      <div>
-        {menu}
-        <Divider style={{ margin: '8px 0' }} />
-        <Space style={{ padding: '0 8px 4px' }}>
-          <Input
-            placeholder="Add new department"
-            onChange={(e) => {
-              // Apply smart title case in real-time for dropdown input
-              e.target.value = smartTitleCase(e.target.value);
-            }}
-            onPressEnter={e => {
-              const value = smartTitleCase(e.target.value.trim());
-              if (value && !departments.includes(value)) {
-                setDepartments([...departments, value]);
-                form.setFieldsValue({ department: value });
-              }
-              e.target.value = '';
-            }}
-          />
-        </Space>
-      </div>
-    )}
-  >
+<Select 
+  size="large" 
+  placeholder="Select Department"
+  style={{ borderRadius: '8px' }}
+  popupRender={menu => (  // ✅ Changed from dropdownRender
+    <div>
+      {menu}
+      <Divider style={{ margin: '8px 0' }} />
+      <Space style={{ padding: '0 8px 4px' }}>
+        <Input
+          placeholder="Add new department"
+          onChange={(e) => {
+            e.target.value = smartTitleCase(e.target.value);
+          }}
+          onPressEnter={e => {
+            const value = smartTitleCase(e.target.value.trim());
+            if (value && !departments.includes(value)) {
+              setDepartments([...departments, value]);
+              form.setFieldsValue({ department: value });
+            }
+            e.target.value = '';
+          }}
+        />
+      </Space>
+    </div>
+  )}
+>
+
     {departments.map(dept => (
       <Option key={dept} value={dept}>{dept}</Option>
     ))}
@@ -766,33 +767,33 @@ const handleSubmit = async (values) => {
   name="location"
   rules={[{ required: true, message: 'Please select location' }]}
 >
-  <Select 
-    size="large" 
-    placeholder="Select Location"
-    dropdownRender={menu => (
-      <div>
-        {menu}
-        <Divider style={{ margin: '8px 0' }} />
-        <Space style={{ padding: '0 8px 4px' }}>
-          <Input
-            placeholder="Add new location"
-            onChange={(e) => {
-              // Apply smart title case in real-time for dropdown input
-              e.target.value = smartTitleCase(e.target.value);
-            }}
-            onPressEnter={e => {
-              const value = smartTitleCase(e.target.value.trim());
-              if (value && !locations.includes(value)) {
-                setLocations([...locations, value]);
-                form.setFieldsValue({ location: value });
-              }
-              e.target.value = '';
-            }}
-          />
-        </Space>
-      </div>
-    )}
-  >
+<Select 
+  size="large" 
+  placeholder="Select Location"
+  popupRender={menu => (  // ✅ Changed from dropdownRender
+    <div>
+      {menu}
+      <Divider style={{ margin: '8px 0' }} />
+      <Space style={{ padding: '0 8px 4px' }}>
+        <Input
+          placeholder="Add new location"
+          onChange={(e) => {
+            e.target.value = smartTitleCase(e.target.value);
+          }}
+          onPressEnter={e => {
+            const value = smartTitleCase(e.target.value.trim());
+            if (value && !locations.includes(value)) {
+              setLocations([...locations, value]);
+              form.setFieldsValue({ location: value });
+            }
+            e.target.value = '';
+          }}
+        />
+      </Space>
+    </div>
+  )}
+>
+
     {locations.map(loc => (
       <Option key={loc} value={loc}>
         <EnvironmentOutlined style={{ marginRight: '8px' }} />
@@ -812,33 +813,33 @@ const handleSubmit = async (values) => {
   name="employmentType"
   rules={[{ required: true, message: 'Please select employment type' }]}
 >
-  <Select 
-    size="large" 
-    placeholder="Select Type"
-    dropdownRender={menu => (
-      <div>
-        {menu}
-        <Divider style={{ margin: '8px 0' }} />
-        <Space style={{ padding: '0 8px 4px' }}>
-          <Input
-            placeholder="Add new employment type"
-            onChange={(e) => {
-              // Apply smart title case in real-time for dropdown input
-              e.target.value = smartTitleCase(e.target.value);
-            }}
-            onPressEnter={e => {
-              const value = smartTitleCase(e.target.value.trim());
-              if (value && !employmentTypes.includes(value)) {
-                setEmploymentTypes([...employmentTypes, value]);
-                form.setFieldsValue({ employmentType: value });
-              }
-              e.target.value = '';
-            }}
-          />
-        </Space>
-      </div>
-    )}
-  >
+<Select 
+  size="large" 
+  placeholder="Select Type"
+  popupRender={menu => (  // ✅ Changed from dropdownRender
+    <div>
+      {menu}
+      <Divider style={{ margin: '8px 0' }} />
+      <Space style={{ padding: '0 8px 4px' }}>
+        <Input
+          placeholder="Add new employment type"
+          onChange={(e) => {
+            e.target.value = smartTitleCase(e.target.value);
+          }}
+          onPressEnter={e => {
+            const value = smartTitleCase(e.target.value.trim());
+            if (value && !employmentTypes.includes(value)) {
+              setEmploymentTypes([...employmentTypes, value]);
+              form.setFieldsValue({ employmentType: value });
+            }
+            e.target.value = '';
+          }}
+        />
+      </Space>
+    </div>
+  )}
+>
+
     {employmentTypes.map(type => (
       <Option key={type} value={type}>
         <ClockCircleOutlined style={{ marginRight: '8px' }} />
@@ -855,34 +856,33 @@ const handleSubmit = async (values) => {
   name="experienceLevel"
   rules={[{ required: true, message: 'Please select experience level' }]}
 >
-  <Select 
-    size="large" 
-    placeholder="Select Level"
-    dropdownRender={menu => (
-      <div>
-        {menu}
-        <Divider style={{ margin: '8px 0' }} />
-        <Space style={{ padding: '0 8px 4px' }}>
-          <Input
-            placeholder="Add new experience level"
-            onChange={(e) => {
-              // Apply smart title case in real-time for dropdown input
-              e.target.value = smartTitleCase(e.target.value);
-            }}
-            onPressEnter={e => {
-              const value = smartTitleCase(e.target.value.trim());
-              if (value && !experienceLevels.includes(value)) {
-                setExperienceLevels([...experienceLevels, value]);
-                form.setFieldsValue({ experienceLevel: value });
-              }
-              e.target.value = '';
-            }}
-          />
-        </Space>
-      </div>
-    )}
-  >
-    {experienceLevels.map(level => (
+<Select 
+  size="large" 
+  placeholder="Select Level"
+  popupRender={menu => (  // ✅ Changed from dropdownRender
+    <div>
+      {menu}
+      <Divider style={{ margin: '8px 0' }} />
+      <Space style={{ padding: '0 8px 4px' }}>
+        <Input
+          placeholder="Add new experience level"
+          onChange={(e) => {
+            e.target.value = smartTitleCase(e.target.value);
+          }}
+          onPressEnter={e => {
+            const value = smartTitleCase(e.target.value.trim());
+            if (value && !experienceLevels.includes(value)) {
+              setExperienceLevels([...experienceLevels, value]);
+              form.setFieldsValue({ experienceLevel: value });
+            }
+            e.target.value = '';
+          }}
+        />
+      </Space>
+    </div>
+  )}
+>
+      {experienceLevels.map(level => (
       <Option key={level} value={level}>
         <StarOutlined style={{ marginRight: '8px' }} />
         {level}
