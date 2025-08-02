@@ -226,9 +226,7 @@ useEffect(() => {
 
 
 
-
   const API_BASE = 'https://cap.myaccessio.com/api/email';
-
 
   useEffect(() => {
   const handleResize = () => {
@@ -815,7 +813,7 @@ const renderEmailList = () => {
     backgroundColor: selectedEmail?.uid === email.uid 
       ? '#e6f7ff' 
       : email.unread 
-        ? '#dfd6d6ff'  // Light red for unread
+        ? '#d4fdd1ff'  // Light red for unread
         : '#ffffff', // White for read
     borderBottom: '1px solid #f0f0f0',
     borderLeft: email.unread 
