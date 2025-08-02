@@ -899,28 +899,39 @@ const config = getLeaveTypeConfig(leaveTypeNames[key]);
 const getTableColumns = () => {
   const isMobile = window.innerWidth < 768;
   const baseColumns = [
-    // Hide employee column on mobile for employee role
-    ...(userRole !== 'employee' && !isMobile ? [{
-      title: 'Employee',
+    // Always show employee column (modify condition)
+    ...(userRole !== 'employee' ? [{
+      title: isMobile ? 'Emp' : 'Employee',
       key: 'employee',
       render: (_, record) => (
-        <Space>
+        <Space direction={isMobile ? 'vertical' : 'horizontal'} size="small">
           <Avatar 
             icon={<UserOutlined />} 
             style={{ backgroundColor: '#0D7139' }}
-            size="small"
+            size={isMobile ? "small" : "default"}
           />
-          <div>
-            <div style={{ fontWeight: 600, fontSize: '12px' }}>
-              {record.users?.name || record.employee_name}
+          {!isMobile ? (
+            <div>
+              <div style={{ fontWeight: 600, fontSize: '12px' }}>
+                {record.users?.name || record.employee_name}
+              </div>
+              <Text type="secondary" style={{ fontSize: '10px' }}>
+                {record.users?.employee_id || record.employee_code}
+              </Text>
             </div>
-            <Text type="secondary" style={{ fontSize: '10px' }}>
-              {record.users?.employee_id || record.employee_code}
-            </Text>
-          </div>
+          ) : (
+            <div>
+              <div style={{ fontWeight: 600, fontSize: '10px' }}>
+                {(record.users?.name || record.employee_name)?.split(' ')[0]}
+              </div>
+              <Text type="secondary" style={{ fontSize: '8px' }}>
+                {record.users?.employee_id || record.employee_code}
+              </Text>
+            </div>
+          )}
         </Space>
       ),
-      width: 150,
+      width: isMobile ? 80 : 150,
     }] : []),
 
     // Mobile-optimized Leave Type column
@@ -937,13 +948,13 @@ const getTableColumns = () => {
                 color={config.color} 
                 style={{ 
                   borderRadius: '6px',
-                  fontSize: isMobile ? '10px' : '12px',
-                  padding: isMobile ? '2px 6px' : '4px 8px'
+                  fontSize: isMobile ? '8px' : '12px',
+                  padding: isMobile ? '2px 4px' : '4px 8px'
                 }}
               >
                 {isMobile ? 
-                  (record.leave_type.length > 8 ? 
-                    record.leave_type.substring(0, 8) + '...' : 
+                  (record.leave_type.length > 6 ? 
+                    record.leave_type.substring(0, 6) + '...' : 
                     record.leave_type
                   ) : 
                   record.leave_type
@@ -962,7 +973,7 @@ const getTableColumns = () => {
           </Space>
         );
       },
-      width: isMobile ? 100 : 150,
+      width: isMobile ? 70 : 150,
     },
 
     // Mobile-optimized Duration column
@@ -971,12 +982,19 @@ const getTableColumns = () => {
       key: 'duration',
       render: (_, record) => (
         <div>
-          <Text strong style={{ fontSize: isMobile ? '11px' : '13px' }}>
+          <Text strong style={{ fontSize: isMobile ? '9px' : '13px' }}>
             {dayjs(record.start_date).format(isMobile ? 'DD/MM' : 'MMM DD')}
             {record.end_date !== record.start_date && 
               ` - ${dayjs(record.end_date).format(isMobile ? 'DD/MM' : 'MMM DD')}`}
           </Text>
-          {!isMobile && (
+          {isMobile ? (
+            <div>
+              <Text type="secondary" style={{ fontSize: '8px' }}>
+                {record.total_hours > 0 ? `${record.total_hours}h` : 
+                 record.total_days > 0 ? `${record.total_days}d` : '-'}
+              </Text>
+            </div>
+          ) : (
             <>
               <br />
               <Text type="secondary" style={{ fontSize: '11px' }}>
@@ -990,7 +1008,7 @@ const getTableColumns = () => {
           )}
         </div>
       ),
-      width: isMobile ? 80 : 140,
+      width: isMobile ? 60 : 140,
     },
 
     // Mobile-optimized Status column
@@ -1002,8 +1020,8 @@ const getTableColumns = () => {
           <Badge 
             status={record.status === 'Approved' ? 'success' : 
                    record.status === 'Rejected' ? 'error' : 'processing'}
-            text={<span style={{ fontSize: isMobile ? '10px' : '12px' }}>
-              {record.status}
+            text={<span style={{ fontSize: isMobile ? '8px' : '12px' }}>
+              {isMobile ? record.status.substring(0, 3) : record.status}
             </span>}
           />
           {!isMobile && record.status === 'Approved' && record.approvedBy && (
@@ -1016,16 +1034,20 @@ const getTableColumns = () => {
           )}
         </div>
       ),
-      width: isMobile ? 70 : 120,
+      width: isMobile ? 50 : 120,
     },
 
-    // Hide Applied Date on mobile
-    ...(!isMobile ? [{
-      title: 'Applied Date',
+    // Always show Applied Date (modify condition)
+    {
+      title: isMobile ? 'Applied' : 'Applied Date',
       dataIndex: 'created_at',
-      render: (date) => dayjs(date).format('MMM DD, YYYY'),
-      width: 100,
-    }] : []),
+      render: (date) => (
+        <Text style={{ fontSize: isMobile ? '8px' : '12px' }}>
+          {dayjs(date).format(isMobile ? 'DD/MM/YY' : 'MMM DD, YYYY')}
+        </Text>
+      ),
+      width: isMobile ? 60 : 100,
+    },
 
     // Mobile-optimized Actions column
     {
@@ -1037,7 +1059,7 @@ const getTableColumns = () => {
             <Button
               type="text"
               icon={<EyeOutlined />}
-              size={isMobile ? 'small' : 'middle'}
+              size="small"
               onClick={() => {
                 setSelectedLeave(record);
                 setLeaveDetailsModal(true);
@@ -1057,7 +1079,7 @@ const getTableColumns = () => {
                   <Button
                     type="text"
                     icon={<CheckCircleOutlined />}
-                    size={isMobile ? 'small' : 'middle'}
+                    size="small"
                     style={{ color: '#52c41a' }}
                   />
                 </Popconfirm>
@@ -1074,7 +1096,7 @@ const getTableColumns = () => {
                   <Button
                     type="text"
                     icon={<CloseCircleOutlined />}
-                    size={isMobile ? 'small' : 'middle'}
+                    size="small"
                     style={{ color: '#ff4d4f' }}
                   />
                 </Popconfirm>
@@ -1083,7 +1105,7 @@ const getTableColumns = () => {
           )}
         </Space>
       ),
-      width: isMobile ? 50 : (userRole === 'employee' ? 80 : 120),
+      width: isMobile ? 40 : (userRole === 'employee' ? 80 : 120),
       fixed: isMobile ? false : 'right',
     },
   ];
@@ -2193,56 +2215,105 @@ selectedEvent && (
       />
     </Drawer>
   );
+
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+useEffect(() => {
+  const handleResize = () => {
+    setIsMobile(window.innerWidth < 768);
+  };
+
+  handleResize();
+  window.addEventListener('resize', handleResize);
+  
+  return () => {
+    window.removeEventListener('resize', handleResize);
+  };
+}, [])
   
   // HR/Admin Dashboard Component
   const HRDashboard = () => (
     <div style={animationStyles.container}>
       {/* HR Header */}
       <Card style={{ 
-        marginBottom: '24px',
-        background: 'rgba(255, 255, 255, 0.95)',
-        backdropFilter: 'blur(10px)',
-        border: 'none',
-        borderRadius: '16px',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-        ...animationStyles.headerCard
+  marginBottom: '24px',
+  background: 'rgba(255, 255, 255, 0.95)',
+  backdropFilter: 'blur(10px)',
+  border: 'none',
+  borderRadius: '16px',
+  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+  ...animationStyles.headerCard
+}}>
+  <Row align="middle" justify="space-between" gutter={[16, 16]}>
+    <Col xs={24} sm={16} md={18}>
+      <Space 
+        size={isMobile ? "small" : "large"} 
+        direction="horizontal" // Always horizontal
+        style={{ width: '100%', justifyContent: isMobile ? 'center' : 'flex-start' }}
+      >
+        <Avatar 
+          size={isMobile ? 40 : 64} // Smaller on mobile
+          icon={<TeamOutlined />} 
+          style={{ backgroundColor: '#0D7139' }}
+        />
+        <div style={{ textAlign: isMobile ? 'center' : 'left' }}>
+          <Title 
+            level={isMobile ? 4 : 2} // Smaller title on mobile
+            style={{ 
+              margin: 0, 
+              color: '#0D7139',
+              fontSize: isMobile ? '16px' : '24px',
+              lineHeight: isMobile ? '1.2' : '1.5'
+            }}
+          >
+            Leave Management
+          </Title>
+          <Text 
+            type="secondary" 
+            style={{ 
+              fontSize: isMobile ? '10px' : '16px',
+              display: 'block',
+              lineHeight: '1.2'
+            }}
+          >
+            {isMobile ? 'HR Dashboard' : 'HR Dashboard - Manage all employee leaves'}
+          </Text>
+        </div>
+      </Space>
+    </Col>
+    <Col xs={24} sm={8} md={6}>
+      <div style={{ 
+        display: 'flex',
+        gap: isMobile ? '4px' : '8px',
+        justifyContent: isMobile ? 'center' : 'flex-end',
+        flexWrap: 'wrap'
       }}>
-        <Row align="middle" justify="space-between">
-          <Col>
-            <Space size="large">
-              <Avatar 
-                size={64} 
-                icon={<TeamOutlined />} 
-                style={{ backgroundColor: '#0D7139' }}
-              />
-              <div>
-                <Title level={2} style={{ margin: 0, color: '#0D7139' }}>
-                  Leave Management
-                </Title>
-                <Text type="secondary" style={{ fontSize: '16px' }}>
-                  HR Dashboard - Manage all employee leaves
-                </Text>
-              </div>
-            </Space>
-          </Col>
-          <Col>
-            <Space>
-              <Button
-                icon={<FilterOutlined />}
-                onClick={() => setLeaveHistoryDrawer(true)}
-              >
-                Advanced Filter
-              </Button>
-               <Button
-  icon={<DownloadOutlined />}
-  onClick={() => setExportModalVisible(true)}
->
-  Export Report
-</Button>
-            </Space>
-          </Col>
-        </Row>
-      </Card>
+        <Button
+          icon={<FilterOutlined />}
+          onClick={() => setLeaveHistoryDrawer(true)}
+          size={isMobile ? "small" : "middle"}
+          style={{ 
+            fontSize: isMobile ? '10px' : '14px',
+            padding: isMobile ? '4px 8px' : undefined
+          }}
+        >
+          {isMobile ? 'Filter' : 'Advanced Filter'}
+        </Button>
+        <Button
+          icon={<DownloadOutlined />}
+          onClick={() => setExportModalVisible(true)}
+          size={isMobile ? "small" : "middle"}
+          style={{ 
+            fontSize: isMobile ? '10px' : '14px',
+            padding: isMobile ? '4px 8px' : undefined
+          }}
+        >
+          {isMobile ? 'Export' : 'Export Report'}
+        </Button>
+      </div>
+    </Col>
+  </Row>
+</Card>
 
       {/* Quick Stats */}
       <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
@@ -2318,70 +2389,78 @@ selectedEvent && (
       ...animationStyles.mainCard
     }}>
       {/* Mobile-Responsive Table Header */}
-      <div style={{ marginBottom: '20px' }}>
-        <Row gutter={[16, 16]} align="middle">
-          <Col xs={24} sm={12}>
-            <Title level={4} style={{ margin: 0, color: '#0D7139', fontSize: 'clamp(16px, 4vw, 20px)' }}>
-              <NotificationOutlined style={{ marginRight: '8px' }} />
-              Leave Applications
-            </Title>
-          </Col>
-          <Col xs={24} sm={12}>
-            <Row gutter={[8, 8]}>
-              <Col xs={12} sm={8}>
-                <Select
-                  placeholder="Status"
-                  value={filterStatus}
-                  onChange={setFilterStatus}
-                  style={{ width: '100%' }}
-                  size="small"
-                >
-                  <Option value="All">All</Option>
-                  <Option value="Pending">Pending</Option>
-                  <Option value="Approved">Approved</Option>
-                  <Option value="Rejected">Rejected</Option>
-                </Select>
-              </Col>
-              <Col xs={12} sm={8}>
-                <Select
-                  placeholder="Employee"
-                  value={filterEmployee}
-                  onChange={setFilterEmployee}
-                  style={{ width: '100%' }}
-                  size="small"
-                >
-                  <Option value="All">All</Option>
-                  {employees.map(emp => (
-                    <Option key={emp.id} value={emp.id}>
-                      {emp.name}
-                    </Option>
-                  ))}
-                </Select>
-              </Col>
-            </Row>
-          </Col>
-        </Row>
-      </div>
+<div style={{ marginBottom: '20px' }}>
+  <Row gutter={[16, 16]} align="middle">
+    <Col xs={24} sm={12}>
+      <Title level={4} style={{ 
+        margin: 0, 
+        color: '#0D7139', 
+        fontSize: 'clamp(16px, 4vw, 20px)',
+        textAlign: isMobile ? 'center' : 'left' // Use state instead of window.innerWidth
+      }}>
+        <NotificationOutlined style={{ marginRight: '8px' }} />
+        Leave Applications
+      </Title>
+    </Col>
+    <Col xs={24} sm={12}>
+      <Row gutter={[8, 8]} justify={isMobile ? 'center' : 'end'}> {/* Use state instead of window.innerWidth */}
+        <Col xs={12} sm={8}>
+          <Select
+            placeholder="Status"
+            value={filterStatus}
+            onChange={setFilterStatus}
+            style={{ width: '100%' }}
+            size="small"
+          >
+            <Option value="All">All</Option>
+            <Option value="Pending">Pending</Option>
+            <Option value="Approved">Approved</Option>
+            <Option value="Rejected">Rejected</Option>
+          </Select>
+        </Col>
+        <Col xs={12} sm={8}>
+          <Select
+            placeholder="Employee"
+            value={filterEmployee}
+            onChange={setFilterEmployee}
+            style={{ width: '100%' }}
+            size="small"
+          >
+            <Option value="All">All</Option>
+            {employees.map(emp => (
+              <Option key={emp.id} value={emp.id}>
+                {emp.name}
+              </Option>
+            ))}
+          </Select>
+        </Col>
+      </Row>
+    </Col>
+  </Row>
+</div>
 
       <Table
-        columns={getTableColumns()}
-        dataSource={filteredLeaves}
-        rowKey="id"
-        loading={loading}
-        pagination={{
-          pageSize: 10,
-          showSizeChanger: true,
-          showQuickJumper: true,
-          showTotal: (total, range) => 
-            `${range[0]}-${range[1]} of ${total} items`,
-          simple: window.innerWidth < 768, // Simple pagination on mobile
-        }}
-        scroll={{ x: 800 }}
-        size="small"
-        rowClassName={(record) => 
-          record.status === 'Pending' ? 'pending-row' : ''
-        }
-      />
+  columns={getTableColumns()}
+  dataSource={filteredLeaves}
+  rowKey="id"
+  loading={loading}
+  pagination={{
+    pageSize: 10,
+    showSizeChanger: true,
+    showQuickJumper: true,
+    showTotal: (total, range) => 
+      `${range[0]}-${range[1]} of ${total} items`,
+    simple: isMobile, // Use state instead of window.innerWidth
+  }}
+  scroll={{ 
+    x: 'max-content',
+    scrollToFirstRowOnChange: true
+  }}
+  size="small"
+  rowClassName={(record) => 
+    record.status === 'Pending' ? 'pending-row' : ''
+  }
+/>
     </Card>
   </div>
 );
@@ -2984,402 +3063,556 @@ const getDateBackground = (calendarData, isToday) => {
       `}</style>
 
       <Card style={{ 
-        background: 'rgba(255, 255, 255, 0.98)',
-        backdropFilter: 'blur(10px)',
-        border: 'none',
-        borderRadius: '20px',
-        boxShadow: '0 10px 40px rgba(0, 0, 0, 0.08)',
-        overflow: 'hidden'
+  background: 'rgba(255, 255, 255, 0.98)',
+  backdropFilter: 'blur(10px)',
+  border: 'none',
+  borderRadius: '20px',
+  boxShadow: '0 10px 40px rgba(0, 0, 0, 0.08)',
+  overflow: 'hidden'
+}}>
+  {/* Mobile-Responsive Enhanced Header */}
+  <div style={{ 
+    marginBottom: '24px',
+    padding: '16px',
+    background: 'linear-gradient(135deg, #f6ffed 0%, #f0f9ff 100%)',
+    borderRadius: '16px',
+    border: '1px solid rgba(13, 113, 57, 0.1)'
+  }}>
+    {/* Title Section */}
+    <div style={{ marginBottom: '16px' }}>
+      <Title level={3} style={{ 
+        margin: 0, 
+        color: '#0D7139', 
+        fontSize: 'clamp(18px, 4vw, 24px)',
+        display: 'flex',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '8px'
       }}>
-        {/* Mobile-Responsive Enhanced Header */}
+        <CalendarTwoTone 
+          twoToneColor={['#0D7139', '#52c41a']} 
+          style={{ fontSize: '24px', flexShrink: 0 }} 
+        />
+        <span>Company Calendar</span>
+      </Title>
+    </div>
+
+    {/* Legend Section - Mobile Optimized */}
+    <div style={{ 
+      display: 'flex', 
+      flexWrap: 'wrap',
+      gap: '8px', 
+      alignItems: 'center',
+      padding: '12px',
+      background: 'white',
+      borderRadius: '12px',
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+      marginBottom: '16px'
+    }}>
+      <Tooltip title="Public Holidays">
         <div style={{ 
-          marginBottom: '24px',
-          padding: '20px 24px',
-          background: 'linear-gradient(135deg, #f6ffed 0%, #f0f9ff 100%)',
-          borderRadius: '16px',
-          border: '1px solid rgba(13, 113, 57, 0.1)'
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '6px', 
+          minWidth: 'fit-content',
+          padding: '4px 8px',
+          borderRadius: '6px',
+          background: 'rgba(255, 77, 79, 0.05)'
         }}>
-          <Row justify="space-between" align="top" gutter={[16, 16]}>
-            <Col xs={24} md={12}>
-              <Space direction="vertical" size={0}>
-                <Title level={3} style={{ margin: 0, color: '#0D7139', fontSize: 'clamp(18px, 4vw, 24px)' }}>
-                  <CalendarTwoTone twoToneColor={['#0D7139', '#52c41a']} style={{ marginRight: '12px' }} />
-                  Company Calendar
-                </Title>
-              </Space>
-            </Col>
+          <div style={{ 
+            width: '12px', 
+            height: '12px', 
+            background: 'linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%)', 
+            borderRadius: '3px',
+            boxShadow: '0 1px 3px rgba(255, 77, 79, 0.3)',
+            flexShrink: 0
+          }}></div>
+          <Text style={{ 
+            fontSize: '12px', 
+            fontWeight: '500',
+            whiteSpace: 'nowrap'
+          }}>Holiday</Text>
+        </div>
+      </Tooltip>
+      
+      <Tooltip title="Half Working Days">
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '6px', 
+          minWidth: 'fit-content',
+          padding: '4px 8px',
+          borderRadius: '6px',
+          background: 'rgba(250, 173, 20, 0.05)'
+        }}>
+          <div style={{ 
+            width: '12px', 
+            height: '12px', 
+            background: 'linear-gradient(135deg, #faad14 0%, #ffc53d 100%)', 
+            borderRadius: '3px',
+            boxShadow: '0 1px 3px rgba(250, 173, 20, 0.3)',
+            flexShrink: 0
+          }}></div>
+          <Text style={{ 
+            fontSize: '12px', 
+            fontWeight: '500',
+            whiteSpace: 'nowrap'
+          }}>Half Day</Text>
+        </div>
+      </Tooltip>
+      
+      <Tooltip title="Special Working Days">
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '6px', 
+          minWidth: 'fit-content',
+          padding: '4px 8px',
+          borderRadius: '6px',
+          background: 'rgba(82, 196, 26, 0.05)'
+        }}>
+          <div style={{ 
+            width: '12px', 
+            height: '12px', 
+            background: 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)', 
+            borderRadius: '3px',
+            boxShadow: '0 1px 3px rgba(82, 196, 26, 0.3)',
+            flexShrink: 0
+          }}></div>
+          <Text style={{ 
+            fontSize: '12px', 
+            fontWeight: '500',
+            whiteSpace: 'nowrap'
+          }}>Working</Text>
+        </div>
+      </Tooltip>
+    </div>
 
-            
-            <Col xs={24} md={12}>
-              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                {/* Mobile-Responsive Legend */}
-                <div style={{ 
-                  display: 'flex', 
-                  flexWrap: 'wrap',
-                  gap: '8px', 
+    {/* Action Buttons - Mobile Responsive */}
+    {userRole !== 'employee' && (
+      <div style={{ 
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px'
+      }}>
+        {/* Primary Actions Row */}
+        <div style={{ 
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '8px',
+          alignItems: 'center'
+        }}>
+          <Tooltip title="Set Weekly Holiday">
+            <Button 
+              icon={<CalendarOutlined style={{ fontSize: '14px' }} />}
+              size="middle"
+              style={{ 
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                minWidth: '90px',
+                height: '36px'
+              }}
+              onClick={() => {
+                weeklyHolidayForm.resetFields();
+                setWeeklyHolidayModal(true);
+              }}
+            >
+              <span style={{ fontSize: '8px' }}>Weekly Holiday</span>
+            </Button>
+          </Tooltip>
+          
+          <Tooltip title="Quick Add Holiday">
+            <Button 
+              type="primary" 
+              icon={<PlusOutlined style={{ fontSize: '14px' }} />}
+              size="middle"
+              style={{
+                background: 'linear-gradient(135deg, #0D7139 0%, #52c41a 100%)',
+                border: 'none',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                minWidth: '80px',
+                height: '36px'
+              }}
+              onClick={() => {
+                setSelectedCalendarDate(dayjs());
+                calendarForm.resetFields();
+                calendarForm.setFieldsValue({ dayType: 'holiday' });
+                setEditModal(true);
+              }}
+            >
+              <span style={{ fontSize: '10px' }}>Add Holiday</span>
+            </Button>
+          </Tooltip>
+        </div>
+
+        {/* Secondary Actions Row - Only show when needed */}
+        {hasUnsavedChanges && (
+          <div style={{ 
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '8px',
+            alignItems: 'center',
+            padding: '8px',
+            background: 'rgba(82, 196, 26, 0.05)',
+            borderRadius: '8px',
+            border: '1px solid rgba(82, 196, 26, 0.2)'
+          }}>
+            <Badge 
+              count={Object.keys(pendingChanges).length} 
+              size="small"
+              style={{ fontSize: '10px' }}
+            >
+              <Button 
+                type="primary"
+                icon={<SaveOutlined style={{ fontSize: '14px' }} />}
+                size="middle"
+                style={{
+                  background: 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  display: 'flex',
                   alignItems: 'center',
-                  padding: '8px 12px',
-                  background: 'white',
-                  borderRadius: '12px',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
-                  justifyContent: { xs: 'center', md: 'flex-start' }
-                }}>
-                  <Tooltip title="Public Holidays">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 'fit-content' }}>
-                      <div style={{ 
-                        width: '10px', 
-                        height: '10px', 
-                        background: 'linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%)', 
-                        borderRadius: '2px',
-                        boxShadow: '0 1px 3px rgba(255, 77, 79, 0.3)'
-                      }}></div>
-                      <Text style={{ fontSize: '11px', fontWeight: '500' }}>Holiday</Text>
-                    </div>
-                  </Tooltip>
-                  
-                  <Tooltip title="Half Working Days">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 'fit-content' }}>
-                      <div style={{ 
-                        width: '10px', 
-                        height: '10px', 
-                        background: 'linear-gradient(135deg, #faad14 0%, #ffc53d 100%)', 
-                        borderRadius: '2px',
-                        boxShadow: '0 1px 3px rgba(250, 173, 20, 0.3)'
-                      }}></div>
-                      <Text style={{ fontSize: '11px', fontWeight: '500' }}>Half Day</Text>
-                    </div>
-                  </Tooltip>
-                  
-                  <Tooltip title="Special Working Days">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 'fit-content' }}>
-                      <div style={{ 
-                        width: '10px', 
-                        height: '10px', 
-                        background: 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)', 
-                        borderRadius: '2px',
-                        boxShadow: '0 1px 3px rgba(82, 196, 26, 0.3)'
-                      }}></div>
-                      <Text style={{ fontSize: '11px', fontWeight: '500' }}>Working</Text>
-                    </div>
-                  </Tooltip>
-                </div>
+                  gap: '4px',
+                  minWidth: '100px',
+                  height: '36px'
+                }}
+                onClick={handlePublishChanges}
+                loading={loading}
+              >
+                <span style={{ fontSize: '10px' }}>Publish</span>
+              </Button>
+            </Badge>
+            
+            <Button 
+              icon={<CloseCircleOutlined style={{ fontSize: '14px' }} />}
+              size="middle"
+              danger
+              style={{ 
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                minWidth: '80px',
+                height: '36px'
+              }}
+              onClick={handleDiscardChanges}
+            >
+              <span style={{ fontSize: '12px' }}>Discard</span>
+            </Button>
+          </div>
+        )}
+      </div>
+    )}
+  </div>
 
-                {/* Quick Actions for HR */}
-                {/* Weekly Holiday Setup Modal */}
-{userRole !== 'employee' && (
-  <Modal
-    title={
-      <Space>
-        <div style={{
-          width: '32px',
-          height: '32px',
-          borderRadius: '8px',
-          background: 'linear-gradient(135deg, #722ed1 0%, #9254de 100%)',
+  {/* Weekly Holiday Setup Modal - Mobile Optimized */}
+  {userRole !== 'employee' && (
+    <Modal
+      title={
+        <div style={{ 
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          color: 'white'
+          gap: '12px',
+          flexWrap: 'wrap'
         }}>
-          <CalendarOutlined />
-        </div>
-        <div>
-          <div style={{ fontSize: '16px', fontWeight: '600' }}>
-            Set Weekly Holiday
+          <div style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
+            background: 'linear-gradient(135deg, #722ed1 0%, #9254de 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white',
+            flexShrink: 0
+          }}>
+            <CalendarOutlined />
           </div>
-          <Text type="secondary" style={{ fontSize: '12px' }}>
-            Mark all occurrences of a weekday as holiday for the year
-          </Text>
+          <div>
+            <div style={{ fontSize: '16px', fontWeight: '600' }}>
+              Set Weekly Holiday
+            </div>
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              Mark all occurrences of a weekday as holiday
+            </Text>
+          </div>
         </div>
-      </Space>
-    }
-    open={weeklyHolidayModal}
-    onCancel={() => {
-      setWeeklyHolidayModal(false);
-      weeklyHolidayForm.resetFields();
-    }}
-    footer={[
-      <Button key="cancel" onClick={() => setWeeklyHolidayModal(false)}>
-        Cancel
-      </Button>,
-      <Button 
-        key="submit" 
-        type="primary" 
-        onClick={() => weeklyHolidayForm.submit()}
-        style={{
-          background: 'linear-gradient(135deg, #722ed1 0%, #9254de 100%)',
-          border: 'none',
-          borderRadius: '6px'
-        }}
-      >
-        <CalendarOutlined /> Set Weekly Holiday
-      </Button>
-    ]}
-    width={500}
-    centered
-  >
-    <Form
-      form={weeklyHolidayForm}
-      layout="vertical"
-      onFinish={handleWeeklyHolidaySetup}
-    >
-      <Row gutter={16}>
-        <Col span={12}>
-          <Form.Item
-            name="weekday"
-            label="Select Weekday"
-            rules={[{ required: true, message: 'Please select a weekday' }]}
-          >
-            <Select 
-              placeholder="Choose weekday"
-              size="large"
-              style={{ borderRadius: '8px' }}
-            >
-              <Option value={1}>Monday</Option>
-              <Option value={2}>Tuesday</Option>
-              <Option value={3}>Wednesday</Option>
-              <Option value={4}>Thursday</Option>
-              <Option value={5}>Friday</Option>
-              <Option value={6}>Saturday</Option>
-              <Option value={0}>Sunday</Option>
-            </Select>
-          </Form.Item>
-        </Col>
-        
-        <Col span={12}>
-          <Form.Item
-            name="year"
-            label="Select Year"
-            rules={[{ required: true, message: 'Please select a year' }]}
-          >
-            <Select 
-              placeholder="Choose year"
-              size="large"
-              style={{ borderRadius: '8px' }}
-            >
-              {Array.from({ length: 5 }, (_, i) => {
-                const year = dayjs().year() + i;
-                return (
-                  <Option key={year} value={year}>
-                    {year}
-                  </Option>
-                );
-              })}
-            </Select>
-          </Form.Item>
-        </Col>
-      </Row>
-
-      <Form.Item
-        name="holidayName"
-        label="Holiday Name"
-        rules={[{ required: true, message: 'Please enter holiday name' }]}
-      >
-        <Input 
-          placeholder="e.g., Weekly Off, Saturday Holiday"
-          size="large"
-          style={{ borderRadius: '8px' }}
-        />
-      </Form.Item>
-
-      <Form.Item
-        name="reason"
-        label="Description (Optional)"
-      >
-        <TextArea
-          rows={2}
-          placeholder="Additional details about this weekly holiday..."
-          maxLength={100}
-          showCount
-          style={{ borderRadius: '8px' }}
-        />
-      </Form.Item>
-    </Form>
-  </Modal>
-)}
-{/* Quick Actions for HR */}
-{userRole !== 'employee' && (
-  <Space>
-    <Tooltip title="Set Weekly Holiday">
-      <Button 
-        icon={<CalendarOutlined />}
-        size="small"
-        style={{ borderRadius: '8px' }}
-        onClick={() => {
-          weeklyHolidayForm.resetFields();
-          setWeeklyHolidayModal(true);
-        }}
-      >
-        Set Weekly Holiday
-      </Button>
-    </Tooltip>
-    
-    <Tooltip title="Quick Add Holiday">
-      <Button 
-        type="primary" 
-        icon={<PlusOutlined />}
-        size="small"
-        style={{
-          background: 'linear-gradient(135deg, #0D7139 0%, #52c41a 100%)',
-          border: 'none',
-          borderRadius: '8px'
-        }}
-        onClick={() => {
-          setSelectedCalendarDate(dayjs());
-          calendarForm.resetFields();
-          calendarForm.setFieldsValue({ dayType: 'holiday' });
-          setEditModal(true);
-        }}
-      >
-        Add Holiday
-      </Button>
-    </Tooltip>
-    
-    {/* Publish/Discard buttons */}
-    {hasUnsavedChanges && (
-      <>
-        <Badge count={Object.keys(pendingChanges).length} size="small">
-          <Button 
-            type="primary"
-            icon={<SaveOutlined />}
-            size="small"
-            style={{
-              background: 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)',
-              border: 'none',
-              borderRadius: '8px'
-            }}
-            onClick={handlePublishChanges}
-            loading={loading}
-          >
-            Publish Changes
-          </Button>
-        </Badge>
-        
+      }
+      open={weeklyHolidayModal}
+      onCancel={() => {
+        setWeeklyHolidayModal(false);
+        weeklyHolidayForm.resetFields();
+      }}
+      footer={[
         <Button 
-          icon={<CloseCircleOutlined />}
-          size="small"
-          danger
-          style={{ borderRadius: '8px' }}
-          onClick={handleDiscardChanges}
+          key="cancel" 
+          onClick={() => setWeeklyHolidayModal(false)}
+          style={{ marginRight: '8px' }}
         >
-          Discard
+          Cancel
+        </Button>,
+        <Button 
+          key="submit" 
+          type="primary" 
+          onClick={() => weeklyHolidayForm.submit()}
+          style={{
+            background: 'linear-gradient(135deg, #722ed1 0%, #9254de 100%)',
+            border: 'none',
+            borderRadius: '6px'
+          }}
+          icon={<CalendarOutlined />}
+        >
+          Set Holiday
         </Button>
-      </>
-    )}
-    
-   
-  </Space>
-)}
+      ]}
+      width="90%"
+      style={{ maxWidth: '500px' }}
+      centered
+    >
+      <Form
+        form={weeklyHolidayForm}
+        layout="vertical"
+        onFinish={handleWeeklyHolidaySetup}
+      >
+        <Row gutter={[16, 16]}>
+          <Col xs={24} sm={12}>
+            <Form.Item
+              name="weekday"
+              label="Select Weekday"
+              rules={[{ required: true, message: 'Please select a weekday' }]}
+            >
+              <Select 
+                placeholder="Choose weekday"
+                size="large"
+                style={{ borderRadius: '8px' }}
+              >
+                <Option value={1}>Monday</Option>
+                <Option value={2}>Tuesday</Option>
+                <Option value={3}>Wednesday</Option>
+                <Option value={4}>Thursday</Option>
+                <Option value={5}>Friday</Option>
+                <Option value={6}>Saturday</Option>
+                <Option value={0}>Sunday</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+          
+          <Col xs={24} sm={12}>
+            <Form.Item
+              name="year"
+              label="Select Year"
+              rules={[{ required: true, message: 'Please select a year' }]}
+            >
+              <Select 
+                placeholder="Choose year"
+                size="large"
+                style={{ borderRadius: '8px' }}
+              >
+                {Array.from({ length: 5 }, (_, i) => {
+                  const year = dayjs().year() + i;
+                  return (
+                    <Option key={year} value={year}>
+                      {year}
+                    </Option>
+                  );
+                })}
+              </Select>
+            </Form.Item>
+          </Col>
+        </Row>
 
-              </Space>
-            </Col>
-          </Row>
-        </div>
-        
-        {/* Professional Calendar */}
-        <div style={{ 
-  padding: '0 8px'
-}}>
-  <style>{`
-  .ant-picker-calendar {
-    background: transparent !important;
-  }
-`}</style>
-        <Calendar 
-  key={companyCalendar.length}
-  cellRender={(value, info) => {
-    if (info.type === 'date') {
-      return dateCellRender(value);
-    }
-    return info.originNode;
-  }}
-            onSelect={(date) => setSelectedDate(date)}
-            headerRender={({ value, type, onChange, onTypeChange }) => (
-              <div style={{ 
-                padding: '16px 24px', 
-                background: 'white',
-                borderBottom: '1px solid #f0f0f0',
-                borderRadius: '12px 12px 0 0'
-              }}>
-                <Row justify="space-between" align="middle">
-                  <Col>
-                    <Space size="large">
-                      <Select
-                        size="large"
-                        value={value.month()}
-                        onChange={(month) => {
-                          const newValue = value.clone().month(month);
-                          onChange(newValue);
-                        }}
-                        style={{ minWidth: '140px' }}
-                      >
-                        {Array.from({ length: 12 }, (_, i) => (
-                          <Option key={i} value={i}>
-                            {dayjs().month(i).format('MMMM')}
-                          </Option>
-                        ))}
-                      </Select>
-                      
-                      <Select
-                        size="large"
-                        value={value.year()}
-                        onChange={(year) => {
-                          const newValue = value.clone().year(year);
-                          onChange(newValue);
-                        }}
-                        style={{ minWidth: '100px' }}
-                      >
-                        {Array.from({ length: 10 }, (_, i) => {
-                          const year = dayjs().year() - 5 + i;
-                          return (
-                            <Option key={year} value={year}>
-                              {year}
-                            </Option>
-                          );
-                        })}
-                      </Select>
-                    </Space>
-                  </Col>
-                  
-                  <Col>
-                    <Space>
-                      <Button 
-                        onClick={() => {
-                          const today = dayjs();
-                          onChange(today);
-                        }}
-                        style={{ borderRadius: '6px' }}
-                      >
-                        Today
-                      </Button>
-                      
-<Space.Compact>
-  <Button 
-    type={type === 'month' ? 'primary' : 'default'}
-    onClick={() => onTypeChange('month')}
-  >
-    Month
-  </Button>
-  <Button 
-    type={type === 'year' ? 'primary' : 'default'}
-    onClick={() => onTypeChange('year')}
-  >
-    Year
-  </Button>
-</Space.Compact>
-
-                    </Space>
-                  </Col>
-                </Row>
-              </div>
-            )}
-            style={{
-              background: 'white',
-              borderRadius: '12px',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
-            }}
+        <Form.Item
+          name="holidayName"
+          label="Holiday Name"
+          rules={[{ required: true, message: 'Please enter holiday name' }]}
+        >
+          <Input 
+            placeholder="e.g., Weekly Off, Saturday Holiday"
+            size="large"
+            style={{ borderRadius: '8px' }}
           />
+        </Form.Item>
+
+        <Form.Item
+          name="reason"
+          label="Description (Optional)"
+        >
+          <TextArea
+            rows={2}
+            placeholder="Additional details about this weekly holiday..."
+            maxLength={100}
+            showCount
+            style={{ borderRadius: '8px' }}
+          />
+        </Form.Item>
+      </Form>
+    </Modal>
+  )}
+        
+  {/* Professional Calendar */}
+  <div style={{ 
+    padding: '0 8px'
+  }}>
+    <style>{`
+      .ant-picker-calendar {
+        background: transparent !important;
+      }
+      
+      /* Mobile calendar optimizations */
+      @media (max-width: 768px) {
+        .ant-picker-calendar .ant-picker-calendar-header {
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        
+        .ant-picker-calendar .ant-picker-calendar-date {
+          height: 40px;
+        }
+        
+        .ant-picker-calendar .ant-picker-calendar-date-content {
+          font-size: 12px;
+        }
+      }
+    `}</style>
+    
+    <Calendar 
+      key={companyCalendar.length}
+      cellRender={(value, info) => {
+        if (info.type === 'date') {
+          return dateCellRender(value);
+        }
+        return info.originNode;
+      }}
+      onSelect={(date) => setSelectedDate(date)}
+      headerRender={({ value, type, onChange, onTypeChange }) => (
+        <div style={{ 
+          padding: '16px', 
+          background: 'white',
+          borderBottom: '1px solid #f0f0f0',
+          borderRadius: '12px 12px 0 0'
+        }}>
+          <div style={{ 
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            {/* Date Selection Row */}
+            <div style={{ 
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '8px',
+              alignItems: 'center'
+            }}>
+              <Select
+                size="large"
+                value={value.month()}
+                onChange={(month) => {
+                  const newValue = value.clone().month(month);
+                  onChange(newValue);
+                }}
+                style={{ 
+                  minWidth: '120px',
+                  flex: '1 1 auto'
+                }}
+              >
+                {Array.from({ length: 12 }, (_, i) => (
+                  <Option key={i} value={i}>
+                    {dayjs().month(i).format('MMMM')}
+                  </Option>
+                ))}
+              </Select>
+              
+              <Select
+                size="large"
+                value={value.year()}
+                onChange={(year) => {
+                  const newValue = value.clone().year(year);
+                  onChange(newValue);
+                }}
+                style={{ 
+                  minWidth: '90px',
+                  flex: '0 0 auto'
+                }}
+              >
+                {Array.from({ length: 10 }, (_, i) => {
+                  const year = dayjs().year() - 5 + i;
+                  return (
+                    <Option key={year} value={year}>
+                      {year}
+                    </Option>
+                  );
+                })}
+              </Select>
+            </div>
+            
+            {/* Action Buttons Row */}
+            <div style={{ 
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '8px',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <Button 
+                onClick={() => {
+                  const today = dayjs();
+                  onChange(today);
+                }}
+                style={{ 
+                  borderRadius: '6px',
+                  minWidth: '70px'
+                }}
+              >
+                Today
+              </Button>
+              
+              <div style={{ 
+                display: 'flex',
+                border: '1px solid #d9d9d9',
+                borderRadius: '6px',
+                overflow: 'hidden'
+              }}>
+                <Button 
+                  type={type === 'month' ? 'primary' : 'default'}
+                  onClick={() => onTypeChange('month')}
+                  style={{ 
+                    borderRadius: '0',
+                    border: 'none',
+                    minWidth: '60px'
+                  }}
+                >
+                  Month
+                </Button>
+                <Button 
+                  type={type === 'year' ? 'primary' : 'default'}
+                  onClick={() => onTypeChange('year')}
+                  style={{ 
+                    borderRadius: '0',
+                    border: 'none',
+                    borderLeft: '1px solid #d9d9d9',
+                    minWidth: '60px'
+                  }}
+                >
+                  Year
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
-      </Card>
+      )}
+      style={{
+        background: 'white',
+        borderRadius: '12px',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
+      }}
+    />
+  </div>
+</Card>
 
       {/* Enhanced Calendar Edit Modal */}
       {userRole !== 'employee' && (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect,useMemo  } from 'react';
-import { Home, User, ChevronLeft, ChevronRight, Zap, LogOut, UserCheck, FolderKanban, ChevronDown, ChevronUp, Calendar, DollarSign, BarChart3, GitBranch, ClipboardList, AlertTriangle, FileText, BookOpen } from 'lucide-react';
+import { Home, User, ChevronLeft, ChevronRight, Zap, LogOut, UserCheck, FolderKanban, ChevronDown, ChevronUp, Calendar, DollarSign, BarChart3, GitBranch, ClipboardList, AlertTriangle, FileText, BookOpen, MessageSquare } from 'lucide-react';
 import './Sidebar.css';
 import Myaccesslogo from '../../assets/Myalogobgr.svg'; // Adjust the path as necessary
 import { InboxOutlined, EditOutlined ,SendOutlined,DeleteOutlined} from '@ant-design/icons';
@@ -59,6 +59,9 @@ useEffect(() => {
     ] : []
   },
   { icon: Calendar, label: 'Leave Management', id: 'leave-management' },
+  
+  // Feedback Form - Available to all authenticated users
+  { icon: MessageSquare, label: 'Feedback', id: 'feedback', color: '#f97316' },
     
     // Project Management parent with children
    // Project Management (only for superadmin and admin)

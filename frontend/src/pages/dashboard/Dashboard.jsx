@@ -21,7 +21,7 @@ import ExamConductPage from '../job/ExamConductPage';
 import EmailClient from '../email/EmailClient';
 import PayrollApp from '../hr/Payroll';
 import LeaveManagementPage from '../hr/LeaveManagementPage';
-
+import FeedbackForm from '../feedback/FeedbackForm';
 
 
 import EmployeeAttendancePage from '../hr/EmployeeAttendancePage';
@@ -1346,6 +1346,16 @@ if (activeSection === 'mails') {
         {renderHeader("Search employees...")}
         <main className="main-content">
           <EmployeeManagement userRole={userData?.role} />
+        </main>
+      </div>
+    );
+  }
+  if (activeSection === 'feedback') {
+    return (
+      <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+        {renderHeader("Search Feedback...")}
+        <main className="main-content">
+          <FeedbackForm userRole={userData?.role} />
         </main>
       </div>
     );
