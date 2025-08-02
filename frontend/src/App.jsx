@@ -62,6 +62,8 @@ const AppContent = () => {
       return;
     }else if (path.includes('/payroll')) {
       setActiveSection('payroll');
+       }else if (path.includes('/leave-management')) {
+      setActiveSection('leave-management');
     } else if (path.includes('/employee-attendance')) {
       setActiveSection('employee-attendance');
     } else if (path.includes('/mails')) {
@@ -173,7 +175,9 @@ else if (itemId === 'on-campus-data') {
       navigate('/dashboard/on-campus-data', { replace: true });
 }else if (itemId === 'payroll') {
       navigate('/dashboard/payroll', { replace: true });
-    } else if (itemId === 'selected-list') {
+    } else if (itemId === 'leave-management') {
+      navigate('/dashboard/leave-management', { replace: true });
+        } else if (itemId === 'selected-list') {
       navigate('/dashboard/selected-list', { replace: true });
     } else if (itemId === 'job-application') {
       navigate('/dashboard/job-application', { replace: true });

@@ -21,6 +21,7 @@ import CampusJobApplyPage from '../job/CampusJobApplyPage';
 import ExamConductPage from '../job/ExamConductPage';
 import EmailClient from '../email/EmailClient';
 import PayrollApp from '../hr/Payroll';
+import LeaveManagementPage from '../hr/LeaveManagementPage';
 
 
 
@@ -827,6 +828,20 @@ if (activeSection === 'employee-attendance') {
         {renderHeader("Search job descriptions...")}
         <main className="main-content">
           <EmployeeAttendancePage userRole={userData?.role} />
+        </main>
+      </div>
+    );
+  }
+  if (activeSection === 'leave-management') {
+    return (
+      <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+        {renderHeader("Search job descriptions...")}
+        <main className="main-content">
+ <LeaveManagementPage 
+    userRole={userData?.role} 
+    currentUserId={userData?.id} 
+  />
+
         </main>
       </div>
     );
