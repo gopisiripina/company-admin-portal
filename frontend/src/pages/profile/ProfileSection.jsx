@@ -21,7 +21,7 @@ const ProfileSection = ({ userData, onLogout }) => {
   ];
 
   const handleMenuItemClick = async (itemId) => {
-    console.log('Menu item clicked:', itemId);
+    
     setIsDropdownOpen(false);
     
     if (itemId === 'logout') {
@@ -33,14 +33,14 @@ const ProfileSection = ({ userData, onLogout }) => {
   const handleLogout = async () => {
     try {
       setIsLoggingOut(true);
-      console.log('Starting logout process...');
+      
        localStorage.removeItem('emailCredentials');
       
       // Call the enhanced logout method from authService (Supabase-enabled)
       const logoutSuccess = await authService.logout(userData);
       
       if (logoutSuccess) {
-        console.log('Logout successful, isActive set to false in Supabase');
+        
       } else {
         console.warn('Logout completed but there may have been issues updating Supabase');
       }
