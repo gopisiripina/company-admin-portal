@@ -643,15 +643,6 @@ const renderAttendanceCalendar = () => {
       isCurrentlyCheckedIn: !!record.check_in && !record.check_out
     };
     
-    console.log('Mapped attendance:', {
-      date: dateKey,
-      isPresent: record.is_present,
-      checkIn: record.check_in,
-      checkOut: record.check_out,
-      hasCheckedIn: !!record.check_in,
-      hasCheckedOut: !!record.check_out,
-      isCurrentlyCheckedIn: !!record.check_in && !record.check_out
-    });
   }
 });
 
@@ -761,12 +752,9 @@ const renderAttendanceCalendar = () => {
       boxShadow: 'none',
       background: 'transparent'
     }}
-    bodyStyle={{ 
-      padding: '15px',
-      height: '100%',
+   styles={{ body: { padding: '12px', height: '100%',
       display: 'flex',
-      flexDirection: 'column'
-    }}
+      flexDirection: 'column' } }}
   >
     {/* Calendar Header */}
     <Flex justify="space-between" align="center" style={{ marginBottom: '15px' }}>
@@ -816,7 +804,7 @@ const renderAttendanceCalendar = () => {
         borderRadius: '8px',
         marginBottom: '15px'
       }}
-      bodyStyle={{ padding: '10px' }}
+      styles={{ body: { padding: '10px' } }}
     >
       <Row gutter={[16, 8]} justify="space-around">
         <Col span={8}>
@@ -1853,7 +1841,7 @@ if (activeSection === 'payroll') {
             border: '1px solid #e6f7ff',
             background: 'linear-gradient(135deg, #f6ffed 0%, #f0f9ff 100%)'
           }}
-          bodyStyle={{ padding: '16px' }}
+          styles={{ body: { padding: '16px' } }}
         >
           <Row gutter={[16, 8]} align="middle">
             <Col xs={24} sm={14}>
