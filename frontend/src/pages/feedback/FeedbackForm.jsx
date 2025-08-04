@@ -714,7 +714,7 @@ const ProfessionalFeedbackForm = ({ userData, onSubmitSuccess }) => {
       borderRight: '1px solid #e8eaed',
       backgroundColor: '#ffffff',
       overflowY: 'auto',
-      maxHeight: '100vh'
+      height: '100vh'
     }}>
       {/* Enhanced Header */}
       <div style={{ marginBottom: '32px' }}>
@@ -1017,7 +1017,7 @@ const ProfessionalFeedbackForm = ({ userData, onSubmitSuccess }) => {
       backgroundColor: '#f8fafc',
       display: 'flex',
       flexDirection: 'column',
-      minHeight: isMobile ? 'calc(100vh - 60px)' : 'auto'
+      height: isMobile ? 'calc(100vh - 60px)' : '100vh'
     }}>
       {/* Enhanced Header */}
       <div style={{
@@ -1533,7 +1533,7 @@ const ProfessionalFeedbackForm = ({ userData, onSubmitSuccess }) => {
   // Desktop Layout
   const renderDesktopLayout = () => (
     <div style={{
-      minHeight: '100vh',
+      height: '100vh',
       backgroundColor: '#f5f7fa',
       display: 'flex'
     }}>
