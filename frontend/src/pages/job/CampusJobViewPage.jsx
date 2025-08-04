@@ -618,9 +618,7 @@ const CampusJobViewPage = () => {
           maxWidth: '800px',
           margin: '0 auto'
         }}
-        bodyStyle={{
-          padding: '24px'
-        }}
+       styles={{ body: { padding: '24px' } }}
       >
         <Form 
           form={form} 

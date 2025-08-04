@@ -127,7 +127,61 @@ const fetchEvents = async () => {
     return [];
   }
 };
+// Add this new function after fetchEvents
+const fetchCompanyCalendar = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('company_calendar')
+      .select('date, day_type')
+      .eq('day_type', 'holiday');
 
+    if (error) throw error;
+    // Return a set of holiday dates for quick lookup
+    return new Set(data.map(d => d.date));
+  } catch (error) {
+    console.error('Error fetching company calendar:', error);
+    message.error('Failed to fetch company calendar');
+    return new Set();
+  }
+};
+
+const fetchWorkingDays = async (userId, holidays) => {
+  try {
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('date')
+      .eq('user_id', userId)
+      .eq('is_present', true);
+
+    if (error) throw error;
+
+    // Filter out holidays from the present days
+    const workingDays = data.filter(attendance => !holidays.has(attendance.date));
+    return workingDays.length;
+  } catch (error) {
+    console.error('Error fetching working days:', error);
+    return 0;
+  }
+};
+
+const fetchCompensatoryOffDays = async (userId, holidays) => {
+  try {
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('date')
+      .eq('user_id', userId)
+      .eq('is_present', true);
+
+    if (error) throw error;
+
+    // Filter for days worked on a holiday
+    const compensatoryDays = data.filter(attendance => holidays.has(attendance.date));
+    return compensatoryDays.length;
+  } catch (error) {
+    console.error('Error fetching compensatory off days:', error);
+    return 0;
+  }
+};
 // Generate dummy leave data
 const fetchLeaveApplications = async (userId = null) => {
   try {
@@ -155,7 +209,6 @@ const fetchLeaveApplications = async (userId = null) => {
     if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('Error fetching leave applications:', error);
     message.error('Failed to fetch leave applications');
     return [];
   }
@@ -225,17 +278,21 @@ const fetchLeaveBalances = async (userId) => {
     
     return data;
   } catch (error) {
-    console.error('Error fetching leave balances:', error);
+    
     return null;
   }
 };
 
 // Calculate leave balances
+// Calculate leave balances
 const calculateLeaveBalances = async (userId, currentUser) => {
   const balanceData = await fetchLeaveBalances(userId);
+  const holidays = await fetchCompanyCalendar();
+  const workingDays = await fetchWorkingDays(userId, holidays);
+  const compensatoryDays = await fetchCompensatoryOffDays(userId, holidays);
 
-  const earnedFromWorkingDays = currentUser?.workingDays ? Math.floor(currentUser.workingDays / 20) : 0;
-  
+  const earnedFromWorkingDays = Math.floor(workingDays / 20);
+
   if (!balanceData) {
     return {
       permission: { total: 2, used: 0, remaining: 2, monthlyLimit: 2 },
@@ -247,9 +304,14 @@ const calculateLeaveBalances = async (userId, currentUser) => {
       excuses: { total: 1, used: 0, remaining: 1, monthlyLimit: 1 }
     };
   }
-   balanceData.earned_total = earnedFromWorkingDays;
+
+  // Update earned leave and compensatory leave totals
+  balanceData.earned_total = earnedFromWorkingDays;
   balanceData.earned_remaining = earnedFromWorkingDays - (balanceData.earned_used || 0);
-  
+
+  balanceData.compensatory_total = compensatoryDays;
+  balanceData.compensatory_remaining = compensatoryDays - (balanceData.compensatory_used || 0);
+
   return {
     permission: {
       total: balanceData.permission_total,
@@ -262,7 +324,7 @@ const calculateLeaveBalances = async (userId, currentUser) => {
       used: balanceData.casual_used,
       remaining: balanceData.casual_remaining,
       monthlyLimit: 1,
-      monthlyUsed: balanceData.casual_monthly_used || 0 // Added for monthly check
+      monthlyUsed: balanceData.casual_monthly_used || 0
     },
     earnedLeave: {
       total: balanceData.earned_total,
@@ -294,27 +356,12 @@ const calculateLeaveBalances = async (userId, currentUser) => {
 };
 
 
-
 const LeaveManagementPage = ({ userRole = 'hr', currentUserId = '1' }) => {
 const [employees, setEmployees] = useState([]);
-    const { data: leaveData = [], error: leaveError, mutate: mutateLeaves } = useSWR(
-    `leave_applications|${userRole === 'employee' ? currentUserId : null}`,
-    fetcher,
-    {
-      refreshInterval: 10000, // Refresh every 30 seconds
-      revalidateOnFocus: true,
-      revalidateOnReconnect: true
-    }
-  );
+  const [leaveData, setLeaveData] = useState([]);
+const [events, setEvents] = useState([]);
+const [leaveBalanceRaw, setLeaveBalanceRaw] = useState(null);
 
-  const { data: events = [], mutate: mutateEvents } = useSWR(
-    'events|null',
-    fetcher,
-    {
-      refreshInterval: 30000, // Refresh every minute
-      revalidateOnFocus: true
-    }
-  );
 
   const [filteredLeaves, setFilteredLeaves] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -413,7 +460,7 @@ useEffect(() => {
       const leaves = await fetchLeaveApplications(userRole === 'employee' ? currentUserId : null);
       const balances = await calculateLeaveBalances(currentUserId, currentUser);
       
-mutateLeaves(leaves, false); // Update local cache without revalidation
+setLeaveData(leaves); // ✅ Updates the state directly
       setLeaveBalances(balances);
       
       // Apply filters to the loaded data
@@ -487,6 +534,10 @@ useEffect(() => {
   };
 
   // Handle apply leave
+// Handle apply leave
+// In LeaveManagementPage.jsx
+
+// Handle apply leave
 const handleApplyLeave = async (values) => {
   setLoading(true);
   try {
@@ -502,6 +553,10 @@ const handleApplyLeave = async (values) => {
       return;
     }
     
+    // Calculate total days for the leave application
+    const totalDays = values.leaveType === 'Permission' ? 0 : 
+                 (values.endDate ? values.endDate.diff(values.startDate, 'days') + 1 : 1);
+
     const newLeave = {
       user_id: currentUserId,
       employee_name: userData.name,
@@ -517,8 +572,7 @@ const handleApplyLeave = async (values) => {
       end_date: values.endDate ? values.endDate.format('YYYY-MM-DD') : values.startDate.format('YYYY-MM-DD'),
       start_time: values.startTime ? values.startTime.format('HH:mm') : null,
       end_time: values.endTime ? values.endTime.format('HH:mm') : null,
-      total_days: values.leaveType === 'Permission' ? 0 : 
-                 values.endDate ? values.endDate.diff(values.startDate, 'days') + 1 : 1,
+      total_days: totalDays,
       total_hours: values.leaveType === 'Permission' && values.startTime && values.endTime ? 
                   values.endTime.diff(values.startTime, 'hours', true) : 0,
       reason: values.reason,
@@ -542,49 +596,71 @@ const handleApplyLeave = async (values) => {
     
     if (error) throw error;
     
-    // Update leave balance using user_id
-    await updateLeaveBalance(currentUserId, values.leaveType, values.subType);
-      
-    mutateLeaves();
-      
-      setApplyLeaveModal(false);
-      form.resetFields();
-      message.success('Leave application submitted successfully!');
-    } catch (error) {
-      console.error('Error submitting leave:', error);
-      message.error('Failed to submit leave application');
-    } finally {
-      setLoading(false);
-    }
-  };
+    // UPDATED: Pass the calculated totalDays to the update function
+    await updateLeaveBalance(currentUserId, values.leaveType, totalDays);
 
-const updateLeaveBalance = async (userId, leaveType, subType) => {
+    // Refresh the data after submission
+    fetchLeaveApplications(userRole === 'employee' ? currentUserId : null).then(setLeaveData);
+    
+    // Recalculate all balances and update the state to refresh the UI immediately
+    const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
+    setLeaveBalances(updatedBalances);
+    
+    setApplyLeaveModal(false);
+    form.resetFields();
+    message.success('Leave application submitted successfully!');
+
+  } catch (error) {
+    console.error('Error submitting leave:', error);
+    message.error('Failed to submit leave application');
+  } finally {
+    setLoading(false);
+  }
+};
+
+// In LeaveManagementPage.jsx
+
+const updateLeaveBalance = async (userId, leaveType, daysApplied) => {
   try {
     const currentBalances = await fetchLeaveBalances(userId);
+    if (!currentBalances) {
+      console.error("Could not find leave balances for the user to update.");
+      return;
+    }
+
     const updates = {};
+    const days = Number(daysApplied) || 0;
       
     switch (leaveType) {
       case 'Permission':
-        updates.permission_used = (currentBalances?.permission_used || 0) + 1;
-        updates.permission_remaining = (currentBalances?.permission_remaining || 2) - 1;
+        updates.permission_used = (currentBalances.permission_used || 0) + 1;
+        updates.permission_remaining = (currentBalances.permission_remaining || 2) - 1;
         break;
       case 'Casual Leave':
-        const days = subType === 'HDL' ? 0.5 : 1;
-        updates.casual_used = (currentBalances?.casual_used || 0) + days;
-        updates.casual_remaining = (currentBalances?.casual_remaining || 12) - days;
-        updates.casual_monthly_used = (currentBalances?.casual_monthly_used || 0) + 1;
+        const casualDays = daysApplied === 0.5 ? 0.5 : Math.ceil(daysApplied);
+        updates.casual_used = (currentBalances.casual_used || 0) + casualDays;
+        updates.casual_remaining = (currentBalances.casual_remaining || 12) - casualDays;
+        updates.casual_monthly_used = (currentBalances.casual_monthly_used || 0) + 1;
         break;
-      case 'Earned Leave':
-        updates.earned_used = (currentBalances?.earned_used || 0) + 1;
-        updates.earned_remaining = (currentBalances?.earned_remaining || 0) - 1;
+      case 'Earned Leave': // Logic updated to use daysApplied
+        updates.earned_used = (currentBalances.earned_used || 0) + days;
+        updates.earned_remaining = (currentBalances.earned_remaining || 0) - days;
         break;
       case 'Medical Leave':
-        updates.medical_used = (currentBalances?.medical_used || 0) + 1;
-        updates.medical_remaining = (currentBalances?.medical_remaining || 12) - 1;
+        updates.medical_used = (currentBalances.medical_used || 0) + days;
+        updates.medical_remaining = (currentBalances.medical_remaining || 12) - days;
+        break;
+      case 'Maternity Leave': // ADDED
+        updates.maternity_used = (currentBalances.maternity_used || 0) + days;
+        updates.maternity_remaining = (currentBalances.maternity_remaining || 84) - days;
+        break;
+      case 'Compensatory Leave': // ADDED
+        updates.compensatory_used = (currentBalances.compensatory_used || 0) + days;
+        updates.compensatory_remaining = (currentBalances.compensatory_remaining || 0) - days;
         break;
       case 'Excuses':
-        updates.excuses_used = (currentBalances?.excuses_used || 0) + 1;
-        updates.excuses_remaining = (currentBalances?.excuses_remaining || 1) - 1;
+        updates.excuses_used = (currentBalances.excuses_used || 0) + 1;
+        updates.excuses_remaining = (currentBalances.excuses_remaining || 1) - 1;
         break;
     }
       
@@ -598,9 +674,9 @@ const updateLeaveBalance = async (userId, leaveType, subType) => {
     }
   } catch (error) {
     console.error('Error updating leave balance:', error);
+    message.error(`Failed to update leave balance for ${leaveType}.`);
   }
 };
-
 // 7. Add function to get available leave types:
   const getAvailableLeaveTypes = () => {
     const available = [];
@@ -628,12 +704,15 @@ const updateLeaveBalance = async (userId, leaveType, subType) => {
 // const [setLeaveData] = useState([]);
 
 // Update the handleLeaveAction function:
+// In LeaveManagementPage.jsx
+
+// Update the handleLeaveAction function:
 const handleLeaveAction = async (leaveId, action, reason = null) => {
   setLoading(true);
   try {
     const updates = {
       status: action === 'approve' ? 'Approved' : 'Rejected',
-      approved_by: action === 'approve' ? 'Current User' : null,
+      approved_by: action === 'approve' ? (currentUser?.name || 'Admin') : null,
       approved_date: action === 'approve' ? new Date().toISOString().split('T')[0] : null,
       rejection_reason: action === 'reject' ? reason : null,
     };
@@ -645,17 +724,17 @@ const handleLeaveAction = async (leaveId, action, reason = null) => {
     
     if (error) throw error;
     
-    // Use mutateLeaves instead of setLeaveData
-    mutateLeaves();
+    // CORRECTED: Re-fetch data instead of calling a non-existent function
+    fetchLeaveApplications(userRole === 'employee' ? currentUserId : null).then(setLeaveData);
     
     message.success(`Leave ${action}d successfully!`);
   } catch (error) {
     console.error(`Error ${action}ing leave:`, error);
-    message.error(`Failed to ${action} leave`);
+    message.error(`Failed to ${action} leave. Please try again.`);
   } finally {
     setLoading(false);
   }
-};  // Get leave type color and icon
+};
  
   // Get permission time icon
   const getPermissionTimeIcon = (timeSlot) => {
@@ -833,31 +912,31 @@ const config = getLeaveTypeConfig(leaveTypeNames[key]);
         </div>
         
         <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-          <Timeline>
-            {filteredLeaves.slice(0, 5).map(leave => {
+          {/* UPDATED: Converted Timeline.Item to use the 'items' prop */}
+          <Timeline
+            items={filteredLeaves.slice(0, 5).map(leave => {
               const config = getLeaveTypeConfig(leave.leaveType);
-              return (
-                <Timeline.Item
-                  key={leave.id}
-                  dot={<div style={{ 
-                    width: '12px', 
-                    height: '12px', 
-                    borderRadius: '50%', 
-                    background: config.gradient,
-                    border: '2px solid white', 
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)' 
-                  }} />}
-                >
-                 <Card 
-  size="small" 
-  style={{ 
-    marginBottom: '8px',
-    borderRadius: '8px',
-    border: `1px solid ${config.color}20`,
-    background: `linear-gradient(135deg, ${config.color}08 0%, ${config.color}03 100%)`
-  }}
-  styles={{ body: { padding: '12px' } }} // Changed from bodyStyle
->
+              return {
+                key: leave.id,
+                dot: <div style={{ 
+                  width: '12px', 
+                  height: '12px', 
+                  borderRadius: '50%', 
+                  background: config.gradient,
+                  border: '2px solid white', 
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)' 
+                }} />,
+                children: (
+                  <Card 
+                    size="small" 
+                    style={{ 
+                      marginBottom: '8px',
+                      borderRadius: '8px',
+                      border: `1px solid ${config.color}20`,
+                      background: `linear-gradient(135deg, ${config.color}08 0%, ${config.color}03 100%)`
+                    }}
+                    styles={{ body: { padding: '12px' } }}
+                  >
                     <Row align="middle" justify="space-between">
                       <Col flex="auto">
                         <Space>
@@ -886,10 +965,10 @@ const config = getLeaveTypeConfig(leaveTypeNames[key]);
                       </Col>
                     </Row>
                   </Card>
-                </Timeline.Item>
-              );
+                )
+              };
             })}
-          </Timeline>
+          />
         </div>
       </Card>
     </div>
@@ -1088,7 +1167,7 @@ const getTableColumns = () => {
                 <Popconfirm
                   title="Reject this leave?"
                   description="Please provide rejection reason"
-                  onConfirm={() => handleLeaveAction(record.id, 'reject', 'Insufficient leave balance')}
+                  onConfirm={() => handleLeaveAction(record.id, 'reject', 'leave ')}
                   okText="Reject"
                   cancelText="Cancel"
                   okButtonProps={{ danger: true }}
@@ -1114,13 +1193,15 @@ const getTableColumns = () => {
 };
 
   // Apply Leave Form Component
- const ApplyLeaveForm = () => {
+  const ApplyLeaveForm = () => {
     const [selectedLeaveType, setSelectedLeaveType] = useState('');
     const availableLeaveTypes = getAvailableLeaveTypes();
 
     const isPermissionDisabled = leaveBalances.permission?.remaining <= 0;
     const isCasualDisabled = leaveBalances.casualLeave?.remaining <= 0 || leaveBalances.casualLeave?.monthlyUsed >= 1;
-    const isEarnedDisabled = leaveBalances.earnedLeave?.remaining <= 0;
+    // UPDATED: More robust check for earned and compensatory leave
+    const isEarnedDisabled = !leaveBalances.earnedLeave || leaveBalances.earnedLeave.remaining <= 0;
+    const isCompensatoryDisabled = !leaveBalances.compensatoryLeave || leaveBalances.compensatoryLeave.remaining <= 0;
     const isExcusesDisabled = leaveBalances.excuses?.remaining <= 0;
     
     return (
@@ -1161,10 +1242,10 @@ const getTableColumns = () => {
                     Casual Leave ({leaveBalances.casualLeave?.remaining} remaining)
                   </Space>
                 </Option>
-                <Option value="Earned Leave" disabled={isEarnedDisabled}>
+                 <Option value="Earned Leave" disabled={isEarnedDisabled}>
                   <Space>
                     <BankOutlined style={{ color: '#0D7139' }} />
-                    Earned Leave ({leaveBalances.earnedLeave?.remaining} remaining)
+                    Earned Leave ({leaveBalances.earnedLeave?.remaining || 0} remaining)
                   </Space>
                 </Option>
                 <Option value="Medical Leave">
@@ -1176,8 +1257,11 @@ const getTableColumns = () => {
                 <Option value="Maternity Leave">
                   {/* ... (no changes) ... */}
                 </Option>
-                <Option value="Compensatory Leave">
-                   {/* ... (no changes) ... */}
+               <Option value="Compensatory Leave" disabled={isCompensatoryDisabled}>
+                   <Space>
+                    <DollarOutlined style={{ color: '#722ed1' }} />
+                    Compensatory Leave ({leaveBalances.compensatoryLeave?.remaining || 0} remaining)
+                  </Space>
                 </Option>
                 <Option value="Excuses" disabled={isExcusesDisabled}>
                   <Space>
@@ -1361,11 +1445,14 @@ const getTableColumns = () => {
           />
         </Form.Item>
 
-        {(selectedLeaveType === 'Medical Leave' || selectedLeaveType === 'Maternity Leave') && (
+{(selectedLeaveType === 'Medical Leave' || selectedLeaveType === 'Maternity Leave') && (
           <Form.Item
             name="medicalCertificate"
             label="Medical Certificate"
             rules={[{ required: true, message: 'Please upload medical certificate' }]}
+            // ADDED: Props to correctly handle file list with AntD Form
+            valuePropName="fileList"
+            getValueFromEvent={(e) => Array.isArray(e) ? e : e && e.fileList}
           >
             <Upload
               listType="picture-card"
@@ -1381,7 +1468,13 @@ const getTableColumns = () => {
           </Form.Item>
         )}
 
-        <Form.Item name="attachment" label="Additional Documents (Optional)">
+        <Form.Item 
+          name="attachment" 
+          label="Additional Documents (Optional)"
+          // ADDED: Props to correctly handle file list with AntD Form
+          valuePropName="fileList"
+          getValueFromEvent={(e) => Array.isArray(e) ? e : e && e.fileList}
+        >
           <Upload
             listType="picture-card"
             maxCount={3}
@@ -1394,7 +1487,6 @@ const getTableColumns = () => {
             </div>
           </Upload>
         </Form.Item>
-
         {/* Leave Balance Warning */}
         {selectedLeaveType && (
           <Alert
@@ -1630,7 +1722,7 @@ const handleEventAction = async (eventData, action = 'create') => {
     }
     
     // Mutate events cache
-    mutateEvents();
+   
     setEventModal(false);
     setSelectedEvent(null);
     eventForm.resetFields();
@@ -1715,7 +1807,7 @@ const handleEventAction = async (eventData, action = 'create') => {
 
         <Row gutter={[24, 24]}>
           {/* Today's Events */}
-          <Col xs={24} lg={8}>
+ <Col xs={24} lg={8}>
             <Card 
               title={
                 <Space>
@@ -1737,12 +1829,12 @@ const handleEventAction = async (eventData, action = 'create') => {
                 </Space>
               }
               style={{ 
-    borderRadius: '12px',
-    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
-    minHeight: '400px'
-  }}
-  styles={{ body: { padding: '16px' } }} // Changed from bodyStyle
->
+                borderRadius: '12px',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+                minHeight: '400px'
+              }}
+              styles={{ body: { padding: '16px' } }}
+            >
               {todayEvents.length === 0 ? (
                 <Empty 
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -1750,20 +1842,17 @@ const handleEventAction = async (eventData, action = 'create') => {
                   style={{ margin: '40px 0' }}
                 />
               ) : (
-                <Timeline>
-                  {todayEvents.map(event => (
-                    <Timeline.Item
-                      key={event.id}
-                      dot={<ClockCircleFilled style={{ color: '#ff4d4f' }} />}
-                    >
-                      <EventCard event={event} userRole={userRole} onEdit={setSelectedEvent} onDelete={handleEventAction} />
-                    </Timeline.Item>
-                  ))}
-                </Timeline>
+                // UPDATED: Converted Timeline.Item to use the 'items' prop
+                <Timeline
+                  items={todayEvents.map(event => ({
+                    key: event.id,
+                    dot: <ClockCircleFilled style={{ color: '#ff4d4f' }} />,
+                    children: <EventCard event={event} userRole={userRole} onEdit={setSelectedEvent} onDelete={handleEventAction} />
+                  }))}
+                />
               )}
             </Card>
           </Col>
-
           {/* Upcoming Events */}
           <Col xs={24} lg={8}>
             <Card 
@@ -1800,17 +1889,15 @@ const handleEventAction = async (eventData, action = 'create') => {
                   style={{ margin: '40px 0' }}
                 />
               ) : (
-                <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                  <Timeline>
-                    {upcomingEvents.slice(0, 10).map(event => (
-                      <Timeline.Item
-                        key={event.id}
-                        dot={<CalendarTwoTone twoToneColor={['#52c41a', '#73d13d']} />}
-                      >
-                        <EventCard event={event} userRole={userRole} onEdit={setSelectedEvent} onDelete={handleEventAction} />
-                      </Timeline.Item>
-                    ))}
-                  </Timeline>
+                  <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                  {/* UPDATED: Converted Timeline.Item to use the 'items' prop */}
+                  <Timeline
+                    items={upcomingEvents.slice(0, 10).map(event => ({
+                      key: event.id,
+                      dot: <CalendarTwoTone twoToneColor={['#52c41a', '#73d13d']} />,
+                      children: <EventCard event={event} userRole={userRole} onEdit={setSelectedEvent} onDelete={handleEventAction} />
+                    }))}
+                  />
                 </div>
               )}
             </Card>
@@ -1851,23 +1938,21 @@ const handleEventAction = async (eventData, action = 'create') => {
                   style={{ margin: '40px 0' }}
                 />
               ) : (
-                <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                  <Timeline>
-                    {pastEvents.slice(0, 5).map(event => (
-                      <Timeline.Item
-                        key={event.id}
-                        dot={<div style={{ 
-                          width: '8px', 
-                          height: '8px', 
-                          borderRadius: '50%', 
-                          background: '#bfbfbf' 
-                        }} />}
-                        style={{ opacity: 0.7 }}
-                      >
-                        <EventCard event={event} userRole={userRole} isPast={true} />
-                      </Timeline.Item>
-                    ))}
-                  </Timeline>
+               <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                  {/* UPDATED: Converted Timeline.Item to use the 'items' prop */}
+                  <Timeline
+                    items={pastEvents.slice(0, 5).map(event => ({
+                      key: event.id,
+                      dot: <div style={{ 
+                        width: '8px', 
+                        height: '8px', 
+                        borderRadius: '50%', 
+                        background: '#bfbfbf' 
+                      }} />,
+                      style: { opacity: 0.7 },
+                      children: <EventCard event={event} userRole={userRole} isPast={true} />
+                    }))}
+                  />
                 </div>
               )}
             </Card>
@@ -2230,7 +2315,55 @@ useEffect(() => {
     window.removeEventListener('resize', handleResize);
   };
 }, [])
-  
+  useEffect(() => {
+  // LEAVE APPLICATIONS
+  const leaveSub = supabase
+    .channel('realtime-leave-applications')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'leave_applications',
+    }, () => {
+      fetchLeaveApplications(userRole === 'employee' ? currentUserId : null).then(setLeaveData);
+    })
+    .subscribe();
+
+  // EVENTS
+  const eventSub = supabase
+    .channel('realtime-events')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'events',
+    }, () => {
+      fetchEvents().then(setEvents);
+    })
+    .subscribe();
+
+  // LEAVE BALANCES
+  const balanceSub = supabase
+    .channel('realtime-leave-balances')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'leave_balances',
+    }, () => {
+      fetchLeaveBalances(currentUserId).then(setLeaveBalanceRaw);
+    })
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(leaveSub);
+    supabase.removeChannel(eventSub);
+    supabase.removeChannel(balanceSub);
+  };
+}, [currentUserId, userRole]);
+useEffect(() => {
+  fetchLeaveApplications(userRole === 'employee' ? currentUserId : null).then(setLeaveData);
+  fetchEvents().then(setEvents);
+  fetchLeaveBalances(currentUserId).then(setLeaveBalanceRaw);
+}, [userRole, currentUserId]);
+
   // HR/Admin Dashboard Component
   const HRDashboard = () => (
     <div style={animationStyles.container}>
@@ -2774,6 +2907,9 @@ const handleWeeklyHolidaySetup = (values) => {
 };
 
 // Publish all pending changes to database
+// In LeaveManagementPage.jsx, inside the LeaveCalendarView component
+
+// Publish all pending changes to database
 const handlePublishChanges = async () => {
   if (!hasUnsavedChanges || Object.keys(pendingChanges).length === 0) {
     message.info('No changes to publish');
@@ -2784,25 +2920,13 @@ const handlePublishChanges = async () => {
   try {
     const changesToPublish = Object.values(pendingChanges);
     
-    // Batch update/insert to database
-    for (const change of changesToPublish) {
-      const existingEntry = companyCalendar.find(item => item.date === change.date);
-      
-      if (existingEntry) {
-        // Update existing
-        const { error } = await supabase
-          .from('company_calendar')
-          .update(change)
-          .eq('id', existingEntry.id);
-        if (error) throw error;
-      } else {
-        // Insert new
-        const { error } = await supabase
-          .from('company_calendar')
-          .insert([change]);
-        if (error) throw error;
-      }
-    }
+    // UPDATED: Use upsert to prevent 409 conflict errors on duplicate dates.
+    // This requires a 'UNIQUE' constraint on the 'date' column in your 'company_calendar' table.
+    const { error } = await supabase
+      .from('company_calendar')
+      .upsert(changesToPublish, { onConflict: 'date' });
+
+    if (error) throw error;
     
     // Refresh calendar data
     await fetchCompanyCalendar();
@@ -2820,6 +2944,7 @@ const handlePublishChanges = async () => {
     setLoading(false);
   }
 };
+
 
 // Discard pending changes
 const handleDiscardChanges = () => {
@@ -4086,18 +4211,20 @@ const LeaveAnalytics = ({ exportModalVisible, setExportModalVisible, filteredLea
                 const color = colors[Object.keys(departmentStats).indexOf(dept) % colors.length];
                 
                 return (
-                  <div key={dept} style={{ marginBottom: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <Text>{dept}</Text>
-                      <Text strong>{count}</Text>
-                    </div>
-                    <Progress 
-                      percent={percentage}
-                      strokeColor={color}
-                      showInfo={false}
-                      strokeWidth={8}
-                    />
-                  </div>
+               // Inside the LeaveAnalytics component...
+
+<div key={dept} style={{ marginBottom: '16px' }}>
+  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+    <Text>{dept}</Text>
+    <Text strong>{count}</Text>
+  </div>
+  <Progress 
+    percent={percentage}
+    strokeColor={color}
+    showInfo={false}
+    size="small" // The prop has been updated here
+  />
+</div>
                 );
               })}
             </div>
