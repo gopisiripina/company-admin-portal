@@ -35,7 +35,7 @@ class AuthService {
         return false;
       }
       
-      console.log(`User ${userId} isActive status updated to: ${isActive}`);
+      
       return true;
     } catch (error) {
       console.error('Error updating user active status:', error);
