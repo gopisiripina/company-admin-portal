@@ -276,7 +276,7 @@ const PayrollManagement = () => {
         .in('role', ['employee', 'hr'])
       
       if (error) throw error;
-      console.log('Fetched users:', data);
+      
       return data || [];
     } catch (error) {
       message.error('Error fetching users: ' + error.message);
@@ -299,7 +299,7 @@ const PayrollManagement = () => {
       setLoading(true);
       const usersData = await fetchUsers();
       setUsers(usersData);
-      console.log('Users loaded:', usersData.length, 'users');
+     
       
       if (usersData.length === 0) {
         message.warning('No employees found. Please add employees first.');
