@@ -1329,53 +1329,7 @@ const PayrollManagement = () => {
 
             <Divider />
 
-            <Title level={4} style={{ marginBottom: '24px', color: '#2d5a4a' }}>Income Details</Title>
-
-            <Row gutter={24}>
-              <Col span={12}>
-                <Title level={5} style={{ color: '#059669' }}>Earnings</Title>
-                <Form.Item label="Basic" name="basic">
-                  <InputNumber 
-                    size="large" 
-                    style={{ width: '100%' }} 
-                    formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                    parser={value => value.replace(/₹\s?|(,*)/g, '')}
-                    min={0}
-                  />
-                </Form.Item>
-                <Form.Item label="House Rent Allowance" name="hra">
-                  <InputNumber 
-                    size="large" 
-                    style={{ width: '100%' }} 
-                    formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                    parser={value => value.replace(/₹\s?|(,*)/g, '')}
-                    min={0}
-                  />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Title level={5} style={{ color: '#dc2626' }}>Deductions</Title>
-                <Form.Item label="Income Tax" name="incomeTax">
-                  <InputNumber 
-                    size="large" 
-                    style={{ width: '100%' }} 
-                    formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                    parser={value => value.replace(/₹\s?|(,*)/g, '')}
-                    min={0}
-                  />
-                </Form.Item>
-                <Form.Item label="Provident Fund" name="pf">
-                  <InputNumber 
-                    size="large" 
-                    style={{ width: '100%' }} 
-                    formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                    parser={value => value.replace(/₹\s?|(,*)/g, '')}
-                    min={0}
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
-
+            
             <Divider />
 
             <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '24px' }}>
