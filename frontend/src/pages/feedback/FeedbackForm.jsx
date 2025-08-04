@@ -112,7 +112,7 @@ const FeedbackForm = ({ userData, onSubmitSuccess }) => {
             borderRadius: '12px',
             marginBottom: '24px'
           }}
-          bodyStyle={{ padding: '16px' }}
+          styles={{ body: { padding: '16px' } }}
         >
           <Space align="center">
             <div style={{
