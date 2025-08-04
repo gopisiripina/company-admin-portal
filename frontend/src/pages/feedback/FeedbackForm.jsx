@@ -83,7 +83,13 @@ const ProfessionalFeedbackForm = ({ userData, onSubmitSuccess }) => {
   const [attachments, setAttachments] = useState([]);
   const [showPreview, setShowPreview] = useState(false);
   const [notifications, setNotifications] = useState(3);
-
+  const tabContentStyle = {
+  height: 'calc(100vh - 200px)', // Adjust based on your header/footer height
+  overflowY: 'auto',
+  overflowX: 'hidden',
+  padding: '16px',
+  minHeight: '500px' // Minimum height fallback
+};
   // Check for mobile screen size
   useEffect(() => {
     const checkScreenSize = () => {
@@ -1392,7 +1398,14 @@ const ProfessionalFeedbackForm = ({ userData, onSubmitSuccess }) => {
                 <Plus size={16} />
                 Submit
               </span>
-            )
+            ),
+            children: (
+        <div style={tabContentStyle}>
+          {/* Your stats content here */}
+          {renderStats()}
+        </div>
+      )
+
           },
           {
             key: 'list',
@@ -1402,7 +1415,14 @@ const ProfessionalFeedbackForm = ({ userData, onSubmitSuccess }) => {
                 Feedback
                 <Badge count={getFilteredFeedback().length} size="small" />
               </span>
-            )
+            ),
+            children: (
+        <div style={tabContentStyle}>
+          {/* Your stats content here */}
+          {renderStats()}
+        </div>
+      )
+
           },
           {
             key: 'stats',
@@ -1411,7 +1431,14 @@ const ProfessionalFeedbackForm = ({ userData, onSubmitSuccess }) => {
                 <BarChart size={16} />
                 Stats
               </span>
-            )
+            ),
+            children: (
+        <div style={tabContentStyle}>
+          {/* Your stats content here */}
+          {renderStats()}
+        </div>
+      )
+
           }
         ]}
       />
