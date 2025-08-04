@@ -93,16 +93,11 @@ useEffect(() => {
     color: '#8b5cf6',
     hasChildren: true,
     children: [
-      { icon: Calendar, label: 'Time Sheet', id: 'Time Sheet' },
+     
       { icon: DollarSign, label: 'Employee Attendance', id: 'employee-attendance' },
-      { icon: BarChart3, label: 'Candidate Screening Test', id: 'Candidate Screening Test' },
-      { icon: GitBranch, label: 'Recruitnig Plan', id: 'Recruiting Plan' },
-      { icon: ClipboardList, label: 'New Hire Check List', id: 'New Hire Check List' },
-      { icon: AlertTriangle, label: 'Employee Training Plan', id: 'issue-tracker' },
+   
       { icon: AlertTriangle, label: 'Payroll', id: 'payroll' },
-      { icon: FileText, label: 'Payroll Check Template', id: 'Payroll Check Template' },
-      { icon: FileText, label: 'Weekly Schedule Template', id: 'Weekly Schedule Template' },
-      { icon: BookOpen, label: 'Work Schedule', id: 'Work Schedule' }
+      
     ]
   }
 ] : []),
