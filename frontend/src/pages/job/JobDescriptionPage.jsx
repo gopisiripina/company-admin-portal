@@ -984,73 +984,72 @@ const handleSubmit = async (values) => {
                   Detailed Information
                 </Title>
 
-                <Form.Item
-                  label={
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span>Job Description</span>
-                      <Button                     
-                        type="text"
-                        size="small"
-                        shape="circle"
-                        icon={aiLoading ? <Spin size="small" /> : <RobotOutlined />}
-                        onClick={generateJobDescriptionWithAI}
-                        loading={aiLoading}
-                        style={{
-                          color: '#0D7139',
-                          width: '24px',
-                          height: '24px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '12px',
-                          background: 'rgba(102, 126, 234, 0.1)',
-                          border: '1px solid rgba(102, 126, 234, 0.3)'
-                        }}
-                        title="Generate with AI"
-                      />
-                    </div>
-                  }
-                  name="description"
-                  rules={[{ required: true, message: 'Please enter job description' }]}
-                >
-                  <TextArea
-                    rows={6}
-                    placeholder="Click the AI button above to generate or enter your job description manually..."
-                    style={{ borderRadius: '8px' }}
-                  />
-                </Form.Item>
+<Form.Item
+  label={
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <span>Job Description</span>
+      <Button                     
+        type="text"
+        size="small"
+        shape="circle"
+        icon={aiLoading ? <Spin size="small" /> : <RobotOutlined />}
+        onClick={generateJobDescriptionWithAI}
+        loading={aiLoading}
+        style={{
+          color: '#0D7139',
+          width: '24px',
+          height: '24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '12px',
+          background: 'rgba(102, 126, 234, 0.1)',
+          border: '1px solid rgba(102, 126, 234, 0.3)'
+        }}
+        title="Generate with AI"
+      />
+    </div>
+  }
+  name="description"
+  rules={[{ required: true, message: 'Please enter job description' }]}
+>
+  <TextArea
+    rows={6}
+    placeholder="Click the AI button above to generate or enter your job description manually.."
+    style={{ borderRadius: '8px' }}
+  />
+</Form.Item>
+<Form.Item
+  label="Key Responsibilities"
+  name="responsibilities"
+  rules={[{ required: true, message: 'Please enter responsibilities' }]}
+>
+  <TextArea
+    rows={6}
+ placeholder="• Develop and maintain web applications&#10;• Collaborate with cross-functional teams&#10;• Write clean, maintainable code&#10;• Participate in code reviews..."    style={{ borderRadius: '8px' }}
+  />
+</Form.Item>
 
-                <Form.Item
-                  label="Key Responsibilities"
-                  name="responsibilities"
-                  rules={[{ required: true, message: 'Please enter responsibilities' }]}
-                >
-                  <TextArea
-                    rows={6}
-                    placeholder="• Develop and maintain web applications&#10;• Collaborate with cross-functional teams&#10;• Write clean, maintainable code&#10;• Participate in code reviews..."
-                    style={{ borderRadius: '8px' }}
-                  />
-                </Form.Item>
 
-                <Form.Item
-                  label="Qualifications & Requirements"
-                  name="qualifications"
-                  rules={[{ required: true, message: 'Please enter qualifications' }]}
-                >
-                  <TextArea
-                    rows={6}
-                    placeholder="• Bachelor's degree in Computer Science or related field&#10;• 3+ years of experience with React/JavaScript&#10;• Strong problem-solving skills&#10;• Experience with modern development tools..."
-                    style={{ borderRadius: '8px' }}
-                  />
-                </Form.Item>
+<Form.Item
+  label="Qualifications & Requirements"
+  name="qualifications"
+  rules={[{ required: true, message: 'Please enter qualifications' }]}
+>
+  <TextArea
+    rows={6}
+ placeholder="• Bachelor's degree in Computer Science or related field&#10;• 3+ years of experience with React/JavaScript&#10;• Strong problem-solving skills&#10;• Experience with modern development tools..."    style={{ borderRadius: '8px' }}
+  />
+</Form.Item>
 
-                <Form.Item label="Additional Benefits" name="benefits">
-                  <TextArea
-                    rows={3}
-                    placeholder="• Competitive salary and equity&#10;• Health insurance and medical benefits&#10;• Flexible working hours&#10;• Professional development opportunities..."
-                    style={{ borderRadius: '8px' }}
-                  />
-                </Form.Item>
+
+<Form.Item label="Additional Benefits" name="benefits">
+  <TextArea
+    rows={4}
+     placeholder="• Competitive salary and equity&#10;• Health insurance and medical benefits&#10;• Flexible working hours&#10;• Professional development opportunities..."
+    style={{ borderRadius: '8px' }}
+  />
+</Form.Item>
               </Col>
             </Row>
 
