@@ -30,6 +30,10 @@ router.get('/', (req, res) => {
     res.send("Hello World");
 });
 
+router.get('/test', (req, res) => {
+    res.json({ message: 'General routes working!' });
+});
+
 // 1. SEND EMAIL ENDPOINT
 router.post('/send-email', async (req, res) => {
     try {
@@ -667,10 +671,11 @@ router.post('/send-job-offer', async (req, res) => {
 });
 
 // 4. POST JOB TO LINKEDIN ENDPOINT
-router.post('/api/post-job', async (req, res) => {
+// Add this route to your existing generalRoutes.js file
+router.post('/post-job', async (req, res) => {
     try {
         const { jobData, accessToken, applicationUrl } = req.body;
-
+        
         if (!jobData || !accessToken) {
             return res.status(400).json({
                 success: false,
@@ -684,35 +689,27 @@ router.post('/api/post-job', async (req, res) => {
             postText += `🏢 Department: ${job.department || 'Not specified'}\n`;
             postText += `💼 Employment Type: ${job.employment_type || 'Not specified'}\n`;
             postText += `⭐ Experience Level: ${job.experience_level || 'Not specified'}\n`;
-
             if (job.salary_range) {
                 postText += `💰 Salary Range: ${job.salary_range}\n`;
             }
-
             postText += `\n📋 Job Description:\n${job.job_description || 'No description available'}\n\n`;
-
             if (job.key_responsibilities) {
                 postText += `🎯 Key Responsibilities:\n${job.key_responsibilities}\n\n`;
             }
-
             if (job.qualification_requirements) {
                 postText += `✅ Qualifications:\n${job.qualification_requirements}\n\n`;
             }
-
             if (job.required_skills) {
                 const skills = Array.isArray(job.required_skills) 
                     ? job.required_skills.join(', ') 
                     : job.required_skills;
                 postText += `🛠️ Skills Required:\n${skills}\n\n`;
             }
-
             if (job.additional_benefits) {
                 postText += `🎁 Benefits:\n${job.additional_benefits}\n\n`;
             }
-
             postText += `📧 Ready to join our team? Apply now: ${appUrl}\n\n`;
             postText += `#Hiring #Jobs #${job.department?.replace(/\s/g, '') || ''} #${job.job_title?.replace(/\s/g, '') || ''}`;
-
             return postText;
         }
 
@@ -757,7 +754,6 @@ router.post('/api/post-job', async (req, res) => {
                 status_code: response.status
             });
         }
-
     } catch (error) {
         console.error("Exception occurred:", error.message);
         res.status(500).json({
