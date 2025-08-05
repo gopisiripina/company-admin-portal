@@ -315,7 +315,7 @@ HR Team</p>`
 }
 };
 
-const response = await fetch('http://cap.myaccessio.com:5000/api/send-interview-invitation', {
+const response = await fetch('https://cap.myaccessio.com/api/send-interview-invitation', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',

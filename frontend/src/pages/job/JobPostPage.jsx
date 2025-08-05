@@ -81,22 +81,27 @@ const postToLinkedIn = async (jobData) => {
       `location=${encodeURIComponent(jobData.location || '')}&` +
       `type=${encodeURIComponent(jobData.employment_type || '')}&` +
       `salary=${encodeURIComponent(jobData.salary_range || 'Competitive')}&` +
-      `description=${encodeURIComponent(jobData.job_description || '')}`;
-
-    const response = await fetch('http://cap.myaccessio.com:5000/api/post-job', {
+      `description=${encodeURIComponent(jobData.job_description || '')}`
+    const requestBody = {
+      accessToken: 'AQXRbDwBQ3o1RgOSPhIuWBxML2dsqW9g8AcVZBb-e5A--YBqheu0oHtbjqUkoHAfelpwAnkNWnDczfIk8sGdyidWe_d2ejNlgR8mrQbP3pvif9mBMW-uxp_y7jMfJ3Ry0lQGhe0fcJKcYNvpMyFL5i7QCXmVeYOl1inWJnBOh0qBmnk-iB2nl9p28ctlALbjnuY4FRkf2TB64qgkdALXMFFA7pySUchl9oZ1CJTr1n85o9X4CsTKcCdgXRZ_n2KVoyABGDM3DB-SmqYit9OJnklMMx6T3JgKC7bClH8PPJ5eVzTw_Vt6_VwiBTuhgstnmTD5XY1P9GbdkgtgR9YtRAOMBzvIeQ',
+      jobData: jobData,
+      applicationUrl: applicationUrl
+    };
+    const response = await fetch('https://cap.myaccessio.com/api/post-job', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        accessToken: 'AQXRbDwBQ3o1RgOSPhIuWBxML2dsqW9g8AcVZBb-e5A--YBqheu0oHtbjqUkoHAfelpwAnkNWnDczfIk8sGdyidWe_d2ejNlgR8mrQbP3pvif9mBMW-uxp_y7jMfJ3Ry0lQGhe0fcJKcYNvpMyFL5i7QCXmVeYOl1inWJnBOh0qBmnk-iB2nl9p28ctlALbjnuY4FRkf2TB64qgkdALXMFFA7pySUchl9oZ1CJTr1n85o9X4CsTKcCdgXRZ_n2KVoyABGDM3DB-SmqYit9OJnklMMx6T3JgKC7bClH8PPJ5eVzTw_Vt6_VwiBTuhgstnmTD5XY1P9GbdkgtgR9YtRAOMBzvIeQ',
-        jobData: jobData,
-        applicationUrl: applicationUrl  // Pass the dynamic URL to the backend
-      })
+      body: JSON.stringify(requestBody)
     });
+
+    console.log('Response status:', response.status);
+    console.log('Response OK:', response.ok);
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.log('Error response text:', errorText);
+      
       let errorData;
       try {
         errorData = JSON.parse(errorText);
@@ -112,6 +117,8 @@ const postToLinkedIn = async (jobData) => {
     }
 
     const result = await response.json();
+    console.log('Success response:', result);
+    
     return {
       success: true,
       postId: result.postId || result.id,
@@ -201,13 +208,13 @@ const generateCampusLink = (jobData) => {
 const fetchPostingLogs = async () => {
   try {
     const { data, error } = await supabase
-      .from('job_postings')
-      .select(`
-        *,
-        job_descriptions(job_title)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(10);
+  .from('job_postings')
+  .select(`
+    *,
+    job_descriptions(job_title)
+  `)
+  .order('created_at', { ascending: false })
+  .limit(10);
 
     if (error) {
       console.error('Error fetching job postings:', error);
