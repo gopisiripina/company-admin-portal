@@ -9,7 +9,7 @@ const router = express.Router();
 
 // Helper function to create transporter
 function createTransporter(senderEmail, senderPassword, smtpServer = 'smtp.gmail.com', smtpPort = 587) {
-    return nodemailer.createTransporter({
+    return nodemailer.createTransport({
         host: smtpServer,
         port: smtpPort,
         secure: smtpPort === 465,
@@ -215,7 +215,7 @@ router.post('/payslip', pay_upload.single('payslip'), async (req, res) => {
         }
 
         // Create transporter
-        const transporter = nodemailer.createTransporter({
+        const transporter = nodemailer.createTransport({
     host: smtpServer,
     port: smtpPort,
     secure: false,
@@ -399,121 +399,121 @@ router.post('/payslip', pay_upload.single('payslip'), async (req, res) => {
 });
 
 
-// 2. SEND RECRUITMENT EMAIL ENDPOINT
-router.post('/send-recruitment-email', async (req, res) => {
-    try {
-        const data = req.body;
-        const {
-            senderEmail,
-            senderPassword,
-            recipientEmail,
-            subject = 'Campus Recruitment Exam Invitation',
-            smtpServer = 'smtp.gmail.com',
-            smtpPort = 587,
-            templateData = {}
-        } = data;
+    // 2. SEND RECRUITMENT EMAIL ENDPOINT
+    router.post('/send-recruitment-email', async (req, res) => {
+        try {
+            const data = req.body;
+            const {
+                senderEmail,
+                senderPassword,
+                recipientEmail,
+                subject = 'Campus Recruitment Exam Invitation',
+                smtpServer = 'smtp.gmail.com',
+                smtpPort = 587,
+                templateData = {}
+            } = data;
 
-        if (!senderEmail || !senderPassword || !recipientEmail) {
-            return res.status(400).json({
+            if (!senderEmail || !senderPassword || !recipientEmail) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Missing required fields"
+                });
+            }
+
+            // Campus Recruitment HTML template - MOVE TO SEPARATE FILE
+            let htmlTemplate = `<!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                background-color: #f5f5f5;
+                margin: 0;
+                padding: 20px;
+            }
+        </style>
+    </head>
+    <body>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background-color: white;">
+            <div style="background-color: #1890ff; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+                <h1 style="margin: 0; font-size: 24px;">Campus Recruitment Exam Invitation</h1>
+            </div>
+            
+            <div style="padding: 20px; background-color: #f8f9fa;">
+                <p style="font-size: 16px; margin-bottom: 20px;">Dear <strong>{{to_name}}</strong>,</p>
+                
+                <p style="font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
+                    You are invited to participate in the campus recruitment exam for the following position:
+                </p>
+                
+                <div style="background-color: white; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #1890ff;">
+                    <p style="margin: 5px 0;"><strong>Exam Title:</strong> {{exam_title}}</p>
+                    <p style="margin: 5px 0;"><strong>Job ID:</strong> {{job_id}}</p>
+                    <p style="margin: 5px 0;"><strong>College:</strong> {{college}}</p>
+                </div>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="{{exam_link}}" style="background-color: #1890ff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold; display: inline-block;">
+                        Start Exam
+                    </a>
+                </div>
+                
+                <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
+                    <h3 style="margin-top: 0; color: #856404;">Important Instructions:</h3>
+                    <ul style="margin-bottom: 0; color: #856404;">
+                        <li>Ensure you have a stable internet connection</li>
+                        <li>Complete the exam within the given time limit</li>
+                        <li>Do not refresh the page during the exam</li>
+                        <li>Do not close the browser tab until submission</li>
+                        <li>Contact support if you face any technical issues</li>
+                    </ul>
+                </div>
+                
+                <div style="border-top: 1px solid #ddd; padding-top: 20px; margin-top: 20px;">
+                    <p style="font-size: 14px; line-height: 1.6;">{{message}}</p>
+                </div>
+                
+                <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+                    <p style="font-size: 12px; color: #666;">
+                        Best regards,<br>
+                        HR Team<br>
+                        Campus Recruitment Department
+                    </p>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>`;
+
+            // Replace template variables
+            Object.keys(templateData).forEach(key => {
+                const regex = new RegExp(`{{${key}}}`, 'g');
+                htmlTemplate = htmlTemplate.replace(regex, templateData[key] || '');
+            });
+
+            const transporter = createTransporter(senderEmail, senderPassword, smtpServer, smtpPort);
+            
+            await transporter.sendMail({
+                from: senderEmail,
+                to: recipientEmail,
+                subject: subject,
+                html: htmlTemplate
+            });
+
+            res.status(200).json({
+                success: true,
+                message: "Campus recruitment email sent successfully",
+                recipient: recipientEmail
+            });
+
+        } catch (error) {
+            res.status(500).json({
                 success: false,
-                error: "Missing required fields"
+                error: error.message
             });
         }
-
-        // Campus Recruitment HTML template - MOVE TO SEPARATE FILE
-        let htmlTemplate = `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f5f5f5;
-            margin: 0;
-            padding: 20px;
-        }
-    </style>
-</head>
-<body>
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background-color: white;">
-        <div style="background-color: #1890ff; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
-            <h1 style="margin: 0; font-size: 24px;">Campus Recruitment Exam Invitation</h1>
-        </div>
-        
-        <div style="padding: 20px; background-color: #f8f9fa;">
-            <p style="font-size: 16px; margin-bottom: 20px;">Dear <strong>{{to_name}}</strong>,</p>
-            
-            <p style="font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
-                You are invited to participate in the campus recruitment exam for the following position:
-            </p>
-            
-            <div style="background-color: white; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #1890ff;">
-                <p style="margin: 5px 0;"><strong>Exam Title:</strong> {{exam_title}}</p>
-                <p style="margin: 5px 0;"><strong>Job ID:</strong> {{job_id}}</p>
-                <p style="margin: 5px 0;"><strong>College:</strong> {{college}}</p>
-            </div>
-            
-            <div style="text-align: center; margin: 30px 0;">
-                <a href="{{exam_link}}" style="background-color: #1890ff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold; display: inline-block;">
-                    Start Exam
-                </a>
-            </div>
-            
-            <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
-                <h3 style="margin-top: 0; color: #856404;">Important Instructions:</h3>
-                <ul style="margin-bottom: 0; color: #856404;">
-                    <li>Ensure you have a stable internet connection</li>
-                    <li>Complete the exam within the given time limit</li>
-                    <li>Do not refresh the page during the exam</li>
-                    <li>Do not close the browser tab until submission</li>
-                    <li>Contact support if you face any technical issues</li>
-                </ul>
-            </div>
-            
-            <div style="border-top: 1px solid #ddd; padding-top: 20px; margin-top: 20px;">
-                <p style="font-size: 14px; line-height: 1.6;">{{message}}</p>
-            </div>
-            
-            <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
-                <p style="font-size: 12px; color: #666;">
-                    Best regards,<br>
-                    HR Team<br>
-                    Campus Recruitment Department
-                </p>
-            </div>
-        </div>
-    </div>
-</body>
-</html>`;
-
-        // Replace template variables
-        Object.keys(templateData).forEach(key => {
-            const regex = new RegExp(`{{${key}}}`, 'g');
-            htmlTemplate = htmlTemplate.replace(regex, templateData[key] || '');
-        });
-
-        const transporter = createTransporter(senderEmail, senderPassword, smtpServer, smtpPort);
-        
-        await transporter.sendMail({
-            from: senderEmail,
-            to: recipientEmail,
-            subject: subject,
-            html: htmlTemplate
-        });
-
-        res.status(200).json({
-            success: true,
-            message: "Campus recruitment email sent successfully",
-            recipient: recipientEmail
-        });
-
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
-    }
-});
+    });
 
 // 3. SEND JOB OFFER ENDPOINT
 router.post('/send-job-offer', async (req, res) => {
