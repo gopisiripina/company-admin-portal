@@ -101,35 +101,85 @@ useEffect(() => {
     ]
   }
 ] : []),
-   ...(userRole === 'superadmin' || userRole === 'hr' ? [
-      {
+ // Replace the existing careers section with this updated structure:
+
+...(userRole === 'admin' || userRole === 'superadmin' || userRole === 'hr' ? [
+  {
     icon: FolderKanban,
     label: 'Careers',
-    id: 'Carrers',
+    id: 'careers',
     color: '#8b5cf6',
     hasChildren: true,
     children: [
-  { icon: FileText, label: 'Job Creating', id: 'job-description', color: '#10b981' },
-  { icon: FileText, label: 'Job Posting', id: 'job-post', color: '#10b981' },
-  { icon: FileText, label: 'Off Campus data', id: 'job-apply', color: '#10b981' },
-    { icon: FileText, label: 'Candidate Details', id: 'resume-list', color: '#10b981' },
-     { icon: FileText, label: 'Interview Management', id: 'interview-management', color: '#10b981' },
-      { icon: FileText, label: 'Selected List', id: 'selected-list', color: '#10b981' },
-      { icon: FileText, label: 'On Campus Data', id: 'on-campus-data', color: '#10b981' },
-      { icon: FileText, label: 'Exam Conduct On Campus', id: 'exam-conduct-page', color: '#10b981' },
-    ]}
+      // Off Campus parent with children
+      {
+        icon: FileText,
+        label: 'Off Campus',
+        id: 'off-campus',
+        hasChildren: true,
+        children: [
+          { icon: FileText, label: 'Job Creating', id: 'job-description' },
+          { icon: FileText, label: 'Job Posting', id: 'job-post' },
+          { icon: FileText, label: 'Off Campus Data', id: 'job-apply' }
+        ]
+      },
+      // On Campus parent with children
+      {
+        icon: FileText,
+        label: 'On Campus',
+        id: 'on-campus',
+        hasChildren: true,
+        children: [
+          { icon: FileText, label: 'On Campus Data', id: 'on-campus-data' },
+          { icon: FileText, label: 'Exam Conduct ', id: 'exam-conduct-page' }
+        ]
+      },
+      // Selection Process parent with children
+      {
+        icon: FileText,
+        label: 'Selection Process',
+        id: 'selection-process',
+        hasChildren: true,
+        children: [
+          { icon: FileText, label: 'Shortlisted Data', id: 'resume-list' },
+          { icon: FileText, label: 'Interview Scheduled', id: 'interview-management' },
+          { icon: FileText, label: 'Selected List', id: 'selected-list' }
+        ]
+      },
+       { icon: FileText, label: 'Direct Recruitment', id: 'direct-recruitement' }
+    ]
+  }
 ] : []),
     // Only show Admin button for superadmin
-    ...(userRole === 'superadmin' ? [
-      { icon: UserCheck, label: 'Admin', id: 'admin', color: '#06b6d4' }
-    ] : []),
-        ...(userRole === 'superadmin' ? [
-      { icon: UserCheck, label: 'Hr', id: 'Hr', color: '#06b6d4' }
-    ] : []),
-    // Show Employee button for superadmin and admin
-    ...(userRole === 'superadmin' ||userRole === 'hr'|| userRole === 'admin' ? [
-      { icon: User, label: 'Employee', id: 'employee', color: '#f59e0b' }
-    ] : []),
+    // Replace the existing role buttons section in your sidebarItems function with this:
+
+// Role Management - Based on user role hierarchy
+...(userRole === 'superadmin' || userRole === 'admin' || userRole === 'hr' ? [
+  {
+    icon: UserCheck,
+    label: 'Roles',
+    id: 'roles',
+    color: '#06b6d4',
+    hasChildren: true,
+    children: [
+      // Superadmin can see all roles
+      ...(userRole === 'superadmin' ? [
+        { icon: UserCheck, label: 'Admin', id: 'admin' },
+        { icon: UserCheck, label: 'HR', id: 'Hr' },
+        { icon: User, label: 'Employee', id: 'employee' }
+      ] : []),
+      // Admin can see HR and Employee
+      ...(userRole === 'admin' && userRole !== 'superadmin' ? [
+        { icon: UserCheck, label: 'HR', id: 'Hr' },
+        { icon: User, label: 'Employee', id: 'employee' }
+      ] : []),
+      // HR can only see Employee
+      ...(userRole === 'hr' && userRole !== 'superadmin' && userRole !== 'admin' ? [
+        { icon: User, label: 'Employee', id: 'employee' }
+      ] : [])
+    ]
+  }
+] : []),
     
   ];
   
@@ -162,66 +212,74 @@ useEffect(() => {
     }
   };
 
-  const handleChildClick = (childItem) => {
+ const handleChildClick = (childItem) => {
+  if (childItem.hasChildren) {
+    handleExpandToggle(childItem.id);
+    // If sidebar is closed, open it when clicking sub-parent items
+    if (!isOpen) {
+      onToggle();
+    }
+  } else {
     if (onItemClick) {
       onItemClick(childItem.id);
     }
-  };
+  }
+};
 
-  const renderNavItem = (item, index, isChild = false) => {
-    const isExpanded = expandedItems[item.id];
-    const itemKey = isChild ? `child-${item.id}` : item.id;
-    
-    return (
-      <div key={itemKey} className={`nav-item-container ${isChild ? 'child-item' : ''}`}>
-        <div
-          className={`nav-item ${activeItem === item.id ? 'active' : ''} ${item.hasChildren ? 'has-children' : ''}`}
-          onClick={() => isChild ? handleChildClick(item) : handleItemClick(item)}
-          onMouseEnter={() => setHoveredItem(isChild ? `child-${index}` : index)}
-          onMouseLeave={() => setHoveredItem(null)}
-        >
-          {/* Active indicator */}
-          {activeItem === item.id && (
-            <div className="active-indicator" />
-          )}
-          
-          <item.icon 
-            size={isChild ? 18 : 22} 
-            className="nav-item-icon"
-          />
-          
-          {isOpen && (
-            <span className={`nav-item-label ${isOpen ? 'open' : 'closed'}`}>
-              {item.label}
-            </span>
-          )}
+const renderNavItem = (item, index, isChild = false, parentId = '') => {
+  const isExpanded = expandedItems[item.id];
+  const itemKey = isChild ? `${parentId}-${item.id}` : item.id;
+  
+  return (
+    <div key={itemKey} className={`nav-item-container ${isChild ? 'child-item' : ''}`}>
+      <div
+        className={`nav-item ${activeItem === item.id ? 'active' : ''} ${item.hasChildren ? 'has-children' : ''}`}
+        onClick={() => isChild ? handleChildClick(item) : handleItemClick(item)}
+        onMouseEnter={() => setHoveredItem(isChild ? `child-${parentId}-${index}` : index)}
+        onMouseLeave={() => setHoveredItem(null)}
+      >
+        {/* Active indicator */}
+        {activeItem === item.id && (
+          <div className="active-indicator" />
+        )}
+        
+        <item.icon 
+          size={isChild ? 18 : 22} 
+          className="nav-item-icon"
+        />
+        
+        {isOpen && (
+          <span className={`nav-item-label ${isOpen ? 'open' : 'closed'}`}>
+            {item.label}
+          </span>
+        )}
 
-          {/* Expand/Collapse icon for parent items */}
-          {item.hasChildren && isOpen && (
-            <div className="expand-icon">
-              {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </div>
-          )}
-          
-          {/* Hover effect tooltip for collapsed sidebar */}
-          {hoveredItem === (isChild ? `child-${index}` : index) && !isOpen && (
-            <div className="nav-tooltip">
-              {item.label}
-            </div>
-          )}
-        </div>
-
-        {/* Children items */}
-        {item.hasChildren && isExpanded && isOpen && (
-          <div className="nav-children">
-            {item.children.map((child, childIndex) => 
-              renderNavItem(child, childIndex, true)
-            )}
+        {/* Expand/Collapse icon for parent items */}
+        {item.hasChildren && isOpen && (
+          <div className="expand-icon">
+            {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </div>
+        )}
+        
+        {/* Hover effect tooltip for collapsed sidebar */}
+        {hoveredItem === (isChild ? `child-${parentId}-${index}` : index) && !isOpen && (
+          <div className="nav-tooltip">
+            {item.label}
           </div>
         )}
       </div>
-    );
-  };
+
+      {/* Children items - This now handles nested children */}
+      {item.hasChildren && isExpanded && isOpen && (
+        <div className="nav-children">
+          {item.children.map((child, childIndex) => 
+            renderNavItem(child, childIndex, true, item.id)
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Remove the duplicate sidebar div and fix the JSX structure
 // Replace the return statement in your Sidebar.jsx with this:
