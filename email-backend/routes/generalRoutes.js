@@ -8,11 +8,13 @@ const multer = require('multer');
 const router = express.Router();
 
 // Helper function to create transporter
+
 function createTransporter(senderEmail, senderPassword, smtpServer = 'smtp.gmail.com', smtpPort = 587) {
+    const nodemailer = require('nodemailer');
     return nodemailer.createTransport({
         host: smtpServer,
         port: smtpPort,
-        secure: smtpPort === 465,
+        secure: smtpPort === 465, // true for 465, false for other ports
         auth: {
             user: senderEmail,
             pass: senderPassword
