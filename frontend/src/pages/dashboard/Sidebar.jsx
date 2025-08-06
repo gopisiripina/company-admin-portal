@@ -4,8 +4,8 @@ import './Sidebar.css';
 import Myaccesslogo from '../../assets/Myalogobgr.svg'; // Adjust the path as necessary
 import { InboxOutlined, EditOutlined ,SendOutlined,DeleteOutlined} from '@ant-design/icons';
 import { X } from 'lucide-react';
-
-const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole, isEmailAuthenticated }) => {
+import authService from '../../supabase/authService';
+const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole, isEmailAuthenticated, userData, onLogout }) => {
   const [hoveredItem, setHoveredItem] = useState(null);
   const [expandedItems, setExpandedItems] = useState({});
   
@@ -328,38 +328,66 @@ return (
         {sidebarItems().map((item, index) => renderNavItem(item, index))}
       </nav>
 
-      {/* Footer with Logout */}
-      <div className="sidebar-footer">
-        <div
-          className={`nav-item ${activeItem === logoutItem.id ? 'active' : ''}`}
-          onClick={() => handleItemClick(logoutItem)}
-          onMouseEnter={() => setHoveredItem('logout')}
-          onMouseLeave={() => setHoveredItem(null)}
-        >
-          {/* Active indicator */}
-          {activeItem === logoutItem.id && (
-            <div className="active-indicator" />
-          )}
-          
-          <logoutItem.icon 
-            size={22} 
-            className="nav-item-icon"
-          />
-          
-          {isOpen && (
-            <span className={`nav-item-label ${isOpen ? 'open' : 'closed'}`}>
-              {logoutItem.label}
-            </span>
-          )}
-          
-          {/* Hover effect tooltip for collapsed sidebar */}
-          {hoveredItem === 'logout' && !isOpen && (
-            <div className="nav-tooltip">
-              {logoutItem.label}
-            </div>
-          )}
-        </div>
+{/* Footer with Logout */}
+<div className="sidebar-footer">
+  <div
+    className={`nav-item ${activeItem === logoutItem.id ? 'active' : ''}`}
+    onClick={async () => {
+      try {
+        console.log('Sidebar logout initiated for user:', userData);
+        
+        // Remove email credentials like ProfileSection does
+        localStorage.removeItem('emailCredentials');
+        
+        // Call authService logout to handle database updates and storage cleanup
+        const logoutSuccess = await authService.logout(userData);
+        
+        if (logoutSuccess) {
+          console.log('Sidebar logout successful');
+        } else {
+          console.warn('Sidebar logout completed but there may have been issues updating Supabase');
+        }
+        
+        // Call the parent component's logout handler
+        if (onLogout) {
+          onLogout();
+        }
+      } catch (error) {
+        console.error('Error during sidebar logout:', error);
+        // Still proceed with logout even if there's an error
+        if (onLogout) {
+          onLogout();
+        }
+      }
+    }}
+    onMouseEnter={() => setHoveredItem('logout')}
+    onMouseLeave={() => setHoveredItem(null)}
+  >
+    {/* Active indicator */}
+    {activeItem === logoutItem.id && (
+      <div className="active-indicator" />
+    )}
+    
+    {/* Fix: Properly render the LogOut icon */}
+    <LogOut 
+      size={22} 
+      className="nav-item-icon"
+    />
+    
+    {isOpen && (
+      <span className={`nav-item-label ${isOpen ? 'open' : 'closed'}`}>
+        {logoutItem.label}
+      </span>
+    )}
+    
+    {/* Hover effect tooltip for collapsed sidebar */}
+    {hoveredItem === 'logout' && !isOpen && (
+      <div className="nav-tooltip">
+        {logoutItem.label}
       </div>
+    )}
+  </div>
+</div>
     </div>
   </>
 );};
