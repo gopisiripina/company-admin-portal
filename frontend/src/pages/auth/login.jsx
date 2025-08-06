@@ -33,6 +33,17 @@ const Login = ({ onLoginSuccess }) => {
   const intervalRef = useRef(null);
   const timeoutRef = useRef(null);
 
+   useEffect(() => {
+  // Check for stored user data on component mount
+  const storedUserData = authService.getStoredUserData();
+  if (storedUserData) {
+    // Auto-login or redirect to dashboard
+    if (onLoginSuccess) {
+      onLoginSuccess(storedUserData);
+    }
+  }
+}, [onLoginSuccess]);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -71,6 +82,8 @@ const Login = ({ onLoginSuccess }) => {
     }
     return null;
   };
+
+ 
 
   const handlePasswordChangeSubmit = async (e) => {
     e.preventDefault();

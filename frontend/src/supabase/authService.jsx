@@ -256,53 +256,86 @@ async changeFirstLoginPassword(userId, newPassword) {
 
   // Rest of the methods remain the same...
   storeUserData(user, rememberMe = false) {
-    if (rememberMe && user) {
-      try {
-        console.log('Storing user data. Input user:', user);
-        
-        const dataToStore = {
-          id: user.id,
-          email: user.email,
-          name: user.name || 'User',
-          role: user.role || 'User',
-          profileImage: user.profileImage,
-          photoURL: user.photoURL,
-          isActive: user.isActive,
-          isFirstLogin: user.isFirstLogin || false,
-          employeeId: user.employeeId,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedat
-        };
-        
-        console.log('Data to store:', dataToStore);
+  if (user) {
+    try {
+      console.log('Storing user data. Input user:', user, 'Remember me:', rememberMe);
+      
+      const dataToStore = {
+        id: user.id,
+        email: user.email,
+        name: user.name || 'User',
+        role: user.role || 'User',
+        profileImage: user.profileImage,
+        photoURL: user.photoURL,
+        isActive: user.isActive,
+        isFirstLogin: user.isFirstLogin || false,
+        employeeId: user.employeeId,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedat
+      };
+      
+      console.log('Data to store:', dataToStore);
+      
+      if (rememberMe) {
+        // Store in localStorage for persistent login
+        localStorage.setItem('userData', JSON.stringify(dataToStore));
+        // Clear sessionStorage to avoid conflicts
+        sessionStorage.removeItem('userData');
+      } else {
+        // Store in sessionStorage for session-only login
         sessionStorage.setItem('userData', JSON.stringify(dataToStore));
-        
-      } catch (error) {
-        console.error('Error storing user data:', error);
+        // Clear localStorage to avoid conflicts
+        localStorage.removeItem('userData');
       }
+      
+    } catch (error) {
+      console.error('Error storing user data:', error);
     }
   }
+}
 
   getStoredUserData() {
-    try {
-      const userData = sessionStorage.getItem('userData');
-      const parsedData = userData ? JSON.parse(userData) : null;
-      console.log('Retrieved stored user data:', parsedData);
+  try {
+    console.log('=== Checking for stored user data ===');
+    
+    // Check localStorage first (remember me - persistent)
+    let userData = localStorage.getItem('userData');
+    console.log('localStorage userData:', userData);
+    
+    if (userData) {
+      const parsedData = JSON.parse(userData);
+      console.log('Retrieved stored user data from localStorage:', parsedData);
       return parsedData;
-    } catch (error) {
-      console.error('Error retrieving stored user data:', error);
-      return null;
     }
+    
+    // Check sessionStorage (current session only)
+    userData = sessionStorage.getItem('userData');
+    console.log('sessionStorage userData:', userData);
+    
+    if (userData) {
+      const parsedData = JSON.parse(userData);
+      console.log('Retrieved stored user data from sessionStorage:', parsedData);
+      return parsedData;
+    }
+    
+    console.log('No stored user data found in either storage');
+    return null;
+  } catch (error) {
+    console.error('Error retrieving stored user data:', error);
+    return null;
   }
+}
 
   clearStoredUserData() {
-    try {
-      sessionStorage.removeItem('userData');
-     
-    } catch (error) {
-      console.error('Error clearing stored user data:', error);
-    }
+  try {
+    // Clear both localStorage and sessionStorage
+    localStorage.removeItem('userData');
+    sessionStorage.removeItem('userData');
+    console.log('Cleared all stored user data');
+  } catch (error) {
+    console.error('Error clearing stored user data:', error);
   }
+}
 
   async socialLogin(provider) {
     console.log(`Login with ${provider}`);
