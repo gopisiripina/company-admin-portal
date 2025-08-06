@@ -6,7 +6,11 @@ import Sidebar from './pages/dashboard/Sidebar';
 import AnimatedBackground from './pages/dashboard/AnimatedBackground';
 import CampusJobViewPage from './pages/job/CampusJobViewPage';
 import ExamTakePage from './pages/job/ExamTakePage';
+
 import authService from './supabase/authService';
+
+import CandidateApplicationForm from './pages/job/CandidateApplicationForm';
+
 // Protected Route component
 const ProtectedRoute = ({ children, isLoggedIn }) => {
   return isLoggedIn ? children : <Navigate to="/" replace />;
@@ -61,6 +65,9 @@ const AppContent = () => {
       setActiveSection('job-application');
       return;
     }
+     else if (path.includes('/direct-recruitement')) {
+      setActiveSection('direct-recruitement');
+       }
     else if (path.includes('/feedback')) {
       setActiveSection('feedback');
        }else if (path.includes('/payroll')) {
@@ -203,6 +210,9 @@ else if (itemId === 'on-campus-data') {
     else if (itemId === 'feedback') {
       navigate('/dashboard/fedback', { replace: true });
         } 
+        else if (itemId === 'direct-recruitement') {
+      navigate('/dashboard/direct-recruitement', { replace: true });
+        }
      else if (itemId === 'leave-management') {
       navigate('/dashboard/leave-management', { replace: true });
         } else if (itemId === 'selected-list') {
@@ -252,7 +262,8 @@ else if (itemId === 'on-campus-data') {
 
   return (
     <Routes>
-      <Route path="/campus-job-view" element={ 
+      <Route path="/campus-job-view" 
+      element={ 
         <div style={{ 
           display: 'flex', 
           justifyContent: 'center', 
@@ -292,6 +303,21 @@ else if (itemId === 'on-campus-data') {
         } 
       />
       
+ 
+<Route 
+  path="/direct-apply/:jobId" 
+  element={ 
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          minHeight: '100vh',
+          width: '100vw'
+        }}>
+          <CandidateApplicationForm />
+        </div>
+      }
+/>
       <Route 
         path="/job-application/*" 
         element={

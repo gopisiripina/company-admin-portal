@@ -19,11 +19,10 @@ import SelectedCandidatesPage from '../job/SelectedCandidatespage';
 import CampusJobApplyPage from '../job/CampusJobApplyPage';
 import ExamConductPage from '../job/ExamConductPage';
 import EmailClient from '../email/EmailClient';
-import PayrollApp from '../hr/Payroll';
+import PayrollApp from '../hr/payroll';
 import LeaveManagementPage from '../hr/LeaveManagementPage';
 import FeedbackForm from '../feedback/FeedbackForm';
-
-
+import DirectRecruitmentPage from '../job/DirectRecruitmentPage';
 import EmployeeAttendancePage from '../hr/EmployeeAttendancePage';
 import { supabase } from '../../supabase/config';
 import Webcam from "react-webcam";
@@ -1502,7 +1501,16 @@ if (activeSection === 'payroll') {
       </div>
     );
   }
-
+  if (activeSection === 'direct-recruitement') {
+    return (
+      <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+        {renderHeader("direct recruitment...")}
+        <main className="main-content">
+          <DirectRecruitmentPage userRole={userData?.role} />
+        </main>
+      </div>
+    );
+  }
   if (activeSection === 'project-timeline') {
     return (
       <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
