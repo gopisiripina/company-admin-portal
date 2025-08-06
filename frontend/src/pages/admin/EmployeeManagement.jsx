@@ -31,36 +31,53 @@ import {
   UserOutlined
 } from '@ant-design/icons';
 import { supabase, supabaseAdmin } from '../../supabase/config';
-import './Employee Management.css';
 import ErrorPage from '../../error/ErrorPage';
 const { Title, Text } = Typography;
 const { Search } = Input;
 
-const generateEmployeeId = (name) => {
-  // Extract first and last word
-  const words = name.trim().split(/\s+/);
-  const firstWord = words[0];
-  const lastWord = words.length > 1 ? words[words.length - 1] : words[0];
-  
-  // Get initials
-  const initials = (firstWord.charAt(0) + lastWord.charAt(0)).toUpperCase();
-  
-  // Create hash from name + timestamp
-  const timestamp = Math.floor(Date.now() / 1000);
-  const hashInput = name + timestamp;
-  
-  // Generate hash (you can use crypto-js library or this simple hash)
-  let hash = 0;
-  for (let i = 0; i < hashInput.length; i++) {
-    const char = hashInput.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
+const generateEmployeeId = async (employeeType) => {
+  try {
+    // Get the latest employee ID for the specific type
+    let prefix = '';
+    switch (employeeType) {
+      case 'full-time':
+        prefix = 'MYAEMP';
+        break;
+      case 'temporary':
+        prefix = 'MYATEMP';
+        break;
+      case 'internship':
+        prefix = 'MYAINT';
+        break;
+      default:
+        prefix = 'MYA';
+    }
+
+    // Query to get the highest number for this type
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .select('employee_id')
+      .like('employee_id', `${prefix}%`)
+      .order('employee_id', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.error('Error fetching employee IDs:', error);
+      return `${prefix}001`;
+    }
+
+    let nextNumber = 1;
+    if (data && data.length > 0) {
+      const lastId = data[0].employee_id;
+      const numberPart = lastId.replace(prefix, '');
+      nextNumber = parseInt(numberPart, 10) + 1;
+    }
+
+    return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
+  } catch (error) {
+    console.error('Error generating employee ID:', error);
+    return `MYA001`;
   }
-  
-  // Get last 3 characters equivalent
-  const hashSuffix = Math.abs(hash).toString(16).slice(-3).toUpperCase();
-  
-  return `EMP${initials}${hashSuffix}`;
 };
 const sendWelcomeEmail = async (employeeData) => {
   try {
@@ -102,39 +119,49 @@ const sendWelcomeEmail = async (employeeData) => {
 };
 
 // Mobile Employee Card Component
-const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete }) => (
+const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete, onSendCredentials  }) => (
   <Card 
     size="small" 
     className="mobile-employee-card"
     style={{ marginBottom: '12px' }}
     actions={[
-      <Button 
-        key="edit"
-        type="primary" 
-        icon={<EditOutlined />} 
-        size="small"
-        onClick={() => onEdit(employee)}
-        className="brand-primary"
-      >
-        Edit
-      </Button>,
-      <Popconfirm
-        key="delete"
-        title="Delete Employee"
-        description="Are you sure you want to delete this employee?"
-        onConfirm={() => onDelete(employee.id)}
-        okText="Yes"
-        cancelText="No"
-      >
-        <Button 
-          danger 
-          icon={<DeleteOutlined />} 
-          size="small"
-        >
-          Delete
-        </Button>
-      </Popconfirm>
-    ]}
+  <Button 
+    key="edit"
+    type="primary" 
+    icon={<EditOutlined />} 
+    size="small"
+    onClick={() => onEdit(employee)}
+    className="brand-primary"
+  >
+    Edit
+  </Button>,
+  <Button 
+    key="credentials"
+    type="default" 
+    icon={<MailOutlined />} 
+    size="small"
+    onClick={() => onSendCredentials(employee)} // You'll need to pass this prop
+    style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: 'white' }}
+  >
+    Send
+  </Button>,
+  <Popconfirm
+    key="delete"
+    title="Delete Employee"
+    description="Are you sure you want to delete this employee?"
+    onConfirm={() => onDelete(employee.id)}
+    okText="Yes"
+    cancelText="No"
+  >
+    <Button 
+      danger 
+      icon={<DeleteOutlined />} 
+      size="small"
+    >
+      Delete
+    </Button>
+  </Popconfirm>
+]}
   >
     <div className="mobile-employee-info">
       <div style={{ 
@@ -212,33 +239,41 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
   const [profileImage, setProfileImage] = useState(null);
   const [faceEmbedding, setFaceEmbedding] = useState(null);
   const [uploadedFile, setUploadedFile] = useState(null);
-
+  const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
+  const [currentEmail, setCurrentEmail] = useState('');
   useEffect(() => {
   if (isOpen) {
     if (editingEmployee) {
       setTimeout(() => {
         form.setFieldsValue({
-  name: editingEmployee.name,
-  email: editingEmployee.email,
-  employeeId: editingEmployee.employee_id,
-  department: editingEmployee.department, // Add this line
-  role: editingEmployee.role,
-  isActive: editingEmployee.isactive !== undefined ? editingEmployee.isactive : true,
-  employeeType: editingEmployee.employee_type || 'full-time',
-  startDate: editingEmployee.start_date ? dayjs(editingEmployee.start_date) : null,
-  endDate: editingEmployee.end_date ? dayjs(editingEmployee.end_date) : null
-});
+          name: editingEmployee.name,
+          email: editingEmployee.email,
+          employeeId: editingEmployee.employee_id,
+          department: editingEmployee.department,
+          role: editingEmployee.role,
+          isActive: editingEmployee.isactive !== undefined ? editingEmployee.isactive : true,
+          employeeType: editingEmployee.employee_type || 'full-time',
+          startDate: editingEmployee.start_date ? dayjs(editingEmployee.start_date) : null,
+          endDate: editingEmployee.end_date ? dayjs(editingEmployee.end_date) : null,
+          pay: editingEmployee.pay // ADD THIS LINE
+        });
         setProfileImage(editingEmployee.profileimage || null);
         setFaceEmbedding(editingEmployee.face_embedding || null);
+        // ADD THESE LINES:
+        setCurrentEmployeeType(editingEmployee.employee_type || 'full-time');
+        setIsUpdatingEmail(false);
       }, 0);
     } else {
       form.resetFields();
-      form.setFieldsValue({ isActive: false });
+      form.setFieldsValue({ isActive: false,email: '' });
       setProfileImage(null);
       setFaceEmbedding(null);
+      // ADD THESE LINES:
+      setIsUpdatingEmail(false);
+      setCurrentEmail('');
     }
   }
-}, [editingEmployee, form, isOpen])
+}, [editingEmployee, form, isOpen]);
 
   useEffect(() => {
   if (!isOpen) {
@@ -350,9 +385,7 @@ const handleSubmit = useCallback(async (values) => {
         const embeddingData = await embeddingResponse.json();
         console.log('Raw embedding data:', embeddingData);
         
-        // Check if embedding exists and is an array
         if (embeddingData && embeddingData.embedding && Array.isArray(embeddingData.embedding)) {
-          // CONVERT STRING ARRAY TO NUMERIC ARRAY
           finalFaceEmbedding = embeddingData.embedding.map(value => parseFloat(value));
           console.log('Face embedding received (converted to numbers):', finalFaceEmbedding);
           console.log('First few values:', finalFaceEmbedding.slice(0, 5));
@@ -378,20 +411,28 @@ const handleSubmit = useCallback(async (values) => {
         await deleteOldProfileImage(editingEmployee.profileimage);
       }
 
-      // Update existing employee
+      // MODIFY THIS SECTION - Check if email is being updated
+      let newEmployeeId = editingEmployee.employee_id;
+if ((isUpdatingEmail && values.newEmail && values.newEmail !== currentEmail) || 
+    (values.employeeType !== editingEmployee.employee_type)) {
+  // Generate new employee ID when email is updated OR employee type is changed
+  newEmployeeId = await generateEmployeeId(values.employeeType);
+}
+
       const updateData = {
-  name: values.name,
-  email: values.email,
-  department: values.department, // Add this line
-  role: values.role || 'employee',
-  employee_id: editingEmployee.employee_id, // Keep existing ID
-  isactive: values.isActive,
-  profileimage: profileImage,
-  employee_type: values.employeeType,
-  start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
-  end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
-  face_embedding: finalFaceEmbedding
-};
+        name: values.name,
+        email: isUpdatingEmail && values.newEmail ? values.newEmail : values.email, // MODIFY THIS LINE
+        department: values.department,
+        role: values.role || 'employee',
+        employee_id: newEmployeeId, // MODIFY THIS LINE
+        isactive: values.isActive,
+        profileimage: profileImage,
+        employee_type: values.employeeType,
+        start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
+        end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
+        face_embedding: finalFaceEmbedding,
+        pay: values.pay ? parseFloat(values.pay) : null // ADD THIS LINE
+      };
       
       console.log('Updating employee with data:', updateData);
       
@@ -410,21 +451,24 @@ const handleSubmit = useCallback(async (values) => {
     } else {
       // Create new employee
       const password = generatePassword();
+      const newEmployeeId = await generateEmployeeId(values.employeeType); // MODIFY THIS LINE
+      
       const employeeData = {
-  name: values.name,
-  email: values.email,
-  department: values.department, // Add this line
-  employee_id: generateEmployeeId(values.name), // Auto-generate ID
-  role: 'employee',
-  isactive: values.isActive !== undefined ? values.isActive : false,
-  isfirstlogin: true,
-  profileimage: profileImage,
-  password: password,
-  employee_type: values.employeeType,
-  start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
-  end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
-  face_embedding: finalFaceEmbedding
-};
+        name: values.name,
+        email: values.email,
+        department: values.department,
+        employee_id: newEmployeeId, // MODIFY THIS LINE
+        role: 'employee',
+        isactive: values.isActive !== undefined ? values.isActive : false,
+        isfirstlogin: true,
+        profileimage: profileImage,
+        password: password,
+        employee_type: values.employeeType,
+        start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
+        end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
+        face_embedding: finalFaceEmbedding,
+        pay: values.pay ? parseFloat(values.pay) : null // ADD THIS LINE
+      };
       
       console.log('Creating employee with data:', employeeData);
       
@@ -464,6 +508,9 @@ const handleSubmit = useCallback(async (values) => {
     setProfileImage(null);
     setFaceEmbedding(null);
     setUploadedFile(null);
+    // ADD THESE LINES:
+    setIsUpdatingEmail(false);
+    setCurrentEmail('');
     onSuccess();
     onClose();
   } catch (error) {
@@ -477,7 +524,7 @@ const handleSubmit = useCallback(async (values) => {
   } finally {
     setLoading(false);
   }
-}, [editingEmployee, generatePassword, onSuccess, onClose, form, profileImage, deleteOldProfileImage, faceEmbedding, uploadedFile]);
+}, [editingEmployee, generatePassword, onSuccess, onClose, form, profileImage, deleteOldProfileImage, faceEmbedding, uploadedFile, isUpdatingEmail, currentEmail]); 
 
   return (
     <Modal
@@ -542,16 +589,88 @@ const handleSubmit = useCallback(async (values) => {
           <Input placeholder="Enter employee name" />
         </Form.Item>
 
-        <Form.Item
-          name="email"
-          label="Email"
-          rules={[
-            { required: true, message: 'Please enter email' },
-            { type: 'email', message: 'Please enter valid email' }
-          ]}
+        {/* Email Section - REPLACE THE EXISTING EMAIL FORM ITEM WITH THIS */}
+{editingEmployee && !isUpdatingEmail ? (
+  <Form.Item label="Email">
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <Input
+        value={editingEmployee.email}
+        disabled
+        style={{ 
+          backgroundColor: '#f5f5f5',
+          color: '#666',
+          flex: 1
+        }}
+      />
+      <Button 
+        type="link"
+        onClick={() => {
+          setIsUpdatingEmail(true);
+          form.setFieldsValue({ newEmail: '' });
+        }}
+        style={{ color: '#1F4842' }}
+      >
+        Update
+      </Button>
+    </div>
+  </Form.Item>
+) : (
+  <>
+    {editingEmployee && isUpdatingEmail && (
+      <Form.Item label="Current Email">
+        <Input
+          value={currentEmail}
+          disabled
+          style={{ 
+            backgroundColor: '#f5f5f5',
+            color: '#666'
+          }}
+        />
+      </Form.Item>
+    )}
+    <Form.Item
+      name={editingEmployee && isUpdatingEmail ? "newEmail" : "email"}
+      label={editingEmployee && isUpdatingEmail ? "New Email" : "Email"}
+      rules={[
+        { required: true, message: 'Please enter email' },
+        { type: 'email', message: 'Please enter valid email' }
+      ]}
+    >
+      <Input placeholder="Enter email address" />
+    </Form.Item>
+    {editingEmployee && isUpdatingEmail && (
+      <Form.Item>
+        <Button 
+          type="link"
+          onClick={() => {
+            setIsUpdatingEmail(false);
+            form.setFieldsValue({ email: currentEmail, newEmail: '' });
+          }}
+          style={{ color: '#666', padding: 0 }}
         >
-          <Input placeholder="Enter email address" />
-        </Form.Item>
+          Cancel Update
+        </Button>
+      </Form.Item>
+    )}
+  </>
+)}
+
+{/* ADD PAY FIELD AFTER DEPARTMENT FIELD */}
+<Form.Item
+  name="pay"
+  label="Pay/Salary"
+  rules={[
+    { pattern: /^\d+(\.\d{1,2})?$/, message: 'Please enter a valid amount (max 2 decimal places)' }
+  ]}
+>
+  <Input 
+    placeholder="Enter salary amount" 
+    prefix="₹"
+    type="number"
+    step="0.01"
+    min="0"
+  />
+</Form.Item>
 
         <Form.Item
   name="employeeType"
@@ -655,6 +774,7 @@ const EmployeeManagement = ({ userRole }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
+  const [currentEmployeeType, setCurrentEmployeeType] = useState('');
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
@@ -674,6 +794,42 @@ const [filters, setFilters] = useState({
 
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
+  const handleSendCredentials = useCallback(async (employee) => {
+  try {
+    setLoading(true);
+    
+    // Get the current password from database
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .select('password')
+      .eq('id', employee.id)
+      .single();
+
+    if (error || !data) {
+      message.error('Unable to fetch employee credentials');
+      return;
+    }
+
+    const emailResult = await sendWelcomeEmail({
+      name: employee.name,
+      email: employee.email,
+      password: data.password,
+      role: employee.role || 'employee'
+    });
+
+    if (emailResult.success) {
+      message.success(`Credentials sent successfully to ${employee.email}`);
+    } else {
+      message.error(`Failed to send credentials: ${emailResult.message}`);
+    }
+  } catch (error) {
+    console.error('Error sending credentials:', error);
+    message.error('Error sending credentials');
+  } finally {
+    setLoading(false);
+  }
+}, []);
+
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener('resize', checkMobile);
@@ -681,41 +837,42 @@ const [filters, setFilters] = useState({
   }, []);
 
   const fetchAllEmployees = useCallback(async () => {
-    try {
-      const { data, error } = await supabaseAdmin
-  .from('users')
-  .select(`
-    id,
-    name,
-    email,
-    role,
-    employee_id,
-    isactive,
-    profileimage,
-    employee_type,
-    start_date,
-    end_date,
-    created_at,
-    updated_at,
-    face_embedding,
-    department
-  `)
-  .eq('role', 'employee')
-  .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error('Fetch error:', error);
-        throw error;
-      }
-  
-      setAllEmployees(data || []);
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching employees:', error);
-      message.error(`Error loading employees: ${error.message}`);
-      return [];
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .select(`
+        id,
+        name,
+        email,
+        role,
+        employee_id,
+        isactive,
+        profileimage,
+        employee_type,
+        start_date,
+        end_date,
+        created_at,
+        updated_at,
+        face_embedding,
+        department,
+        pay
+      `) // ADD pay to the select
+      .eq('role', 'employee')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Fetch error:', error);
+      throw error;
     }
-  }, []);
+
+    setAllEmployees(data || []);
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching employees:', error);
+    message.error(`Error loading employees: ${error.message}`);
+    return [];
+  }
+}, []);
 
   const applyFiltersAndPagination = useCallback((employeeList, search = '', page = 1, pageSize = 10, filterOptions = {}) => {
   let filteredEmployees = [...employeeList];
@@ -1038,6 +1195,16 @@ const handleClearFilters = useCallback(() => {
   ),
   responsive: ['md'],
 },
+{
+  title: 'Pay',
+  dataIndex: 'pay',
+  key: 'pay',
+  width: 120,
+  render: (pay) => (
+    pay ? `₹${parseFloat(pay).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'N/A'
+  ),
+  responsive: ['lg'],
+},
     {
       title: 'Created Date',
       dataIndex: 'created_at',
@@ -1049,35 +1216,45 @@ const handleClearFilters = useCallback(() => {
       responsive: ['xl'],
     },
     {
-      title: 'Actions',
-      key: 'actions',
-      fixed: 'right',
-      width: isMobile ? 120 : 140,
-      render: (_, record) => (
-        <div className={isMobile ? 'mobile-actions' : 'actions-container'}>
-          <Button
-            type="primary"
-            icon={<EditOutlined />}
-            size={isMobile ? "small" : "middle"}
-            onClick={() => handleEdit(record)}
-            className="brand-primary"
-          />
-          <Popconfirm
-            title="Delete Employee"
-            description="Are you sure you want to delete this employee?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button
-              danger
-              icon={<DeleteOutlined />}
-              size={isMobile ? "small" : "middle"}
-            />
-          </Popconfirm>
-        </div>
-      ),
-    },
+  title: 'Actions',
+  key: 'actions',
+  fixed: 'right',
+  width: isMobile ? 160 : 200, // Increased width to accommodate new button
+  render: (_, record) => (
+    <div className={isMobile ? 'mobile-actions' : 'actions-container'} style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+      <Button
+        type="primary"
+        icon={<EditOutlined />}
+        size={isMobile ? "small" : "middle"}
+        onClick={() => handleEdit(record)}
+        className="brand-primary"
+        title="Edit Employee"
+      />
+      <Button
+        type="default"
+        icon={<MailOutlined />}
+        size={isMobile ? "small" : "middle"}
+        onClick={() => handleSendCredentials(record)}
+        style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: 'white' }}
+        title="Send Credentials"
+      />
+      <Popconfirm
+        title="Delete Employee"
+        description="Are you sure you want to delete this employee?"
+        onConfirm={() => handleDelete(record.id)}
+        okText="Yes"
+        cancelText="No"
+      >
+        <Button
+          danger
+          icon={<DeleteOutlined />}
+          size={isMobile ? "small" : "middle"}
+          title="Delete Employee"
+        />
+      </Popconfirm>
+    </div>
+  ),
+},
   ], [isMobile, handleEdit, handleDelete]);
 
   if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
@@ -1236,6 +1413,7 @@ const handleClearFilters = useCallback(() => {
                       employee={employee}
                       onEdit={handleEdit}
                       onDelete={handleDelete}
+                      onSendCredentials={handleSendCredentials}
                       loading={loading}
                     />
                   ))}
