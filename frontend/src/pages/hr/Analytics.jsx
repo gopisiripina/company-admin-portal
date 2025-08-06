@@ -27,9 +27,11 @@ import {
   DownloadOutlined,
   BarChartOutlined,
   PieChartOutlined,
-  RiseOutlined
+  RiseOutlined,
+   ExclamationCircleOutlined,
+  StopOutlined
 } from '@ant-design/icons';
-import { supabase } from '../../supabase/config'; // ADD THIS IMPORT
+import { supabase } from '../../supabase/config';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
@@ -40,8 +42,10 @@ const Analytics = () => {
   const [analyticsData, setAnalyticsData] = useState({
     leavesByType: [],
     leavesByDepartment: [],
+    leavesByStatus: [], // Added for status breakdown
     monthlyTrends: [],
-    topUsers: []
+    topUsers: [],
+    rejectionAnalysis: [] // Added for rejection analysis
   });
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState([
@@ -54,14 +58,12 @@ const Analytics = () => {
     fetchAnalyticsData();
   }, [dateRange, selectedDepartment]);
 
-  // Fixed fetch function with proper error handling
   const fetchAnalyticsData = async () => {
     try {
       setLoading(true);
       
-      // Updated query to match your table structure
       let query = supabase
-        .from('leave_applications') // Changed from 'leave_requests' to 'leave_applications'
+        .from('leave_applications')
         .select(`
           *,
           users:user_id (
@@ -87,7 +89,6 @@ const Analytics = () => {
         throw error;
       }
 
-      // Process data for analytics
       const processedData = processAnalyticsData(leaveData || []);
       setAnalyticsData(processedData);
     } catch (error) {
@@ -103,8 +104,10 @@ const Analytics = () => {
       return {
         leavesByType: [],
         leavesByDepartment: [],
+        leavesByStatus: [],
         monthlyTrends: [],
-        topUsers: []
+        topUsers: [],
+        rejectionAnalysis: []
       };
     }
 
@@ -115,6 +118,13 @@ const Analytics = () => {
       leavesByType[type] = (leavesByType[type] || 0) + 1;
     });
 
+    // Process leaves by status (NEW)
+    const leavesByStatus = {};
+    data.forEach(leave => {
+      const status = leave.status || 'Unknown';
+      leavesByStatus[status] = (leavesByStatus[status] || 0) + 1;
+    });
+
     // Process leaves by department
     const leavesByDepartment = {};
     data.forEach(leave => {
@@ -122,14 +132,18 @@ const Analytics = () => {
       leavesByDepartment[dept] = (leavesByDepartment[dept] || 0) + 1;
     });
 
-    // Process monthly trends
+    // Process monthly trends with status breakdown
     const monthlyTrends = {};
     data.forEach(leave => {
       const month = dayjs(leave.start_date || leave.startDate).format('YYYY-MM');
-      monthlyTrends[month] = (monthlyTrends[month] || 0) + 1;
+      if (!monthlyTrends[month]) {
+        monthlyTrends[month] = { total: 0, approved: 0, rejected: 0, pending: 0 };
+      }
+      monthlyTrends[month].total += 1;
+      monthlyTrends[month][leave.status.toLowerCase()] = (monthlyTrends[month][leave.status.toLowerCase()] || 0) + 1;
     });
 
-    // Process top users (most leaves taken)
+    // Process top users
     const userLeaves = {};
     data.forEach(leave => {
       const userId = leave.user_id;
@@ -139,17 +153,56 @@ const Analytics = () => {
           name: userName,
           department: leave.department,
           count: 0,
-          days: 0
+          days: 0,
+          approved: 0,
+          rejected: 0,
+          pending: 0
         };
       }
       userLeaves[userId].count += 1;
       const totalDays = leave.total_days || leave.totalDays || 0;
       userLeaves[userId].days += totalDays;
+      userLeaves[userId][leave.status.toLowerCase()] = (userLeaves[userId][leave.status.toLowerCase()] || 0) + 1;
+    });
+
+    // Process rejection analysis (NEW)
+    const rejectedLeaves = data.filter(leave => leave.status === 'Rejected');
+    const rejectionAnalysis = {};
+    
+    // Rejection by type
+    rejectedLeaves.forEach(leave => {
+      const type = leave.leave_type || leave.leaveType || 'Unknown';
+      if (!rejectionAnalysis[type]) {
+        rejectionAnalysis[type] = {
+          type,
+          rejectedCount: 0,
+          totalCount: 0,
+          rejectionRate: 0,
+          reasons: {}
+        };
+      }
+      rejectionAnalysis[type].rejectedCount += 1;
+      
+      // Count rejection reasons
+      const reason = leave.rejection_reason || 'No reason provided';
+      rejectionAnalysis[type].reasons[reason] = (rejectionAnalysis[type].reasons[reason] || 0) + 1;
+    });
+
+    // Calculate total count and rejection rate for each type
+    Object.keys(rejectionAnalysis).forEach(type => {
+      const totalOfType = data.filter(leave => (leave.leave_type || leave.leaveType) === type).length;
+      rejectionAnalysis[type].totalCount = totalOfType;
+      rejectionAnalysis[type].rejectionRate = ((rejectionAnalysis[type].rejectedCount / totalOfType) * 100).toFixed(1);
     });
 
     return {
       leavesByType: Object.entries(leavesByType).map(([type, count]) => ({
         type,
+        count,
+        percentage: ((count / data.length) * 100).toFixed(1)
+      })),
+      leavesByStatus: Object.entries(leavesByStatus).map(([status, count]) => ({
+        status,
         count,
         percentage: ((count / data.length) * 100).toFixed(1)
       })),
@@ -160,18 +213,20 @@ const Analytics = () => {
       })),
       monthlyTrends: Object.entries(monthlyTrends)
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([month, count]) => ({
+        .map(([month, stats]) => ({
           month,
-          count,
-          monthName: dayjs(month).format('MMM YYYY')
+          monthName: dayjs(month).format('MMM YYYY'),
+          ...stats
         })),
       topUsers: Object.values(userLeaves)
         .sort((a, b) => b.days - a.days)
-        .slice(0, 10)
+        .slice(0, 10),
+      rejectionAnalysis: Object.values(rejectionAnalysis)
+        .sort((a, b) => parseFloat(b.rejectionRate) - parseFloat(a.rejectionRate))
     };
   };
 
-  // Table column definitions
+  // Enhanced table columns with status information
   const leaveTypeColumns = [
     {
       title: 'Leave Type',
@@ -197,6 +252,81 @@ const Analytics = () => {
           />
           <span>{percentage}%</span>
         </div>
+      )
+    }
+  ];
+
+  // New status columns
+  const statusColumns = [
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status) => {
+        const color = status === 'Approved' ? 'success' : 
+                     status === 'Rejected' ? 'error' : 'warning';
+        const icon = status === 'Approved' ? <CheckCircleOutlined /> :
+                     status === 'Rejected' ? <CloseCircleOutlined /> : <ClockCircleOutlined />;
+        return <Tag color={color} icon={icon}>{status}</Tag>;
+      }
+    },
+    {
+      title: 'Count',
+      dataIndex: 'count',
+      key: 'count',
+      render: (count) => <Text strong>{count}</Text>
+    },
+    {
+      title: 'Percentage',
+      dataIndex: 'percentage',
+      key: 'percentage',
+      render: (percentage) => (
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <Progress 
+            percent={parseFloat(percentage)} 
+            size="small" 
+            style={{ width: 100, marginRight: 8 }}
+            strokeColor={
+              percentage > 50 ? '#52c41a' : 
+              percentage > 25 ? '#faad14' : '#ff4d4f'
+            }
+          />
+          <span>{percentage}%</span>
+        </div>
+      )
+    }
+  ];
+
+  // Rejection analysis columns
+  const rejectionColumns = [
+    {
+      title: 'Leave Type',
+      dataIndex: 'type',
+      key: 'type',
+      render: (type) => <Tag color="red">{type}</Tag>
+    },
+    {
+      title: 'Total Requests',
+      dataIndex: 'totalCount',
+      key: 'totalCount'
+    },
+    {
+      title: 'Rejected',
+      dataIndex: 'rejectedCount',
+      key: 'rejectedCount',
+      render: (count) => <Text type="danger" strong>{count}</Text>
+    },
+    {
+      title: 'Rejection Rate',
+      dataIndex: 'rejectionRate',
+      key: 'rejectionRate',
+      render: (rate) => (
+        <Progress 
+          percent={parseFloat(rate)} 
+          size="small"
+          strokeColor="#ff4d4f"
+          format={(percent) => `${percent}%`}
+        />
       )
     }
   ];
@@ -238,12 +368,29 @@ const Analytics = () => {
       key: 'count'
     },
     {
+      title: 'Approved',
+      dataIndex: 'approved',
+      key: 'approved',
+      render: (count) => <Tag color="success">{count || 0}</Tag>
+    },
+    {
+      title: 'Rejected',
+      dataIndex: 'rejected',
+      key: 'rejected',
+      render: (count) => <Tag color="error">{count || 0}</Tag>
+    },
+    {
       title: 'Total Days',
       dataIndex: 'days',
       key: 'days',
       render: (days) => <Text strong>{days} days</Text>
     }
   ];
+
+  // Calculate rejection statistics
+  const totalRejected = analyticsData.leavesByStatus.find(item => item.status === 'Rejected')?.count || 0;
+  const totalRequests = analyticsData.leavesByStatus.reduce((sum, item) => sum + item.count, 0);
+  const rejectionRate = totalRequests > 0 ? ((totalRejected / totalRequests) * 100).toFixed(1) : 0;
 
   return (
     <div>
@@ -274,14 +421,35 @@ const Analytics = () => {
         </Space>
       </div>
 
-      {/* Summary Statistics */}
+      {/* Enhanced Summary Statistics */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
               title="Total Leave Requests"
-              value={analyticsData.leavesByType.reduce((sum, item) => sum + item.count, 0)}
+              value={totalRequests}
               prefix={<PieChartOutlined />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card>
+            <Statistic
+              title="Total Rejected"
+              value={totalRejected}
+              prefix={<CloseCircleOutlined />}
+              valueStyle={{ color: '#ff4d4f' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card>
+            <Statistic
+              title="Rejection Rate"
+              value={rejectionRate}
+              suffix="%"
+              prefix={<ExclamationCircleOutlined />}
+              valueStyle={{ color: rejectionRate > 20 ? '#ff4d4f' : '#52c41a' }}
             />
           </Card>
         </Col>
@@ -294,27 +462,33 @@ const Analytics = () => {
             />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Average Requests/Month"
-              value={Math.round(analyticsData.monthlyTrends.reduce((sum, item) => sum + item.count, 0) / Math.max(analyticsData.monthlyTrends.length, 1))}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Peak Month"
-              value={analyticsData.monthlyTrends.sort((a, b) => b.count - a.count)[0]?.monthName || 'N/A'}
-            />
-          </Card>
-        </Col>
       </Row>
+
+      {/* Rejection Alert */}
+      {rejectionRate > 15 && (
+        <Alert
+          message="High Rejection Rate Detected"
+          description={`Current rejection rate is ${rejectionRate}%. Consider reviewing leave policies or approval processes.`}
+          type="warning"
+          showIcon
+          style={{ marginBottom: 24 }}
+        />
+      )}
 
       {/* Analytics Tables */}
       <Row gutter={[16, 16]}>
-        <Col xs={24} lg={12}>
+        <Col xs={24} lg={8}>
+          <Card title="Leave Status Breakdown" loading={loading}>
+            <Table
+              columns={statusColumns}
+              dataSource={analyticsData.leavesByStatus}
+              rowKey="status"
+              pagination={false}
+              size="small"
+            />
+          </Card>
+        </Col>
+        <Col xs={24} lg={8}>
           <Card title="Leave Requests by Type" loading={loading}>
             <Table
               columns={leaveTypeColumns}
@@ -325,7 +499,7 @@ const Analytics = () => {
             />
           </Card>
         </Col>
-        <Col xs={24} lg={12}>
+        <Col xs={24} lg={8}>
           <Card title="Leave Requests by Department" loading={loading}>
             <Table
               columns={departmentColumns}
@@ -338,9 +512,53 @@ const Analytics = () => {
         </Col>
       </Row>
 
+      {/* Rejection Analysis */}
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24}>
-          <Card title="Top Leave Users" loading={loading}>
+          <Card 
+            title={
+              <Space>
+                <StopOutlined style={{ color: '#ff4d4f' }} />
+                <span>Rejection Analysis by Leave Type</span>
+              </Space>
+            } 
+            loading={loading}
+          >
+            {analyticsData.rejectionAnalysis.length > 0 ? (
+              <Table
+                columns={rejectionColumns}
+                dataSource={analyticsData.rejectionAnalysis}
+                rowKey="type"
+                pagination={false}
+                expandable={{
+                  expandedRowRender: (record) => {
+                    const reasons = Object.entries(record.reasons);
+                    return (
+                      <div style={{ padding: '16px', background: '#fafafa' }}>
+                        <Title level={5}>Common Rejection Reasons:</Title>
+                        {reasons.map(([reason, count]) => (
+                          <div key={reason} style={{ marginBottom: '8px' }}>
+                            <Tag color="red">{count}</Tag>
+                            <span>{reason}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  },
+                  rowExpandable: (record) => Object.keys(record.reasons).length > 0,
+                }}
+              />
+            ) : (
+              <Empty description="No rejections found in the selected period" />
+            )}
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Enhanced Top Users with Rejection Info */}
+      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+        <Col xs={24}>
+          <Card title="Employee Leave Statistics" loading={loading}>
             <Table
               columns={topUsersColumns}
               dataSource={analyticsData.topUsers}
@@ -350,127 +568,44 @@ const Analytics = () => {
           </Card>
         </Col>
       </Row>
+
+      {/* Monthly Trends with Status Breakdown */}
+      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+        <Col xs={24}>
+          <Card title="Monthly Leave Trends" loading={loading}>
+            <div style={{ overflowX: 'auto' }}>
+              <div style={{ display: 'flex', gap: '16px', minWidth: '800px', padding: '16px 0' }}>
+                {analyticsData.monthlyTrends.map(trend => (
+                  <div 
+                    key={trend.month} 
+                    style={{ 
+                      flex: '0 0 150px',
+                      textAlign: 'center',
+                      padding: '16px',
+                      border: '1px solid #f0f0f0',
+                      borderRadius: '8px',
+                      background: '#fafafa'
+                    }}
+                  >
+                    <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
+                      {trend.monthName}
+                    </div>
+                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1890ff', marginBottom: '8px' }}>
+                      {trend.total}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>
+                      <div style={{ color: '#52c41a' }}>✓ {trend.approved || 0}</div>
+                      <div style={{ color: '#ff4d4f' }}>✗ {trend.rejected || 0}</div>
+                      <div style={{ color: '#faad14' }}>⏳ {trend.pending || 0}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+        </Col>
+      </Row>
     </div>
-  );
-};
-
-// Export Report Modal Component (moved inside or export separately)
-const ExportReportModal = ({ visible, onCancel, leaveData }) => {
-  const [exportForm] = Form.useForm();
-  const [loading, setLoading] = useState(false);
-
-  const handleExport = async (values) => {
-    setLoading(true);
-    try {
-      const { month, year } = values;
-      const startDate = dayjs(`${year}-${month + 1}-01`);
-      const endDate = startDate.endOf('month');
-
-      const filteredLeaves = leaveData.filter(leave => {
-        const leaveDate = dayjs(leave.start_date || leave.startDate);
-        return leaveDate.isAfter(startDate.subtract(1, 'day')) &&
-               leaveDate.isBefore(endDate.add(1, 'day'));
-      });
-
-      const exportData = filteredLeaves.map(leave => ({
-        'Employee Name': leave.users?.name || leave.employee_name || leave.employeeName,
-        'Employee ID': leave.users?.employee_id || leave.employee_code || leave.employeeCode,
-        'Department': leave.department,
-        'Leave Type': leave.leave_type || leave.leaveType,
-        'Sub Type': leave.sub_type || leave.subType || '-',
-        'Start Date': dayjs(leave.start_date || leave.startDate).format('DD/MM/YYYY'),
-        'End Date': dayjs(leave.end_date || leave.endDate).format('DD/MM/YYYY'),
-        'Total Days': leave.total_days || leave.totalDays || 0,
-        'Total Hours': leave.total_hours || leave.totalHours || 0,
-        'Status': leave.status,
-        'Applied Date': dayjs(leave.created_at || leave.appliedDate).format('DD/MM/YYYY'),
-        'Approved By': leave.approved_by || leave.approvedBy || '-',
-        'Reason': leave.reason || '-'
-      }));
-
-      if (exportData.length === 0) {
-        message.warning('No leave data found for the selected month/year');
-        return;
-      }
-
-      const headers = Object.keys(exportData[0]);
-      const csvContent = [
-        headers.join(','),
-        ...exportData.map(row =>
-          headers.map(header => `"${row[header] || ''}"`).join(',')
-        )
-      ].join('\n');
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', `leave_report_${startDate.format('MMM_YYYY')}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      message.success(`Leave report for ${startDate.format('MMMM YYYY')} downloaded successfully!`);
-      onCancel();
-      exportForm.resetFields();
-    } catch (error) {
-      console.error('Export error:', error);
-      message.error('Failed to export report');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Modal
-      title="Export Leave Report"
-      open={visible}
-      onCancel={onCancel}
-      footer={null}
-    >
-      <Form form={exportForm} onFinish={handleExport}>
-        <Form.Item
-          name="month"
-          label="Month"
-          rules={[{ required: true, message: 'Please select month' }]}
-        >
-          <Select placeholder="Select Month">
-            {Array.from({ length: 12 }, (_, i) => (
-              <Option key={i} value={i}>
-                {dayjs().month(i).format('MMMM')}
-              </Option>
-            ))}
-          </Select>
-        </Form.Item>
-
-        <Form.Item
-          name="year"
-          label="Year"
-          rules={[{ required: true, message: 'Please select year' }]}
-        >
-          <Select placeholder="Select Year">
-            {Array.from({ length: 5 }, (_, i) => {
-              const year = dayjs().year() - 2 + i;
-              return (
-                <Option key={year} value={year}>
-                  {year}
-                </Option>
-              );
-            })}
-          </Select>
-        </Form.Item>
-
-        <Form.Item>
-          <Space>
-            <Button onClick={onCancel}>Cancel</Button>
-            <Button type="primary" htmlType="submit" loading={loading}>
-              Export CSV
-            </Button>
-          </Space>
-        </Form.Item>
-      </Form>
-    </Modal>
   );
 };
 

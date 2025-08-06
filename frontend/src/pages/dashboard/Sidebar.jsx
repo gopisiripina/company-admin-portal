@@ -58,7 +58,7 @@ useEffect(() => {
       { icon: DeleteOutlined, label: 'Trash', id: 'trash' }
     ] : []
   },
-  { icon: Calendar, label: 'Leave Management', id: 'leave-management' },
+  // { icon: Calendar, label: 'Leave Management', id: 'leave-management' },
   
   // Feedback Form - Available to all authenticated users
   { icon: MessageSquare, label: 'Feedback', id: 'feedback', color: '#f97316' },
@@ -85,7 +85,9 @@ useEffect(() => {
     ]
   }
 ] : []),
-...(userRole === 'superadmin' || userRole === 'admin' || userRole === 'hr'? [
+// Replace the existing Human Resource section with this updated code:
+
+...(userRole === 'superadmin' || userRole === 'admin' || userRole === 'hr' || userRole === 'employee' ? [
   {
     icon: FolderKanban,
     label: 'Human Resource',
@@ -93,11 +95,19 @@ useEffect(() => {
     color: '#8b5cf6',
     hasChildren: true,
     children: [
-     
-      { icon: DollarSign, label: 'Employee Attendance', id: 'employee-attendance' },
-   
-      { icon: AlertTriangle, label: 'Payroll', id: 'payroll' },
+      // For superadmin, admin, and hr - show all options
+      ...(userRole === 'superadmin' || userRole === 'admin' || userRole === 'hr' ? [
+        { icon: DollarSign, label: 'Employee Attendance', id: 'employee-attendance' },
+        { icon: AlertTriangle, label: 'Payroll', id: 'payroll' },
+        { icon: DollarSign, label: 'Leaves Approval', id: 'leave-manage' },
+        { icon: DollarSign, label: 'Calender And Events', id: 'company-calender' },
+      ] : []),
       
+      // For employee - show only leave and calendar events
+      ...(userRole === 'employee' ? [
+        { icon: DollarSign, label: 'leaves Apply', id: 'leave-manage' },
+        { icon: DollarSign, label: 'Calender and Events', id: 'company-calender' },
+      ] : [])
     ]
   }
 ] : []),

@@ -20,11 +20,13 @@ import CampusJobApplyPage from '../job/CampusJobApplyPage';
 import ExamConductPage from '../job/ExamConductPage';
 import EmailClient from '../email/EmailClient';
 import PayrollApp from '../hr/payroll';
-import LeaveManagementPage from '../hr/LeaveManagementPage';
+// import LeaveManagementPage from '../hr/LeaveManagementPage';
 import FeedbackForm from '../feedback/FeedbackForm';
 import DirectRecruitmentPage from '../job/DirectRecruitmentPage';
 import EmployeeAttendancePage from '../hr/EmployeeAttendancePage';
 import { supabase } from '../../supabase/config';
+import CompanyCalendarAndEventsPage from '../hr/CompanyCalendarAndEventsPage';
+import LeaveManagementPage from '../hr/leavemanage';
 import Webcam from "react-webcam";
 import * as faceapi from 'face-api.js';
 import { jsPDF } from 'jspdf';
@@ -1368,12 +1370,27 @@ if (activeSection === 'employee-attendance') {
       </div>
     );
   }
-  if (activeSection === 'leave-management') {
+  if (activeSection === 'leave-manage') {
     return (
       <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
         {renderHeader("Search job descriptions...")}
         <main className="main-content">
  <LeaveManagementPage 
+    userRole={userData?.role} 
+    currentUserId={userData?.id} 
+  />
+
+        </main>
+      </div>
+    );
+  }
+
+  if (activeSection === 'company-calender') {
+    return (
+      <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+        {renderHeader("Search job descriptions...")}
+        <main className="main-content">
+ <CompanyCalendarAndEventsPage
     userRole={userData?.role} 
     currentUserId={userData?.id} 
   />

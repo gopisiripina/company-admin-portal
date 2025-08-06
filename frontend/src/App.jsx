@@ -68,6 +68,12 @@ const AppContent = () => {
      else if (path.includes('/direct-recruitement')) {
       setActiveSection('direct-recruitement');
        }
+        else if (path.includes('/company-calender')) {
+      setActiveSection('company-calender');
+       }
+        else if (path.includes('/leave-manage')) {
+      setActiveSection('leave-manage');
+       }
     else if (path.includes('/feedback')) {
       setActiveSection('feedback');
        }else if (path.includes('/payroll')) {
@@ -210,8 +216,14 @@ else if (itemId === 'on-campus-data') {
     else if (itemId === 'feedback') {
       navigate('/dashboard/fedback', { replace: true });
         } 
+         else if (itemId === 'company-calender') {
+      navigate('/dashboard/company-calender', { replace: true });
+        } 
         else if (itemId === 'direct-recruitement') {
       navigate('/dashboard/direct-recruitement', { replace: true });
+        }
+         else if (itemId === 'leave-manage') {
+      navigate('/dashboard/leave-manage', { replace: true });
         }
      else if (itemId === 'leave-management') {
       navigate('/dashboard/leave-management', { replace: true });
