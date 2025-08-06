@@ -1,20 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Card, 
-  Button, 
-  DatePicker, 
-  Table, 
-  Modal, 
-  TimePicker, 
-  Row, 
-  Col, 
+import {
+  Card,
+  Button,
+  DatePicker,
+  Table,
+  Modal,
+  TimePicker,
+  Row,
+  Col,
   Switch,
-
-  Typography, 
-  Space, 
-  Tag, 
-  Statistic, 
-  Select, 
+  Typography,
+  Space,
+  Tag,
+  Statistic,
+  Select,
   Input,
   message,
   Divider,
@@ -28,17 +27,15 @@ import {
   Form,
   Upload,
   Radio,
- 
   Alert,
   Descriptions,
   Timeline,
-  Calendar,
   Drawer,
   Popconfirm
 } from 'antd';
-import { 
-  UserOutlined, 
-  TeamOutlined, 
+import {
+  UserOutlined,
+  TeamOutlined,
   ClockCircleOutlined,
   CalendarOutlined,
   FilterOutlined,
@@ -74,6 +71,8 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { supabase } from '../../supabase/config';
 import useSWR, { mutate } from 'swr';
+import Analytics from './Analytics'; // Add this line - adjust path as needed
+
 
 dayjs.extend(relativeTime);
 
@@ -101,33 +100,14 @@ const { RangePicker } = DatePicker;
 // Dummy data for employees
 const fetcher = async (url) => {
   const [table, userId] = url.split('|');
-  
+
   if (table === 'leave_applications') {
     return await fetchLeaveApplications(userId === 'null' ? null : userId);
   } else if (table === 'leave_balances') {
     return await fetchLeaveBalances(userId);
-  } else if (table === 'events') {
-    return await fetchEvents();
   }
 };
 
-// Add new events fetch function
-const fetchEvents = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('events')
-      .select('*')
-      .order('event_date', { ascending: true });
-    
-    if (error) throw error;
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching events:', error);
-    message.error('Failed to fetch events');
-    return [];
-  }
-};
-// Add this new function after fetchEvents
 const fetchCompanyCalendar = async () => {
   try {
     const { data, error } = await supabase
@@ -199,13 +179,13 @@ const fetchLeaveApplications = async (userId = null) => {
         )
       `)
       .order('created_at', { ascending: false });
-    
+
     if (userId) {
       query = query.eq('user_id', userId);
     }
-    
+
     const { data, error } = await query;
-    
+
     if (error) throw error;
     return data || [];
   } catch (error) {
@@ -218,7 +198,7 @@ const fetchLeaveApplications = async (userId = null) => {
 const fetchLeaveBalances = async (userId) => {
   try {
     await supabase.rpc('reset_monthly_limits');
-    
+
     const { data, error } = await supabase
       .from('leave_balances')
       .select(`
@@ -230,9 +210,9 @@ const fetchLeaveBalances = async (userId) => {
       `)
       .eq('user_id', userId)
       .single();
-    
+
     if (error && error.code !== 'PGRST116') throw error;
-    
+
     // If no balance record exists, create one
     if (!data) {
       const { data: userData } = await supabase
@@ -240,7 +220,7 @@ const fetchLeaveBalances = async (userId) => {
         .select('name, employee_id')
         .eq('id', userId)
         .single();
-        
+
       const newBalance = {
         user_id: userId,
         employee_name: userData?.name || 'Unknown',
@@ -259,7 +239,7 @@ const fetchLeaveBalances = async (userId) => {
         excuses_total: 1,
         excuses_remaining: 1
       };
-      
+
      const { data: newData, error: insertError } = await supabase
         .from('leave_balances')
         .insert([newBalance])
@@ -271,14 +251,14 @@ const fetchLeaveBalances = async (userId) => {
           )
         `)
         .single();
-        
+
       if (insertError) throw insertError;
       return newData;
     }
-    
+
     return data;
   } catch (error) {
-    
+
     return null;
   }
 };
@@ -359,7 +339,6 @@ const calculateLeaveBalances = async (userId, currentUser) => {
 const LeaveManagementPage = ({ userRole = 'hr', currentUserId = '1' }) => {
 const [employees, setEmployees] = useState([]);
   const [leaveData, setLeaveData] = useState([]);
-const [events, setEvents] = useState([]);
 const [leaveBalanceRaw, setLeaveBalanceRaw] = useState(null);
 
 
@@ -381,21 +360,9 @@ const [casualSubType, setCasualSubType] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterType, setFilterType] = useState('All');
   const [filterEmployee, setFilterEmployee] = useState('All');
-  const [selectedDate, setSelectedDate] = useState(dayjs());
   const [activeTab, setActiveTab] = useState('dashboard');
-  // Add these with other state declarations
-const [calendarForm] = Form.useForm();
-const [editModal, setEditModal] = useState(false);
-const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
-   // Add these new state variables:
-  const [weeklyHolidayModal, setWeeklyHolidayModal] = useState(false);
-  const [weeklyHolidayForm] = Form.useForm();
-  const [pendingChanges, setPendingChanges] = useState({}); // Track unsaved changes
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
   const [currentUser, setCurrentUser] = useState(null);
-const [selectedEvent, setSelectedEvent] = useState(null);
-const [eventModal, setEventModal] = useState(false);
-const [eventForm] = Form.useForm(); // For the event modal form
 
 
 useEffect(() => {
@@ -1688,533 +1655,6 @@ return (
     </Modal>
   );
 };
-const handleEventAction = async (eventData, action = 'create') => {
-  setLoading(true);
-  try {
-    if (action === 'create') {
-      const { error } = await supabase
-        .from('events')
-        .insert([{
-          ...eventData,
-          created_by: 'Current User',
-          created_at: new Date().toISOString()
-        }]);
-      if (error) throw error;
-      message.success('Event created successfully!');
-    } else if (action === 'update') {
-      const { error } = await supabase
-        .from('events')
-        .update(eventData)
-        .eq('id', selectedEvent.id);
-      if (error) throw error;
-      message.success('Event updated successfully!');
-    } else if (action === 'delete') {
-      if (!selectedEvent || !selectedEvent.id) {
-        message.error('No event selected for deletion');
-        return;
-      }
-      const { error } = await supabase
-        .from('events')
-        .delete()
-        .eq('id', selectedEvent.id);
-      if (error) throw error;
-      message.success('Event deleted successfully!');
-    }
-    
-    // Mutate events cache
-   
-    setEventModal(false);
-    setSelectedEvent(null);
-    eventForm.resetFields();
-  } catch (error) {
-    console.error('Error with event action:', error);
-    message.error('Failed to perform event action');
-  } finally {
-    setLoading(false);
-  }
-};
-  // Events Component
-  const EventsManagement = () => {
-    const today = dayjs();
-    const upcomingEvents = events.filter(event => 
-      dayjs(event.event_date).isAfter(today.subtract(1, 'day'))
-    );
-    const todayEvents = events.filter(event => 
-      dayjs(event.event_date).isSame(today, 'day')
-    );
-    const pastEvents = events.filter(event => 
-      dayjs(event.event_date).isBefore(today, 'day')
-    );
-
-    return (
-      <div>
-        {/* Events Header */}
-        <Card style={{ 
-          marginBottom: '24px',
-          background: 'rgba(255, 255, 255, 0.95)',
-          backdropFilter: 'blur(10px)',
-          border: 'none',
-          borderRadius: '16px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
-        }}>
-          <Row align="middle" justify="space-between">
-            <Col>
-              <Space size="large">
-                <Avatar 
-                  size={64} 
-                  icon={<CalendarOutlined />} 
-                  style={{ backgroundColor: '#03481def' }}
-                />
-                <div>
-                  <Title level={2} style={{ margin: 0, color: '#03481def' }}>
-                    Company Events
-                  </Title>
-                  <Text type="secondary" style={{ fontSize: '16px' }}>
-                    {userRole === 'employee' 
-                      ? "Stay updated with upcoming company events"
-                      : "Manage company events and announcements"
-                    }
-                  </Text>
-                </div>
-              </Space>
-            </Col>
-            <Col>
-              {userRole !== 'employee' && (
-                <Button
-                  type="primary"
-                  size="large"
-                  icon={<PlusOutlined />}
-                  onClick={() => {
-                    setSelectedEvent(null);
-                    eventForm.resetFields();
-                    setEventModal(true);
-                  }}
-                  style={{
-                    background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
-                    border: 'none',
-                    borderRadius: '8px',
-                    height: '50px',
-                    paddingLeft: '24px',
-                    paddingRight: '24px'
-                  }}
-                >
-                  Add Event
-                </Button>
-              )}
-            </Col>
-          </Row>
-        </Card>
-
-        <Row gutter={[24, 24]}>
-          {/* Today's Events */}
- <Col xs={24} lg={8}>
-            <Card 
-              title={
-                <Space>
-                  <div style={{
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '6px',
-                    background: 'linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    fontSize: '12px'
-                  }}>
-                    <ClockCircleOutlined />
-                  </div>
-                  <span>Today's Events</span>
-                  <Badge count={todayEvents.length} />
-                </Space>
-              }
-              style={{ 
-                borderRadius: '12px',
-                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
-                minHeight: '400px'
-              }}
-              styles={{ body: { padding: '16px' } }}
-            >
-              {todayEvents.length === 0 ? (
-                <Empty 
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description="No events today"
-                  style={{ margin: '40px 0' }}
-                />
-              ) : (
-                // UPDATED: Converted Timeline.Item to use the 'items' prop
-                <Timeline
-                  items={todayEvents.map(event => ({
-                    key: event.id,
-                    dot: <ClockCircleFilled style={{ color: '#ff4d4f' }} />,
-                    children: <EventCard event={event} userRole={userRole} onEdit={setSelectedEvent} onDelete={handleEventAction} />
-                  }))}
-                />
-              )}
-            </Card>
-          </Col>
-          {/* Upcoming Events */}
-          <Col xs={24} lg={8}>
-            <Card 
-              title={
-                <Space>
-                  <div style={{
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '6px',
-                    background: 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    fontSize: '12px'
-                  }}>
-                    <CalendarOutlined />
-                  </div>
-                  <span>Upcoming Events</span>
-                  <Badge count={upcomingEvents.length} />
-                </Space>
-              }
-              style={{ 
-                borderRadius: '12px',
-                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
-                minHeight: '400px'
-              }}
-              styles={{ body: { padding: '16px' } }}
-            >
-              {upcomingEvents.length === 0 ? (
-                <Empty 
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description="No upcoming events"
-                  style={{ margin: '40px 0' }}
-                />
-              ) : (
-                  <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                  {/* UPDATED: Converted Timeline.Item to use the 'items' prop */}
-                  <Timeline
-                    items={upcomingEvents.slice(0, 10).map(event => ({
-                      key: event.id,
-                      dot: <CalendarTwoTone twoToneColor={['#52c41a', '#73d13d']} />,
-                      children: <EventCard event={event} userRole={userRole} onEdit={setSelectedEvent} onDelete={handleEventAction} />
-                    }))}
-                  />
-                </div>
-              )}
-            </Card>
-          </Col>
-
-          {/* Past Events */}
-          <Col xs={24} lg={8}>
-            <Card 
-              title={
-                <Space>
-                  <div style={{
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '6px',
-                    background: 'linear-gradient(135deg, #bfbfbf 0%, #d9d9d9 100%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    fontSize: '12px'
-                  }}>
-                    <HistoryOutlined />
-                  </div>
-                  <span>Past Events</span>
-                </Space>
-              }
-              style={{ 
-                borderRadius: '12px',
-                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
-                minHeight: '400px'
-              }}
-             styles={{ body: { padding: '16px' } }} 
-            >
-              {pastEvents.length === 0 ? (
-                <Empty 
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description="No past events"
-                  style={{ margin: '40px 0' }}
-                />
-              ) : (
-               <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                  {/* UPDATED: Converted Timeline.Item to use the 'items' prop */}
-                  <Timeline
-                    items={pastEvents.slice(0, 5).map(event => ({
-                      key: event.id,
-                      dot: <div style={{ 
-                        width: '8px', 
-                        height: '8px', 
-                        borderRadius: '50%', 
-                        background: '#bfbfbf' 
-                      }} />,
-                      style: { opacity: 0.7 },
-                      children: <EventCard event={event} userRole={userRole} isPast={true} />
-                    }))}
-                  />
-                </div>
-              )}
-            </Card>
-          </Col>
-        </Row>
-
-        {/* Event Modal */}
-        <Modal
-          title={
-            <Space>
-              <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'white'
-              }}>
-                <CalendarOutlined />
-              </div>
-              <span>{selectedEvent ? 'Edit Event' : 'Add New Event'}</span>
-            </Space>
-          }
-          open={eventModal}
-          onCancel={() => {
-            setEventModal(false);
-            setSelectedEvent(null);
-            eventForm.resetFields();
-          }}
-          footer={[
-            <Button key="cancel" onClick={() => setEventModal(false)}>
-              Cancel
-            </Button>,
-// In the Event Modal footer, replace the delete button:
-selectedEvent && (
-  <Popconfirm
-    title="Are you sure you want to delete this event?"
-    onConfirm={() => handleEventAction(null, 'delete')}
-    okText="Yes"
-    cancelText="No"
-  >
-    <Button 
-      key="delete"
-      danger
-      loading={loading}
-    >
-      Delete
-    </Button>
-  </Popconfirm>
-),
-            <Button 
-              key="submit" 
-              type="primary" 
-              onClick={() => eventForm.submit()}
-              loading={loading}
-              style={{
-                background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
-                border: 'none'
-              }}
-            >
-              {selectedEvent ? 'Update Event' : 'Create Event'}
-            </Button>
-          ].filter(Boolean)}
-          width={600}
-        >
-          <EventForm 
-            form={eventForm} 
-            onFinish={(values) => handleEventAction(values, selectedEvent ? 'update' : 'create')}
-            initialValues={selectedEvent}
-          />
-        </Modal>
-      </div>
-    );
-  };
-
-  // Event Card Component
-  const EventCard = ({ event, userRole, onEdit, onDelete, isPast = false }) => {
-    const eventDate = dayjs(event.event_date);
-    const isToday = eventDate.isSame(dayjs(), 'day');
-    const timeFromNow = eventDate.fromNow();
-
-    return (
-   <Card 
-  size="small" 
-  style={{ 
-    marginBottom: '8px',
-    borderRadius: '8px',
-    border: `1px solid ${isPast ? '#d9d9d9' : isToday ? '#ff4d4f' : '#52c41a'}20`,
-    background: isPast ? '#fafafa' : isToday ? '#fff2f0' : '#f6ffed',
-    opacity: isPast ? 0.8 : 1
-  }}
-  styles={{ body: { padding: '12px' } }} // Changed from bodyStyle
-  actions={userRole !== 'employee' && !isPast ? [
-          <Button 
-            type="text" 
-            size="small" 
-            icon={<EditOutlined />}
-            onClick={() => {
-              onEdit(event);
-              setEventModal(true);
-            }}
-          />,
-// In EventCard component, replace the delete action:
-<Popconfirm
-  title="Delete this event?"
-  onConfirm={() => {
-    setSelectedEvent(event); // Set the event first
-    setTimeout(() => onDelete(null, 'delete'), 0); // Then delete
-  }}
-  okText="Yes"
-  cancelText="No"
->
-  <Button 
-    type="text" 
-    size="small" 
-    icon={<DeleteOutlined />}
-    danger
-  />
-</Popconfirm>     
-   ] : undefined}
-      >
-        <div>
-          <Text strong style={{ 
-            color: isPast ? '#8c8c8c' : isToday ? '#ff4d4f' : '#52c41a',
-            fontSize: '14px' 
-          }}>
-            {event.title}
-          </Text>
-          <br />
-          <Text type="secondary" style={{ fontSize: '12px' }}>
-            📅 {eventDate.format('MMM DD, YYYY')} • ⏰ {event.time || 'All Day'}
-            {event.location && (
-              <><br />📍 {event.location}</>
-            )}
-          </Text>
-          <br />
-          <Text style={{ fontSize: '11px', color: isPast ? '#bfbfbf' : '#666' }}>
-            {timeFromNow}
-          </Text>
-          {event.description && (
-            <>
-              <br />
-              <Text style={{ fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                {event.description}
-              </Text>
-            </>
-          )}
-        </div>
-      </Card>
-    );
-  };
-
-  // Event Form Component
-  const EventForm = ({ form, onFinish, initialValues }) => {
-    useEffect(() => {
-      if (initialValues) {
-        form.setFieldsValue({
-          ...initialValues,
-          event_date: dayjs(initialValues.event_date)
-        });
-      }
-    }, [initialValues, form]);
-
-    return (
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={onFinish}
-        initialValues={{
-          event_date: dayjs(),
-          priority: 'medium'
-        }}
-      >
-        <Row gutter={16}>
-          <Col xs={24} md={16}>
-            <Form.Item
-              name="title"
-              label="Event Title"
-              rules={[{ required: true, message: 'Please enter event title' }]}
-            >
-              <Input 
-                placeholder="e.g., Team Meeting, Company Outing"
-                size="large"
-              />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={8}>
-            <Form.Item
-              name="priority"
-              label="Priority"
-            >
-              <Select size="large">
-                <Option value="low">
-                  <Space><Tag color="green">Low</Tag></Space>
-                </Option>
-                <Option value="medium">
-                  <Space><Tag color="orange">Medium</Tag></Space>
-                </Option>
-                <Option value="high">
-                  <Space><Tag color="red">High</Tag></Space>
-                </Option>
-              </Select>
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Row gutter={16}>
-          <Col xs={24} md={12}>
-            <Form.Item
-              name="event_date"
-              label="Event Date"
-              rules={[{ required: true, message: 'Please select event date' }]}
-            >
-              <DatePicker 
-                style={{ width: '100%' }}
-                size="large"
-                format="DD/MM/YYYY"
-              />
-            </Form.Item>
-          </Col>
-          <Col xs={24} md={12}>
-            <Form.Item
-              name="time"
-              label="Time (Optional)"
-            >
-              <TimePicker 
-                format="HH:mm"
-                style={{ width: '100%' }}
-                size="large"
-                placeholder="Select time"
-              />
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Form.Item
-          name="location"
-          label="Location (Optional)"
-        >
-          <Input 
-            placeholder="e.g., Conference Room A, Zoom Meeting"
-            size="large"
-            prefix={<EnvironmentOutlined />}
-          />
-        </Form.Item>
-
-        <Form.Item
-          name="description"
-          label="Description"
-        >
-          <TextArea
-            rows={3}
-            placeholder="Event details and additional information..."
-            maxLength={300}
-            showCount
-          />
-        </Form.Item>
-      </Form>
-    );
-  };
 
   // Leave History Drawer
   const LeaveHistoryDrawer = () => (
@@ -2328,18 +1768,6 @@ useEffect(() => {
     })
     .subscribe();
 
-  // EVENTS
-  const eventSub = supabase
-    .channel('realtime-events')
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'events',
-    }, () => {
-      fetchEvents().then(setEvents);
-    })
-    .subscribe();
-
   // LEAVE BALANCES
   const balanceSub = supabase
     .channel('realtime-leave-balances')
@@ -2354,13 +1782,11 @@ useEffect(() => {
 
   return () => {
     supabase.removeChannel(leaveSub);
-    supabase.removeChannel(eventSub);
     supabase.removeChannel(balanceSub);
   };
 }, [currentUserId, userRole]);
 useEffect(() => {
   fetchLeaveApplications(userRole === 'employee' ? currentUserId : null).then(setLeaveData);
-  fetchEvents().then(setEvents);
   fetchLeaveBalances(currentUserId).then(setLeaveBalanceRaw);
 }, [userRole, currentUserId]);
 
@@ -2571,28 +1997,45 @@ useEffect(() => {
     </Col>
   </Row>
 </div>
-
-      <Table
+<Table
   columns={getTableColumns()}
   dataSource={filteredLeaves}
   rowKey="id"
   loading={loading}
-  pagination={{
+  pagination={filteredLeaves.length > 0 ? {
     pageSize: 10,
     showSizeChanger: true,
     showQuickJumper: true,
     showTotal: (total, range) => 
       `${range[0]}-${range[1]} of ${total} items`,
-    simple: isMobile, // Use state instead of window.innerWidth
-  }}
-  scroll={{ 
+    simple: isMobile,
+  } : false} // Hide pagination when no data
+  scroll={filteredLeaves.length > 0 ? { 
     x: 'max-content',
     scrollToFirstRowOnChange: true
-  }}
+  } : undefined} // Remove scroll when no data
   size="small"
   rowClassName={(record) => 
     record.status === 'Pending' ? 'pending-row' : ''
   }
+  locale={{
+    emptyText: (
+      <div style={{ 
+        padding: '40px 20px', 
+        textAlign: 'center',
+        color: '#999'
+      }}>
+        <Empty 
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={
+            <span style={{ color: '#999' }}>
+              No leave applications found
+            </span>
+          }
+        />
+      </div>
+    )
+  }}
 />
     </Card>
   </div>
@@ -2661,6 +2104,52 @@ useEffect(() => {
   .ant-pagination .ant-pagination-jump-next:hover {
     color: #0D7139 !important;
   }
+    /* Add this to your existing style block */
+
+/* Prevent horizontal scrollbar on empty tables */
+.ant-table-empty .ant-table-tbody {
+  overflow-x: hidden !important;
+}
+
+/* Consistent card heights */
+.ant-card {
+  height: fit-content;
+}
+
+/* Remove unnecessary scrollbars from empty containers */
+.ant-table-placeholder {
+  overflow: hidden !important;
+}
+
+/* Timeline container fixes */
+.ant-timeline {
+  overflow: visible !important;
+}
+
+/* Ensure consistent row heights */
+.ant-table-tbody > tr {
+  min-height: 54px;
+}
+
+/* Fix empty table container */
+.ant-table-container {
+  overflow-x: auto;
+}
+
+.ant-table-container:has(.ant-empty) {
+  overflow-x: hidden;
+}
+
+/* Responsive adjustments for empty states */
+@media (max-width: 768px) {
+  .ant-empty {
+    padding: 20px 10px !important;
+  }
+  
+  .ant-table-empty .ant-table-tbody {
+    min-height: 200px;
+  }
+}
 `}</style>
 
       <Tabs 
@@ -2687,36 +2176,9 @@ useEffect(() => {
             ),
             children: <HRDashboard />
           },
-          {
-  key: 'calendar',
-  label: (
-    <Space>
-      <CalendarOutlined />
-      <span>Leave Calendar</span>
-    </Space>
-  ),
-  children: <LeaveCalendarView userRole={userRole} />
-}
-,
-  {
-            key: 'events',
-            label: (
-              <Space>
-                <CalendarOutlined />
-                <span>Events</span>
-                {events.filter(e => dayjs(e.event_date).isAfter(dayjs().subtract(1, 'day'))).length > 0 && (
-                  <Badge 
-                    count={events.filter(e => dayjs(e.event_date).isAfter(dayjs().subtract(1, 'day'))).length} 
-                    size="small" 
-                  />
-                )}
-              </Space>
-            ),
-            children: <EventsManagement />
-          },
           userRole !== 'employee' &&
           
-        {
+     {
   key: 'analytics',
   label: (
     <Space>
@@ -2725,10 +2187,10 @@ useEffect(() => {
     </Space>
   ),
   children: (
-    <LeaveAnalytics 
-      exportModalVisible={exportModalVisible}
-      setExportModalVisible={setExportModalVisible}
-      filteredLeaves={filteredLeaves}
+    <Analytics 
+      currentUserId={currentUserId}
+      userRole={userRole}
+      leaveData={leaveData}
     />
   )
 }
@@ -2778,1162 +2240,6 @@ useEffect(() => {
       <LeaveHistoryDrawer />
     </div>
   );
-};
-
-// Leave Calendar View Component
-// Leave Calendar View Component
-const LeaveCalendarView = ({ userRole }) => {
-  const [selectedDate, setSelectedDate] = useState(dayjs());
-  const [companyCalendar, setCompanyCalendar] = useState([]);
-  const [editModal, setEditModal] = useState(false);
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState(null);
-  const [calendarForm] = Form.useForm();
-  const [loading, setLoading] = useState(false);
-  const [viewMode, setViewMode] = useState('month'); // month, year
-  const [selectedMonth, setSelectedMonth] = useState(dayjs());
-  
-  // Add these missing state variables:
-  const [weeklyHolidayModal, setWeeklyHolidayModal] = useState(false);
-  const [weeklyHolidayForm] = Form.useForm();
-  const [pendingChanges, setPendingChanges] = useState({});
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-
-  // Rest of the component code remains the same...
-  // (Continue with the existing fetchCompanyCalendar and other functions)
-
-  // Fetch company calendar data
-// Fetch company calendar data
-const fetchCompanyCalendar = async () => {
-  setLoading(true);
-  try {
-    const { data, error } = await supabase
-      .from('company_calendar')
-      .select('*')
-      .order('date', { ascending: true });
-    
-    if (error) throw error;
-    setCompanyCalendar(data || []);
-  } catch (error) {
-    console.error('Error fetching company calendar:', error);
-    message.error('Failed to fetch company calendar');
-  } finally {
-    setLoading(false);
-  }
-};
-
-  useEffect(() => {
-    fetchCompanyCalendar();
-  }, []);
-
-  // Get calendar data for a specific date
-  // Get calendar data for a specific date (including pending changes)
-const getCalendarData = (value) => {
-  const dateStr = value.format('YYYY-MM-DD');
-  
-  // Check pending changes first, then database
-  if (pendingChanges[dateStr]) {
-    return pendingChanges[dateStr];
-  }
-  
-  return companyCalendar.find(item => item.date === dateStr);
-};
-
-  // Handle calendar date update
-// Handle calendar date update
-const handleCalendarUpdate = (values) => {
-  const dateStr = selectedCalendarDate.format('YYYY-MM-DD');
-  
-  const calendarData = {
-    date: dateStr,
-    day_type: values.dayType,
-    holiday_name: values.dayType === 'holiday' ? values.holidayName : null,
-    reason: values.reason || null,
-    is_mandatory: values.isMandatory || false,
-    created_by: 'Current User',
-    updated_at: new Date().toISOString()
-  };
-
-  // Store in pending changes instead of saving to DB
-  setPendingChanges(prev => ({
-    ...prev,
-    [dateStr]: calendarData
-  }));
-  
-  setHasUnsavedChanges(true);
-  setEditModal(false);
-  calendarForm.resetFields();
-  message.success('Changes saved locally. Click "Publish" to save to database.');
-};
-// Handle weekly holiday setup
-const handleWeeklyHolidaySetup = (values) => {
-  const { weekday, year, holidayName, reason } = values;
-  const startDate = dayjs(`${year}-01-01`);
-  const endDate = dayjs(`${year}-12-31`);
-  
-  // Find all dates for the selected weekday in the year
-  const weeklyDates = [];
-  let currentDate = startDate;
-  
-  // Find first occurrence of the weekday
-  while (currentDate.day() !== weekday) {
-    currentDate = currentDate.add(1, 'day');
-  }
-  
-  // Add all occurrences of this weekday in the year
-  while (currentDate.isBefore(endDate) || currentDate.isSame(endDate, 'day')) {
-    weeklyDates.push(currentDate.format('YYYY-MM-DD'));
-    currentDate = currentDate.add(7, 'days');
-  }
-  
-  // Add to pending changes
-  const newPendingChanges = { ...pendingChanges };
-  weeklyDates.forEach(dateStr => {
-    newPendingChanges[dateStr] = {
-      date: dateStr,
-      day_type: 'holiday',
-      holiday_name: holidayName,
-      reason: reason || `Weekly holiday - ${dayjs().day(weekday).format('dddd')}`,
-      is_mandatory: true,
-      created_by: 'Current User',
-      updated_at: new Date().toISOString()
-    };
-  });
-  
-  setPendingChanges(newPendingChanges);
-  setHasUnsavedChanges(true);
-  setWeeklyHolidayModal(false);
-  weeklyHolidayForm.resetFields();
-  message.success(`${weeklyDates.length} ${dayjs().day(weekday).format('dddd')}s marked as holidays for ${year}. Click "Publish" to save.`);
-};
-
-// Publish all pending changes to database
-// In LeaveManagementPage.jsx, inside the LeaveCalendarView component
-
-// Publish all pending changes to database
-const handlePublishChanges = async () => {
-  if (!hasUnsavedChanges || Object.keys(pendingChanges).length === 0) {
-    message.info('No changes to publish');
-    return;
-  }
-  
-  setLoading(true);
-  try {
-    const changesToPublish = Object.values(pendingChanges);
-    
-    // UPDATED: Use upsert to prevent 409 conflict errors on duplicate dates.
-    // This requires a 'UNIQUE' constraint on the 'date' column in your 'company_calendar' table.
-    const { error } = await supabase
-      .from('company_calendar')
-      .upsert(changesToPublish, { onConflict: 'date' });
-
-    if (error) throw error;
-    
-    // Refresh calendar data
-    await fetchCompanyCalendar();
-    
-    // Clear pending changes
-    setPendingChanges({});
-    setHasUnsavedChanges(false);
-    
-    message.success(`${changesToPublish.length} changes published successfully!`);
-    
-  } catch (error) {
-    console.error('Error publishing changes:', error);
-    message.error('Failed to publish changes');
-  } finally {
-    setLoading(false);
-  }
-};
-
-
-// Discard pending changes
-const handleDiscardChanges = () => {
-  setPendingChanges({});
-  setHasUnsavedChanges(false);
-  message.success('Pending changes discarded');
-};  // Date cell render for calendar
-const dateCellRender = (value) => {
-  const calendarData = getCalendarData(value);
-  const isToday = value.isSame(dayjs(), 'day');
-  // Remove: const isWeekend = value.day() === 0 || value.day() === 6;
-  
-  // All days are working by default, only override if explicitly marked
-  const effectiveDayType = calendarData?.day_type || 'working';
-  
-  return (
-    <div 
-      className={`calendar-date-cell ${isToday ? 'today' : ''}`}
-      style={{
-        position: 'relative',
-        height: '80px',
-        padding: '4px',
-        borderRadius: '6px',
-        transition: 'all 0.2s ease',
-        cursor: userRole !== 'employee' ? 'pointer' : 'default',
-        backgroundColor: getDateBackground(calendarData, isToday, effectiveDayType),
-        border: getDateBorder(calendarData, isToday, effectiveDayType),
-      }}
-      
-      onClick={() => {
-  if (userRole !== 'employee') {
-    setSelectedCalendarDate(value);
-    const existing = getCalendarData(value);
-    if (existing) {
-      calendarForm.setFieldsValue({
-        dayType: existing.day_type,
-        holidayName: existing.holiday_name,
-        reason: existing.reason,
-        isMandatory: existing.is_mandatory
-      });
-    } else {
-      calendarForm.resetFields();
-      calendarForm.setFieldsValue({ dayType: 'working' });
-    }
-    setEditModal(true);
-  }
-}}
-    >     
-        {/* Status indicators */}
-{/* Status indicators */}
-<div style={{
-  position: 'absolute',
-  top: '16px',
-  left: '2px',
-  right: '2px',
-  zIndex: 1
-}}>
-  {/* Holiday badge */}
-  {effectiveDayType === 'holiday' && (
-    <div style={{
-      background: 'linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%)',
-      color: 'white',
-      borderRadius: '10px',
-      padding: '2px 6px',
-      marginBottom: '2px',
-      fontSize: '9px',
-      fontWeight: '500',
-      textAlign: 'center',
-      boxShadow: '0 1px 3px rgba(255, 77, 79, 0.3)',
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap'
-    }}>
-      🎉 {calendarData?.holiday_name || 'Holiday'}
-    </div>
-  )}
-
-  {/* Half Day badge */}
-  {effectiveDayType === 'half_day' && (
-    <div style={{
-      background: 'linear-gradient(135deg, #faad14 0%, #ffc53d 100%)',
-      color: 'white',
-      borderRadius: '10px',
-      padding: '2px 6px',
-      marginBottom: '2px',
-      fontSize: '9px',
-      fontWeight: '500',
-      textAlign: 'center',
-      boxShadow: '0 1px 3px rgba(250, 173, 20, 0.3)',
-    }}>
-      🕑 Half Day
-    </div>
-  )}
-
-  {/* ✅ Working Day badge */}
-  {effectiveDayType === 'working' && (
-    <div style={{
-      background: 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)',
-      color: 'white',
-      borderRadius: '10px',
-      padding: '2px 6px',
-      marginBottom: '2px',
-      fontSize: '9px',
-      fontWeight: '500',
-      textAlign: 'center',
-      boxShadow: '0 1px 3px rgba(82, 196, 26, 0.3)',
-    }}>
-      ✅ Working Day
-    </div>
-  )}
-
-        {/* Remove the working indicator completely since all days are working by default */}
-        
-        {/* Reason tooltip */}
-        {calendarData?.reason && (
-          <Tooltip title={calendarData.reason} placement="bottom">
-            <div style={{
-              background: 'rgba(13, 113, 57, 0.1)',
-              border: '1px solid rgba(13, 113, 57, 0.2)',
-              color: '#0D7139',
-              borderRadius: '8px',
-              padding: '2px 4px',
-              fontSize: '8px',
-              textAlign: 'center',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              cursor: 'help'
-            }}>
-              📝 Info
-            </div>
-          </Tooltip>
-        )}
-      </div>
-
-        
-        {/* Edit button for HR/Admin */}
-   {userRole !== 'employee' && (
-        <div style={{
-          position: 'absolute',
-          bottom: '2px',
-          right: '2px',
-          opacity: 0,
-          transition: 'opacity 0.2s ease'
-        }}
-        className="edit-indicator">
-          <div style={{
-            width: '16px',
-            height: '16px',
-            borderRadius: '50%',
-            background: 'linear-gradient(135deg, #0D7139 0%, #52c41a 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '10px',
-            color: 'white',
-            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.15)'
-          }}>
-            <EditOutlined />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-const getDateBackground = (calendarData, isToday) => {
-  if (isToday) {
-    return 'linear-gradient(135deg, rgba(13, 113, 57, 0.1) 0%, rgba(13, 113, 57, 0.05) 100%)';
-  }
-  
-  // Only show special background for explicitly marked days
-  if (!calendarData) {
-    return 'transparent'; // All days are working by default, no special background needed
-  }
-  
-  switch (calendarData.day_type) {
-    case 'holiday':
-      return 'linear-gradient(135deg, rgba(255, 77, 79, 0.08) 0%, rgba(255, 77, 79, 0.03) 100%)';
-    case 'half_day':
-      return 'linear-gradient(135deg, rgba(250, 173, 20, 0.08) 0%, rgba(250, 173, 20, 0.03) 100%)';
-    // Remove 'working' case since it's default
-    default:
-      return 'transparent';
-  }
-};
-
-  const getDateBorder = (calendarData, isToday) => {
-    if (isToday) {
-      return '2px solid #0D7139';
-    }
-    if (!calendarData) return 'none';
-    
-    switch (calendarData.day_type) {
-      case 'holiday':
-        return '1px solid rgba(255, 77, 79, 0.2)';
-      case 'half_day':
-        return '1px solid rgba(250, 173, 20, 0.2)';
-      case 'working':
-        return '1px solid rgba(82, 196, 26, 0.2)';
-      default:
-        return 'none';
-    }
-  };
-
-  return (
-    <>
-      {/* Custom styles */}
-      <style>{`
-        .calendar-date-cell:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
-        }
-        
-        .calendar-date-cell:hover .edit-indicator {
-          opacity: 1 !important;
-        }
-        
-        .calendar-date-cell.today {
-          box-shadow: 0 0 0 2px rgba(13, 113, 57, 0.2), 0 4px 12px rgba(13, 113, 57, 0.15);
-        }
-        
-        .calendar-date-cell.weekend {
-          background: linear-gradient(135deg, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.01) 100%);
-        }
-        
-        .ant-picker-calendar .ant-picker-calendar-date {
-          border: none !important;
-          border-radius: 8px !important;
-          margin: 2px !important;
-        }
-        
-        .ant-picker-calendar-header {
-          padding: 16px 24px !important;
-          border-bottom: 1px solid #f0f0f0 !important;
-        }
-        
-        .ant-picker-calendar-header .ant-picker-calendar-year-select,
-        .ant-picker-calendar-header .ant-picker-calendar-month-select {
-          min-width: 120px !important;
-        }
-      `}</style>
-
-      <Card style={{ 
-  background: 'rgba(255, 255, 255, 0.98)',
-  backdropFilter: 'blur(10px)',
-  border: 'none',
-  borderRadius: '20px',
-  boxShadow: '0 10px 40px rgba(0, 0, 0, 0.08)',
-  overflow: 'hidden'
-}}>
-  {/* Mobile-Responsive Enhanced Header */}
-  <div style={{ 
-    marginBottom: '24px',
-    padding: '16px',
-    background: 'linear-gradient(135deg, #f6ffed 0%, #f0f9ff 100%)',
-    borderRadius: '16px',
-    border: '1px solid rgba(13, 113, 57, 0.1)'
-  }}>
-    {/* Title Section */}
-    <div style={{ marginBottom: '16px' }}>
-      <Title level={3} style={{ 
-        margin: 0, 
-        color: '#0D7139', 
-        fontSize: 'clamp(18px, 4vw, 24px)',
-        display: 'flex',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '8px'
-      }}>
-        <CalendarTwoTone 
-          twoToneColor={['#0D7139', '#52c41a']} 
-          style={{ fontSize: '24px', flexShrink: 0 }} 
-        />
-        <span>Company Calendar</span>
-      </Title>
-    </div>
-
-    {/* Legend Section - Mobile Optimized */}
-    <div style={{ 
-      display: 'flex', 
-      flexWrap: 'wrap',
-      gap: '8px', 
-      alignItems: 'center',
-      padding: '12px',
-      background: 'white',
-      borderRadius: '12px',
-      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
-      marginBottom: '16px'
-    }}>
-      <Tooltip title="Public Holidays">
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '6px', 
-          minWidth: 'fit-content',
-          padding: '4px 8px',
-          borderRadius: '6px',
-          background: 'rgba(255, 77, 79, 0.05)'
-        }}>
-          <div style={{ 
-            width: '12px', 
-            height: '12px', 
-            background: 'linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%)', 
-            borderRadius: '3px',
-            boxShadow: '0 1px 3px rgba(255, 77, 79, 0.3)',
-            flexShrink: 0
-          }}></div>
-          <Text style={{ 
-            fontSize: '12px', 
-            fontWeight: '500',
-            whiteSpace: 'nowrap'
-          }}>Holiday</Text>
-        </div>
-      </Tooltip>
-      
-      <Tooltip title="Half Working Days">
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '6px', 
-          minWidth: 'fit-content',
-          padding: '4px 8px',
-          borderRadius: '6px',
-          background: 'rgba(250, 173, 20, 0.05)'
-        }}>
-          <div style={{ 
-            width: '12px', 
-            height: '12px', 
-            background: 'linear-gradient(135deg, #faad14 0%, #ffc53d 100%)', 
-            borderRadius: '3px',
-            boxShadow: '0 1px 3px rgba(250, 173, 20, 0.3)',
-            flexShrink: 0
-          }}></div>
-          <Text style={{ 
-            fontSize: '12px', 
-            fontWeight: '500',
-            whiteSpace: 'nowrap'
-          }}>Half Day</Text>
-        </div>
-      </Tooltip>
-      
-      <Tooltip title="Special Working Days">
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '6px', 
-          minWidth: 'fit-content',
-          padding: '4px 8px',
-          borderRadius: '6px',
-          background: 'rgba(82, 196, 26, 0.05)'
-        }}>
-          <div style={{ 
-            width: '12px', 
-            height: '12px', 
-            background: 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)', 
-            borderRadius: '3px',
-            boxShadow: '0 1px 3px rgba(82, 196, 26, 0.3)',
-            flexShrink: 0
-          }}></div>
-          <Text style={{ 
-            fontSize: '12px', 
-            fontWeight: '500',
-            whiteSpace: 'nowrap'
-          }}>Working</Text>
-        </div>
-      </Tooltip>
-    </div>
-
-    {/* Action Buttons - Mobile Responsive */}
-    {userRole !== 'employee' && (
-      <div style={{ 
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '12px'
-      }}>
-        {/* Primary Actions Row */}
-        <div style={{ 
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '8px',
-          alignItems: 'center'
-        }}>
-          <Tooltip title="Set Weekly Holiday">
-            <Button 
-              icon={<CalendarOutlined style={{ fontSize: '14px' }} />}
-              size="middle"
-              style={{ 
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                minWidth: '90px',
-                height: '36px'
-              }}
-              onClick={() => {
-                weeklyHolidayForm.resetFields();
-                setWeeklyHolidayModal(true);
-              }}
-            >
-              <span style={{ fontSize: '8px' }}>Weekly Holiday</span>
-            </Button>
-          </Tooltip>
-          
-          <Tooltip title="Quick Add Holiday">
-            <Button 
-              type="primary" 
-              icon={<PlusOutlined style={{ fontSize: '14px' }} />}
-              size="middle"
-              style={{
-                background: 'linear-gradient(135deg, #0D7139 0%, #52c41a 100%)',
-                border: 'none',
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                minWidth: '80px',
-                height: '36px'
-              }}
-              onClick={() => {
-                setSelectedCalendarDate(dayjs());
-                calendarForm.resetFields();
-                calendarForm.setFieldsValue({ dayType: 'holiday' });
-                setEditModal(true);
-              }}
-            >
-              <span style={{ fontSize: '10px' }}>Add Holiday</span>
-            </Button>
-          </Tooltip>
-        </div>
-
-        {/* Secondary Actions Row - Only show when needed */}
-        {hasUnsavedChanges && (
-          <div style={{ 
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '8px',
-            alignItems: 'center',
-            padding: '8px',
-            background: 'rgba(82, 196, 26, 0.05)',
-            borderRadius: '8px',
-            border: '1px solid rgba(82, 196, 26, 0.2)'
-          }}>
-            <Badge 
-              count={Object.keys(pendingChanges).length} 
-              size="small"
-              style={{ fontSize: '10px' }}
-            >
-              <Button 
-                type="primary"
-                icon={<SaveOutlined style={{ fontSize: '14px' }} />}
-                size="middle"
-                style={{
-                  background: 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  minWidth: '100px',
-                  height: '36px'
-                }}
-                onClick={handlePublishChanges}
-                loading={loading}
-              >
-                <span style={{ fontSize: '10px' }}>Publish</span>
-              </Button>
-            </Badge>
-            
-            <Button 
-              icon={<CloseCircleOutlined style={{ fontSize: '14px' }} />}
-              size="middle"
-              danger
-              style={{ 
-                borderRadius: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                minWidth: '80px',
-                height: '36px'
-              }}
-              onClick={handleDiscardChanges}
-            >
-              <span style={{ fontSize: '12px' }}>Discard</span>
-            </Button>
-          </div>
-        )}
-      </div>
-    )}
-  </div>
-
-  {/* Weekly Holiday Setup Modal - Mobile Optimized */}
-  {userRole !== 'employee' && (
-    <Modal
-      title={
-        <div style={{ 
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          flexWrap: 'wrap'
-        }}>
-          <div style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
-            background: 'linear-gradient(135deg, #722ed1 0%, #9254de 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-            flexShrink: 0
-          }}>
-            <CalendarOutlined />
-          </div>
-          <div>
-            <div style={{ fontSize: '16px', fontWeight: '600' }}>
-              Set Weekly Holiday
-            </div>
-            <Text type="secondary" style={{ fontSize: '12px' }}>
-              Mark all occurrences of a weekday as holiday
-            </Text>
-          </div>
-        </div>
-      }
-      open={weeklyHolidayModal}
-      onCancel={() => {
-        setWeeklyHolidayModal(false);
-        weeklyHolidayForm.resetFields();
-      }}
-      footer={[
-        <Button 
-          key="cancel" 
-          onClick={() => setWeeklyHolidayModal(false)}
-          style={{ marginRight: '8px' }}
-        >
-          Cancel
-        </Button>,
-        <Button 
-          key="submit" 
-          type="primary" 
-          onClick={() => weeklyHolidayForm.submit()}
-          style={{
-            background: 'linear-gradient(135deg, #722ed1 0%, #9254de 100%)',
-            border: 'none',
-            borderRadius: '6px'
-          }}
-          icon={<CalendarOutlined />}
-        >
-          Set Holiday
-        </Button>
-      ]}
-      width="90%"
-      style={{ maxWidth: '500px' }}
-      centered
-    >
-      <Form
-        form={weeklyHolidayForm}
-        layout="vertical"
-        onFinish={handleWeeklyHolidaySetup}
-      >
-        <Row gutter={[16, 16]}>
-          <Col xs={24} sm={12}>
-            <Form.Item
-              name="weekday"
-              label="Select Weekday"
-              rules={[{ required: true, message: 'Please select a weekday' }]}
-            >
-              <Select 
-                placeholder="Choose weekday"
-                size="large"
-                style={{ borderRadius: '8px' }}
-              >
-                <Option value={1}>Monday</Option>
-                <Option value={2}>Tuesday</Option>
-                <Option value={3}>Wednesday</Option>
-                <Option value={4}>Thursday</Option>
-                <Option value={5}>Friday</Option>
-                <Option value={6}>Saturday</Option>
-                <Option value={0}>Sunday</Option>
-              </Select>
-            </Form.Item>
-          </Col>
-          
-          <Col xs={24} sm={12}>
-            <Form.Item
-              name="year"
-              label="Select Year"
-              rules={[{ required: true, message: 'Please select a year' }]}
-            >
-              <Select 
-                placeholder="Choose year"
-                size="large"
-                style={{ borderRadius: '8px' }}
-              >
-                {Array.from({ length: 5 }, (_, i) => {
-                  const year = dayjs().year() + i;
-                  return (
-                    <Option key={year} value={year}>
-                      {year}
-                    </Option>
-                  );
-                })}
-              </Select>
-            </Form.Item>
-          </Col>
-        </Row>
-
-        <Form.Item
-          name="holidayName"
-          label="Holiday Name"
-          rules={[{ required: true, message: 'Please enter holiday name' }]}
-        >
-          <Input 
-            placeholder="e.g., Weekly Off, Saturday Holiday"
-            size="large"
-            style={{ borderRadius: '8px' }}
-          />
-        </Form.Item>
-
-        <Form.Item
-          name="reason"
-          label="Description (Optional)"
-        >
-          <TextArea
-            rows={2}
-            placeholder="Additional details about this weekly holiday..."
-            maxLength={100}
-            showCount
-            style={{ borderRadius: '8px' }}
-          />
-        </Form.Item>
-      </Form>
-    </Modal>
-  )}
-        
-  {/* Professional Calendar */}
-  <div style={{ 
-    padding: '0 8px'
-  }}>
-    <style>{`
-      .ant-picker-calendar {
-        background: transparent !important;
-      }
-      
-      /* Mobile calendar optimizations */
-      @media (max-width: 768px) {
-        .ant-picker-calendar .ant-picker-calendar-header {
-          flex-wrap: wrap;
-          gap: 8px;
-        }
-        
-        .ant-picker-calendar .ant-picker-calendar-date {
-          height: 40px;
-        }
-        
-        .ant-picker-calendar .ant-picker-calendar-date-content {
-          font-size: 12px;
-        }
-      }
-    `}</style>
-    
-    <Calendar 
-      key={companyCalendar.length}
-      cellRender={(value, info) => {
-        if (info.type === 'date') {
-          return dateCellRender(value);
-        }
-        return info.originNode;
-      }}
-      onSelect={(date) => setSelectedDate(date)}
-      headerRender={({ value, type, onChange, onTypeChange }) => (
-        <div style={{ 
-          padding: '16px', 
-          background: 'white',
-          borderBottom: '1px solid #f0f0f0',
-          borderRadius: '12px 12px 0 0'
-        }}>
-          <div style={{ 
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px'
-          }}>
-            {/* Date Selection Row */}
-            <div style={{ 
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '8px',
-              alignItems: 'center'
-            }}>
-              <Select
-                size="large"
-                value={value.month()}
-                onChange={(month) => {
-                  const newValue = value.clone().month(month);
-                  onChange(newValue);
-                }}
-                style={{ 
-                  minWidth: '120px',
-                  flex: '1 1 auto'
-                }}
-              >
-                {Array.from({ length: 12 }, (_, i) => (
-                  <Option key={i} value={i}>
-                    {dayjs().month(i).format('MMMM')}
-                  </Option>
-                ))}
-              </Select>
-              
-              <Select
-                size="large"
-                value={value.year()}
-                onChange={(year) => {
-                  const newValue = value.clone().year(year);
-                  onChange(newValue);
-                }}
-                style={{ 
-                  minWidth: '90px',
-                  flex: '0 0 auto'
-                }}
-              >
-                {Array.from({ length: 10 }, (_, i) => {
-                  const year = dayjs().year() - 5 + i;
-                  return (
-                    <Option key={year} value={year}>
-                      {year}
-                    </Option>
-                  );
-                })}
-              </Select>
-            </div>
-            
-            {/* Action Buttons Row */}
-            <div style={{ 
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '8px',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}>
-              <Button 
-                onClick={() => {
-                  const today = dayjs();
-                  onChange(today);
-                }}
-                style={{ 
-                  borderRadius: '6px',
-                  minWidth: '70px'
-                }}
-              >
-                Today
-              </Button>
-              
-              <div style={{ 
-                display: 'flex',
-                border: '1px solid #d9d9d9',
-                borderRadius: '6px',
-                overflow: 'hidden'
-              }}>
-                <Button 
-                  type={type === 'month' ? 'primary' : 'default'}
-                  onClick={() => onTypeChange('month')}
-                  style={{ 
-                    borderRadius: '0',
-                    border: 'none',
-                    minWidth: '60px'
-                  }}
-                >
-                  Month
-                </Button>
-                <Button 
-                  type={type === 'year' ? 'primary' : 'default'}
-                  onClick={() => onTypeChange('year')}
-                  style={{ 
-                    borderRadius: '0',
-                    border: 'none',
-                    borderLeft: '1px solid #d9d9d9',
-                    minWidth: '60px'
-                  }}
-                >
-                  Year
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      style={{
-        background: 'white',
-        borderRadius: '12px',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
-      }}
-    />
-  </div>
-</Card>
-
-      {/* Enhanced Calendar Edit Modal */}
-      {userRole !== 'employee' && (
-        <Modal
-          title={
-            <Space>
-              <div style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: 'linear-gradient(135deg, #0D7139 0%, #52c41a 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'white'
-              }}>
-                <CalendarOutlined />
-              </div>
-              <div>
-                <div style={{ fontSize: '16px', fontWeight: '600' }}>
-                  Edit Calendar Date
-                </div>
-                <Text type="secondary" style={{ fontSize: '12px' }}>
-                  {selectedCalendarDate?.format('dddd, MMMM DD, YYYY')}
-                </Text>
-              </div>
-            </Space>
-          }
-          open={editModal}
-          onCancel={() => {
-            setEditModal(false);
-            calendarForm.resetFields();
-          }}
-          footer={[
-            <Button key="cancel" onClick={() => setEditModal(false)}>
-              Cancel
-            </Button>,
-            <Button 
-              key="submit" 
-              type="primary" 
-              onClick={() => calendarForm.submit()}
-              loading={loading}
-              style={{
-                background: 'linear-gradient(135deg, #0D7139 0%, #52c41a 100%)',
-                border: 'none',
-                borderRadius: '6px'
-              }}
-            >
-              <SaveOutlined /> Save Changes
-            </Button>
-          ]}
-          width={600}
-          centered
-          styles={{
-            header: {
-              padding: '20px 24px',
-              borderBottom: '1px solid #f0f0f0'
-            },
-            body: {
-              padding: '24px'
-            }
-          }}
-        >
-          <Form
-            form={calendarForm}
-            layout="vertical"
-            onFinish={handleCalendarUpdate}
-            initialValues={{ dayType: 'working' }}
-          >
-            <Form.Item
-              name="dayType"
-              label={
-                <span style={{ fontSize: '14px', fontWeight: '500' }}>
-                  Day Type
-                </span>
-              }
-              rules={[{ required: true, message: 'Please select day type' }]}
-            >
-              <Radio.Group 
-                size="large"
-                style={{ width: '100%' }}
-                buttonStyle="solid"
-              >
-                <Radio.Button 
-                  value="working" 
-                  style={{ 
-                    flex: 1, 
-                    textAlign: 'center',
-                    borderRadius: '8px 0 0 8px'
-                  }}
-                >
-                  <CheckCircleOutlined style={{ color: '#52c41a' }} /> Working Day
-                </Radio.Button>
-                <Radio.Button 
-                  value="holiday" 
-                  style={{ 
-                    flex: 1, 
-                    textAlign: 'center'
-                  }}
-                >
-                  <ThunderboltOutlined style={{ color: '#ff4d4f' }} /> Holiday
-                </Radio.Button>
-                <Radio.Button 
-                  value="half_day" 
-                  style={{ 
-                    flex: 1, 
-                    textAlign: 'center',
-                    borderRadius: '0 8px 8px 0'
-                  }}
-                >
-                  <ClockCircleOutlined style={{ color: '#faad14' }} /> Half Day
-                </Radio.Button>
-              </Radio.Group>
-            </Form.Item>
-
-            <Form.Item
-              noStyle
-              shouldUpdate={(prevValues, currentValues) =>
-                prevValues.dayType !== currentValues.dayType
-              }
-            >
-              {({ getFieldValue }) =>
-                getFieldValue('dayType') === 'holiday' ? (
-                  <Form.Item
-                    name="holidayName"
-                    label={
-                      <span style={{ fontSize: '14px', fontWeight: '500' }}>
-                        Holiday Name
-                      </span>
-                    }
-                    rules={[{ required: true, message: 'Please enter holiday name' }]}
-                  >
-                    <Input 
-                      placeholder="e.g., Diwali, Christmas, Independence Day"
-                      size="large"
-                      prefix={<ThunderboltOutlined style={{ color: '#ff4d4f' }} />}
-                      style={{ borderRadius: '8px' }}
-                    />
-                  </Form.Item>
-                ) : null
-              }
-            </Form.Item>
-
-            <Form.Item
-              name="reason"
-              label={
-                <span style={{ fontSize: '14px', fontWeight: '500' }}>
-                  Description
-                </span>
-              }
-            >
-              <TextArea
-                rows={3}
-                placeholder="Provide additional details about this day..."
-                maxLength={200}
-                showCount
-                style={{ borderRadius: '8px' }}
-              />
-            </Form.Item>
-
-            <Form.Item
-              name="isMandatory"
-              valuePropName="checked"
-              style={{ marginBottom: 0 }}
-            >
-              <div style={{
-                padding: '12px 16px',
-                background: '#f8f9fa',
-                borderRadius: '8px',
-                border: '1px solid #e9ecef'
-              }}>
-                <Space>
-                  <Switch 
-                    size="small"
-                    style={{
-                      background: '#52c41a'
-                    }}
-                  />
-                  <span style={{ fontSize: '14px', fontWeight: '500' }}>
-                    Mandatory Holiday
-                  </span>
-                  <Text type="secondary" style={{ fontSize: '12px' }}>
-                    (Cannot be overridden by employees)
-                  </Text>
-                </Space>
-              </div>
-            </Form.Item>
-          </Form>
-        </Modal>
-      )}
-    </>
-  );
-};
-const generateLeaveData = () => {
-  // Return empty array as we're using real data from Supabase
-  return [];
 };
 
 // 2. Add Export Modal Component (add this before the LeaveManagementPage component)

@@ -6,6 +6,9 @@ import Sidebar from './pages/dashboard/Sidebar';
 import AnimatedBackground from './pages/dashboard/AnimatedBackground';
 import CampusJobViewPage from './pages/job/CampusJobViewPage';
 import ExamTakePage from './pages/job/ExamTakePage';
+
+import authService from './supabase/authService';
+
 import CandidateApplicationForm from './pages/job/CandidateApplicationForm';
 
 // Protected Route component
@@ -32,26 +35,26 @@ const AppContent = () => {
 
   // Check for existing session on initial load
   useEffect(() => {
-    const savedUserData = sessionStorage.getItem('userData');
-    if (savedUserData) {
-      try {
-        const parsedData = JSON.parse(savedUserData);
-       
-       
-        
-        setUserData(parsedData);
-        setIsLoggedIn(true);
-        // If user is on login page but authenticated, redirect to dashboard
-        if (location.pathname === '/') {
-          navigate('/dashboard', { replace: true });
-        }
-      } catch (error) {
-        console.error('Error parsing saved user data:', error);
-        sessionStorage.removeItem('userData');
+  // Check for stored user data from authService (handles both localStorage and sessionStorage)
+  const savedUserData = authService.getStoredUserData();
+  
+  if (savedUserData) {
+    try {
+      console.log('Found stored user data:', savedUserData);
+      setUserData(savedUserData);
+      setIsLoggedIn(true);
+      
+      // If user is on login page but authenticated, redirect to dashboard
+      if (location.pathname === '/') {
+        navigate('/dashboard', { replace: true });
       }
+    } catch (error) {
+      console.error('Error with stored user data:', error);
+      authService.clearStoredUserData();
     }
-    setCheckingAuth(false);
-  }, [location.pathname, navigate]);
+  }
+  setCheckingAuth(false);
+}, [location.pathname, navigate]);
 
   useEffect(() => {
     // Handle URL-based navigation
@@ -64,6 +67,12 @@ const AppContent = () => {
     }
      else if (path.includes('/direct-recruitement')) {
       setActiveSection('direct-recruitement');
+       }
+        else if (path.includes('/company-calender')) {
+      setActiveSection('company-calender');
+       }
+        else if (path.includes('/leave-manage')) {
+      setActiveSection('leave-manage');
        }
     else if (path.includes('/feedback')) {
       setActiveSection('feedback');
@@ -112,57 +121,72 @@ const AppContent = () => {
   }, [location.pathname, isLoggedIn]); 
 
   const handleLoginSuccess = (user) => {
-    
-   
-   
-    
-    
-    // Store the COMPLETE user object, not just selected fields
-    const completeUserData = {
-      id: user.id,
-      name: user.name || 'User',
-      email: user.email,
-      role: user.role || 'User',
-      profileImage: user.profileImage,
-      photoURL: user.photoURL,
-      isActive: user.isActive,
-      employeeId: user.employeeId,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-      displayName: user.displayName,
-      userType: user.userType
-    };
-    
-   
-    
-    
-    setUserData(completeUserData);
-    setIsLoggedIn(true);
-    
-    // Store complete user data in localStorage
-    try {
-      sessionStorage.setItem('userData', JSON.stringify(completeUserData));
-      
-      // Verify storage
-      const storedData = sessionStorage.getItem('userData');
-      const parsedStoredData = JSON.parse(storedData);
-     
-    } catch (error) {
-      console.error('Error storing user data:', error);
-    }
-    
-    // Navigate to dashboard after successful login
-    navigate('/dashboard', { replace: true });
+  console.log('Login successful, user data:', user);
+  
+  // Store the COMPLETE user object
+  const completeUserData = {
+    id: user.id,
+    name: user.name || 'User',
+    email: user.email,
+    role: user.role || 'User',
+    profileImage: user.profileImage,
+    photoURL: user.photoURL,
+    isActive: user.isActive,
+    employeeId: user.employeeId,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    displayName: user.displayName,
+    userType: user.userType
   };
+  
+  setUserData(completeUserData);
+  setIsLoggedIn(true);
+  
+  // Don't store here - authService already handled storage in login component
+  // Just verify what's stored
+  const storedData = authService.getStoredUserData();
+  console.log('Stored user data after login:', storedData);
+  
+  // Navigate to dashboard after successful login
+  navigate('/dashboard', { replace: true });
+};
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+  try {
+    console.log('Logout initiated for user:', userData);
     
+    // Call authService logout to handle database updates and storage cleanup
+    const success = await authService.logout(userData);
+    
+    if (success) {
+      console.log('Logout successful');
+      
+      // Clear local state
+      setIsLoggedIn(false);
+      setUserData(null);
+      setActiveSection('dashboard');
+      
+      // Navigate to login page
+      navigate('/', { replace: true });
+    } else {
+      console.error('Logout failed, but clearing local data anyway');
+      // Even if logout fails, clear local data for security
+      setIsLoggedIn(false);
+      setUserData(null);
+      sessionStorage.removeItem('userData');
+      localStorage.removeItem('userData');
+      navigate('/', { replace: true });
+    }
+  } catch (error) {
+    console.error('Logout error:', error);
+    // Clear local data even if there's an error
     setIsLoggedIn(false);
     setUserData(null);
     sessionStorage.removeItem('userData');
-    setActiveSection('dashboard');
+    localStorage.removeItem('userData');
     navigate('/', { replace: true });
-  };
+  }
+};
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -192,8 +216,14 @@ else if (itemId === 'on-campus-data') {
     else if (itemId === 'feedback') {
       navigate('/dashboard/fedback', { replace: true });
         } 
+         else if (itemId === 'company-calender') {
+      navigate('/dashboard/company-calender', { replace: true });
+        } 
         else if (itemId === 'direct-recruitement') {
       navigate('/dashboard/direct-recruitement', { replace: true });
+        }
+         else if (itemId === 'leave-manage') {
+      navigate('/dashboard/leave-manage', { replace: true });
         }
      else if (itemId === 'leave-management') {
       navigate('/dashboard/leave-management', { replace: true });
@@ -331,6 +361,8 @@ else if (itemId === 'on-campus-data') {
                   onItemClick={handleSidebarItemClick}
                   userRole={userData?.role}
                   isEmailAuthenticated={isEmailAuthenticated}
+                  userData={userData} // Add this line
+                  onLogout={handleLogout}
                 />
                 <Dashboard
                   sidebarOpen={sidebarOpen}
