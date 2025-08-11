@@ -7,20 +7,28 @@ const multer = require('multer');
 
 const router = express.Router();
 
-// Helper function to create transporter
-
-function createTransporter(senderEmail, senderPassword, smtpServer = 'smtp.gmail.com', smtpPort = 587) {
-    const nodemailer = require('nodemailer');
+// Create transporter function with Hostinger defaults
+function createTransporter(senderEmail, senderPassword, smtpServer = 'smtp.hostinger.com', smtpPort = 587) {
     return nodemailer.createTransport({
         host: smtpServer,
         port: smtpPort,
-        secure: smtpPort === 465, // true for 465, false for other ports
+        secure: false, // Use STARTTLS
         auth: {
             user: senderEmail,
             pass: senderPassword
-        }
+        },
+        tls: {
+            rejectUnauthorized: false,
+            ciphers: 'SSLv3'
+        },
+        requireTLS: true,
+        connectionTimeout: 60000,
+        socketTimeout: 60000,
+        debug: true // Enable debug for troubleshooting
     });
 }
+
+
 
 const multerStorage = multer({ 
     dest: 'uploads/',
@@ -36,27 +44,27 @@ router.get('/test', (req, res) => {
     res.json({ message: 'General routes working!' });
 });
 
-// 1. SEND EMAIL ENDPOINT
+// SEND EMAIL ENDPOINT
 router.post('/send-email', async (req, res) => {
     try {
         const data = req.body;
         console.log("Received data:", data);
 
         const {
-            senderEmail,
-            senderPassword,
-            recipientEmail,
-            subject = 'Welcome - Your Account Credentials',
-            smtpServer = 'smtp.gmail.com',
-            smtpPort = 587,
-            templateData = {}
-        } = data;
+    senderEmail = process.env.SEND_EMAIL, // Default to Hostinger email
+    senderPassword = process.env.SEND_PASSWORD, // Default to Hostinger password
+    recipientEmail,
+    subject = 'Welcome - Your Account Credentials',
+    smtpServer = 'smtp.hostinger.in', // Changed default to Hostinger
+    smtpPort = 587,
+    templateData = {}
+} = data;
 
-        // Validate required fields
-        if (!senderEmail || !senderPassword || !recipientEmail) {
+        // Validate required fields (email and password now have defaults)
+        if (!recipientEmail) {
             return res.status(400).json({
                 success: false,
-                error: "Missing required fields: senderEmail, senderPassword, or recipientEmail"
+                error: "Missing required field: recipientEmail"
             });
         }
 
@@ -99,6 +107,11 @@ router.post('/send-email', async (req, res) => {
                 
                 <div style="margin-bottom: 15px;">
                     <strong style="color: #495057; display: inline-block; width: 80px;">Email:</strong>
+                    <span style="background-color: #ffffff; padding: 8px 12px; border-radius: 4px; border: 1px solid #dee2e6; font-family: 'Courier New', monospace; font-size: 14px;">{{user_email}}</span>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <strong style="color: #495057; display: inline-block; width: 80px;">Password:</strong>
                     <span style="background-color: #ffffff; padding: 8px 12px; border-radius: 4px; border: 1px solid #dee2e6; font-family: 'Courier New', monospace; font-size: 14px;">{{user_password}}</span>
                 </div>
                 
@@ -153,7 +166,7 @@ router.post('/send-email', async (req, res) => {
             htmlTemplate = htmlTemplate.replace(regex, templateData[key] || '');
         });
 
-        // Create transporter
+        // Create transporter with Hostinger settings
         const transporter = createTransporter(senderEmail, senderPassword, smtpServer, smtpPort);
 
         // Mail options
@@ -192,19 +205,19 @@ router.post('/payslip', pay_upload.single('payslip'), async (req, res) => {
             employeeEmail,
             companyName,
             payPeriod,
-            senderEmail,
-            senderPassword,
-            smtpServer = 'smtp.gmail.com',
+            senderEmail = process.env.PAYSLIP_EMAIL,
+            senderPassword = process.env.PAYSLIP_PASSWORD,
+            smtpServer = 'smtp.hostinger.in',
             smtpPort = 587
         } = req.body;
 
         console.log("Received payslip data:", req.body);
 
-        // Validate required fields
-        if (!employeeName || !employeeEmail || !senderEmail || !senderPassword) {
+        // Validate required fields - senderEmail and senderPassword now have defaults from env
+        if (!employeeName || !employeeEmail) {
             return res.status(400).json({
                 success: false,
-                error: "Missing required fields: employeeName, employeeEmail, senderEmail, or senderPassword"
+                error: "Missing required fields: employeeName or employeeEmail"
             });
         }
 
@@ -216,19 +229,9 @@ router.post('/payslip', pay_upload.single('payslip'), async (req, res) => {
             });
         }
 
-        // Create transporter
-        const transporter = nodemailer.createTransport({
-    host: smtpServer,
-    port: smtpPort,
-    secure: false,
-    auth: {
-        user: senderEmail,
-        pass: senderPassword
-    },
-    tls: {
-        rejectUnauthorized: false
-    }
-});     
+        // Create transporter using the same function as send-email
+        const transporter = createTransporter(senderEmail, senderPassword, smtpServer, smtpPort);
+        
         // Verify transporter
         await transporter.verify();
 
@@ -308,7 +311,7 @@ router.post('/payslip', pay_upload.single('payslip'), async (req, res) => {
             <div class="email-container">
                 <div class="header">
                     <h1>💼 Payslip Notification</h1>
-                    <p style="margin: 5px 0 0 0; opacity: 0.9;">${companyName || 'Your Company'}</p>
+                    <p style="margin: 5px 0 0 0; opacity: 0.9;">${companyName || 'My Access'}</p>
                 </div>
                 
                 <div class="content">
@@ -322,7 +325,8 @@ router.post('/payslip', pay_upload.single('payslip'), async (req, res) => {
                         <strong>📋 Payslip Details:</strong><br>
                         <strong>Employee:</strong> ${employeeName}<br>
                         <strong>Pay Period:</strong> ${payPeriod}<br>
-                        <strong>Generated Date:</strong> ${new Date().toLocaleDateString()}
+                        <strong>Generated Date:</strong> ${new Date().toLocaleDateString()}<br>
+                        <strong>Company:</strong> ${companyName || 'My Access'}
                     </div>
                     
                     <div class="attachment-note">
@@ -336,13 +340,13 @@ router.post('/payslip', pay_upload.single('payslip'), async (req, res) => {
                     <p style="margin-top: 30px;">
                         Best regards,<br>
                         <strong>HR Department</strong><br>
-                        ${companyName || 'Your Company'}
+                        ${companyName || 'My Access'}
                     </p>
                 </div>
                 
                 <div class="footer">
                     <p style="margin: 0;">This is an automated email. Please do not reply to this message.</p>
-                    <p style="margin: 5px 0 0 0; opacity: 0.8;">© ${new Date().getFullYear()} ${companyName || 'Your Company'}. All rights reserved.</p>
+                    <p style="margin: 5px 0 0 0; opacity: 0.8;">© ${new Date().getFullYear()} ${companyName || 'My Access'}. All rights reserved.</p>
                 </div>
             </div>
         </body>
@@ -368,6 +372,7 @@ router.post('/payslip', pay_upload.single('payslip'), async (req, res) => {
         };
 
         // Send email
+        console.log(`Sending payslip email using SMTP: ${smtpServer}:${smtpPort} with email: ${senderEmail}`);
         const info = await transporter.sendMail(mailOptions);
         
         console.log('Payslip email sent successfully:', info.messageId);
@@ -377,7 +382,9 @@ router.post('/payslip', pay_upload.single('payslip'), async (req, res) => {
             message: 'Payslip sent successfully',
             messageId: info.messageId,
             recipient: employeeEmail,
-            payPeriod: payPeriod
+            payPeriod: payPeriod,
+            sentFrom: senderEmail,
+            smtpServer: smtpServer
         });
 
     } catch (error) {
@@ -388,6 +395,8 @@ router.post('/payslip', pay_upload.single('payslip'), async (req, res) => {
             errorMessage = 'Email authentication failed. Please check credentials.';
         } else if (error.code === 'ENOTFOUND') {
             errorMessage = 'SMTP server not found. Please check server settings.';
+        } else if (error.code === 'ETIMEDOUT') {
+            errorMessage = 'Connection timeout. Please check network or try different SMTP port.';
         } else if (error.responseCode === 550) {
             errorMessage = 'Recipient email address rejected.';
         }
@@ -400,148 +409,148 @@ router.post('/payslip', pay_upload.single('payslip'), async (req, res) => {
     }
 });
 
-
     // 2. SEND RECRUITMENT EMAIL ENDPOINT
     router.post('/send-recruitment-email', async (req, res) => {
-        try {
-            const data = req.body;
-            const {
-                senderEmail,
-                senderPassword,
-                recipientEmail,
-                subject = 'Campus Recruitment Exam Invitation',
-                smtpServer = 'smtp.gmail.com',
-                smtpPort = 587,
-                templateData = {}
-            } = data;
+    try {
+        const data = req.body;
+        const {
+            senderEmail = process.env.SEND_RECRUITMENT_EMAIL,
+            senderPassword = process.env.SEND_RECRUITMENT_PASSWORD,
+            recipientEmail,
+            subject = 'Campus Recruitment Exam Invitation',
+            smtpServer = process.env.SMTP_HOST,
+            smtpPort = process.env.SMTP_PORT,
+            templateData = {}
+        } = data;
 
-            if (!senderEmail || !senderPassword || !recipientEmail) {
-                return res.status(400).json({
-                    success: false,
-                    error: "Missing required fields"
-                });
-            }
-
-            // Campus Recruitment HTML template - MOVE TO SEPARATE FILE
-            let htmlTemplate = `<!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                background-color: #f5f5f5;
-                margin: 0;
-                padding: 20px;
-            }
-        </style>
-    </head>
-    <body>
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background-color: white;">
-            <div style="background-color: #1890ff; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
-                <h1 style="margin: 0; font-size: 24px;">Campus Recruitment Exam Invitation</h1>
-            </div>
-            
-            <div style="padding: 20px; background-color: #f8f9fa;">
-                <p style="font-size: 16px; margin-bottom: 20px;">Dear <strong>{{to_name}}</strong>,</p>
-                
-                <p style="font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
-                    You are invited to participate in the campus recruitment exam for the following position:
-                </p>
-                
-                <div style="background-color: white; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #1890ff;">
-                    <p style="margin: 5px 0;"><strong>Exam Title:</strong> {{exam_title}}</p>
-                    <p style="margin: 5px 0;"><strong>Job ID:</strong> {{job_id}}</p>
-                    <p style="margin: 5px 0;"><strong>College:</strong> {{college}}</p>
-                </div>
-                
-                <div style="text-align: center; margin: 30px 0;">
-                    <a href="{{exam_link}}" style="background-color: #1890ff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold; display: inline-block;">
-                        Start Exam
-                    </a>
-                </div>
-                
-                <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
-                    <h3 style="margin-top: 0; color: #856404;">Important Instructions:</h3>
-                    <ul style="margin-bottom: 0; color: #856404;">
-                        <li>Ensure you have a stable internet connection</li>
-                        <li>Complete the exam within the given time limit</li>
-                        <li>Do not refresh the page during the exam</li>
-                        <li>Do not close the browser tab until submission</li>
-                        <li>Contact support if you face any technical issues</li>
-                    </ul>
-                </div>
-                
-                <div style="border-top: 1px solid #ddd; padding-top: 20px; margin-top: 20px;">
-                    <p style="font-size: 14px; line-height: 1.6;">{{message}}</p>
-                </div>
-                
-                <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
-                    <p style="font-size: 12px; color: #666;">
-                        Best regards,<br>
-                        HR Team<br>
-                        Campus Recruitment Department
-                    </p>
-                </div>
-            </div>
-        </div>
-    </body>
-    </html>`;
-
-            // Replace template variables
-            Object.keys(templateData).forEach(key => {
-                const regex = new RegExp(`{{${key}}}`, 'g');
-                htmlTemplate = htmlTemplate.replace(regex, templateData[key] || '');
-            });
-
-            const transporter = createTransporter(senderEmail, senderPassword, smtpServer, smtpPort);
-            
-            await transporter.sendMail({
-                from: senderEmail,
-                to: recipientEmail,
-                subject: subject,
-                html: htmlTemplate
-            });
-
-            res.status(200).json({
-                success: true,
-                message: "Campus recruitment email sent successfully",
-                recipient: recipientEmail
-            });
-
-        } catch (error) {
-            res.status(500).json({
+        if (!recipientEmail) {
+            return res.status(400).json({
                 success: false,
-                error: error.message
+                error: "Missing required field: recipientEmail"
             });
         }
-    });
+
+        // Campus Recruitment HTML template
+        let htmlTemplate = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background-color: white;">
+        <div style="background-color: #1890ff; color: white; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
+            <h1 style="margin: 0; font-size: 24px;">Campus Recruitment Exam Invitation</h1>
+        </div>
+        
+        <div style="padding: 20px; background-color: #f8f9fa;">
+            <p style="font-size: 16px; margin-bottom: 20px;">Dear <strong>{{to_name}}</strong>,</p>
+            
+            <p style="font-size: 14px; line-height: 1.6; margin-bottom: 20px;">
+                You are invited to participate in the campus recruitment exam for the following position:
+            </p>
+            
+            <div style="background-color: white; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #1890ff;">
+                <p style="margin: 5px 0;"><strong>Exam Title:</strong> {{exam_title}}</p>
+                <p style="margin: 5px 0;"><strong>Job ID:</strong> {{job_id}}</p>
+                <p style="margin: 5px 0;"><strong>College:</strong> {{college}}</p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{{exam_link}}" style="background-color: #1890ff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-size: 16px; font-weight: bold; display: inline-block;">
+                    Start Exam
+                </a>
+            </div>
+            
+            <div style="background-color: #fff3cd; padding: 15px; border-radius: 5px; margin-bottom: 20px; border-left: 4px solid #ffc107;">
+                <h3 style="margin-top: 0; color: #856404;">Important Instructions:</h3>
+                <ul style="margin-bottom: 0; color: #856404;">
+                    <li>Ensure you have a stable internet connection</li>
+                    <li>Complete the exam within the given time limit</li>
+                    <li>Do not refresh the page during the exam</li>
+                    <li>Do not close the browser tab until submission</li>
+                    <li>Contact support if you face any technical issues</li>
+                </ul>
+            </div>
+            
+            <div style="border-top: 1px solid #ddd; padding-top: 20px; margin-top: 20px;">
+                <p style="font-size: 14px; line-height: 1.6;">{{message}}</p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+                <p style="font-size: 12px; color: #666;">
+                    Best regards,<br>
+                    HR Team<br>
+                    Campus Recruitment Department
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>`;
+
+        // Replace template variables
+        Object.keys(templateData).forEach(key => {
+            const regex = new RegExp(`{{${key}}}`, 'g');
+            htmlTemplate = htmlTemplate.replace(regex, templateData[key] || '');
+        });
+
+        const transporter = createTransporter(senderEmail, senderPassword, smtpServer, smtpPort);
+        
+        console.log(`Sending recruitment email using SMTP: ${smtpServer}:${smtpPort} with email: ${senderEmail}`);
+        await transporter.sendMail({
+            from: senderEmail,
+            to: recipientEmail,
+            subject: subject,
+            html: htmlTemplate
+        });
+
+        res.status(200).json({
+            success: true,
+            message: "Campus recruitment email sent successfully",
+            recipient: recipientEmail
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
 
 // 3. SEND JOB OFFER ENDPOINT
 router.post('/send-job-offer', async (req, res) => {
     try {
         const {
-            senderEmail,
-            senderPassword,
+            senderEmail = process.env.SEND_JOB_OFFER_EMAIL,
+            senderPassword = process.env.SEND_JOB_OFFER_PASSWORD,
             recipientEmail,
             templateData = {},
             attachments = [],
-            smtpServer = 'smtp.gmail.com',
-            smtpPort = 587
+            smtpServer = process.env.SMTP_HOST,
+            smtpPort = process.env.SMTP_PORT
         } = req.body;
 
         const jobTitle = templateData.job_title || 'Job Position';
         const companyName = templateData.company_name || 'Our Company';
         const subject = req.body.subject || `Job Offer - ${jobTitle} Position at ${companyName}`;
 
-        if (!senderEmail || !senderPassword || !recipientEmail) {
+        if (!recipientEmail) {
             return res.status(400).json({
                 success: false,
-                error: "Missing required fields"
+                error: "Missing required field: recipientEmail"
             });
         }
 
-        // Job Offer HTML template - MOVE TO SEPARATE FILE
+        // Job Offer HTML template
         let htmlTemplate = `<!DOCTYPE html>
 <html>
 <head>
@@ -633,7 +642,7 @@ router.post('/send-job-offer', async (req, res) => {
             to: recipientEmail,
             subject: subject,
             html: htmlTemplate,
-            attachments: [] // Handle attachments here
+            attachments: []
         };
 
         // Handle attachments (URLs or file paths)
@@ -655,6 +664,7 @@ router.post('/send-job-offer', async (req, res) => {
             }
         }
 
+        console.log(`Sending job offer email using SMTP: ${smtpServer}:${smtpPort} with email: ${senderEmail}`);
         await transporter.sendMail(mailOptions);
 
         res.status(200).json({
@@ -673,7 +683,6 @@ router.post('/send-job-offer', async (req, res) => {
 });
 
 // 4. POST JOB TO LINKEDIN ENDPOINT
-// Add this route to your existing generalRoutes.js file
 router.post('/post-job', async (req, res) => {
     try {
         const { jobData, accessToken, applicationUrl } = req.body;
@@ -769,12 +778,12 @@ router.post('/post-job', async (req, res) => {
 router.post('/send-interview-invitation', async (req, res) => {
     try {
         const {
-            senderEmail,
-            senderPassword,
+            senderEmail = process.env.SEND_INTERVIEW_INVITATION_EMAIL,
+            senderPassword = process.env.SEND_INTERVIEW_INVITATION_PASSWORD,
             recipientEmail,
             subject,
-            smtpServer = 'smtp.gmail.com',
-            smtpPort = 587,
+            smtpServer = process.env.SMTP_HOST,
+            smtpPort = process.env.SMTP_PORT,
             templateData = {}
         } = req.body;
 
@@ -817,7 +826,7 @@ router.post('/send-interview-invitation', async (req, res) => {
         });
 
     } catch (error) {
-        res.status(500).json({
+        res.status(200).json({
             success: false,
             error: error.message
         });
@@ -828,13 +837,13 @@ router.post('/send-interview-invitation', async (req, res) => {
 router.post('/send-email-with-attachment', multerStorage.array('attachments'), async (req, res) => {
     try {
         const {
-            senderEmail,
-            senderPassword,
+            senderEmail = process.env.SENDER_EMAIL,
+            senderPassword = process.env.SENDER_PASSWORD,
             recipientEmail,
             subject = 'Email with Attachment',
             messageBody = 'Please find the attached file.',
-            smtpServer = 'smtp.gmail.com',
-            smtpPort = 587
+            smtpServer = process.env.SMTP_HOST,
+            smtpPort = process.env.SMTP_PORT
         } = req.body;
 
         console.log(`Sender: ${senderEmail}`);

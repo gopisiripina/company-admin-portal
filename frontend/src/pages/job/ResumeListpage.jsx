@@ -288,8 +288,6 @@ const sendInterviewMail = async (values) => {
 
     // Send email using your email service
 const emailPayload = {
-  senderEmail: "suryavenkatareddy90@gmail.com",
-  senderPassword: "vrxftrjsiekrxdnf",
   recipientEmail: selectedResume.email,
   subject: `Interview Invitation - ${selectedResume.jobTitle} Position`,
   smtpServer: "smtp.gmail.com",

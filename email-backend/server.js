@@ -4,7 +4,9 @@ const bodyParser = require('body-parser');
 const Imap = require('imap');
 const http = require('http');
 const { WebSocketServer } = require('ws');
+const donenv = require('dotenv');
 
+require('dotenv').config();
 // Import route modules
 const emailRoutes = require('./routes/emailRoutes');
 const generalRoutes = require('./routes/generalRoutes');
