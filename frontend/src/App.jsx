@@ -40,7 +40,7 @@ const AppContent = () => {
   
   if (savedUserData) {
     try {
-      console.log('Found stored user data:', savedUserData);
+      
       setUserData(savedUserData);
       setIsLoggedIn(true);
       

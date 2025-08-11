@@ -1489,6 +1489,20 @@ const handleClearFilters = useCallback(() => {
                   showTotal: (total, range) =>
                     `${range[0]}-${range[1]} of ${total} employees`,
                   pageSizeOptions: ['10', '20', '50', '100'],
+                     itemRender: (current, type, originalElement) => {
+    if (type === 'page') {
+      return (
+        <a style={{ 
+          color: '#000000d9', 
+          backgroundColor: 'white',
+          border: '1px solid #d9d9d9'
+        }}>
+          {current}
+        </a>
+      );
+    }
+    return originalElement;
+  }   
                 }}
                 onChange={handleTableChange}
                 scroll={{ x: 800 }}
