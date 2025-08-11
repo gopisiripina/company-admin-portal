@@ -20,11 +20,6 @@ import CampusJobApplyPage from '../job/CampusJobApplyPage';
 import ExamConductPage from '../job/ExamConductPage';
 import EmailClient from '../email/EmailClient';
 
-import PayrollApp from '../hr/Payroll';
-
-
-// import LeaveManagementPage from '../hr/LeaveManagementPage';
-
 import FeedbackForm from '../feedback/FeedbackForm';
 import DirectRecruitmentPage from '../job/DirectRecruitmentPage';
 import EmployeeAttendancePage from '../hr/EmployeeAttendancePage';
@@ -36,6 +31,7 @@ import * as faceapi from 'face-api.js';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import dayjs from 'dayjs';
+import PayrollManagement from '../hr/payroll';
 const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionChange,activeEmailFolder, onToggleSidebar, isEmailAuthenticated, setIsEmailAuthenticated }) => {
   const { Text, Title } = Typography;
   const [currentJobId, setCurrentJobId] = useState(2);
@@ -1440,7 +1436,7 @@ if (activeSection === 'payroll') {
       <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
         {renderHeader("Search payroll...")}
         <main className="main-content">
-          <PayrollApp userRole={userData?.role} />
+          <PayrollManagement userRole={userData?.role} />
         </main>
       </div>
     );

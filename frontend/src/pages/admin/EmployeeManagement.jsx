@@ -187,18 +187,28 @@ const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete, onSendCrede
           }}>
             {employee.name}
           </div>
-          <Text type="secondary" style={{ 
-            fontSize: '12px',
-            display: 'block',
-            marginBottom: '4px'
-          }}>
-            <MailOutlined /> {employee.email}
-          </Text>
-          {employee.employee_id && (
-            <Text type="secondary" style={{ fontSize: '12px' }}>
-              ID: {employee.employee_id}
-            </Text>
-          )}
+        
+<Text type="secondary" style={{ 
+  fontSize: '12px',
+  display: 'block',
+  marginBottom: '4px'
+}}>
+  <MailOutlined /> {employee.email}
+</Text>
+{employee.mobile && (
+  <Text type="secondary" style={{ 
+    fontSize: '12px',
+    display: 'block',
+    marginBottom: '4px'
+  }}>
+    📱 +91 {employee.mobile}
+  </Text>
+)}
+{employee.employee_id && (
+  <Text type="secondary" style={{ fontSize: '12px' }}>
+    ID: {employee.employee_id}
+  </Text>
+)}
         </div>
       </div>
       <div style={{ 
@@ -243,6 +253,7 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
         form.setFieldsValue({
           name: editingEmployee.name,
           email: editingEmployee.email,
+          mobile: editingEmployee.mobile,
           employeeId: editingEmployee.employee_id,
           department: editingEmployee.department,
           role: editingEmployee.role,
@@ -417,6 +428,7 @@ if ((isUpdatingEmail && values.newEmail && values.newEmail !== currentEmail) ||
       const updateData = {
         name: values.name,
         email: isUpdatingEmail && values.newEmail ? values.newEmail : values.email, // MODIFY THIS LINE
+        mobile: values.mobile,
         department: values.department,
         role: values.role || 'employee',
         employee_id: newEmployeeId, // MODIFY THIS LINE
@@ -466,6 +478,7 @@ if (values.pay) {
       const employeeData = {
         name: values.name,
         email: values.email,
+        mobile: values.mobile,
         department: values.department,
         employee_id: newEmployeeId, // MODIFY THIS LINE
         role: 'employee',
@@ -679,7 +692,24 @@ if (values.pay) {
     )}
   </>
 )}
-
+{/* ADD MOBILE NUMBER FIELD AFTER EMAIL SECTION */}
+<Form.Item
+  name="mobile"
+  label="Mobile Number"
+  rules={[
+    { required: true, message: 'Please enter mobile number' },
+    { 
+      pattern: /^[6-9]\d{9}$/, 
+      message: 'Please enter a valid 10-digit mobile number' 
+    }
+  ]}
+>
+  <Input 
+    placeholder="Enter 10-digit mobile number" 
+    prefix="+91"
+    maxLength={10}
+  />
+</Form.Item>
 {/* ADD PAY FIELD AFTER DEPARTMENT FIELD */}
 <Form.Item
   name="pay"
@@ -869,6 +899,7 @@ const [filters, setFilters] = useState({
         id,
         name,
         email,
+         mobile,
         role,
         employee_id,
         isactive,
@@ -903,14 +934,15 @@ const [filters, setFilters] = useState({
   let filteredEmployees = [...employeeList];
   
   // Search filter
-  if (search) {
-    const searchLower = search.toLowerCase();
-    filteredEmployees = filteredEmployees.filter(employee =>
-      employee.name?.toLowerCase().includes(searchLower) ||
-      employee.email?.toLowerCase().includes(searchLower) ||
-      (employee.employee_id && employee.employee_id.toLowerCase().includes(searchLower))
-    );
-  }
+if (search) {
+  const searchLower = search.toLowerCase();
+  filteredEmployees = filteredEmployees.filter(employee =>
+    employee.name?.toLowerCase().includes(searchLower) ||
+    employee.email?.toLowerCase().includes(searchLower) ||
+    employee.mobile?.includes(search) || // ADD THIS LINE
+    (employee.employee_id && employee.employee_id.toLowerCase().includes(searchLower))
+  );
+}
   
   // Employee Type filter
   if (filterOptions.employeeType) {
@@ -1190,6 +1222,7 @@ const handleClearFilters = useCallback(() => {
       ),
       responsive: ['md'],
     },
+   
     {
   title: 'Employee Type',
   dataIndex: 'employee_type',
@@ -1481,6 +1514,20 @@ const handleClearFilters = useCallback(() => {
                   showTotal: (total, range) =>
                     `${range[0]}-${range[1]} of ${total} employees`,
                   pageSizeOptions: ['10', '20', '50', '100'],
+                     itemRender: (current, type, originalElement) => {
+    if (type === 'page') {
+      return (
+        <a style={{ 
+          color: '#000000d9', 
+          backgroundColor: 'white',
+          border: '1px solid #d9d9d9'
+        }}>
+          {current}
+        </a>
+      );
+    }
+    return originalElement;
+  }   
                 }}
                 onChange={handleTableChange}
                 scroll={{ x: 800 }}
