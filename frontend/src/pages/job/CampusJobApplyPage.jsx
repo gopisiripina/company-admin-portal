@@ -320,12 +320,7 @@ HR Team`
       // Send emails using your API
 const emailPromises = studentsToEmail.map(student => {
   const emailData = {
-    senderEmail: "suryavenkatareddy90@gmail.com",
-    senderPassword: "vrxftrjsiekrxdnf",
     recipientEmail: student.email,
-    subject: values.subject,
-    smtpServer: "smtp.gmail.com",
-    smtpPort: 587,
     templateData: {
       to_name: student.studentName,
       exam_title: selectedExam.exam_title,

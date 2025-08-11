@@ -189,12 +189,10 @@ const PayrollManagement = () => {
       formData.append('companyName', employeeData.company_name);
       formData.append('payPeriod', dayjs(employeeData.pay_period).format('MMMM YYYY'));
       
-      formData.append('senderEmail', 'suryavenkatareddy90@gmail.com');
-      formData.append('senderPassword', 'vrxftrjsiekrxdnf');
       
       formData.append('payslip', pdfBlob, `payslip_${employeeData.employee_name}_${dayjs(employeeData.pay_period).format('YYYY-MM')}.pdf`);
       
-      const response = await fetch('http://localhost:5000/api/payslip', {
+      const response = await fetch('http://cap.myaccessio.com/api/payslip', {
         method: 'POST',
         body: formData
       });

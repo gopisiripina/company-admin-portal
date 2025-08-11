@@ -81,26 +81,21 @@ const generateEmployeeId = async (employeeType) => {
 };
 const sendWelcomeEmail = async (employeeData) => {
   try {
-    const response = await fetch('https://ksvreddy4.pythonanywhere.com/api/send-email', {
+    const response = await fetch('http://cap.myaccessio.com/api/send-email', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        senderEmail: "suryavenkatareddy90@gmail.com",
-        senderPassword: "vrxftrjsiekrxdnf",
         recipientEmail: employeeData.email,
-        subject: "Welcome - Your Account Credentials",
-        smtpServer: "smtp.gmail.com",
-        smtpPort: 587,
         templateData: {
           company_name: "My Access",
           to_name: employeeData.name,
           user_role: employeeData.role,
           user_email: employeeData.email,
           user_password: employeeData.password,
-          website_link: "http://cap.myaccessio.com/",
-          from_name: "Admin Team"
+          website_link: "https://cap.myaccessio.com/",
+          from_name: "HR Team"
         }
       })
     });
@@ -255,7 +250,7 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
           employeeType: editingEmployee.employee_type || 'full-time',
           startDate: editingEmployee.start_date ? dayjs(editingEmployee.start_date) : null,
           endDate: editingEmployee.end_date ? dayjs(editingEmployee.end_date) : null,
-          pay: editingEmployee.pay // ADD THIS LINE
+          pay: editingEmployee.payroll?.[0]?.net_pay || editingEmployee.payroll?.net_pay
         });
         setProfileImage(editingEmployee.profileimage || null);
         setFaceEmbedding(editingEmployee.face_embedding || null);
@@ -431,7 +426,6 @@ if ((isUpdatingEmail && values.newEmail && values.newEmail !== currentEmail) ||
         start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
         end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
         face_embedding: finalFaceEmbedding,
-        pay: values.pay ? parseFloat(values.pay) : null // ADD THIS LINE
       };
       
       console.log('Updating employee with data:', updateData);
@@ -446,6 +440,22 @@ if ((isUpdatingEmail && values.newEmail && values.newEmail !== currentEmail) ||
         console.error('Supabase update error:', error);
         throw error;
       }
+
+      // ADD THIS PAYROLL UPDATE CODE HERE:
+if (values.pay) {
+  const { error: payrollError } = await supabaseAdmin
+    .from('payroll')
+    .upsert({
+      user_id: editingEmployee.id,
+      net_pay: parseFloat(values.pay),
+      // Add other required payroll fields if needed
+    });
+    
+  if (payrollError) {
+    console.error('Payroll update error:', payrollError);
+    message.warning('Employee updated but payroll update failed');
+  }
+}
       
       message.success('Employee updated successfully');
     } else {
@@ -481,6 +491,21 @@ if ((isUpdatingEmail && values.newEmail && values.newEmail !== currentEmail) ||
         console.error('Supabase insert error:', error);
         throw error;
       }
+
+      if (values.pay && data && data[0]) {
+  const { error: payrollError } = await supabaseAdmin
+    .from('payroll')
+    .insert({
+      user_id: data[0].id, // Use the newly created user's ID
+      net_pay: parseFloat(values.pay),
+      // Add other required payroll fields if needed
+    });
+    
+  if (payrollError) {
+    console.error('Payroll creation error:', payrollError);
+    message.warning('Employee created but payroll setup failed');
+  }
+}
       
       message.success('Employee created successfully!');
       
@@ -855,7 +880,7 @@ const [filters, setFilters] = useState({
         updated_at,
         face_embedding,
         department,
-        pay
+        payroll(net_pay)
       `) // ADD pay to the select
       .eq('role', 'employee')
       .order('created_at', { ascending: false });
@@ -1197,7 +1222,7 @@ const handleClearFilters = useCallback(() => {
 },
 {
   title: 'Pay',
-  dataIndex: 'pay',
+  dataIndex: ['payroll', 'net_pay'],
   key: 'pay',
   width: 120,
   render: (pay) => (
