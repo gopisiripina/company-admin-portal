@@ -1332,7 +1332,17 @@ const fuzzyMatch = (text, query) => {
   
   return queryIndex === query.length;
 };
-
+// Add this function right before renderEmailDetail()
+const getReplyAllRecipients = (email) => {
+  const currentUserEmail = emailCredentials.email.toLowerCase();
+  const from = extractEmailOnly(email.from).toLowerCase();
+  const toList = (email.to || '').split(',').map(e => extractEmailOnly(e).toLowerCase());
+  const ccList = (email.cc || '').split(',').map(e => extractEmailOnly(e).toLowerCase());
+  const allRecipients = new Set([from, ...toList, ...ccList]);
+  allRecipients.delete(currentUserEmail);
+  allRecipients.delete('');
+  return Array.from(allRecipients);
+};
 const renderEmailInterface = () => (
   
   <Layout style={{ height: '100vh', overflow: 'hidden', background: 'transparent' }}>
@@ -1462,8 +1472,31 @@ const renderEmailInterface = () => (
     </Content>
 
  
-      <Modal
-  title={selectedEmail?.subject}
+   
+
+<Modal
+  title={
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center',
+      paddingRight: 24 
+    }}>
+      <div style={{ 
+        maxWidth: isMobile ? '200px' : '500px',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      }}>
+        {selectedEmail?.subject}
+      </div>
+      {selectedEmail?.attachments && selectedEmail.attachments.length > 0 && (
+        <Badge count={selectedEmail.attachments.length} size="small" style={{ backgroundColor: '#0D7139' }}>
+          <PaperClipOutlined style={{ color: '#0D7139' }} />
+        </Badge>
+      )}
+    </div>
+  }
   open={emailDetailVisible}
   onCancel={() => {
     setEmailDetailVisible(false);
@@ -1476,9 +1509,441 @@ const renderEmailInterface = () => (
     setForwardAttachments([]);
   }}
   footer={null}
-  styles={{ body: { maxHeight: '70vh', overflow: 'auto' } }}
+  width={isMobile ? '95%' : isTablet ? '85%' : '80%'}
+  style={{ 
+    top: isMobile ? 20 : 40,
+    maxWidth: isMobile ? undefined : '1200px'
+  }}
+  styles={{ 
+    body: { 
+      maxHeight: isMobile ? '80vh' : '75vh', 
+      overflow: 'auto',
+      padding: isMobile ? '16px' : '24px'
+    }
+  }}
+  destroyOnClose
 >
-  {selectedEmail && renderEmailDetail()}
+  {selectedEmail && (
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: isMobile ? 12 : 16,
+      fontSize: isMobile ? 14 : 16
+    }}>
+      {/* Email Header Information */}
+      <Card 
+        size="small" 
+        style={{ 
+          background: '#fafafa',
+          border: '1px solid #f0f0f0'
+        }}
+        styles={{ body: { padding: isMobile ? 12 : 16 } }}
+      >
+        <Row gutter={[16, 8]}>
+          <Col xs={24} sm={12} lg={8}>
+            <Text strong>From: </Text>
+            <div style={{ 
+              wordBreak: 'break-all', 
+              marginTop: 4,
+              fontSize: isMobile ? 13 : 14 
+            }}>
+              <Text copyable={{ text: extractEmailOnly(selectedEmail.from) }}>
+                {selectedEmail.from}
+              </Text>
+            </div>
+          </Col>
+          <Col xs={24} sm={12} lg={8}>
+            <Text strong>To: </Text>
+            <div style={{ 
+              wordBreak: 'break-all', 
+              marginTop: 4,
+              fontSize: isMobile ? 13 : 14 
+            }}>
+              <Text copyable={{ text: extractEmailOnly(selectedEmail.to) }}>
+                {selectedEmail.to}
+              </Text>
+            </div>
+          </Col>
+          <Col xs={24} sm={12} lg={8}>
+            <Text strong>Date: </Text>
+            <div style={{ marginTop: 4, fontSize: isMobile ? 13 : 14 }}>
+              <Text>{selectedEmail.date}</Text>
+            </div>
+          </Col>
+          {selectedEmail.cc && (
+            <Col xs={24} sm={12} lg={8}>
+              <Text strong>Cc: </Text>
+              <div style={{ 
+                wordBreak: 'break-all', 
+                marginTop: 4,
+                fontSize: isMobile ? 13 : 14 
+              }}>
+                <Text copyable={{ text: selectedEmail.cc }}>
+                  {selectedEmail.cc}
+                </Text>
+              </div>
+            </Col>
+          )}
+        </Row>
+      </Card>
+
+      {/* Action Buttons */}
+      <div style={{ 
+        display: 'flex', 
+        gap: 8, 
+        flexWrap: 'wrap',
+        justifyContent: isMobile ? 'space-around' : 'flex-start'
+      }}>
+        <Button 
+          type="primary" 
+          icon={<SendOutlined />}
+          onClick={() => { 
+            setShowReply(true); 
+            setShowReplyAll(false); 
+            setShowForward(false); 
+          }}
+          style={{ backgroundColor: '#0D7139', borderColor: '#0D7139' }}
+        >
+          Reply
+        </Button>
+        {selectedEmail.cc && (
+          <Button 
+            type="default"
+            onClick={() => { 
+              setShowReplyAll(true); 
+              setShowReply(false); 
+              setShowForward(false); 
+            }}
+          >
+            Reply All
+          </Button>
+        )}
+        <Button 
+          type="default"
+          onClick={() => { 
+            setShowForward(true); 
+            setShowReply(false); 
+            setShowReplyAll(false); 
+          }}
+        >
+          Forward
+        </Button>
+        {activeFolder !== 'trash' && (
+          <Button 
+            type="default"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleMoveToTrash(selectedEmail, activeFolder)}
+          >
+            {isMobile ? 'Delete' : 'Move to Trash'}
+          </Button>
+        )}
+        {activeFolder === 'trash' && (
+          <Button 
+            type="default"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handlePermanentDelete(selectedEmail)}
+          >
+            Delete Forever
+          </Button>
+        )}
+      </div>
+
+      {/* Email Body */}
+      <Card 
+        title={
+          <Space>
+            <MailOutlined style={{ color: '#0D7139' }} />
+            <span>Message Content</span>
+          </Space>
+        }
+        size="small"
+        style={{ flex: 1 }}
+        styles={{
+          body: { 
+            maxHeight: isMobile ? '300px' : '400px',
+            overflow: 'auto',
+            lineHeight: '1.8',
+            fontSize: isMobile ? 14 : 16,
+            padding: isMobile ? 12 : 20,
+            backgroundColor: '#fff'
+          }
+        }}
+      >
+        <div 
+          dangerouslySetInnerHTML={{ __html: selectedEmail.body }}
+          style={{
+            '& img': {
+              maxWidth: '100%',
+              height: 'auto'
+            }
+          }}
+        />
+      </Card>
+      
+      {/* Attachments Section */}
+      {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
+        <Card 
+          title={
+            <Space>
+              <PaperClipOutlined style={{ color: '#0D7139' }} />
+              <span>Attachments ({selectedEmail.attachments.length})</span>
+            </Space>
+          }
+          size="small"
+        >
+          <Row gutter={[16, 16]}>
+            {selectedEmail.attachments.map((attachment, index) => (
+              <Col xs={24} sm={12} md={8} lg={6} key={attachment.id || index}>
+                <Card 
+                  size="small"
+                  hoverable
+                  style={{ 
+                    textAlign: 'center',
+                    border: '1px solid #f0f0f0',
+                    borderRadius: 8
+                  }}
+                  styles={{ body: { padding: 12 } }}
+                  actions={[
+                    <Button 
+                      type="primary"
+                      size="small"
+                      icon={<DownloadOutlined/>}
+                      style={{ backgroundColor: '#0D7139', borderColor: '#0D7139' }}
+                      onClick={() => handleDownloadAttachment(selectedEmail.uid, attachment)}
+                      block
+                    >
+                      Download
+                    </Button>
+                  ]}
+                >
+                  <div style={{ marginBottom: 8 }}>
+                    <PaperClipOutlined style={{ fontSize: 24, color: '#0D7139' }} />
+                  </div>
+                  <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+                    {attachment.filename || 'Attachment'}
+                  </Text>
+                  <Text type="secondary" style={{ fontSize: 11 }}>
+                    {((attachment.size || 0) / 1024).toFixed(1)} KB
+                  </Text>
+                </Card>
+              </Col>
+            ))}
+          </Row>
+        </Card>
+      )}
+      
+      {/* Reply Forms */}
+      {showReply && (
+        <Card 
+          title={
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Space>
+                <SendOutlined style={{ color: '#0D7139' }} />
+                <span>Reply</span>
+              </Space>
+              <Button 
+                type="text" 
+                icon={<CloseOutlined />} 
+                onClick={() => { setShowReply(false); setReplyAttachments([]); }}
+                size="small"
+              />
+            </div>
+          }
+          size="small"
+          style={{ marginTop: 16 }}
+        >
+          <Form 
+            layout="vertical"
+            onFinish={(values) => handleSendWithAttachments(values, replyAttachments, 'reply')}
+          >
+            <Form.Item label="To">
+              <Input disabled value={extractEmailOnly(selectedEmail.from)} />
+            </Form.Item>
+            <Form.Item name="to" initialValue={extractEmailOnly(selectedEmail.from)} hidden>
+              <Input />
+            </Form.Item>
+            <Form.Item 
+              label="Subject" 
+              name="subject" 
+              initialValue={selectedEmail.subject.startsWith('Re:') ? selectedEmail.subject : `Re: ${selectedEmail.subject}`}
+            >
+              <Input size="large" />
+            </Form.Item>
+            <Form.Item name="body">
+              <TextArea 
+                rows={isMobile ? 4 : 6} 
+                placeholder="Type your reply..." 
+                size="large"
+              />
+            </Form.Item>
+            <Form.Item>
+              <Upload 
+                beforeUpload={(file) => { setReplyAttachments(prev => [...prev, file]); return false; }} 
+                fileList={replyAttachments} 
+                onRemove={(file) => setReplyAttachments(prev => prev.filter(f => f.uid !== file.uid))} 
+                multiple
+              >
+                <Button icon={<UploadOutlined />}>Attach Files</Button>
+              </Upload>
+            </Form.Item>
+            <Form.Item>
+              <Button 
+                type="primary" 
+                htmlType="submit" 
+                loading={loading}
+                size="large"
+                icon={<SendOutlined />}
+                style={{ backgroundColor: '#0D7139', borderColor: '#0D7139' }}
+              >
+                Send Reply
+              </Button>
+            </Form.Item>
+          </Form>
+        </Card>
+      )}
+
+      {showReplyAll && (
+        <Card 
+          title={
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Space>
+                <SendOutlined style={{ color: '#0D7139' }} />
+                <span>Reply to All</span>
+              </Space>
+              <Button 
+                type="text" 
+                icon={<CloseOutlined />} 
+                onClick={() => { setShowReplyAll(false); setReplyAllAttachments([]); }}
+                size="small"
+              />
+            </div>
+          }
+          size="small"
+          style={{ marginTop: 16 }}
+        >
+          <Form 
+            layout="vertical"
+            onFinish={(values) => handleSendWithAttachments(values, replyAllAttachments, 'replyAll')}
+          >
+            <Form.Item label="To" name="to" initialValue={getReplyAllRecipients(selectedEmail).join(', ')}>
+              <Input.TextArea autoSize={{ minRows: 1, maxRows: 3 }} size="large" />
+            </Form.Item>
+            <Form.Item 
+              label="Subject" 
+              name="subject" 
+              initialValue={selectedEmail.subject.startsWith('Re:') ? selectedEmail.subject : `Re: ${selectedEmail.subject}`}
+            >
+              <Input size="large" />
+            </Form.Item>
+            <Form.Item name="body">
+              <TextArea 
+                rows={isMobile ? 4 : 6} 
+                placeholder="Type your reply..." 
+                size="large"
+              />
+            </Form.Item>
+            <Form.Item>
+              <Upload 
+                beforeUpload={(file) => { setReplyAllAttachments(prev => [...prev, file]); return false; }} 
+                fileList={replyAllAttachments} 
+                onRemove={(file) => setReplyAllAttachments(prev => prev.filter(f => f.uid !== file.uid))} 
+                multiple
+              >
+                <Button icon={<UploadOutlined />}>Attach Files</Button>
+              </Upload>
+            </Form.Item>
+            <Form.Item>
+              <Button 
+                type="primary" 
+                htmlType="submit" 
+                loading={loading}
+                size="large"
+                icon={<SendOutlined />}
+                style={{ backgroundColor: '#0D7139', borderColor: '#0D7139' }}
+              >
+                Send Reply to All
+              </Button>
+            </Form.Item>
+          </Form>
+        </Card>
+      )}
+      
+      {showForward && (
+        <Card 
+          title={
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Space>
+                <SendOutlined style={{ color: '#0D7139' }} />
+                <span>Forward</span>
+              </Space>
+              <Button 
+                type="text" 
+                icon={<CloseOutlined />} 
+                onClick={() => { setShowForward(false); setForwardAttachments([]); }}
+                size="small"
+              />
+            </div>
+          }
+          size="small"
+          style={{ marginTop: 16 }}
+        >
+          <Form 
+            layout="vertical"
+            onFinish={(values) => handleSendWithAttachments(values, forwardAttachments, 'forward')}
+          >
+            <Form.Item 
+              name="to" 
+              label="To"
+              rules={[
+                { required: true, message: 'Please enter recipient email' }, 
+                validateEmails()
+              ]}
+            >
+              <Input placeholder="recipient@example.com" size="large" />
+            </Form.Item>
+            <Form.Item 
+              label="Subject" 
+              name="subject" 
+              initialValue={selectedEmail.subject.startsWith('Fwd:') ? selectedEmail.subject : `Fwd: ${selectedEmail.subject}`}
+            >
+              <Input size="large" />
+            </Form.Item>
+            <Form.Item name="body">
+              <TextArea 
+                rows={isMobile ? 4 : 6} 
+                placeholder="Add your message..."
+                size="large"
+              />
+            </Form.Item>
+            <Form.Item>
+              <Upload 
+                beforeUpload={(file) => { setForwardAttachments(prev => [...prev, file]); return false; }} 
+                fileList={forwardAttachments} 
+                onRemove={(file) => setForwardAttachments(prev => prev.filter(f => f.uid !== file.uid))} 
+                multiple
+              >
+                <Button icon={<UploadOutlined />}>Attach Files</Button>
+              </Upload>
+            </Form.Item>
+            <Form.Item>
+              <Button 
+                type="primary" 
+                htmlType="submit" 
+                loading={loading}
+                size="large"
+                icon={<SendOutlined />}
+                style={{ backgroundColor: '#0D7139', borderColor: '#0D7139' }}
+              >
+                Send Forward
+              </Button>
+            </Form.Item>
+          </Form>
+        </Card>
+      )}
+    </div>
+  )}
 </Modal>
  </Layout>
 );  return (
