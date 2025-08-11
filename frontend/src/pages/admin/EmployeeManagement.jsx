@@ -192,7 +192,7 @@ const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete, onSendCrede
           }}>
             {employee.name}
           </div>
-        // In MobileEmployeeCard, add mobile info after email:
+        
 <Text type="secondary" style={{ 
   fontSize: '12px',
   display: 'block',
