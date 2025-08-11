@@ -296,11 +296,11 @@ async changeFirstLoginPassword(userId, newPassword) {
 
   getStoredUserData() {
   try {
-    console.log('=== Checking for stored user data ===');
+ 
     
     // Check localStorage first (remember me - persistent)
     let userData = localStorage.getItem('userData');
-    console.log('localStorage userData:', userData);
+    
     
     if (userData) {
       const parsedData = JSON.parse(userData);
@@ -310,11 +310,11 @@ async changeFirstLoginPassword(userId, newPassword) {
     
     // Check sessionStorage (current session only)
     userData = sessionStorage.getItem('userData');
-    console.log('sessionStorage userData:', userData);
+   
     
     if (userData) {
       const parsedData = JSON.parse(userData);
-      console.log('Retrieved stored user data from sessionStorage:', parsedData);
+      
       return parsedData;
     }
     

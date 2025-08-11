@@ -814,7 +814,8 @@ const handlePostJob = async () => {
   rowSelection={{
     type: 'radio',
     selectedRowKeys: selectedJob ? [selectedJob.id] : [],
-    onSelect: (record) => handleJobSelect(record)
+    onSelect: (record) => handleJobSelect(record),
+    
   }}
 />
             </Card>

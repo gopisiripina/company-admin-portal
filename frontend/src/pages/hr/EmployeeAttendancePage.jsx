@@ -1051,12 +1051,26 @@ const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 
                   dataSource={filteredEmployees}
                   rowKey="id"
                   pagination={{
-                    pageSize: 10,
-                    showSizeChanger: true,
-                    showQuickJumper: true,
-                    loading:{loading},
-                    showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} employees`,
-                  }}
+  pageSize: 10,
+  showSizeChanger: true,
+  showQuickJumper: true,
+  loading:{loading},
+  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} employees`,
+  itemRender: (current, type, originalElement) => {
+    if (type === 'page') {
+      return (
+        <a style={{ 
+          color: '#000000d9', 
+          backgroundColor: 'white',
+          border: '1px solid #d9d9d9'
+        }}>
+          {current}
+        </a>
+      );
+    }
+    return originalElement;
+  }
+}}
                   scroll={{ x: 800 }}
                   size="middle"
                 />
