@@ -1047,163 +1047,294 @@ const config = getLeaveTypeConfig(leaveTypeNames[key]);
   // HR/Admin Table Columns
 const getTableColumns = () => {
   const isMobile = window.innerWidth < 768;
+  
   const baseColumns = [
-    // Always show employee column (modify condition)
+    // Employee Column (Enhanced)
     ...(userRole !== 'employee' ? [{
-      title: isMobile ? 'Emp' : 'Employee',
-      key: 'employee',
-      render: (_, record) => (
-        <Space direction={isMobile ? 'vertical' : 'horizontal'} size="small">
-          <Avatar 
-            icon={<UserOutlined />} 
-            style={{ backgroundColor: '#0D7139' }}
-            size={isMobile ? "small" : "default"}
-          />
-          {!isMobile ? (
-            <div>
-              <div style={{ fontWeight: 600, fontSize: '12px' }}>
-                {record.users?.name || record.employee_name}
-              </div>
-              <Text type="secondary" style={{ fontSize: '10px' }}>
-                {record.users?.employee_id || record.employee_code}
-              </Text>
-            </div>
-          ) : (
-            <div>
-              <div style={{ fontWeight: 600, fontSize: '10px' }}>
-                {(record.users?.name || record.employee_name)?.split(' ')[0]}
-              </div>
-              <Text type="secondary" style={{ fontSize: '8px' }}>
-                {record.users?.employee_id || record.employee_code}
-              </Text>
-            </div>
-          )}
+      title: (
+        <Space>
+          <UserOutlined style={{ color: '#0D7139' }} />
+          <span style={{ fontWeight: 600 }}>Employee</span>
         </Space>
       ),
-      width: isMobile ? 80 : 150,
+      key: 'employee',
+      render: (_, record) => (
+        <Space direction="horizontal" size={12}>
+          <Avatar 
+            style={{ 
+              backgroundColor: '#0D7139',
+              border: '2px solid white',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+            }}
+            size={isMobile ? 36 : 42}
+          >
+            {(record.users?.name || record.employee_name)?.charAt(0)}
+          </Avatar>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ 
+              fontWeight: 600, 
+              fontSize: isMobile ? '13px' : '14px',
+              color: '#1f2937',
+              marginBottom: '2px',
+              lineHeight: '1.2'
+            }}>
+              {record.users?.name || record.employee_name}
+            </div>
+            <Text type="secondary" style={{ 
+              fontSize: isMobile ? '11px' : '12px',
+              color: '#6b7280'
+            }}>
+              {record.users?.employee_id || record.employee_code}
+            </Text>
+            {!isMobile && (
+              <div style={{ 
+                fontSize: '10px', 
+                color: '#9ca3af',
+                marginTop: '1px'
+              }}>
+                {record.department}
+              </div>
+            )}
+          </div>
+        </Space>
+      ),
+      width: isMobile ? 120 : 180,
+      fixed: !isMobile ? 'left' : false,
     }] : []),
 
-    // Mobile-optimized Leave Type column
+    // Leave Type Column (Enhanced)
     {
-      title: isMobile ? 'Type' : 'Leave Type',
+      title: (
+        <Space>
+          <CalendarOutlined style={{ color: '#0D7139' }} />
+          <span style={{ fontWeight: 600 }}>Leave Type</span>
+        </Space>
+      ),
       key: 'leaveType',
       render: (_, record) => {
         const config = getLeaveTypeConfig(record.leave_type);
         return (
-          <Space direction={isMobile ? 'vertical' : 'horizontal'} size="small">
-            <div style={{ color: config.color }}>{config.icon}</div>
-            <div>
+          <Space direction="vertical" size={4} style={{ width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ 
+                padding: '4px',
+                background: `${config.color}15`,
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <span style={{ color: config.color, fontSize: '14px' }}>
+                  {config.icon}
+                </span>
+              </div>
               <Tag 
-                color={config.color} 
                 style={{ 
-                  borderRadius: '6px',
-                  fontSize: isMobile ? '8px' : '12px',
-                  padding: isMobile ? '2px 4px' : '4px 8px'
+                  background: config.gradient,
+                  border: 'none',
+                  color: 'white',
+                  borderRadius: '8px',
+                  fontWeight: 500,
+                  fontSize: isMobile ? '10px' : '12px',
+                  padding: isMobile ? '2px 6px' : '4px 8px',
+                  margin: 0
                 }}
               >
                 {isMobile ? 
-                  (record.leave_type.length > 6 ? 
-                    record.leave_type.substring(0, 6) + '...' : 
+                  (record.leave_type.length > 8 ? 
+                    record.leave_type.substring(0, 8) + '...' : 
                     record.leave_type
                   ) : 
                   record.leave_type
                 }
               </Tag>
-              {record.sub_type && !isMobile && (
-                <>
-                  <br />
-                  <Text type="secondary" style={{ fontSize: '10px' }}>
-                    {record.leave_type === 'Permission' && getPermissionTimeIcon(record.sub_type)}
-                    {' '}{record.sub_type}
-                  </Text>
-                </>
-              )}
             </div>
+            {record.sub_type && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                {record.leave_type === 'Permission' && (
+                  <span style={{ fontSize: '10px' }}>
+                    {getPermissionTimeIcon(record.sub_type)}
+                  </span>
+                )}
+                <Text type="secondary" style={{ 
+                  fontSize: isMobile ? '9px' : '11px',
+                  background: '#f8f9fa',
+                  padding: '1px 6px',
+                  borderRadius: '4px',
+                  border: '1px solid #e9ecef'
+                }}>
+                  {record.sub_type}
+                </Text>
+              </div>
+            )}
           </Space>
         );
       },
-      width: isMobile ? 70 : 150,
+      width: isMobile ? 100 : 160,
     },
 
-    // Mobile-optimized Duration column
+    // Duration Column (Enhanced)
     {
-      title: isMobile ? 'Date' : 'Duration',
+      title: (
+        <Space>
+          <ClockCircleOutlined style={{ color: '#0D7139' }} />
+          <span style={{ fontWeight: 600 }}>Duration</span>
+        </Space>
+      ),
       key: 'duration',
       render: (_, record) => (
-        <div>
-          <Text strong style={{ fontSize: isMobile ? '9px' : '13px' }}>
-            {dayjs(record.start_date).format(isMobile ? 'DD/MM' : 'MMM DD')}
+        <div style={{ lineHeight: '1.4' }}>
+          <div style={{
+            fontWeight: 600,
+            fontSize: isMobile ? '11px' : '13px',
+            color: '#1f2937',
+            marginBottom: '2px'
+          }}>
+            {dayjs(record.start_date).format(isMobile ? 'DD/MM' : 'DD MMM')}
             {record.end_date !== record.start_date && 
-              ` - ${dayjs(record.end_date).format(isMobile ? 'DD/MM' : 'MMM DD')}`}
-          </Text>
-          {isMobile ? (
-            <div>
-              <Text type="secondary" style={{ fontSize: '8px' }}>
-                {record.total_hours > 0 ? `${record.total_hours}h` : 
-                 record.total_days > 0 ? `${record.total_days}d` : '-'}
+              ` - ${dayjs(record.end_date).format(isMobile ? 'DD/MM' : 'DD MMM')}`}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+            {record.total_hours > 0 ? (
+              <div style={{
+                background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                fontSize: isMobile ? '9px' : '10px',
+                fontWeight: 500,
+                color: '#1565c0'
+              }}>
+                {record.total_hours}h
+              </div>
+            ) : record.total_days > 0 && (
+              <div style={{
+                background: 'linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%)',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                fontSize: isMobile ? '9px' : '10px',
+                fontWeight: 500,
+                color: '#2e7d32'
+              }}>
+                {record.total_days}d
+              </div>
+            )}
+            {record.start_time && record.end_time && !isMobile && (
+              <Text type="secondary" style={{ fontSize: '9px' }}>
+                {record.start_time}-{record.end_time}
               </Text>
-            </div>
-          ) : (
-            <>
-              <br />
-              <Text type="secondary" style={{ fontSize: '11px' }}>
-                {record.total_hours > 0 ? `${record.total_hours}h` : 
-                 record.total_days > 0 ? `${record.total_days}d` : '-'}
-                {record.start_time && record.end_time && (
-                  <> • {record.start_time}-{record.end_time}</>
-                )}
-              </Text>
-            </>
-          )}
+            )}
+          </div>
         </div>
       ),
-      width: isMobile ? 60 : 140,
+      width: isMobile ? 80 : 120,
     },
 
-    // Mobile-optimized Status column
+    // Status Column (Enhanced)
     {
-      title: 'Status',
+      title: (
+        <Space>
+          <NotificationOutlined style={{ color: '#0D7139' }} />
+          <span style={{ fontWeight: 600 }}>Status</span>
+        </Space>
+      ),
       key: 'status',
-      render: (_, record) => (
-        <div>
-          <Badge 
-            status={record.status === 'Approved' ? 'success' : 
-                   record.status === 'Rejected' ? 'error' : 'processing'}
-            text={<span style={{ fontSize: isMobile ? '8px' : '12px' }}>
-              {isMobile ? record.status.substring(0, 3) : record.status}
-            </span>}
-          />
-          {!isMobile && record.status === 'Approved' && record.approvedBy && (
-            <>
-              <br />
-              <Text type="secondary" style={{ fontSize: '10px' }}>
-                by {record.approvedBy}
-              </Text>
-            </>
-          )}
-        </div>
-      ),
-      width: isMobile ? 50 : 120,
+      render: (_, record) => {
+        const statusConfig = {
+          'Approved': { 
+            color: '#52c41a', 
+            bg: 'linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%)',
+            icon: <CheckCircleOutlined />
+          },
+          'Rejected': { 
+            color: '#ff4d4f', 
+            bg: 'linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%)',
+            icon: <CloseCircleOutlined />
+          },
+          'Pending': { 
+            color: '#faad14', 
+            bg: 'linear-gradient(135deg, #fffbe6 0%, #fff1b8 100%)',
+            icon: <ClockCircleOutlined />
+          }
+        };
+        
+        const config = statusConfig[record.status] || statusConfig['Pending'];
+        
+        return (
+          <div>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: config.bg,
+              padding: '6px 10px',
+              borderRadius: '20px',
+              border: `1px solid ${config.color}30`,
+              fontSize: isMobile ? '10px' : '12px',
+              fontWeight: 600,
+              color: config.color
+            }}>
+              <span style={{ fontSize: '10px' }}>{config.icon}</span>
+              {isMobile ? record.status.substring(0, 4) : record.status}
+            </div>
+            {!isMobile && record.status === 'Approved' && record.approved_by && (
+              <div style={{ marginTop: '4px' }}>
+                <Text type="secondary" style={{ fontSize: '9px' }}>
+                  by {record.approved_by}
+                </Text>
+              </div>
+            )}
+          </div>
+        );
+      },
+      width: isMobile ? 70 : 120,
     },
 
-    // Always show Applied Date (modify condition)
+    // Applied Date Column (Enhanced)
     {
-      title: isMobile ? 'Applied' : 'Applied Date',
+      title: (
+        <Space>
+          <HistoryOutlined style={{ color: '#0D7139' }} />
+          <span style={{ fontWeight: 600 }}>Applied</span>
+        </Space>
+      ),
       dataIndex: 'created_at',
       render: (date) => (
-        <Text style={{ fontSize: isMobile ? '8px' : '12px' }}>
-          {dayjs(date).format(isMobile ? 'DD/MM/YY' : 'MMM DD, YYYY')}
-        </Text>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            fontWeight: 600,
+            fontSize: isMobile ? '10px' : '12px',
+            color: '#1f2937',
+            marginBottom: '2px'
+          }}>
+            {dayjs(date).format(isMobile ? 'DD/MM' : 'DD MMM')}
+          </div>
+          <Text type="secondary" style={{ 
+            fontSize: isMobile ? '8px' : '10px',
+            display: 'block'
+          }}>
+            {dayjs(date).format(isMobile ? 'YY' : 'YYYY')}
+          </Text>
+          {!isMobile && (
+            <Text type="secondary" style={{ fontSize: '9px', display: 'block' }}>
+              {dayjs(date).fromNow()}
+            </Text>
+          )}
+        </div>
       ),
       width: isMobile ? 60 : 100,
+      sorter: (a, b) => dayjs(a.created_at).unix() - dayjs(b.created_at).unix(),
     },
 
-    // Mobile-optimized Actions column
+    // Actions Column (Enhanced)
     {
-      title: '',
+      title: (
+        <div style={{ textAlign: 'center' }}>
+          <Text style={{ fontWeight: 600, color: '#6b7280' }}>Actions</Text>
+        </div>
+      ),
       key: 'actions',
       render: (_, record) => (
-        <Space size="small" direction={isMobile ? 'vertical' : 'horizontal'}>
+        <Space size={4} direction={isMobile ? 'vertical' : 'horizontal'}>
           <Tooltip title="View Details">
             <Button
               type="text"
@@ -1213,40 +1344,72 @@ const getTableColumns = () => {
                 setSelectedLeave(record);
                 setLeaveDetailsModal(true);
               }}
-              style={{ color: '#0D7139' }}
+              style={{ 
+                color: '#0D7139',
+                border: '1px solid transparent',
+                borderRadius: '8px',
+                padding: '4px 8px',
+                transition: 'all 0.3s ease'
+              }}
+              className="action-btn"
             />
           </Tooltip>
+          
           {userRole !== 'employee' && record.status === 'Pending' && (
             <>
-              <Tooltip title="Approve">
+              <Tooltip title="Approve Leave">
                 <Popconfirm
-                  title="Approve this leave?"
+                  title="Approve this leave application?"
+                  description="This action cannot be undone."
                   onConfirm={() => handleLeaveAction(record.id, 'approve')}
-                  okText="Yes"
-                  cancelText="No"
+                  okText="Approve"
+                  cancelText="Cancel"
+                  okButtonProps={{ 
+                    style: { 
+                      background: '#52c41a',
+                      borderColor: '#52c41a'
+                    }
+                  }}
                 >
                   <Button
                     type="text"
                     icon={<CheckCircleOutlined />}
                     size="small"
-                    style={{ color: '#52c41a' }}
+                    style={{ 
+                      color: '#52c41a',
+                      border: '1px solid transparent',
+                      borderRadius: '8px',
+                      padding: '4px 8px',
+                      transition: 'all 0.3s ease'
+                    }}
+                    className="action-btn approve-btn"
                   />
                 </Popconfirm>
               </Tooltip>
-              <Tooltip title="Reject">
+              
+              <Tooltip title="Reject Leave">
                 <Popconfirm
-                  title="Reject this leave?"
-                  description="Please provide rejection reason"
-                  onConfirm={() => handleLeaveAction(record.id, 'reject', 'leave ')}
+                  title="Reject this leave application?"
+                  description="Please provide rejection reason in the details modal."
+                  onConfirm={() => handleLeaveAction(record.id, 'reject', 'Leave rejected by HR')}
                   okText="Reject"
                   cancelText="Cancel"
-                  okButtonProps={{ danger: true }}
+                  okButtonProps={{ 
+                    danger: true 
+                  }}
                 >
                   <Button
                     type="text"
                     icon={<CloseCircleOutlined />}
                     size="small"
-                    style={{ color: '#ff4d4f' }}
+                    style={{ 
+                      color: '#ff4d4f',
+                      border: '1px solid transparent',
+                      borderRadius: '8px',
+                      padding: '4px 8px',
+                      transition: 'all 0.3s ease'
+                    }}
+                    className="action-btn reject-btn"
                   />
                 </Popconfirm>
               </Tooltip>
@@ -1254,14 +1417,74 @@ const getTableColumns = () => {
           )}
         </Space>
       ),
-      width: isMobile ? 40 : (userRole === 'employee' ? 80 : 120),
-      fixed: isMobile ? false : 'right',
+      width: isMobile ? 50 : (userRole === 'employee' ? 80 : 140),
+      fixed: !isMobile ? 'right' : false,
     },
   ];
 
   return baseColumns;
 };
+const actionButtonStyles = `
+  /* Enhanced Action Buttons */
+  .action-btn:hover {
+    background: rgba(13, 113, 57, 0.08) !important;
+    border-color: #0D7139 !important;
+    transform: scale(1.1);
+  }
 
+  .approve-btn:hover {
+    background: rgba(82, 196, 26, 0.08) !important;
+    border-color: #52c41a !important;
+    transform: scale(1.1);
+  }
+
+  .reject-btn:hover {
+    background: rgba(255, 77, 79, 0.08) !important;
+    border-color: #ff4d4f !important;
+    transform: scale(1.1);
+  }
+
+  /* Enhanced Popconfirm Styling */
+  .ant-popconfirm .ant-popconfirm-message-title {
+    font-weight: 600 !important;
+    color: #1f2937 !important;
+  }
+
+  .ant-popconfirm .ant-popconfirm-description {
+    color: #6b7280 !important;
+  }
+
+  /* Loading States */
+  .ant-table-tbody > tr.ant-table-row-loading > td {
+    background: linear-gradient(90deg, #f8f9fa 25%, #e9ecef 50%, #f8f9fa 75%) !important;
+    background-size: 200% 100% !important;
+    animation: loading 1.5s infinite !important;
+  }
+
+  @keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Responsive Table Improvements */
+  @media (max-width: 768px) {
+    .ant-table-thead > tr > th {
+      padding: 8px 4px !important;
+      font-size: 11px !important;
+    }
+    
+    .ant-table-tbody > tr > td {
+      padding: 6px 4px !important;
+    }
+    
+    .ant-space-item {
+      margin-bottom: 2px !important;
+    }
+  }
+`;
+
+// 5. Export the complete updated styles to be added to your component
+const completeStyles = professionalStyles + actionButtonStyles;
   // Apply Leave Form Component
   const ApplyLeaveForm = () => {
     const [selectedLeaveType, setSelectedLeaveType] = useState('');
@@ -1910,251 +2133,539 @@ useEffect(() => {
 
   // HR/Admin Dashboard Component
   const HRDashboard = () => (
-    <div style={animationStyles.container}>
-      {/* HR Header */}
-      <Card style={{ 
-  marginBottom: '24px',
-  background: 'rgba(255, 255, 255, 0.95)',
-  backdropFilter: 'blur(10px)',
-  border: 'none',
-  borderRadius: '16px',
-  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-  ...animationStyles.headerCard
-}}>
-  <Row align="middle" justify="space-between" gutter={[16, 16]}>
-    <Col xs={24} sm={16} md={18}>
-      <Space 
-        size={isMobile ? "small" : "large"} 
-        direction="horizontal" // Always horizontal
-        style={{ width: '100%', justifyContent: isMobile ? 'center' : 'flex-start' }}
-      >
-        <Avatar 
-          size={isMobile ? 40 : 64} // Smaller on mobile
-          icon={<TeamOutlined />} 
-          style={{ backgroundColor: '#0D7139' }}
-        />
-        <div style={{ textAlign: isMobile ? 'center' : 'left' }}>
-          <Title 
-            level={isMobile ? 4 : 2} // Smaller title on mobile
-            style={{ 
-              margin: 0, 
-              color: '#0D7139',
-              fontSize: isMobile ? '16px' : '24px',
-              lineHeight: isMobile ? '1.2' : '1.5'
-            }}
-          >
-            Leave Management
-          </Title>
-          <Text 
-            type="secondary" 
-            style={{ 
-              fontSize: isMobile ? '10px' : '16px',
-              display: 'block',
-              lineHeight: '1.2'
-            }}
-          >
-            {isMobile ? 'HR Dashboard' : 'HR Dashboard - Manage all employee leaves'}
-          </Text>
-        </div>
-      </Space>
-    </Col>
-    <Col xs={24} sm={8} md={6}>
-      <div style={{ 
-        display: 'flex',
-        gap: isMobile ? '4px' : '8px',
-        justifyContent: isMobile ? 'center' : 'flex-end',
-        flexWrap: 'wrap'
-      }}>
-        <Button
-          icon={<FilterOutlined />}
-          onClick={() => setLeaveHistoryDrawer(true)}
-          size={isMobile ? "small" : "middle"}
-          style={{ 
-            fontSize: isMobile ? '10px' : '14px',
-            padding: isMobile ? '4px 8px' : undefined
-          }}
-        >
-          {isMobile ? 'Filter' : 'Advanced Filter'}
-        </Button>
-        <Button
-          icon={<DownloadOutlined />}
-          onClick={() => setExportModalVisible(true)}
-          size={isMobile ? "small" : "middle"}
-          style={{ 
-            fontSize: isMobile ? '10px' : '14px',
-            padding: isMobile ? '4px 8px' : undefined
-          }}
-        >
-          {isMobile ? 'Export' : 'Export Report'}
-        </Button>
-      </div>
-    </Col>
-  </Row>
-</Card>
-
-      {/* Quick Stats */}
-      <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
-        <Col xs={12} sm={8} md={6}>
-          <Card style={{ 
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #52c41a15 0%, #52c41a05 100%)',
-            border: '1px solid #52c41a20',
-            ...animationStyles.statsCard 
-          }}>
-            <Statistic
-              title="Total Approved"
-              value={filteredLeaves.filter(l => l.status === 'Approved').length}
-              valueStyle={{ color: '#52c41a', fontSize: '24px' }}
-              prefix={<CheckCircleOutlined />}
-            />
-          </Card>
+  <div style={animationStyles.container}>
+    {/* Professional HR Header */}
+    <Card style={{
+      marginBottom: '24px',
+      background: 'linear-gradient(135deg, #f8fffe 0%, #e6f7ff 50%, #f0f9ff 100%)',
+      border: '1px solid #e8f4fd',
+      borderRadius: '20px',
+      boxShadow: '0 10px 40px rgba(13, 113, 57, 0.08)',
+      overflow: 'hidden',
+      ...animationStyles.headerCard
+    }}>
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        width: '200px',
+        height: '100px',
+        background: 'linear-gradient(135deg, rgba(13, 113, 57, 0.05) 0%, rgba(82, 196, 26, 0.03) 100%)',
+        borderRadius: '0 0 0 100px',
+        zIndex: 1
+      }} />
+      
+      <Row align="middle" justify="space-between" gutter={[24, 16]} style={{ position: 'relative', zIndex: 2 }}>
+        <Col xs={24} md={14} lg={16}>
+          <Space size={24} direction="horizontal" style={{ width: '100%' }}>
+            <div style={{
+              position: 'relative',
+              background: 'linear-gradient(135deg, #0D7139 0%, #52c41a 100%)',
+              borderRadius: '16px',
+              padding: '16px',
+              boxShadow: '0 8px 24px rgba(13, 113, 57, 0.2)'
+            }}>
+              <TeamOutlined style={{ fontSize: '32px', color: 'white' }} />
+              <div style={{
+                position: 'absolute',
+                top: '-4px',
+                right: '-4px',
+                width: '12px',
+                height: '12px',
+                background: '#52c41a',
+                borderRadius: '50%',
+                border: '2px solid white'
+              }} />
+            </div>
+            
+            <div style={{ flex: 1 }}>
+              <Title level={2} style={{
+                margin: '0 0 4px 0',
+                background: 'linear-gradient(135deg, #0D7139 0%, #52c41a 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                fontSize: 'clamp(20px, 4vw, 28px)',
+                fontWeight: 700,
+                letterSpacing: '-0.5px'
+              }}>
+                Leave Management Hub
+              </Title>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                <Text style={{ 
+                  color: '#6b7280',
+                  fontSize: '14px',
+                  fontWeight: 500
+                }}>
+                  HR Administrative Dashboard
+                </Text>
+                <div style={{ 
+                  padding: '4px 12px',
+                  background: 'rgba(13, 113, 57, 0.1)',
+                  border: '1px solid rgba(13, 113, 57, 0.2)',
+                  borderRadius: '20px',
+                  fontSize: '12px',
+                  color: '#0D7139',
+                  fontWeight: 600
+                }}>
+                  Admin Access
+                </div>
+              </div>
+            </div>
+          </Space>
         </Col>
-        <Col xs={12} sm={8} md={6}>
-          <Card style={{ 
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #faad1415 0%, #faad1405 100%)',
-            border: '1px solid #faad1420',
-            ...animationStyles.statsCard 
-          }}>
-            <Statistic
-              title="Pending Approval"
-              value={filteredLeaves.filter(l => l.status === 'Pending').length}
-              valueStyle={{ color: '#faad14', fontSize: '24px' }}
-              prefix={<ClockCircleOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={8} md={6}>
-          <Card style={{ 
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #ff4d4f15 0%, #ff4d4f05 100%)',
-            border: '1px solid #ff4d4f20',
-            ...animationStyles.statsCard 
-          }}>
-            <Statistic
-              title="Rejected"
-              value={filteredLeaves.filter(l => l.status === 'Rejected').length}
-              valueStyle={{ color: '#ff4d4f', fontSize: '24px' }}
-              prefix={<CloseCircleOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={8} md={6}>
-          <Card style={{ 
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #0D713915 0%, #0D713905 100%)',
-            border: '1px solid #0D713920',
-            ...animationStyles.statsCard 
-          }}>
-            <Statistic
-              title="Total Employees"
-              value={employees.filter(emp => emp.type === 'Full-time').length}
-              valueStyle={{ color: '#0D7139', fontSize: '24px' }}
-              prefix={<UserOutlined />}
-            />
-          </Card>
+        
+        <Col xs={24} md={10} lg={8}>
+          <Space direction="vertical" style={{ width: '100%' }} size={12}>
+            <Row gutter={8} justify="end">
+              <Col>
+                <Tooltip title="Advanced Filtering Options">
+                  <Button
+                    icon={<FilterOutlined />}
+                    onClick={() => setLeaveHistoryDrawer(true)}
+                    style={{
+                      height: '44px',
+                      borderRadius: '12px',
+                      border: '1px solid #e1e5e9',
+                      background: 'white',
+                      color: '#6b7280',
+                      fontWeight: 500,
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                      transition: 'all 0.3s ease'
+                    }}
+                    className="professional-btn"
+                  >
+                    Advanced Filters
+                  </Button>
+                </Tooltip>
+              </Col>
+              <Col>
+                <Tooltip title="Export Leave Reports">
+                  <Button
+                    type="primary"
+                    icon={<DownloadOutlined />}
+                    onClick={() => setExportModalVisible(true)}
+                    style={{
+                      height: '44px',
+                      borderRadius: '12px',
+                      background: 'linear-gradient(135deg, #0D7139 0%, #52c41a 100%)',
+                      border: 'none',
+                      fontWeight: 600,
+                      boxShadow: '0 4px 16px rgba(13, 113, 57, 0.24)',
+                      transition: 'all 0.3s ease'
+                    }}
+                    className="professional-primary-btn"
+                  >
+                    Export Report
+                  </Button>
+                </Tooltip>
+              </Col>
+            </Row>
+          </Space>
         </Col>
       </Row>
+    </Card>
 
-      {/* Leave Applications Table */}
-    <Card style={{ 
-      background: 'rgba(255, 255, 255, 0.95)',
-      backdropFilter: 'blur(10px)',
-      border: 'none',
-      borderRadius: '16px',
-      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+    {/* Professional Stats Cards with Enhanced Design */}
+   {/* Professional Stats Cards with Enhanced Design */}
+    <Row gutter={[20, 20]} style={{ marginBottom: '32px' }}>
+      <Col xs={12} sm={6} lg={6}>
+        <Card style={{
+          borderRadius: '16px',
+          border: '1px solid rgba(82, 196, 26, 0.12)',
+          background: 'white', // ✅ Added white background
+          boxShadow: '0 4px 20px rgba(82, 196, 26, 0.08)',
+          transition: 'all 0.3s ease',
+          position: 'relative',
+          overflow: 'hidden',
+          ...animationStyles.statsCard
+        }}>
+          <div style={{
+            position: 'absolute',
+            top: '-20px',
+            right: '-20px',
+            width: '80px',
+            height: '80px',
+            background: 'rgba(82, 196, 26, 0.1)',
+            borderRadius: '50%',
+            zIndex: 1
+          }} />
+          <div style={{ position: 'relative', zIndex: 2 }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '12px'
+            }}>
+              <div style={{
+                padding: '8px',
+                background: 'rgba(82, 196, 26, 0.1)',
+                borderRadius: '10px',
+                display: 'inline-flex'
+              }}>
+                <CheckCircleOutlined style={{ fontSize: '20px', color: '#52c41a' }} />
+              </div>
+              <Text style={{ 
+                fontSize: '12px', 
+                color: '#52c41a',
+                fontWeight: 600,
+                background: 'rgba(82, 196, 26, 0.1)',
+                padding: '2px 8px',
+                borderRadius: '12px'
+              }}>
+                +12.5%
+              </Text>
+            </div>
+            <div style={{ marginBottom: '4px' }}>
+              <Text style={{
+                fontSize: '28px',
+                fontWeight: 700,
+                color: '#52c41a',
+                lineHeight: 1
+              }}>
+                {filteredLeaves.filter(l => l.status === 'Approved').length}
+              </Text>
+            </div>
+            <Text style={{
+              color: '#6b7280',
+              fontSize: '14px',
+              fontWeight: 500
+            }}>
+              Approved Leaves
+            </Text>
+            <Text style={{
+              display: 'block',
+              fontSize: '11px',
+              color: '#9ca3af',
+              marginTop: '4px'
+            }}>
+              This month
+            </Text>
+          </div>
+        </Card>
+      </Col>
+
+      <Col xs={12} sm={6} lg={6}>
+        <Card style={{
+          borderRadius: '16px',
+          border: '1px solid rgba(250, 173, 20, 0.12)',
+          background: 'white', // ✅ Added white background
+          boxShadow: '0 4px 20px rgba(250, 173, 20, 0.08)',
+          transition: 'all 0.3s ease',
+          position: 'relative',
+          overflow: 'hidden',
+          ...animationStyles.statsCard
+        }}>
+          <div style={{
+            position: 'absolute',
+            top: '-20px',
+            right: '-20px',
+            width: '80px',
+            height: '80px',
+            background: 'rgba(250, 173, 20, 0.1)',
+            borderRadius: '50%',
+            zIndex: 1
+          }} />
+          <div style={{ position: 'relative', zIndex: 2 }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '12px'
+            }}>
+              <div style={{
+                padding: '8px',
+                background: 'rgba(250, 173, 20, 0.1)',
+                borderRadius: '10px',
+                display: 'inline-flex'
+              }}>
+                <ClockCircleOutlined style={{ fontSize: '20px', color: '#faad14' }} />
+              </div>
+              <div style={{
+                width: '8px',
+                height: '8px',
+                background: '#faad14',
+                borderRadius: '50%',
+                animation: 'pulse 2s infinite'
+              }} />
+            </div>
+            <div style={{ marginBottom: '4px' }}>
+              <Text style={{
+                fontSize: '28px',
+                fontWeight: 700,
+                color: '#faad14',
+                lineHeight: 1
+              }}>
+                {filteredLeaves.filter(l => l.status === 'Pending').length}
+              </Text>
+            </div>
+            <Text style={{
+              color: '#6b7280',
+              fontSize: '14px',
+              fontWeight: 500
+            }}>
+              Pending Review
+            </Text>
+            <Text style={{
+              display: 'block',
+              fontSize: '11px',
+              color: '#9ca3af',
+              marginTop: '4px'
+            }}>
+              Requires attention
+            </Text>
+          </div>
+        </Card>
+      </Col>
+
+      <Col xs={12} sm={6} lg={6}>
+        <Card style={{
+          borderRadius: '16px',
+          border: '1px solid rgba(255, 77, 79, 0.12)',
+          background: 'white', // ✅ Added white background
+          boxShadow: '0 4px 20px rgba(255, 77, 79, 0.08)',
+          transition: 'all 0.3s ease',
+          position: 'relative',
+          overflow: 'hidden',
+          ...animationStyles.statsCard
+        }}>
+          <div style={{
+            position: 'absolute',
+            top: '-20px',
+            right: '-20px',
+            width: '80px',
+            height: '80px',
+            background: 'rgba(255, 77, 79, 0.1)',
+            borderRadius: '50%',
+            zIndex: 1
+          }} />
+          <div style={{ position: 'relative', zIndex: 2 }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '12px'
+            }}>
+              <div style={{
+                padding: '8px',
+                background: 'rgba(255, 77, 79, 0.1)',
+                borderRadius: '10px',
+                display: 'inline-flex'
+              }}>
+                <CloseCircleOutlined style={{ fontSize: '20px', color: '#ff4d4f' }} />
+              </div>
+              <Text style={{ 
+                fontSize: '12px', 
+                color: '#ff4d4f',
+                fontWeight: 600,
+                background: 'rgba(255, 77, 79, 0.1)',
+                padding: '2px 8px',
+                borderRadius: '12px'
+              }}>
+                -8.2%
+              </Text>
+            </div>
+            <div style={{ marginBottom: '4px' }}>
+              <Text style={{
+                fontSize: '28px',
+                fontWeight: 700,
+                color: '#ff4d4f',
+                lineHeight: 1
+              }}>
+                {filteredLeaves.filter(l => l.status === 'Rejected').length}
+              </Text>
+            </div>
+            <Text style={{
+              color: '#6b7280',
+              fontSize: '14px',
+              fontWeight: 500
+            }}>
+              Rejected Leaves
+            </Text>
+            <Text style={{
+              display: 'block',
+              fontSize: '11px',
+              color: '#9ca3af',
+              marginTop: '4px'
+            }}>
+              This month
+            </Text>
+          </div>
+        </Card>
+      </Col>
+
+     
+    </Row>
+
+    {/* Enhanced Leave Applications Table */}
+    <Card style={{
+      background: 'white',
+      border: '1px solid #f0f0f0',
+      borderRadius: '20px',
+      boxShadow: '0 6px 30px rgba(0, 0, 0, 0.04)',
+      overflow: 'hidden',
       ...animationStyles.mainCard
     }}>
-      {/* Mobile-Responsive Table Header */}
-<div style={{ marginBottom: '20px' }}>
-  <Row gutter={[16, 16]} align="middle">
-    <Col xs={24} sm={12}>
-      <Title level={4} style={{ 
-        margin: 0, 
-        color: '#0D7139', 
-        fontSize: 'clamp(16px, 4vw, 20px)',
-        textAlign: isMobile ? 'center' : 'left' // Use state instead of window.innerWidth
+      {/* Professional Table Header */}
+      <div style={{
+        background: 'linear-gradient(135deg, #fafbfc 0%, #f8f9fa 100%)',
+        padding: '24px 24px 20px 24px',
+        borderBottom: '1px solid #f0f0f0',
+        marginBottom: '0px'
       }}>
-        <NotificationOutlined style={{ marginRight: '8px' }} />
-        Leave Applications
-      </Title>
-    </Col>
-    <Col xs={24} sm={12}>
-      <Row gutter={[8, 8]} justify={isMobile ? 'center' : 'end'}> {/* Use state instead of window.innerWidth */}
-        <Col xs={12} sm={8}>
-          <Select
-            placeholder="Status"
-            value={filterStatus}
-            onChange={setFilterStatus}
-            style={{ width: '100%' }}
-            size="small"
-          >
-            <Option value="All">All</Option>
-            <Option value="Pending">Pending</Option>
-            <Option value="Approved">Approved</Option>
-            <Option value="Rejected">Rejected</Option>
-          </Select>
-        </Col>
-        <Col xs={12} sm={8}>
-          <Select
-            placeholder="Employee"
-            value={filterEmployee}
-            onChange={setFilterEmployee}
-            style={{ width: '100%' }}
-            size="small"
-          >
-            <Option value="All">All</Option>
-            {employees.map(emp => (
-              <Option key={emp.id} value={emp.id}>
-                {emp.name}
-              </Option>
-            ))}
-          </Select>
-        </Col>
-      </Row>
-    </Col>
-  </Row>
-</div>
-<Table
-  columns={getTableColumns()}
-  dataSource={filteredLeaves}
-  rowKey="id"
-  loading={loading}
-  pagination={filteredLeaves.length > 0 ? {
-    pageSize: 10,
-    showSizeChanger: true,
-    showQuickJumper: true,
-    showTotal: (total, range) => 
-      `${range[0]}-${range[1]} of ${total} items`,
-    simple: isMobile,
-  } : false} // Hide pagination when no data
-  scroll={filteredLeaves.length > 0 ? { 
-    x: 'max-content',
-    scrollToFirstRowOnChange: true
-  } : undefined} // Remove scroll when no data
-  size="small"
-  rowClassName={(record) => 
-    record.status === 'Pending' ? 'pending-row' : ''
-  }
-  locale={{
-    emptyText: (
-      <div style={{ 
-        padding: '40px 20px', 
-        textAlign: 'center',
-        color: '#999'
-      }}>
-        <Empty 
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description={
-            <span style={{ color: '#999' }}>
-              No leave applications found
-            </span>
-          }
+        <Row gutter={[24, 16]} align="middle">
+          <Col xs={24} sm={12} md={14}>
+            <Space size={16}>
+              <div style={{
+                padding: '12px',
+                background: 'linear-gradient(135deg, #0D7139 0%, #52c41a 100%)',
+                borderRadius: '12px',
+                display: 'inline-flex'
+              }}>
+                <NotificationOutlined style={{ fontSize: '20px', color: 'white' }} />
+              </div>
+              <div>
+                <Title level={3} style={{
+                  margin: 0,
+                  color: '#1f2937',
+                  fontSize: 'clamp(18px, 4vw, 22px)',
+                  fontWeight: 700,
+                  letterSpacing: '-0.3px'
+                }}>
+                  Leave Applications
+                </Title>
+                <Text style={{
+                  color: '#6b7280',
+                  fontSize: '14px',
+                  fontWeight: 400
+                }}>
+                  Manage and review employee leave requests
+                </Text>
+              </div>
+            </Space>
+          </Col>
+          
+          <Col xs={24} sm={12} md={10}>
+            <Row gutter={[12, 12]} justify="end">
+              <Col xs={24} sm={12} md={8}>
+                <Select
+                  placeholder="Status"
+                  value={filterStatus}
+                  onChange={setFilterStatus}
+                  style={{ width: '100%' }}
+                  size="large"
+                  suffixIcon={<FilterOutlined style={{ color: '#9ca3af' }} />}
+                  className="professional-select"
+                >
+                  <Option value="All">All Status</Option>
+                  <Option value="Pending">
+                    <Space>
+                      <div style={{ width: '8px', height: '8px', background: '#faad14', borderRadius: '50%' }} />
+                      Pending
+                    </Space>
+                  </Option>
+                  <Option value="Approved">
+                    <Space>
+                      <div style={{ width: '8px', height: '8px', background: '#52c41a', borderRadius: '50%' }} />
+                      Approved
+                    </Space>
+                  </Option>
+                  <Option value="Rejected">
+                    <Space>
+                      <div style={{ width: '8px', height: '8px', background: '#ff4d4f', borderRadius: '50%' }} />
+                      Rejected
+                    </Space>
+                  </Option>
+                </Select>
+              </Col>
+              
+              <Col xs={24} sm={12} md={8}>
+                <Select
+                  placeholder="Employee"
+                  value={filterEmployee}
+                  onChange={setFilterEmployee}
+                  style={{ width: '100%' }}
+                  size="large"
+                  suffixIcon={<UserOutlined style={{ color: '#9ca3af' }} />}
+                  className="professional-select"
+                >
+                  <Option value="All">All Employees</Option>
+                  {employees.map(emp => (
+                    <Option key={emp.id} value={emp.id}>
+                      <Space>
+                        <Avatar size="small" style={{ backgroundColor: '#0D7139' }}>
+                          {emp.name.charAt(0)}
+                        </Avatar>
+                        {emp.name}
+                      </Space>
+                    </Option>
+                  ))}
+                </Select>
+              </Col>
+            </Row>
+          </Col>
+        </Row>
+      </div>
+      
+      {/* Table with padding */}
+      <div style={{ padding: '0 24px 24px 24px' }}>
+        <Table
+          columns={getTableColumns()}
+          dataSource={filteredLeaves}
+          rowKey="id"
+          loading={loading}
+          pagination={filteredLeaves.length > 0 ? {
+            pageSize: 15,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total, range) => (
+              <Text style={{ color: '#6b7280', fontWeight: 500 }}>
+                Showing {range[0]}-{range[1]} of {total} applications
+              </Text>
+            ),
+            simple: isMobile,
+          } : false}
+          scroll={filteredLeaves.length > 0 ? {
+            x: 'max-content',
+            scrollToFirstRowOnChange: true
+          } : undefined}
+          size="middle"
+          rowClassName={(record) => {
+            if (record.status === 'Pending') return 'pending-row';
+            if (record.status === 'Approved') return 'approved-row';
+            if (record.status === 'Rejected') return 'rejected-row';
+            return '';
+          }}
+          locale={{
+            emptyText: (
+              <div style={{
+                padding: '60px 20px',
+                textAlign: 'center',
+                background: 'linear-gradient(135deg, #fafbfc 0%, #f8f9fa 100%)',
+                borderRadius: '16px',
+                margin: '20px 0'
+              }}>
+                <div style={{
+                  padding: '20px',
+                  background: 'white',
+                  borderRadius: '50%',
+                  display: 'inline-block',
+                  marginBottom: '16px',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)'
+                }}>
+                  <NotificationOutlined style={{ fontSize: '32px', color: '#d1d5db' }} />
+                </div>
+                <Title level={4} style={{ color: '#6b7280', marginBottom: '8px' }}>
+                  No Leave Applications
+                </Title>
+                <Text style={{ color: '#9ca3af' }}>
+                  No leave applications found matching your criteria
+                </Text>
+              </div>
+            )
+          }}
         />
       </div>
-    )
-  }}
-/>
     </Card>
   </div>
 );
@@ -2359,7 +2870,116 @@ useEffect(() => {
     </div>
   );
 };
+const professionalStyles = `
+  /* Professional Button Styles */
+  .professional-btn:hover {
+    background: #f8f9fa !important;
+    border-color: #0D7139 !important;
+    color: #0D7139 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  }
 
+  .professional-primary-btn:hover {
+    background: linear-gradient(135deg, #52c41a 0%, #0D7139 100%) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(13, 113, 57, 0.32) !important;
+  }
+
+  /* Professional Select Styles */
+  .professional-select .ant-select-selector {
+    border-radius: 12px !important;
+    border: 1px solid #e5e7eb !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    transition: all 0.3s ease !important;
+  }
+
+  .professional-select:hover .ant-select-selector {
+    border-color: #0D7139 !important;
+    box-shadow: 0 2px 8px rgba(13, 113, 57, 0.12) !important;
+  }
+
+  .professional-select.ant-select-focused .ant-select-selector {
+    border-color: #0D7139 !important;
+    box-shadow: 0 0 0 3px rgba(13, 113, 57, 0.1) !important;
+  }
+
+  /* Enhanced Row Styling */
+  .pending-row {
+    background: linear-gradient(135deg, #fffbf0 0%, #fff8e1 100%) !important;
+    border-left: 4px solid #faad14 !important;
+  }
+
+  .approved-row {
+    background: linear-gradient(135deg, #f6ffed 0%, #f0f9ff 100%) !important;
+    border-left: 4px solid #52c41a !important;
+  }
+
+  .rejected-row {
+    background: linear-gradient(135deg, #fff1f0 0%, #fff2f0 100%) !important;
+    border-left: 4px solid #ff4d4f !important;
+  }
+
+  .ant-table-tbody > tr:hover.pending-row > td {
+    background: linear-gradient(135deg, #fff7e6 0%, #ffefd3 100%) !important;
+  }
+
+  .ant-table-tbody > tr:hover.approved-row > td {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e8f4fd 100%) !important;
+  }
+
+  .ant-table-tbody > tr:hover.rejected-row > td {
+    background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%) !important;
+  }
+
+  /* Card Hover Effects */
+  .ant-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
+  }
+
+  /* Stats Card Animation */
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  /* Professional Table Headers */
+  .ant-table-thead > tr > th {
+    background: linear-gradient(135deg, #f8f9fa 0%, #f1f3f5 100%) !important;
+    border-bottom: 2px solid #e9ecef !important;
+    font-weight: 600 !important;
+    color: #495057 !important;
+    padding: 16px 16px !important;
+  }
+
+  /* Enhanced Pagination */
+  .ant-pagination .ant-pagination-item {
+    border-radius: 8px !important;
+    border: 1px solid #e9ecef !important;
+    font-weight: 500 !important;
+  }
+
+  .ant-pagination .ant-pagination-item-active {
+    background: linear-gradient(135deg, #0D7139 0%, #52c41a 100%) !important;
+    border-color: #0D7139 !important;
+  }
+
+  /* Responsive Improvements */
+  @media (max-width: 768px) {
+    .ant-card-body {
+      padding: 16px !important;
+    }
+    
+    .ant-table-tbody > tr > td {
+      padding: 8px 6px !important;
+    }
+    
+    .ant-statistic-content-value {
+      font-size: 20px !important;
+    }
+  }
+`;
 // 2. Add Export Modal Component (add this before the LeaveManagementPage component)
 const ExportReportModal = ({ visible, onCancel, leaveData }) => {
   const [exportForm] = Form.useForm();
