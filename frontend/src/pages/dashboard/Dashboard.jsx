@@ -20,7 +20,7 @@ import CampusJobApplyPage from '../job/CampusJobApplyPage';
 import ExamConductPage from '../job/ExamConductPage';
 import EmailClient from '../email/EmailClient';
 
-import FeedbackForm from '../feedback/FeedbackForm';
+
 import DirectRecruitmentPage from '../job/DirectRecruitmentPage';
 import EmployeeAttendancePage from '../hr/EmployeeAttendancePage';
 import { supabase } from '../../supabase/config';
@@ -1339,16 +1339,7 @@ if (activeSection === 'mails') {
       </div>
     );
   }
-  if (activeSection === 'feedback') {
-    return (
-      <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-        {renderHeader("Search Feedback...")}
-        <main className="main-content">
-          <FeedbackForm userRole={userData?.role} />
-        </main>
-      </div>
-    );
-  }
+
 
   if (activeSection === 'Hr') {
     return (
