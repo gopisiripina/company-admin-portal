@@ -58,11 +58,7 @@ useEffect(() => {
       { icon: DeleteOutlined, label: 'Trash', id: 'trash' }
     ] : []
   },
-  // { icon: Calendar, label: 'Leave Management', id: 'leave-management' },
   
-
-    
-    // Project Management parent with children
    // Project Management (only for superadmin and admin)
 ...(userRole === 'superadmin' || userRole === 'admin' ? [
   {
