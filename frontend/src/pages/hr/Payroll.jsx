@@ -938,14 +938,39 @@ const PayrollManagement = () => {
                         size="small"
                         icon={<PlusOutlined />}
                         onClick={() => {
-                          form.setFieldsValue({
-                            userId: record.id,
-                            employeeName: record.name,
-                            employeeId: record.employee_id,
-                            emailAddress: record.email
-                          });
-                          setCurrentView('addEmployee');
-                        }}
+    // Find the latest payroll record for this user
+    const latestPayroll = employees
+      .filter(emp => emp.user_id === record.id)
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+    
+    // Set form values with existing payroll data if available
+    const formValues = {
+      userId: record.id,
+      employeeName: record.name,
+      employeeId: record.employee_id,
+      emailAddress: record.email,
+      // Reset pay period and pay date to current defaults
+      payPeriod: dayjs(),
+      payDate: dayjs(),
+    };
+    
+    // If payroll data exists, populate other fields
+    if (latestPayroll) {
+      formValues.companyName = latestPayroll.company_name;
+      formValues.companyAddress = latestPayroll.company_address;
+      formValues.city = latestPayroll.city;
+      formValues.country = latestPayroll.country;
+      formValues.paidDays = latestPayroll.paid_days;
+      formValues.lopDays = latestPayroll.lop_days;
+      formValues.basic = latestPayroll.basic;
+      formValues.hra = latestPayroll.hra;
+      formValues.incomeTax = latestPayroll.income_tax;
+      formValues.pf = latestPayroll.pf;
+    }
+    
+    form.setFieldsValue(formValues);
+    setCurrentView('addEmployee');
+  }}  
                         style={{ 
                           borderRadius: '6px',
                           background: '#10b981',
