@@ -19,6 +19,7 @@ import SelectedCandidatesPage from '../job/SelectedCandidatespage';
 import CampusJobApplyPage from '../job/CampusJobApplyPage';
 import ExamConductPage from '../job/ExamConductPage';
 import EmailClient from '../email/EmailClient';
+import EmployeeProfileModal from '../profile/EmployeeProfileModal';
 
 
 import DirectRecruitmentPage from '../job/DirectRecruitmentPage';
@@ -58,6 +59,8 @@ const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionCh
   const [userPayslips, setUserPayslips] = useState([]);
   const [showPayslipModal, setShowPayslipModal] = useState(false);
   const [selectedPayslipMonth, setSelectedPayslipMonth] = useState(dayjs());
+  const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
+  
   const [tabId] = useState(() => Date.now() + Math.random());
     const storageKey = `emailCredentials_${tabId}`;
 useEffect(() => {
@@ -65,6 +68,16 @@ useEffect(() => {
   
   
 }, [userData]);
+const handleProfileClick = () => {
+  console.log('handleProfileClick called');
+  onSectionChange('employee-profile'); // Change this line
+};
+{/* Add this before the closing </div> */}
+
+// Add this handler to close the modal
+const handleCloseProfileModal = () => {
+  setIsProfileModalVisible(false);
+};
 
 const loadFaceDetectionModels = async () => {
   try {
@@ -1174,7 +1187,12 @@ const handleEmailFolderChange = (folder) => {
           <Bell size={22} />
           <span className="notification-badge"></span>
         </button>
-        <ProfileSection userData={userData} onLogout={onLogout} storageKey={storageKey}/>
+        <ProfileSection 
+  userData={userData} 
+  onLogout={onLogout} 
+  storageKey={storageKey}
+  onProfileClick={handleProfileClick} // Add this line
+/>
       </div>
     </header>
   );
@@ -1339,7 +1357,20 @@ if (activeSection === 'mails') {
       </div>
     );
   }
-
+if (activeSection === 'employee-profile') {
+  return (
+    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+      {renderHeader("Search profile...")}
+      <main className="main-content">
+        <EmployeeProfileModal 
+          isVisible={true}
+          onClose={() => onSectionChange('dashboard')}
+          userData={userData}
+        />
+      </main>
+    </div>
+  );
+}
 
   if (activeSection === 'Hr') {
     return (

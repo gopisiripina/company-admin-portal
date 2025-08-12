@@ -74,6 +74,9 @@ const AppContent = () => {
         else if (path.includes('/leave-manage')) {
       setActiveSection('leave-manage');
        }
+       else if (path.includes('/employee-profile')) {
+  setActiveSection('employee-profile');
+}
    else if (path.includes('/payroll')) {
       setActiveSection('payroll');
        }else if (path.includes('/leave-management')) {
@@ -120,20 +123,24 @@ const AppContent = () => {
   console.log('Login successful, user data:', user);
   
   // Store the COMPLETE user object
-  const completeUserData = {
-    id: user.id,
-    name: user.name || 'User',
-    email: user.email,
-    role: user.role || 'User',
-    profileImage: user.profileImage,
-    photoURL: user.photoURL,
-    isActive: user.isActive,
-    employeeId: user.employeeId,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
-    displayName: user.displayName,
-    userType: user.userType
-  };
+ const completeUserData = {
+  id: user.id,
+  name: user.name || 'User',
+  email: user.email,
+  role: user.role || 'User',
+  profileimage: user.profileimage, // ✅ lowercase
+  mobile: user.mobile,
+  department: user.department,
+  pay: user.pay,
+  start_date: user.start_date,
+  isactive: user.isactive,
+  employeeId: user.employeeId,
+  createdAt: user.createdAt,
+  updatedAt: user.updatedAt,
+  displayName: user.displayName,
+  userType: user.userType
+};
+
   
   setUserData(completeUserData);
   setIsLoggedIn(true);
@@ -206,6 +213,9 @@ else if (itemId === 'on-campus-data') {
 }else if (itemId === 'payroll') {
       navigate('/dashboard/payroll', { replace: true });
     }
+    else if (itemId === 'employee-profile') {
+  navigate('/dashboard/employee-profile', { replace: true });
+}
     else if (itemId === 'employee-attendance') {
       navigate('/dashboard/employee-attendance', { replace: true });
     }
