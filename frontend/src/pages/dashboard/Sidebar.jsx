@@ -58,12 +58,7 @@ useEffect(() => {
       { icon: DeleteOutlined, label: 'Trash', id: 'trash' }
     ] : []
   },
-  // { icon: Calendar, label: 'Leave Management', id: 'leave-management' },
   
-  // Feedback Form - Available to all authenticated users
-  { icon: MessageSquare, label: 'Feedback', id: 'feedback', color: '#f97316' },
-    
-    // Project Management parent with children
    // Project Management (only for superadmin and admin)
 ...(userRole === 'superadmin' || userRole === 'admin' ? [
   {

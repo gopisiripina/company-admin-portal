@@ -426,41 +426,58 @@ if ((isUpdatingEmail && values.newEmail && values.newEmail !== currentEmail) ||
 }
 
       const updateData = {
-        name: values.name,
-        email: isUpdatingEmail && values.newEmail ? values.newEmail : values.email, // MODIFY THIS LINE
-        mobile: values.mobile,
-        department: values.department,
-        role: values.role || 'employee',
-        employee_id: newEmployeeId, // MODIFY THIS LINE
-        isactive: values.isActive,
-        profileimage: profileImage,
-        employee_type: values.employeeType,
-        start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
-        end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
-        face_embedding: finalFaceEmbedding,
-      };
-      
-      console.log('Updating employee with data:', updateData);
-      
-      const { data, error } = await supabaseAdmin
-        .from('users')
-        .update(updateData)
-        .eq('id', editingEmployee.id)
-        .select();
+  name: values.name,
+  email: isUpdatingEmail && values.newEmail ? values.newEmail : values.email,
+  mobile: values.mobile,
+  department: values.department,
+  role: values.role || 'employee',
+  employee_id: newEmployeeId,
+  isactive: values.isActive,
+  profileimage: profileImage,
+  employee_type: values.employeeType,
+  start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
+  end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
+  face_embedding: finalFaceEmbedding,
+  pay: values.pay ? parseFloat(values.pay) : null, // Update users.pay column
+};
 
-      if (error) {
-        console.error('Supabase update error:', error);
-        throw error;
-      }
+const { data, error } = await supabaseAdmin
+  .from('users')
+  .update(updateData)
+  .eq('id', editingEmployee.id)
+  .select();
 
-      // ADD THIS PAYROLL UPDATE CODE HERE:
+if (error) {
+  console.error('Supabase update error:', error);
+  throw error;
+}
+
+// Update payroll record
 if (values.pay) {
+  const currentDate = new Date();
+  const currentMonth = currentDate.toISOString().slice(0, 7) + '-01';
+  const payAmount = parseFloat(values.pay);
+  
   const { error: payrollError } = await supabaseAdmin
     .from('payroll')
     .upsert({
       user_id: editingEmployee.id,
-      net_pay: parseFloat(values.pay),
-      // Add other required payroll fields if needed
+      company_name: "My Access",
+      company_address: "Your Company Address",
+      city: "Your City", 
+      employee_name: values.name,
+      employee_id: newEmployeeId,
+      email_address: isUpdatingEmail && values.newEmail ? values.newEmail : values.email,
+      pay_period: currentMonth,
+      pay_date: currentDate.toISOString().slice(0, 10),
+      paid_days: 30,
+      lop_days: 0,
+      basic: payAmount, // This makes net_pay = payAmount
+      hra: 0,
+      income_tax: 0,
+      pf: 0
+    }, {
+      onConflict: 'employee_id,pay_period'
     });
     
   if (payrollError) {
@@ -472,47 +489,67 @@ if (values.pay) {
       message.success('Employee updated successfully');
     } else {
       // Create new employee
-      const password = generatePassword();
-      const newEmployeeId = await generateEmployeeId(values.employeeType); // MODIFY THIS LINE
-      
-      const employeeData = {
-        name: values.name,
-        email: values.email,
-        mobile: values.mobile,
-        department: values.department,
-        employee_id: newEmployeeId, // MODIFY THIS LINE
-        role: 'employee',
-        isactive: values.isActive !== undefined ? values.isActive : false,
-        isfirstlogin: true,
-        profileimage: profileImage,
-        password: password,
-        employee_type: values.employeeType,
-        start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
-        end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
-        face_embedding: finalFaceEmbedding,
-        pay: values.pay ? parseFloat(values.pay) : null // ADD THIS LINE
-      };
-      
-      console.log('Creating employee with data:', employeeData);
-      
-      const { data, error } = await supabaseAdmin
-        .from('users')
-        .insert([employeeData])
-        .select();
+      // Create new employee
+const password = generatePassword();
+const newEmployeeId = await generateEmployeeId(values.employeeType);
+const payAmount = values.pay ? parseFloat(values.pay) : null;
 
-      if (error) {
-        console.error('Supabase insert error:', error);
-        throw error;
-      }
+const employeeData = {
+  name: values.name,
+  email: values.email,
+  mobile: values.mobile,
+  department: values.department,
+  employee_id: newEmployeeId,
+  role: 'employee',
+  isactive: values.isActive !== undefined ? values.isActive : false,
+  isfirstlogin: true,
+  profileimage: profileImage,
+  password: password,
+  employee_type: values.employeeType,
+  start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
+  end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
+  face_embedding: finalFaceEmbedding,
+  pay: payAmount
+};
 
-      if (values.pay && data && data[0]) {
+console.log('Creating employee with data:', employeeData);
+
+const { data, error } = await supabaseAdmin
+  .from('users')
+  .insert([employeeData])
+  .select();
+
+if (error) {
+  console.error('Supabase insert error:', error);
+  throw error;
+}
+
+// Create payroll record with the net_pay amount (no deductions)
+if (values.pay && data && data[0]) {
+  const currentDate = new Date();
+  const payrollData = {
+    user_id: data[0].id,
+    company_name: "My Access", // Update with your company name
+    company_address: "Your Company Address", // Update with your address
+    city: "Your City", // Update with your city
+    employee_name: values.name,
+    employee_id: newEmployeeId,
+    email_address: values.email,
+    pay_period: currentDate.toISOString().slice(0, 7) + '-01', // First day of current month
+    pay_date: currentDate.toISOString().slice(0, 10), // Current date
+    paid_days: 30, // Default full month
+    lop_days: 0,
+    basic: payAmount, // Store full amount as basic
+
+    hra: 0, // No HRA for simplicity
+    income_tax: 0, // No deductions
+    pf: 0 // No deductions
+    // gross_earnings, total_deductions, and net_pay will be auto-calculated
+  };
+  
   const { error: payrollError } = await supabaseAdmin
     .from('payroll')
-    .insert({
-      user_id: data[0].id, // Use the newly created user's ID
-      net_pay: parseFloat(values.pay),
-      // Add other required payroll fields if needed
-    });
+    .insert(payrollData);
     
   if (payrollError) {
     console.error('Payroll creation error:', payrollError);
@@ -894,27 +931,39 @@ const [filters, setFilters] = useState({
   const fetchAllEmployees = useCallback(async () => {
   try {
     const { data, error } = await supabaseAdmin
-      .from('users')
-      .select(`
-        id,
-        name,
-        email,
-         mobile,
-        role,
-        employee_id,
-        isactive,
-        profileimage,
-        employee_type,
-        start_date,
-        end_date,
-        created_at,
-        updated_at,
-        face_embedding,
-        department,
-        payroll(net_pay)
-      `) // ADD pay to the select
-      .eq('role', 'employee')
-      .order('created_at', { ascending: false });
+  .from('users')
+  .select(`
+    id,
+    name,
+    email,
+    mobile,
+    role,
+    employee_id,
+    isactive,
+    profileimage,
+    employee_type,
+    start_date,
+    end_date,
+    created_at,
+    updated_at,
+    face_embedding,
+    department,
+    pay,
+    payroll(
+      id,
+      basic,
+      hra,
+      gross_earnings,
+      income_tax,
+      pf,
+      total_deductions,
+      net_pay,
+      pay_period,
+      pay_date
+    )
+  `)
+  .eq('role', 'employee')
+  .order('created_at', { ascending: false });
     
     if (error) {
       console.error('Fetch error:', error);
@@ -952,12 +1001,12 @@ if (search) {
   }
   
   // Status filter
-  if (filterOptions.status !== '') {
-    const isActive = filterOptions.status === 'active';
-    filteredEmployees = filteredEmployees.filter(employee => 
-      employee.isactive === isActive
-    );
-  }
+if (filterOptions.status && filterOptions.status !== '' && filterOptions.status !== undefined) {
+  const isActive = filterOptions.status === 'active';
+  filteredEmployees = filteredEmployees.filter(employee => 
+    employee.isactive === isActive
+  );
+}
   
   const total = filteredEmployees.length;
   const startIndex = (page - 1) * pageSize;
@@ -1255,7 +1304,7 @@ const handleClearFilters = useCallback(() => {
 },
 {
   title: 'Pay',
-  dataIndex: ['payroll', 'net_pay'],
+  dataIndex: ['pay'],
   key: 'pay',
   width: 120,
   render: (pay) => (

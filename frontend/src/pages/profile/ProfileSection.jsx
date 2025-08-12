@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ChevronDown, User, Settings, LogOut, Bell, Shield, HelpCircle } from 'lucide-react';
 import authService from '../../supabase/authService';
 
-const ProfileSection = ({ userData, onLogout }) => {
+const ProfileSection = ({ userData, onLogout,onProfileClick }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -20,16 +20,20 @@ const ProfileSection = ({ userData, onLogout }) => {
     { icon: LogOut, label: isLoggingOut ? 'Signing Out...' : 'Sign Out', id: 'logout', color: '#ef4444' }
   ];
 
-  const handleMenuItemClick = async (itemId) => {
-    
-    setIsDropdownOpen(false);
-    
-    if (itemId === 'logout') {
-      await handleLogout();
+const handleMenuItemClick = async (itemId) => {
+  console.log('Menu item clicked:', itemId); // Add this debug line
+  setIsDropdownOpen(false);
+  
+  if (itemId === 'logout') {
+    await handleLogout();
+  } else if (itemId === 'profile') {
+    console.log('Profile clicked, onProfileClick exists:', !!onProfileClick); // Add this debug line
+    if (onProfileClick) {
+      onProfileClick();
     }
-    // Add your navigation logic here for other menu items
-  };
-
+  }
+  // Add your navigation logic here for other menu items
+};
   const handleLogout = async () => {
     try {
       setIsLoggingOut(true);
@@ -433,7 +437,11 @@ const ProfileSection = ({ userData, onLogout }) => {
               <div
                 key={item.id}
                 style={menuItemStyle(isLoggingOut && item.id === 'logout')}
-                onClick={() => !isLoggingOut && handleMenuItemClick(item.id)}
+                onClick={() => {
+  if (!isLoggingOut || item.id !== 'logout') {
+    handleMenuItemClick(item.id);
+  }
+}}
                 onMouseEnter={(e) => {
                   if (!isLoggingOut || item.id !== 'logout') {
                     e.target.style.backgroundColor = '#f3f4f6';
