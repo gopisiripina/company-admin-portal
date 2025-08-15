@@ -1,15 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronDown, User, Settings, LogOut, Bell, Shield, HelpCircle } from 'lucide-react';
 import authService from '../../supabase/authService';
 
-const ProfileSection = ({ userData, onLogout,onProfileClick }) => {
+const ProfileSection = ({ userData, onLogout, onProfileClick }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [screenSize, setScreenSize] = useState('desktop');
   
+  // Screen size detection
+  useEffect(() => {
+    const checkScreenSize = () => {
+      const width = window.innerWidth;
+      if (width < 768) {
+        setScreenSize('mobile');
+      } else if (width < 1024) {
+        setScreenSize('tablet');
+      } else {
+        setScreenSize('desktop');
+      }
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
   // Check if it's a base64 image
   const isBase64Image = userData?.profileImage?.startsWith('data:image/');
-  // console.log('Is base64 image:', isBase64Image);
 
   const profileMenuItems = [
     { icon: User, label: 'My Profile', id: 'profile', color: '#3b82f6' },
@@ -20,42 +38,38 @@ const ProfileSection = ({ userData, onLogout,onProfileClick }) => {
     { icon: LogOut, label: isLoggingOut ? 'Signing Out...' : 'Sign Out', id: 'logout', color: '#ef4444' }
   ];
 
-const handleMenuItemClick = async (itemId) => {
-  console.log('Menu item clicked:', itemId); // Add this debug line
-  setIsDropdownOpen(false);
-  
-  if (itemId === 'logout') {
-    await handleLogout();
-  } else if (itemId === 'profile') {
-    console.log('Profile clicked, onProfileClick exists:', !!onProfileClick); // Add this debug line
-    if (onProfileClick) {
-      onProfileClick();
+  const handleMenuItemClick = async (itemId) => {
+    console.log('Menu item clicked:', itemId);
+    setIsDropdownOpen(false);
+    
+    if (itemId === 'logout') {
+      await handleLogout();
+    } else if (itemId === 'profile') {
+      console.log('Profile clicked, onProfileClick exists:', !!onProfileClick);
+      if (onProfileClick) {
+        onProfileClick();
+      }
     }
-  }
-  // Add your navigation logic here for other menu items
-};
+  };
+
   const handleLogout = async () => {
     try {
       setIsLoggingOut(true);
+      localStorage.removeItem('emailCredentials');
       
-       localStorage.removeItem('emailCredentials');
-      
-      // Call the enhanced logout method from authService (Supabase-enabled)
       const logoutSuccess = await authService.logout(userData);
       
       if (logoutSuccess) {
-        
+        // Success handled
       } else {
         console.warn('Logout completed but there may have been issues updating Supabase');
       }
       
-      // Call the parent component's logout handler
       if (onLogout) {
         onLogout();
       }
     } catch (error) {
       console.error('Error during logout:', error);
-      // Still proceed with logout even if there's an error
       if (onLogout) {
         onLogout();
       }
@@ -64,7 +78,6 @@ const handleMenuItemClick = async (itemId) => {
     }
   };
 
-  // Function to get initials from name
   const getInitials = (name) => {
     if (!name) return 'U';
     return name
@@ -75,105 +88,77 @@ const handleMenuItemClick = async (itemId) => {
       .slice(0, 2);
   };
 
-  // Enhanced function to check if user has a profile image
   const hasProfileImage = () => {
-    const profileImage = userData?.profileImage;
+    const profileimage = userData?.profileimage;
     const photoURL = userData?.photoURL;
-    
-    // console.log('Checking for profile image...');
-    // console.log('profileImage exists:', !!profileImage);
-    // console.log('photoURL exists:', !!photoURL);
-    
-    return !!(profileImage || photoURL);
+    return !!(profileimage || photoURL);
   };
 
-  // Enhanced function to get the profile image source
   const getProfileImageSrc = () => {
-    // Prioritize profileImage over photoURL
-    const profileImage = userData?.profileImage;
+    const profileimage = userData?.profileimage;
     const photoURL = userData?.photoURL;
-    
-    // console.log('Getting profile image source...');
-    // console.log('Using profileImage:', !!profileImage);
-    // console.log('Using photoURL:', !!photoURL);
-    
-    return profileImage || photoURL;
+    return profileimage || photoURL;
   };
 
-  // Enhanced function to render avatar (image or initials)
+  // Responsive avatar sizes
+  const getAvatarSizes = (size = 'small') => {
+    const sizes = {
+      mobile: {
+        small: { width: '36px', height: '36px', fontSize: '11px' },
+        large: { width: '56px', height: '56px', fontSize: '18px' }
+      },
+      tablet: {
+        small: { width: '40px', height: '40px', fontSize: '12px' },
+        large: { width: '60px', height: '60px', fontSize: '19px' }
+      },
+      desktop: {
+        small: { width: '42px', height: '42px', fontSize: '12px' },
+        large: { width: '64px', height: '64px', fontSize: '20px' }
+      }
+    };
+    return sizes[screenSize][size];
+  };
+
   const renderAvatar = (size = 'small') => {
     const initials = getInitials(userData?.name || userData?.displayName);
     const imageSource = getProfileImageSrc();
     const hasImage = hasProfileImage();
-    
-    // console.log(`Rendering avatar (${size}):`, {
-    //   hasImage,
-    //   imageSource: imageSource ? imageSource.substring(0, 50) + '...' : null,
-    //   initials
-    // });
+    const avatarSize = getAvatarSizes(size);
 
-    // Define inline styles for proper sizing
-    const smallAvatarStyle = {
-      width: '42px',
-      height: '42px',
+    const baseAvatarStyle = {
+      width: avatarSize.width,
+      height: avatarSize.height,
       borderRadius: '20%',
       objectFit: 'cover',
-      border: '2px solid #e5e7eb',
-      backgroundColor: 'black'
-    };
-
-    const largeAvatarStyle = {
-      width: '64px',
-      height: '64px',
-      borderRadius: '20%',
-      objectFit: 'cover',
-      border: '3px solid #e5e7eb',
+      border: size === 'large' ? '3px solid #e5e7eb' : '2px solid #e5e7eb',
       backgroundColor: '#1F4842'
     };
 
-    const smallInitialsStyle = {
-  width: '42px',
-  height: '42px',
-  borderRadius: '20%',
-  objectFit: 'cover',
-  border: '2px solid #e5e7eb',
-  backgroundColor: '#1F4842', // Remove !important, but ensure it's always set
-  color: 'white',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: '12px',
-  fontWeight: '600',
-  position: 'relative',
-  zIndex: 1 // Add this to ensure it stays on top
-};
+    const initialsStyle = {
+      ...baseAvatarStyle,
+      color: 'white',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontSize: avatarSize.fontSize,
+      fontWeight: '600',
+      position: 'relative',
+      zIndex: 1
+    };
 
-    const largeInitialsStyle = {
-  width: '64px',
-  height: '64px',
-  borderRadius: '20%',
-  backgroundColor: '#1F4842', // Remove !important, but ensure it's always set
-  color: 'white',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: '20px',
-  fontWeight: '600',
-  border: '3px solid #e5e7eb',
-  position: 'relative',
-  zIndex: 1 // Add this to ensure it stays on top
-};
-
-    
     if (hasImage && imageSource) {
       return (
-        <div style={{ position: 'relative', display: 'inline-block', width: size === 'large' ? '64px' : '42px', height: size === 'large' ? '64px' : '42px' }}>
+        <div style={{ 
+          position: 'relative', 
+          display: 'inline-block', 
+          width: avatarSize.width, 
+          height: avatarSize.height 
+        }}>
           <img 
             src={imageSource}
             alt={userData?.name || userData?.displayName || 'User'} 
-            style={size === 'large' ? largeAvatarStyle : smallAvatarStyle}
+            style={baseAvatarStyle}
             onError={(e) => {
-              // If image fails to load, hide image and show initials fallback
               console.error('Profile image failed to load:', e);
               e.target.style.display = 'none';
               const fallbackElement = e.target.parentNode.querySelector('.profile-avatar-fallback');
@@ -181,14 +166,11 @@ const handleMenuItemClick = async (itemId) => {
                 fallbackElement.style.display = 'flex';
               }
             }}
-            onLoad={() => {
-              console.log('Profile image loaded successfully');
-            }}
           />
           <div 
             className="profile-avatar-fallback"
             style={{ 
-              ...(size === 'large' ? largeInitialsStyle : smallInitialsStyle),
+              ...initialsStyle,
               display: 'none',
               position: 'absolute',
               top: 0,
@@ -201,26 +183,25 @@ const handleMenuItemClick = async (itemId) => {
       );
     }
     
-    // Show initials if no image
-    // console.log('No image found, showing initials:', initials);
     return (
-      <div className="profile-avatar-initials" style={size === 'large' ? largeInitialsStyle : smallInitialsStyle}>
+      <div className="profile-avatar-initials" style={initialsStyle}>
         {initials}
       </div>
     );
   };
 
-  // Status indicator for active/inactive
   const renderStatusIndicator = () => {
     const isActive = userData?.isActive;
+    const indicatorSize = screenSize === 'mobile' ? '6px' : '8px';
+    
     const statusStyle = {
-      width: '8px',
-      height: '8px',
+      width: indicatorSize,
+      height: indicatorSize,
       borderRadius: '50%',
       backgroundColor: isActive ? '#10b981' : '#ef4444',
       border: '2px solid white',
       position: 'absolute',
-      bottom: '2px',
+      bottom: screenSize === 'mobile' ? '1px' : '2px',
       right: '0px',
       boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
       zIndex: 1
@@ -229,198 +210,222 @@ const handleMenuItemClick = async (itemId) => {
     return <div style={statusStyle} title={isActive ? 'Active' : 'Inactive'} />;
   };
 
-  // Inline styles for the component
-  const profileSectionStyle = {
-    position: 'relative',
-    display: 'flex',
-    alignItems: 'center'
+  // Responsive styles
+  const getResponsiveStyles = () => {
+    const baseStyles = {
+      profileSection: {
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center'
+      },
+      
+      profileTrigger: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: screenSize === 'mobile' ? '8px' : '12px',
+        padding: screenSize === 'mobile' ? '6px 8px' : '8px 12px',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        transition: 'background-color 0.2s ease',
+        backgroundColor: isDropdownOpen ? '#f3f4f6' : (isHovered ? '#f9fafb' : 'transparent'),
+        border: 'none',
+        outline: 'none'
+      },
+
+      profileInfo: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        minWidth: 0,
+        ...(screenSize === 'mobile' && { display: 'none' }) // Hide text on mobile for space
+      },
+
+      profileName: {
+        fontSize: screenSize === 'mobile' ? '12px' : '14px',
+        fontWeight: '600',
+        color: '#1f2937',
+        lineHeight: '1.2',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        maxWidth: screenSize === 'tablet' ? '100px' : '120px'
+      },
+
+      profileRole: {
+        fontSize: screenSize === 'mobile' ? '10px' : '12px',
+        color: '#6b7280',
+        lineHeight: '1.2',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        maxWidth: screenSize === 'tablet' ? '100px' : '120px'
+      },
+
+      employeeId: {
+        fontSize: screenSize === 'mobile' ? '10px' : '12px',
+        color: '#6b7280',
+        lineHeight: '1.2',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        maxWidth: screenSize === 'tablet' ? '100px' : '120px'
+      },
+
+      chevron: {
+        color: '#6b7280',
+        transition: 'transform 0.2s ease',
+        transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+        ...(screenSize === 'mobile' && { display: 'none' }) // Hide chevron on mobile for space
+      },
+
+      dropdown: {
+        position: 'absolute',
+        top: '100%',
+        right: screenSize === 'mobile' ? '-10px' : '0',
+        marginTop: '8px',
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05)',
+        border: '1px solid #e5e7eb',
+        minWidth: screenSize === 'mobile' ? '260px' : (screenSize === 'tablet' ? '270px' : '280px'),
+        maxWidth: screenSize === 'mobile' ? '90vw' : 'none',
+        zIndex: 1000,
+        overflow: 'hidden'
+      },
+
+      dropdownHeader: {
+        padding: screenSize === 'mobile' ? '16px' : '20px',
+        borderBottom: '1px solid #e5e7eb',
+        display: 'flex',
+        alignItems: 'center',
+        gap: screenSize === 'mobile' ? '12px' : '16px',
+        backgroundColor: '#f9fafb'
+      },
+
+      headerInfo: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        flex: 1,
+        minWidth: 0
+      },
+
+      headerName: {
+        fontSize: screenSize === 'mobile' ? '14px' : '16px',
+        fontWeight: '600',
+        color: '#1f2937',
+        lineHeight: '1.2',
+        marginBottom: '4px',
+        wordBreak: 'break-word'
+      },
+
+      headerEmail: {
+        fontSize: screenSize === 'mobile' ? '12px' : '14px',
+        color: '#6b7280',
+        lineHeight: '1.2',
+        wordBreak: 'break-all',
+        marginBottom: '4px'
+      },
+
+      statusText: {
+        fontSize: screenSize === 'mobile' ? '11px' : '12px',
+        color: userData?.isActive ? '#10b981' : '#ef4444',
+        fontWeight: '500',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px'
+      },
+
+      dropdownMenu: {
+        padding: screenSize === 'mobile' ? '6px' : '8px'
+      },
+
+      menuItem: (isDisabled = false) => ({
+        display: 'flex',
+        alignItems: 'center',
+        gap: screenSize === 'mobile' ? '10px' : '12px',
+        padding: screenSize === 'mobile' ? '10px 14px' : '12px 16px',
+        borderRadius: '8px',
+        cursor: isDisabled ? 'not-allowed' : 'pointer',
+        transition: 'background-color 0.2s ease',
+        fontSize: screenSize === 'mobile' ? '13px' : '14px',
+        color: isDisabled ? '#9ca3af' : '#374151',
+        opacity: isDisabled ? 0.6 : 1
+      }),
+
+      menuIcon: (color, isDisabled = false) => ({
+        width: screenSize === 'mobile' ? '32px' : '36px',
+        height: screenSize === 'mobile' ? '32px' : '36px',
+        borderRadius: '8px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: isDisabled ? '#f3f4f6' : `${color}15`,
+        color: isDisabled ? '#9ca3af' : color
+      }),
+
+      backdrop: {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 999,
+        backgroundColor: 'transparent'
+      }
+    };
+
+    return baseStyles;
   };
 
-  const profileTriggerStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '12px',
-  padding: '8px 12px',
-  borderRadius: '8px',
-  cursor: 'pointer',
-  transition: 'background-color 0.2s ease',
-  backgroundColor: isDropdownOpen ? '#f3f4f6' : (isHovered ? '#f9fafb' : 'transparent'),
-  border: 'none',
-  outline: 'none'
-};
-  const profileInfoStyle = {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    minWidth: 0,
-  };
-
-  const profileNameStyle = {
-    fontSize: '14px',
-    fontWeight: '600',
-    color: '#1f2937',
-    lineHeight: '1.2',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    maxWidth: '120px'
-  };
-
-  const profileRoleStyle = {
-    fontSize: '12px',
-    color: '#6b7280',
-    lineHeight: '1.2',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    maxWidth: '120px'
-  };
-
-  const chevronStyle = {
-    color: '#6b7280',
-    transition: 'transform 0.2s ease',
-    transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)'
-  };
-
-  const dropdownStyle = {
-    position: 'absolute',
-    top: '100%',
-    right: '0',
-    marginTop: '8px',
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05)',
-    border: '1px solid #e5e7eb',
-    minWidth: '280px',
-    zIndex: 1000,
-    overflow: 'hidden'
-  };
-
-  const dropdownHeaderStyle = {
-    padding: '20px',
-    borderBottom: '1px solid #e5e7eb',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-    backgroundColor: '#f9fafb'
-  };
-
-  const headerInfoStyle = {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    flex: 1,
-    minWidth: 0
-  };
-
-  const headerNameStyle = {
-    fontSize: '16px',
-    fontWeight: '600',
-    color: '#1f2937',
-    lineHeight: '1.2',
-    marginBottom: '4px',
-    wordBreak: 'break-word'
-  };
-
-  const headerEmailStyle = {
-    fontSize: '14px',
-    color: '#6b7280',
-    lineHeight: '1.2',
-    wordBreak: 'break-all',
-    marginBottom: '4px'
-  };
-
-  const statusTextStyle = {
-    fontSize: '12px',
-    color: userData?.isActive ? '#10b981' : '#ef4444',
-    fontWeight: '500',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px'
-  };
-
-  const dropdownMenuStyle = {
-    padding: '8px'
-  };
-
-  const menuItemStyle = (isDisabled = false) => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '12px 16px',
-    borderRadius: '8px',
-    cursor: isDisabled ? 'not-allowed' : 'pointer',
-    transition: 'background-color 0.2s ease',
-    fontSize: '14px',
-    color: isDisabled ? '#9ca3af' : '#374151',
-    opacity: isDisabled ? 0.6 : 1
-  });
-
-  const menuIconStyle = (color, isDisabled = false) => ({
-    width: '36px',
-    height: '36px',
-    borderRadius: '8px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: isDisabled ? '#f3f4f6' : `${color}15`,
-    color: isDisabled ? '#9ca3af' : color
-  });
-
-  const backdropStyle = {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 999,
-    backgroundColor: 'transparent'
-  };
+  const styles = getResponsiveStyles();
 
   return (
-    <div style={profileSectionStyle}>
+    <div style={styles.profileSection}>
       <div 
-  style={profileTriggerStyle}
-  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-  onMouseEnter={() => setIsHovered(true)}
-  onMouseLeave={() => setIsHovered(false)}
->
+        style={styles.profileTrigger}
+        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
         <div style={{ position: 'relative' }}>
           {renderAvatar('small')}
           {renderStatusIndicator()}
         </div>
-       <div style={profileInfoStyle}>
-          <span style={profileNameStyle}>
+        
+        <div style={styles.profileInfo}>
+          <span style={styles.profileName}>
             {userData?.name || userData?.displayName || 'User'}
           </span>
-          <span style={profileRoleStyle}>
+          <span style={styles.profileRole}>
             {userData?.role || userData?.userType || 'User'}
           </span>
-          <span style={headerEmailStyle}>
-            {userData?.employeeId ||'N/A'}
+          <span style={styles.employeeId}>
+            {userData?.employeeId || 'N/A'}
           </span>
         </div>
+        
         <ChevronDown 
-          size={16} 
-          style={chevronStyle}
+          size={screenSize === 'mobile' ? 14 : 16} 
+          style={styles.chevron}
         />
       </div>
 
       {isDropdownOpen && (
-        <div style={dropdownStyle}>
-          <div style={dropdownHeaderStyle}>
+        <div style={styles.dropdown}>
+          <div style={styles.dropdownHeader}>
             <div style={{ position: 'relative' }}>
               {renderAvatar('large')}
               {renderStatusIndicator()}
             </div>
-            <div style={headerInfoStyle}>
-              <span style={headerNameStyle}>
+            <div style={styles.headerInfo}>
+              <span style={styles.headerName}>
                 {userData?.name || userData?.displayName || 'User'}
               </span>
-              <span style={headerEmailStyle}>
+              <span style={styles.headerEmail}>
                 {userData?.email || 'No email provided'}
               </span>
-              <span style={statusTextStyle}>
+              <span style={styles.statusText}>
                 <div style={{
                   width: '6px',
                   height: '6px',
@@ -432,16 +437,16 @@ const handleMenuItemClick = async (itemId) => {
             </div>
           </div>
           
-          <div style={dropdownMenuStyle}>
+          <div style={styles.dropdownMenu}>
             {profileMenuItems.map((item, index) => (
               <div
                 key={item.id}
-                style={menuItemStyle(isLoggingOut && item.id === 'logout')}
+                style={styles.menuItem(isLoggingOut && item.id === 'logout')}
                 onClick={() => {
-  if (!isLoggingOut || item.id !== 'logout') {
-    handleMenuItemClick(item.id);
-  }
-}}
+                  if (!isLoggingOut || item.id !== 'logout') {
+                    handleMenuItemClick(item.id);
+                  }
+                }}
                 onMouseEnter={(e) => {
                   if (!isLoggingOut || item.id !== 'logout') {
                     e.target.style.backgroundColor = '#f3f4f6';
@@ -451,8 +456,8 @@ const handleMenuItemClick = async (itemId) => {
                   e.target.style.backgroundColor = 'transparent';
                 }}
               >
-                <div style={menuIconStyle(item.color, isLoggingOut && item.id === 'logout')}>
-                  <item.icon size={18} />
+                <div style={styles.menuIcon(item.color, isLoggingOut && item.id === 'logout')}>
+                  <item.icon size={screenSize === 'mobile' ? 16 : 18} />
                 </div>
                 <span>{item.label}</span>
               </div>
@@ -463,7 +468,7 @@ const handleMenuItemClick = async (itemId) => {
       
       {isDropdownOpen && (
         <div 
-          style={backdropStyle}
+          style={styles.backdrop}
           onClick={() => setIsDropdownOpen(false)}
         />
       )}
