@@ -695,34 +695,60 @@ router.post('/post-job', async (req, res) => {
         }
 
         function formatJobPost(job, appUrl) {
-            let postText = `🚀 We're Hiring: ${job.job_title}\n\n`;
-            postText += `📍 Location: ${job.location || 'Not specified'}\n`;
-            postText += `🏢 Department: ${job.department || 'Not specified'}\n`;
-            postText += `💼 Employment Type: ${job.employment_type || 'Not specified'}\n`;
-            postText += `⭐ Experience Level: ${job.experience_level || 'Not specified'}\n`;
-            if (job.salary_range) {
-                postText += `💰 Salary Range: ${job.salary_range}\n`;
-            }
-            postText += `\n📋 Job Description:\n${job.job_description || 'No description available'}\n\n`;
-            if (job.key_responsibilities) {
-                postText += `🎯 Key Responsibilities:\n${job.key_responsibilities}\n\n`;
-            }
-            if (job.qualification_requirements) {
-                postText += `✅ Qualifications:\n${job.qualification_requirements}\n\n`;
-            }
-            if (job.required_skills) {
-                const skills = Array.isArray(job.required_skills) 
-                    ? job.required_skills.join(', ') 
-                    : job.required_skills;
-                postText += `🛠️ Skills Required:\n${skills}\n\n`;
-            }
-            if (job.additional_benefits) {
-                postText += `🎁 Benefits:\n${job.additional_benefits}\n\n`;
-            }
-            postText += `📧 Ready to join our team? Apply now: ${appUrl}\n\n`;
-            postText += `#Hiring #Jobs #${job.department?.replace(/\s/g, '') || ''} #${job.job_title?.replace(/\s/g, '') || ''}`;
-            return postText;
-        }
+    let postText = `🚀 We're Hiring: ${job.job_title}\n\n`;
+    postText += `📍 ${job.location || 'Remote'} | 🏢 ${job.department || 'Various'}\n`;
+    postText += `💼 ${job.employment_type || 'Full-time'} | ⭐ ${job.experience_level || 'All levels'}\n`;
+    if (job.salary_range) {
+        postText += `💰 ${job.salary_range}\n`;
+    }
+    postText += `\n`;
+
+    // Truncate job description to fit within limit
+    const maxDescLength = 600;
+    const description = job.job_description || 'Great opportunity to join our team!';
+    const truncatedDesc = description.length > maxDescLength 
+        ? description.substring(0, maxDescLength).trim() + '...' 
+        : description;
+    
+    postText += `📋 ${truncatedDesc}\n\n`;
+
+    // Add responsibilities only if there's space and keep it short
+    if (job.key_responsibilities && postText.length < 1800) {
+        const maxRespLength = 400;
+        const responsibilities = job.key_responsibilities.length > maxRespLength
+            ? job.key_responsibilities.substring(0, maxRespLength).trim() + '...'
+            : job.key_responsibilities;
+        postText += `🎯 Key Responsibilities:\n${responsibilities}\n\n`;
+    }
+
+    // Add qualifications only if there's space
+    if (job.qualification_requirements && postText.length < 2200) {
+        const maxQualLength = 300;
+        const qualifications = job.qualification_requirements.length > maxQualLength
+            ? job.qualification_requirements.substring(0, maxQualLength).trim() + '...'
+            : job.qualification_requirements;
+        postText += `✅ Qualifications:\n${qualifications}\n\n`;
+    }
+
+    // Add skills if there's space
+    if (job.required_skills && postText.length < 2500) {
+        const skills = Array.isArray(job.required_skills) 
+            ? job.required_skills.slice(0, 5).join(', ') // Limit to 5 skills
+            : job.required_skills.substring(0, 150);
+        postText += `🛠️ Skills: ${skills}\n\n`;
+    }
+
+    postText += `📧 Apply: ${appUrl}\n\n`;
+    postText += `#Hiring #Jobs #${job.department?.replace(/\s/g, '') || 'Career'}`;
+
+    // Final safety check - ensure under 3000 characters
+    if (postText.length > 2950) {
+        postText = postText.substring(0, 2900).trim() + '...\n\n📧 Apply: ' + appUrl;
+    }
+
+    console.log(`LinkedIn post length: ${postText.length} characters`);
+    return postText;
+}
 
         const finalAppUrl = applicationUrl || "http://localhost:5173/job-application";
         const postContent = formatJobPost(jobData, finalAppUrl);
@@ -766,12 +792,18 @@ router.post('/post-job', async (req, res) => {
             });
         }
     } catch (error) {
-        console.error("Exception occurred:", error.message);
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
-    }
+    console.error("LinkedIn API Full Error:", {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        headers: error.response?.headers
+    });
+     res.status(500).json({
+        success: false,
+        error: error.message,
+        linkedinDetails: error.response?.data // Add this to see LinkedIn's exact error
+    });
+    }   
 });
 
 // 5. SEND INTERVIEW INVITATION ENDPOINT
