@@ -89,6 +89,7 @@ class AuthService {
             employeeId: userData.employee_id,
             isFirstLogin: userData.isfirstlogin !== undefined ? userData.isfirstlogin : false,
             createdAt: userData.created_at ? new Date(userData.created_at) : new Date(),
+            created_at: userData.created_at || userData.createdat || null,
             updatedAt: new Date(),
             employee_type:userData.employee_type,
             password: undefined,
@@ -105,7 +106,8 @@ class AuthService {
             github_url:userData.github_url,
             twitter_url:userData.twitter_url,
             pay:userData.pay,
-            department:userData.department
+            department:userData.department,
+            // createdAt: createdAt
           };
           
          
@@ -287,20 +289,22 @@ async changeFirstLoginPassword(userId, newPassword) {
         employeeId: user.employeeId,
         mobile: user.mobile,
         work_phone: user.work_phone,
-        employee_type: user.employee_type,    // Change from userData to user
-        address: user.address,                // Change from userData to user
-        birth_date: user.birth_date,          // Change from userData to user
-        education: user.education,            // Change from userData to user
-        total_experience: user.total_experience, // Change from userData to user
-        technical_skills: user.technical_skills, // Change from userData to user
-        certifications: user.certifications,     // Change from userData to user
-        languages: user.languages,               // Change from userData to user
-        linkedin_url: user.linkedin_url,         // Change from userData to user
-        github_url: user.github_url,             // Change from userData to user
-        twitter_url: user.twitter_url,           // Change from userData to user
-        department: user.department,             // Change from userData to user
+        employee_type: user.employee_type,    
+        address: user.address,                
+        birth_date: user.birth_date,          
+        education: user.education,            
+        total_experience: user.total_experience, 
+        technical_skills: user.technical_skills, 
+        certifications: user.certifications,     
+        languages: user.languages,
+        pay: user.pay,               
+        linkedin_url: user.linkedin_url,         
+        github_url: user.github_url,             
+        twitter_url: user.twitter_url,           
+        department: user.department,             
         createdAt: user.createdAt,
-        updatedAt: user.updatedAt  // Also fix this - was user.updatedat
+        created_at: user.created_at,
+        updatedAt: user.updatedAt
       };
       
       console.log('Data to store:', dataToStore);

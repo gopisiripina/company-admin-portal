@@ -118,7 +118,7 @@ const handleProfileClick = async () => {
   mobile: userData?.mobile || 'Not provided', // Using mobile instead of phone
   workPhone: userData?.work_phone || 'Not provided',
   address: userData?.address || 'Not provided',
-  joinDate: userData?.start_date || userData?.joinDate, // Using start_date from your DB
+  joinDate: userData?.created_at || userData?.createdAt, // Using start_date from your DB
   birthDate: userData?.birth_date || userData?.birthDate,
   employeeType: userData?.employee_type || 'full-time',
   status: userData?.isActive ? 'Active' : 'Inactive',
@@ -127,8 +127,9 @@ const handleProfileClick = async () => {
   // : userData?.pay
   //   ? `₹${userData.pay}`
   //   : 'Not specified',
-  salary:userData?.pay || 'Not specified',
-  avatar: userData?.profileimage || null,
+    salary:userData?.pay || 'Not specified',
+    
+    avatar: userData?.profileimage || null,
     band: userData?.band || 'L5',
     location: userData?.location || 'New York Office',
     timezone: userData?.timezone || 'EST (UTC-5)',
@@ -152,7 +153,7 @@ const handleProfileClick = async () => {
     lastActive: userData?.lastActive || '2024-01-15 09:30:00',
     workAnniversary: userData?.workAnniversary || '2024-03-15'
   };
-
+console.log('userData.pay:', employeeData?.pay);
   // Enhanced performance data
   const performanceData = [
     { 
