@@ -140,9 +140,9 @@ const handleProfileClick = async () => {
     certifications: userData?.certifications || ['No Certifications Provided'],
     languages: userData?.languages || ['No Languages Provided'],
     emergencyContact: userData?.emergencyContact || {
-      name: 'Jane Doe',
+      name: 'Jone jackson',
       relationship: 'Spouse',
-      phone: '+1 (555) 456-7890'
+      phone: '+91 95554567890'
     },
     socialLinks: userData?.socialLinks || {
       linkedin: userData?.linkedin_url ||'https://www.linkedin.com/in/',
@@ -153,7 +153,7 @@ const handleProfileClick = async () => {
     lastActive: userData?.lastActive || '2024-01-15 09:30:00',
     workAnniversary: userData?.workAnniversary || '2024-03-15'
   };
-console.log('userData.pay:', employeeData?.pay);
+
   // Enhanced performance data
   const performanceData = [
     { 
@@ -190,48 +190,6 @@ console.log('userData.pay:', employeeData?.pay);
     }
   ];
 
-  // Enhanced projects data
-  const projectsData = [
-    {
-      key: '1',
-      project: 'Enterprise Platform Modernization',
-      role: 'Technical Lead',
-      status: 'Completed',
-      priority: 'High',
-      startDate: '2023-01-15',
-      endDate: '2023-12-20',
-      completion: 100,
-      team: 8,
-      budget: '$2.5M',
-      client: 'Internal - Platform Team'
-    },
-    {
-      key: '2',
-      project: 'Mobile Banking Application',
-      role: 'Senior Developer',
-      status: 'In Progress',
-      priority: 'Critical',
-      startDate: '2024-01-01',
-      endDate: '2024-06-30',
-      completion: 78,
-      team: 12,
-      budget: '$1.8M',
-      client: 'Banking Division'
-    },
-    {
-      key: '3',
-      project: 'API Gateway Implementation',
-      role: 'Architecture Consultant',
-      status: 'Planning',
-      priority: 'Medium',
-      startDate: '2024-03-01',
-      endDate: '2024-08-15',
-      completion: 15,
-      team: 6,
-      budget: '$800K',
-      client: 'Infrastructure Team'
-    }
-  ];
 
   // Enhanced timeline data
   const timelineData = [
@@ -659,8 +617,7 @@ const handlePersonalInfoSave = async () => {
     }}>
       {/* Breadcrumb Navigation */}
       <Breadcrumb style={{ marginBottom: '16px' }}>
-        <Breadcrumb.Item>HR Management</Breadcrumb.Item>
-        <Breadcrumb.Item>Employees</Breadcrumb.Item>
+         
         <Breadcrumb.Item>{employeeData.name}</Breadcrumb.Item>
       </Breadcrumb>
 
@@ -1198,51 +1155,7 @@ const handlePersonalInfoSave = async () => {
                 </Row>
               )
             },
-            {
-              key: 'projects',
-              label: (
-                <span>
-                  <ProjectOutlined />
-                  Projects
-                </span>
-              ),
-              children: (
-                <Card title="Current & Recent Projects">
-                  <Table
-                    dataSource={projectsData}
-                    columns={projectColumns}
-                    pagination={{ pageSize: 5, showSizeChanger: true }}
-                    scroll={{ x: 1200 }}
-                    size="small"
-                    expandable={{
-                      expandedRowRender: (record) => (
-                        <div style={{ padding: '16px', backgroundColor: '#fafafa' }}>
-                          <Row gutter={24}>
-                            <Col span={8}>
-                              <Text strong>Project Timeline:</Text>
-                              <br />
-                              <Text>Start: {dayjs(record.startDate).format('MMM DD, YYYY')}</Text>
-                              <br />
-                              <Text>End: {dayjs(record.endDate).format('MMM DD, YYYY')}</Text>
-                            </Col>
-                            <Col span={8}>
-                              <Text strong>Client/Department:</Text>
-                              <br />
-                              <Text>{record.client}</Text>
-                            </Col>
-                            <Col span={8}>
-                              <Text strong>Budget Allocation:</Text>
-                              <br />
-                              <Text style={{ color: '#52c41a', fontWeight: 600 }}>{record.budget}</Text>
-                            </Col>
-                          </Row>
-                        </div>
-                      ),
-                    }}
-                  />
-                </Card>
-              )
-            },
+         
             {
               key: 'timeline',
               label: (
