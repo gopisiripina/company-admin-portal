@@ -331,66 +331,160 @@ router.post('/mark-unread', (req, res) => {
 });
 
 // Download attachment
-router.post('/download-attachment', (req, res) => {
-    const { email, password, uid, attachmentId, folder = 'INBOX' } = req.body;
+// Download attachment route - FIXED VERSION
+router.post('/download-attachment', async (req, res) => {
+  const { email, password, uid, attachmentId, folder = 'INBOX' } = req.body;
+  
+  console.log('Download request:', { uid, attachmentId, folder });
+  
+  if (!uid || !attachmentId) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Missing UID or attachment ID.' 
+    });
+  }
+
+  const imap = new Imap(getImapConfig(email, password));
+  
+  imap.once('ready', () => {
+    console.log('IMAP ready, opening folder:', folder);
     
-    if (!uid || !attachmentId) {
-        return res.status(400).json({ success: false, error: 'Missing UID or attachment ID.' });
-    }
+    imap.openBox(folder, true, (err, box) => {
+      if (err) {
+        console.error('Failed to open folder:', err);
+        imap.end();
+        return res.status(500).json({ 
+          success: false, 
+          error: `Could not open folder: ${err.message}` 
+        });
+      }
 
-    const imap = new Imap(getImapConfig(email, password));
-
-    imap.once('ready', () => {
-        imap.openBox(folder, true, (err, box) => {
+      console.log('Fetching email with UID:', uid);
+      const f = imap.fetch(uid, { 
+        bodies: '', 
+        struct: true, 
+        markSeen: false 
+      });
+      
+      f.on('message', (msg, seqno) => {
+        msg.on('body', (stream, info) => {
+          simpleParser(stream, (err, parsed) => {
             if (err) {
-                imap.end();
-                return res.status(500).json({ success: false, error: `Could not open folder: ${err.message}` });
+              console.error('Failed to parse email:', err);
+              imap.end();
+              return res.status(500).json({ 
+                success: false, 
+                error: 'Failed to parse email: ' + err.message 
+              });
             }
 
-            const f = imap.fetch(uid, { 
-                bodies: '', 
-                struct: true,
-                markSeen: false
-            });
+            console.log('Parsed email attachments:', parsed.attachments?.length || 0);
+            console.log('Available attachments:', parsed.attachments?.map((att, index) => ({
+              index,
+              filename: att.filename,
+              contentType: att.contentType,
+              size: att.size,
+              contentId: att.contentId,
+              cid: att.cid
+            })));
 
-            f.on('message', (msg, seqno) => {
-                msg.on('body', (stream, info) => {
-                    simpleParser(stream, (err, parsed) => {
-                        if (err) {
-                            imap.end();
-                            return res.status(500).json({ success: false, error: 'Failed to parse email: ' + err.message });
-                        }
+            if (!parsed.attachments || parsed.attachments.length === 0) {
+              imap.end();
+              return res.status(404).json({
+                success: false,
+                error: 'No attachments found in this email.',
+                debug: {
+                  searchedFor: attachmentId,
+                  availableAttachments: []
+                }
+              });
+            }
 
-                        const attachment = parsed.attachments.find(att => 
-                            att.filename === attachmentId || att.contentId === attachmentId || att.cid === attachmentId
-                        );
+            // Try multiple matching strategies
+            let attachment = null;
+            
+            // Strategy 1: Exact filename match
+            attachment = parsed.attachments.find(att => att.filename === attachmentId);
+            
+            // Strategy 2: Try by index if attachmentId looks like attachment_N
+            if (!attachment && attachmentId.startsWith('attachment_')) {
+              const index = parseInt(attachmentId.split('_')[1]);
+              if (!isNaN(index) && index < parsed.attachments.length) {
+                attachment = parsed.attachments[index];
+              }
+            }
+            
+            // Strategy 3: Try other identifiers
+            if (!attachment) {
+              attachment = parsed.attachments.find(att => 
+                att.contentId === attachmentId || 
+                att.cid === attachmentId ||
+                (att.headers && att.headers['content-id'] === attachmentId)
+              );
+            }
+            
+            // Strategy 4: If still not found, try the first attachment if only one exists
+            if (!attachment && parsed.attachments.length === 1) {
+              attachment = parsed.attachments[0];
+              console.log('Using single available attachment as fallback');
+            }
 
-                        if (!attachment) {
-                            imap.end();
-                            return res.status(404).json({ success: false, error: 'Attachment not found.' });
-                        }
+            if (!attachment) {
+              console.error('Attachment not found after all strategies');
+              imap.end();
+              return res.status(404).json({ 
+                success: false, 
+                error: 'Attachment not found.',
+                debug: {
+                  searchedFor: attachmentId,
+                  availableAttachments: parsed.attachments.map((att, idx) => ({
+                    index: idx,
+                    filename: att.filename,
+                    contentId: att.contentId,
+                    cid: att.cid
+                  }))
+                }
+              });
+            }
 
-                        imap.end();
-                        
-                        res.setHeader('Content-Disposition', `attachment; filename="${attachment.filename}"`);
-                        res.setHeader('Content-Type', attachment.contentType || 'application/octet-stream');
-                        res.send(attachment.content);
-                    });
-                });
-            });
+            console.log('Found and serving attachment:', attachment.filename);
+            imap.end();
 
-            f.once('error', (err) => {
-                imap.end();
-                res.status(500).json({ success: false, error: 'Failed to fetch email: ' + err.message });
-            });
+            // Set proper headers for download
+            const filename = attachment.filename || `attachment_${Date.now()}`;
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+            res.setHeader('Content-Type', attachment.contentType || 'application/octet-stream');
+            
+            if (attachment.content && attachment.content.length) {
+              res.setHeader('Content-Length', attachment.content.length);
+            }
+            
+            // Send the attachment content
+            res.send(attachment.content);
+          });
         });
-    });
+      });
 
-    imap.once('error', (err) => {
-        res.status(400).json({ success: false, error: 'IMAP Connection Error: ' + err.message });
+      f.once('error', (err) => {
+        console.error('Failed to fetch email:', err);
+        imap.end();
+        res.status(500).json({ 
+          success: false, 
+          error: 'Failed to fetch email: ' + err.message 
+        });
+      });
     });
+  });
 
-    imap.connect();
+  imap.once('error', (err) => {
+    console.error('IMAP connection error:', err);
+    res.status(400).json({ 
+      success: false, 
+      error: 'IMAP Connection Error: ' + err.message 
+    });
+  });
+
+  imap.connect();
 });
 
 // Fetch trash emails
@@ -775,6 +869,112 @@ router.post('/move-to-trash', (req, res) => {
     });
     imap.once('error', (err) => res.status(400).json({ success: false, error: 'IMAP Connection Error: ' + err.message }));
     imap.connect();
+});
+
+
+// Updated Fetch emails from specific folder
+router.post('/fetch', (req, res) => {
+  const { email, password, folder = 'INBOX', limit = 10, offset = 0 } = req.body;
+  
+  const imap = new Imap(getImapConfig(email, password));
+  let emailsProcessed = 0;
+  
+  imap.once('ready', () => {
+    imap.openBox(folder, true, (err, box) => {
+      if (err) {
+        return res.status(400).json({ success: false, error: err.message });
+      }
+      
+      const emails = [];
+      const total = box.messages.total;
+      
+      if (total === 0) {
+        imap.end();
+        return res.json({ success: true, emails: [] });
+      }
+      
+      const start = Math.max(1, total - offset - limit + 1);
+      const end = total - offset;
+
+      if (end < start) {
+        imap.end();
+        return res.json({ success: true, emails: [] });
+      }
+
+      const startSeq = Math.max(1, start);
+      const endSeq = Math.max(1, end);
+      
+      const f = imap.seq.fetch(`${startSeq}:${endSeq}`, { 
+        bodies: '', 
+        struct: true,
+        envelope: true,
+        markSeen: false  // Don't auto-mark as read when fetching
+      });
+      
+      f.on('message', (msg, seqno) => {
+        const emailData = { seqno, attachments: [] };
+        
+        msg.on('body', (stream, info) => {
+          simpleParser(stream, (err, parsed) => {
+            if (parsed) {
+              emailData.from = parsed.from?.text || '';
+              emailData.to = parsed.to?.text || '';
+              emailData.cc = parsed.cc?.text || '';
+              emailData.bcc = parsed.bcc?.text || '';
+              emailData.subject = parsed.subject || '';
+              emailData.date = parsed.date?.toLocaleString() || '';
+              emailData.body = parsed.html || parsed.text || '';
+
+              // ✅ IMPROVED: Process attachments without storing content
+              if (parsed.attachments && parsed.attachments.length > 0) {
+                emailData.attachments = parsed.attachments.map((attachment, index) => ({
+                  // ✅ Use filename as primary ID (this matches what download expects)
+                  id: attachment.filename || `attachment_${index}`,
+                  filename: attachment.filename || `attachment_${index}`,
+                  size: attachment.size || 0,
+                  contentType: attachment.contentType || 'application/octet-stream',
+                  contentId: attachment.contentId,
+                  cid: attachment.cid,
+                  related: attachment.related || false,
+                  // ✅ REMOVED: Don't store content here - it will be fetched during download
+                  // This saves memory and prevents issues with large attachments
+                }));
+              }
+              
+              emails.push(emailData);
+            }
+
+            emailsProcessed++;
+            if (emailsProcessed >= (endSeq - startSeq + 1)) {
+              imap.end();
+              emails.sort((a, b) => b.seqno - a.seqno);
+              res.json({ success: true, emails });
+            }
+          });
+        });
+        
+        msg.once('attributes', (attrs) => {
+          emailData.uid = attrs.uid;
+          emailData.flags = attrs.flags;
+          emailData.seen = attrs.flags.includes('\\Seen');
+          emailData.unread = !attrs.flags.includes('\\Seen');
+        });
+      });
+      
+      f.once('error', (err) => {
+        console.error('Fetch error:', err);
+        imap.end();
+        res.status(400).json({ success: false, error: err.message });
+      });
+    });
+  });
+  
+  imap.once('error', (err) => {
+    console.error('IMAP error:', err);
+    res.status(400).json({ success: false, error: err.message });
+  });
+  
+  imap.connect();
 });
 
 // Delete email permanently
