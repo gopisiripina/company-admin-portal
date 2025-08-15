@@ -147,6 +147,7 @@ const AppContent = () => {
   isActive: user.isActive,
   employeeId: user.employeeId,
   createdAt: user.createdAt,
+  created_at: user.created_at || null,
   updatedAt: user.updatedAt,
   displayName: user.displayName,
   userType: user.userType
