@@ -259,36 +259,93 @@ setColleges(uniqueColleges);
 
   // AI Job Description Generator
 const generateJobDescriptionWithAI = async () => {
+  // Get all required field values
   const jobTitle = form.getFieldValue('jobTitle');
+  const department = form.getFieldValue('department');
+  const location = form.getFieldValue('location');
+  const employmentType = form.getFieldValue('employmentType');
+  const experienceLevel = form.getFieldValue('experienceLevel');
   
-  if (!jobTitle) {
-    message.warning('Please enter a job title first');
+  // Validate all required fields
+  const missingFields = [];
+  if (!jobTitle) missingFields.push('Job Title');
+  if (!department) missingFields.push('Department');
+  if (!location) missingFields.push('Location');
+  if (!employmentType) missingFields.push('Employment Type');
+  if (!experienceLevel) missingFields.push('Experience Level');
+  if (!skills || skills.length === 0) missingFields.push('Required Skills');
+  
+  if (missingFields.length > 0) {
+    message.warning(`Please fill in the following required fields: ${missingFields.join(', ')}`);
     return;
   }
 
   setAiLoading(true);
   try {
-    const response = await fetch('open api', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer chat gpt api key here'
+        'Authorization': 'Bearer open api key'
       },
       body: JSON.stringify({
-        model: 'model name here',
-        messages: [
-          {
-            "role": "system", 
-            "content": `You are a helpful assistant that writes professional job descriptions. Consider the hiring type: ${hiringType}. If it's on-campus, focus on entry-level requirements, internship opportunities, and student-friendly language. If it's off-campus, use standard professional requirements.`
-          },
-          {"role": "user", "content": `{jobTitle: "${jobTitle}", hiringType: "${hiringType}"}`},
-        ],
-        max_tokens: 500,
-        temperature: 0.7
-      })
+  model: 'open api model',
+  response_format: { type: "json_object" },
+  messages: [
+    {
+      "role": "system", 
+      "content": `You write concise job postings for MYACCESS PRIVATE LIMITED. Output STRICT JSON with keys: job_description (90–130 words), key_responsibilities (5–8 bullets), qualifications_and_requirements (5–8 bullets). Use the provided location and details; do not invent benefits. If salary_min_inr or salary_max_inr is present, reference compensation generically without stating numbers. Candidates should be willing to learn new courses or software as needed.`
+    },
+    {
+      "role": "user", 
+      "content": `Use this input to generate content:\n${JSON.stringify({
+        job_title: jobTitle,
+        department: department,
+        location: location,
+        employment_type: employmentType,
+        experience_level: experienceLevel,
+        required_skills: skills,
+        hiring_type: hiringType
+      })}`
+    }
+  ],
+  max_tokens: 600,
+  temperature: 0.3
+})
     });
 
-    // ... rest of the function remains the same
+    if (response.ok) {
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content;
+  
+  if (content) {
+    try {
+      const aiResponse = JSON.parse(content);
+      
+      // Auto-fill the form fields with AI-generated content
+      form.setFieldsValue({
+        description: aiResponse.job_description,
+        responsibilities: Array.isArray(aiResponse.key_responsibilities) 
+          ? aiResponse.key_responsibilities.map(item => `• ${item}`).join('\n')
+          : aiResponse.key_responsibilities,
+        qualifications: Array.isArray(aiResponse.qualifications_and_requirements)
+          ? aiResponse.qualifications_and_requirements.map(item => `• ${item}`).join('\n')
+          : aiResponse.qualifications_and_requirements
+      });
+      
+      message.success('Job description generated successfully!');
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      message.error('Failed to parse AI response. Please try again.');
+    }
+  } else {
+    message.error('No content received from AI. Please try again.');
+  }
+} else {
+  const errorData = await response.json().catch(() => ({}));
+  console.error('API Error:', response.status, errorData);
+  message.error(`API request failed: ${response.status}`);
+}
   } catch (error) {
     console.error('AI Generation Error:', error);
     message.error('Failed to generate job description. Please try again.');

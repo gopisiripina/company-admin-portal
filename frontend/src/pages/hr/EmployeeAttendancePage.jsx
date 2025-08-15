@@ -508,6 +508,46 @@ const shouldMarkOthersAbsent = window.confirm(
   }
 };
 
+const handleAutoMarkAbsent = async () => {
+  const yesterdayKey = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
+  
+  try {
+    // Get all employees who don't have attendance record for yesterday
+    const { data: existingAttendance } = await supabase
+      .from('attendance')
+      .select('user_id')
+      .eq('date', yesterdayKey);
+    
+    const checkedInEmployeeIds = existingAttendance?.map(record => record.user_id) || [];
+    
+    const absentEmployees = employeesData.filter(emp => 
+      !checkedInEmployeeIds.includes(emp.id)
+    );
+
+    if (absentEmployees.length > 0) {
+      const absentRecords = absentEmployees.map(employee => ({
+        user_id: employee.id,
+        date: yesterdayKey,
+        check_in: null,
+        check_out: null,
+        total_hours: 0,
+        is_present: false
+      }));
+
+      const { error } = await supabase
+        .from('attendance')
+        .insert(absentRecords);
+
+      if (error) throw error;
+      
+      console.log(`Auto-marked ${absentEmployees.length} employees as absent for ${yesterdayKey}`);
+    }
+  } catch (error) {
+    console.error('Error auto-marking absent:', error);
+  }
+};
+
+
   // Get attendance stats for selected date
   const getAttendanceStats = (date) => {
     const dateKey = date.format('YYYY-MM-DD');
@@ -943,6 +983,7 @@ const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 
                           size="small"
                         />
                       </Card>
+                      
                     </Col>
                     <Col xs={24} sm={8}>
                       <Card style={{ borderRadius: '12px', ...animationStyles.statsCard }}>
@@ -971,6 +1012,7 @@ const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 
     <Col xs={24} sm={12} lg={6}>
       <Space style={{ width: '100%' }}>
         <FilterOutlined style={{ color: '#0D7139' }} />
+        
         <Select
           value={filterType}
           onChange={setFilterType}
@@ -1270,6 +1312,19 @@ const EmployeeDashboard = ({ employee }) => {
     setYearlyData(yearly);
   }, []);
 
+useEffect(() => {
+  const checkMidnight = () => {
+    const now = dayjs();
+    if (now.hour() === 0 && now.minute() === 0) {
+      handleAutoMarkAbsent();
+    }
+  };
+
+  // Check every minute
+  const interval = setInterval(checkMidnight, 60000);
+  
+  return () => clearInterval(interval);
+}, []);
   // Get monthly attendance summary
   const getMonthlyAttendance = (month) => {
     const monthKey = month.format('YYYY-MM');

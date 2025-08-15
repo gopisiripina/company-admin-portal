@@ -1,0 +1,223 @@
+[33m62f2022[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m fix: Update AI model reference in job description generator to use a generic API model
+[33mde3d556[m fix: Update authorization header to use a generic API key for job description generation
+[33mb2b70be[m feat: Implement auto-mark absent functionality for employees and enhance payroll data structure
+[33m2a74611[m Profile section implemented with responsiveness
+[33md0255e2[m Merge branch 'main' of https://github.com/gopisiripina/company-admin-portal
+[33mc30a46f[m feat: Implement EmployeeProfileModal with comprehensive employee details, performance data, and document management features
+[33m553d4d4[m Merge pull request #76 from kovvurisuryavenkatareddy/main
+[33me2b42a6[m Merge branch 'gopisiripina:main' into main
+[33mdf6d476[m Merge branch 'main' of https://github.com/kovvurisuryavenkatareddy/company-admin-portal
+[33m61e739a[m feat: enhance employee management and payroll integration; add pay field to user updates and improve payroll record handling
+[33mc0e6b86[m Remove commented-out code for cleaner Sidebar component
+[33mcd67ec1[m Refactor code structure for improved readability and maintainability
+[33m5e39744[m Implement code changes to enhance functionality and improve performance
+[33m12abe1c[m Merge pull request #75 from kovvurisuryavenkatareddy/main
+[33m229888a[m chore: update email credentials for payroll and job offer services
+[33mc9e75dc[m Merge branch 'gopisiripina:main' into main
+[33m903101d[m Update email backend and frontend for improved SMTP configuration and email handling
+[33m190553e[m refactor: remove console.log statements for user data retrieval in authService and App components; enhance pagination item rendering in Admin, Employee, and HR Management pages
+[33m5c1a89f[m Remove dotenv package files and related configurations
+[33m755f1a0[m feat: add dotenv v17.2.1 with enhanced security and TypeScript support
+[33m34e6150[m refactor: replace PayrollApp with PayrollManagement component in Dashboard
+[33m092a4a8[m Merge branch 'main' of https://github.com/gopisiripina/company-admin-portal
+[33mf9fb340[m feat: add mobile number field and validation in Employee Management; enhance leave application process with real-time leave days calculation and balance warnings
+[33mf176a24[m Merge pull request #74 from MyAccess2021/main
+[33m3daa008[m Merge branch 'main' into main
+[33m85ed6ea[m Refactor code structure for improved readability and maintainability
+[33m9b1bef8[m Merge pull request #73 from kovvurisuryavenkatareddy/main
+[33m265812a[m Merge branch 'main' into main
+[33m10f752c[m Update Dashboard.jsx
+[33m58d9b85[m Merge branch 'main' of https://github.com/kovvurisuryavenkatareddy/company-admin-portal
+[33m420ccf7[m feat: add LeaveCalendar component for managing company leave schedules with holiday and half-day functionalities
+[33m267e47f[m Merge branch 'gopisiripina:main' into main
+[33mf2f1aa4[m Merge branch 'main' of https://github.com/gopisiripina/company-admin-portal
+[33mb89596a[m Refactor code structure for improved readability and maintainability
+[33mafdbe68[m Merge pull request #72 from kovvurisuryavenkatareddy/main
+[33m77245a0[m Merge branch 'gopisiripina:main' into main
+[33mf6ffd8f[m Merge branch 'main' of https://github.com/kovvurisuryavenkatareddy/company-admin-portal
+[33maea2932[m feat: enhance employee management with ID generation, email update functionality, and pay field
+[33m8248ea5[m Merge branch 'gopisiripina:main' into main
+[33mb379256[m Merge pull request #71 from kovvurisuryavenkatareddy/main
+[33mf496a5f[m Merge branch 'gopisiripina:main' into main
+[33m7bfee95[m Merge branch 'main' of https://github.com/kovvurisuryavenkatareddy/company-admin-portal
+[33mf46b8ee[m fix: update email API endpoints to use localhost for development
+[33m3eec4e8[m Merge branch 'gopisiripina:main' into main
+[33m38de8c1[m Merge branch 'main' of https://github.com/gopisiripina/company-admin-portal
+[33m4a0908f[m feat: refactor job description form fields for improved structure and clarity
+[33m181e959[m Merge pull request #70 from kovvurisuryavenkatareddy/main
+[33me262a03[m Merge branch 'gopisiripina:main' into main
+[33m60040fa[m fix: update nodemailer transport creation and refactor recruitment email endpoint
+[33m5724303[m Merge branch 'gopisiripina:main' into main
+[33m9e1e38e[m Merge branch 'main' of https://github.com/gopisiripina/company-admin-portal
+[33m0df0511[m feat: update sidebar structure and role management based on user roles
+[33me27974a[m Merge pull request #69 from kovvurisuryavenkatareddy/main
+[33m9ec29b3[m Merge branch 'main' of https://github.com/kovvurisuryavenkatareddy/company-admin-portal
+[33m862eb63[m feat: add test route and refactor job posting logic for improved readability
+[33m4f75a6c[m Merge branch 'gopisiripina:main' into main
+[33me237b98[m Merge pull request #68 from kovvurisuryavenkatareddy/main
+[33m16cdb20[m Merge branch 'gopisiripina:main' into main
+[33me22d2a1[m Merge branch 'main' of https://github.com/kovvurisuryavenkatareddy/company-admin-portal
+[33m1d0f329[m fix: update API URLs to use HTTPS for secure communication
+[33mf622a21[m Merge branch 'gopisiripina:main' into main
+[33m8f85200[m Merge pull request #67 from kovvurisuryavenkatareddy/main
+[33mcd80815[m Merge branch 'gopisiripina:main' into main
+[33m37f09ca[m fix: adjust height properties for better layout in FeedbackForm
+[33md286801[m Merge pull request #66 from kovvurisuryavenkatareddy/main
+[33me44faff[m Merge branch 'gopisiripina:main' into main
+[33m9732fa9[m feat: add tab content styling and improve layout in FeedbackForm
+[33m179a6ff[m chore: remove console logs for user fetching in PayrollManagement
+[33m14892ee[m Merge pull request #65 from kovvurisuryavenkatareddy/main
+[33mb067ec6[m Merge branch 'main' into main
+[33m00a632c[m Merge branch 'main' of https://github.com/kovvurisuryavenkatareddy/company-admin-portal
+[33m80c4bee[m Implement code changes to enhance functionality and improve performance
+[33m8353886[m Merge branch 'gopisiripina:main' into main
+[33mceddff5[m feat: update sidebar menu items for improved clarity and relevance
+[33m106068b[m Merge branch 'gopisiripina:main' into main
+[33meacee45[m Merge branch 'main' of https://github.com/gopisiripina/company-admin-portal
+[33m5c723a4[m feat: enhance routing and navigation for feedback and payroll sections; refactor styles in various components
+[33m0d4c86d[m Merge branch 'gopisiripina:main' into main
+[33m42242a9[m Merge pull request #64 from kovvurisuryavenkatareddy/main
+[33mf81fb2f[m Merge branch 'main' of https://github.com/kovvurisuryavenkatareddy/company-admin-portal
+[33mdc1858d[m chore: remove EmailService component and related email handling logic
+[33m435f513[m Update .gitignore
+[33m09a8cb4[m Merge pull request #63 from kovvurisuryavenkatareddy/main
+[33m5329a8f[m Merge branch 'gopisiripina:main' into main
+[33m2fe697c[m Merge branch 'main' of https://github.com/kovvurisuryavenkatareddy/company-admin-portal
+[33md16bea2[m feat: add FeedbackForm component for employee feedback submission
+[33md70713d[m Refactor: Remove console.log statement from updateUserActiveStatus for cleaner code
+[33m610fae4[m Refactor: Remove console.log statements from ProfileSection for cleaner code
+[33m50d48d6[m Merge branch 'gopisiripina:main' into main
+[33m1abea3a[m Merge branch 'main' of https://github.com/gopisiripina/company-admin-portal
+[33m77c2b38[m Refactor: Remove console.log statements for cleaner code and improved performance across multiple components, including App.jsx, AdminManagement.jsx, EmployeeManagement.jsx, HRManagement.jsx, login.jsx, Dashboard.jsx, EmailClient.jsx, LeaveManagementPage.jsx, JobApplyPage.jsx, JobDescriptionPage.jsx, JobPostPage.jsx, ResumeListpage.jsx, ProfileSection.jsx, and authService.jsx. Update Modal properties to use 'destroyOnHidden' and 'styles' instead of 'destroyOnClose' and 'bodyStyle' for better consistency and functionality.
+[33mf232607[m Merge branch 'gopisiripina:main' into main
+[33m6a59b6e[m Merge pull request #62 from kovvurisuryavenkatareddy/main
+[33m83ace80[m Merge branch 'gopisiripina:main' into main
+[33mc75d1e7[m Update API base URL to use HTTPS
+[33m80e2eb9[m Merge branch 'main' of https://github.com/kovvurisuryavenkatareddy/company-admin-portal
+[33m647df87[m Update API base URL to use HTTPS and adjust unread email background color
+[33m0a7766f[m Merge branch 'gopisiripina:main' into main
+[33mf1163dd[m Merge pull request #61 from kovvurisuryavenkatareddy/main
+[33m92f3c94[m Merge branch 'main' into main
+[33m7e8666d[m Enhance email functionality: add attachment handling, mark emails as read/unread, and improve UI elements
+[33md1d703b[m Update package dependencies: remove axios and add jspdf
+[33m0a0d73a[m Update package.json
+[33m8015b88[m Update package.json
+[33m56644cc[m Merge pull request #60 from MyAccess2021/main
+[33m4f53265[m Merge branch 'main' into main
+[33md017cbe[m Merge branch 'main' of https://github.com/gopisiripina/company-admin-portal
+[33mb350b80[m Refactor code structure for improved readability and maintainability
+[33m198cb99[m Merge pull request #59 from kovvurisuryavenkatareddy/main
+[33mb58318f[m Merge branch 'gopisiripina:main' into main
+[33mb7bba35[m Merge branch 'main' of https://github.com/kovvurisuryavenkatareddy/company-admin-portal
+[33m6916683[m Refactor storage handling to use sessionStorage for user data and email credentials; add employee ID generation function and department field in Employee Management; enhance email client with read message tracking and UI updates.
+[33m6cbc07e[m Merge pull request #57 from kovvurisuryavenkatareddy/main
+[33m37182ef[m Merge branch 'main' into main
+[33m7fa47b9[m Add email handling routes for sending various types of emails
+[33md754b7b[m Update EmployeeManagement.jsx
+[33mdd8d0cc[m Update Dashboard.jsx
+[33me4275cf[m Update EmailClient.jsx
+[33m017143f[m Update EmailClient.jsx
+[33mc88e30c[m Update EmailClient.jsx
+[33mfa1cb37[m Update EmployeeManagement.jsx
+[33m045612e[m Update EmailClient.jsx
+[33m71f444e[m Update EmailClient.jsx
+[33ma310fe8[m Update EmailClient.jsx
+[33maddaa10[m Update server.js
+[33mba85b12[m Update EmailClient.jsx
+[33mdbf63ab[m Update Dashboard.jsx
+[33m61754e3[m Merge pull request #56 from MyAccess2021/main
+[33mb69ed40[m Merge branch 'main' into main
+[33m8d7f51c[m Merge pull request #55 from kovvurisuryavenkatareddy/main
+[33m42ca907[m Merge branch 'main' of https://github.com/kovvurisuryavenkatareddy/company-admin-portal
+[33m2ccc9b4[m Remove commented-out email display in ProfileSection and add debug logs in authService for user data retrieval
+[33m87a754f[m Merge pull request #54 from kovvurisuryavenkatareddy/main
+[33m6c58416[m Merge branch 'main' of https://github.com/kovvurisuryavenkatareddy/company-admin-portal
+[33mf46f5fa[m Configure Vite server to be accessible on local network and set custom port
+[33m649a865[m Take attendance
+[33me53c9d0[m Update Dockerfile
+[33md9df016[m Update server.js
+[33m32dee02[m Update EmailClient.jsx
+[33mea4a4c2[m Update EmailClient.jsx
+[33m9f3ae59[m Update EmailClient.jsx
+[33me953616[m Merge branch 'main' of https://github.com/gopisiripina/company-admin-portal
+[33m9ad61c0[m feat: integrate react-webcam for enhanced email functionalities
+[33m5c6b6f0[m Merge pull request #53 from MyAccess2021/main
+[33mef29a44[m Update EmailClient.jsx
+[33maee7fde[m Update Dockerfile
+[33m07f7769[m Update Dockerfile
+[33m80a632f[m Update server.js
+[33mf80941e[m Update EmailClient.jsx
+[33mffd69c8[m Update EmailClient.jsx
+[33m4c91df9[m Update package.json
+[33ma4c9ddd[m Update server.js
+[33m1e974c7[m Update email-backend.yml
+[33m35004ee[m Update package.json
+[33ma407f48[m Update server.js
+[33m08d6d8d[m Update server.js
+[33m8af2410[m Update server.js
+[33m2801559[m Update EmailClient.jsx
+[33m9144e3a[m Update EmailClient.jsx
+[33m10e3a8a[m Update nginx.conf
+[33m38318cc[m Update Dockerfile
+[33mbe893e7[m Update nginx.conf
+[33me088964[m Update nginx.conf
+[33mf63eaf3[m Update EmailClient.jsx
+[33mf2953d9[m Update Dockerfile
+[33m6385f03[m Update EmailClient.jsx
+[33mba15b10[m Update email-backend.yml
+[33m094cdb1[m Update EmailClient.jsx
+[33mf7044b8[m Update EmailClient.jsx
+[33m0de3a8d[m Update email-backend.yml
+[33m6c197a8[m Merge branch 'gopisiripina:main' into main
+[33m3cde288[m fix: update API_BASE URL to use HTTP for compatibility
+[33m56d7776[m Merge branch 'gopisiripina:main' into main
+[33mad45abc[m fix: update API_BASE URL to use HTTPS for secure communication
+[33mca926c6[m Merge pull request #52 from kovvurisuryavenkatareddy/main
+[33ma4e5c46[m Merge branch 'gopisiripina:main' into main
+[33m30ddf62[m the image converted to face embedding code
+[33m7b4d4ff[m Merge branch 'gopisiripina:main' into main
+[33mb5d2f4a[m fix: update API_BASE URL to point to the correct server address
+[33m4927c17[m feat: Enhance email client functionality with improved folder handling, search capabilities, and email management features
+[33m779ca94[m Update main.yml
+[33m30eb947[m Merge branch 'gopisiripina:main' into main
+[33mcc30352[m Merge pull request #51 from kovvurisuryavenkatareddy/main
+[33mdc30660[m Merge branch 'gopisiripina:main' into main
+[33ma5d9a7b[m case-sensitive issue in ci/cd
+[33m34b4232[m Merge branch 'gopisiripina:main' into main
+[33mf29741f[m fix: update fetch-trash endpoint and enhance email fetching logic with pagination support
+[33mccad210[m Merge branch 'gopisiripina:main' into main
+[33mc1c745d[m Merge branch 'main' of https://github.com/kovvurisuryavenkatareddy/company-admin-portal
+[33me371b70[m feat: Add jszip dependency for improved file handling
+[33mc484051[m fix: update Payroll ID in Sidebar and add Payroll Management page with employee management features
+[33mf6983dd[m Merge branch 'gopisiripina:main' into main
+[33m39aa768[m fix: Update API_BASE URL to point to the new server for email functionality
+[33m058ef2f[m Merge branch 'gopisiripina:main' into main
+[33md049169[m Merge pull request #50 from kovvurisuryavenkatareddy/main
+[33madb5956[m Update API endpoints to use new server URL for email and job posting functionalities across various components
+[33m6816026[m Enhance Sidebar and Employee Attendance Management
+[33m7c9664a[m feat: Enhance navigation for email sections in Dashboard and update props
+[33mf8d8663[m refactor: Remove unused searchQuery state from Dashboard component
+[33m7f5982e[m Merge branch 'main' of https://github.com/gopisiripina/company-admin-portal
+[33m65117ee[m Add employee attendance management page with attendance tracking and reporting features
+[33mf518db5[m Merge branch 'gopisiripina:main' into main
+[33m3bf9509[m Merge pull request #49 from kovvurisuryavenkatareddy/main
+[33mca7c047[m feat: Add email sending functionality with various templates and attachments
+[33meaa3c03[m Merge pull request #48 from kovvurisuryavenkatareddy/main
+[33mffb5605[m Refactor admin and employee management components for real-time updates and improve status display logic
+[33m0525a6d[m Merge branch 'gopisiripina:main' into main
+[33m18c9569[m Merge pull request #47 from kovvurisuryavenkatareddy/main
+[33mf55991b[m Refactor attendance calendar layout to use CSS grid for improved responsiveness
+[33m42d3cf8[m Merge branch 'gopisiripina:main' into main
+[33m8fa8b91[m Merge pull request #46 from kovvurisuryavenkatareddy/main
+[33m1dbc88b[m Merge branch 'gopisiripina:main' into main
+[33m9762296[m Merge branch 'main' of https://github.com/kovvurisuryavenkatareddy/company-admin-portal
+[33m12b2edf[m Add calendar day styles for improved visual representation
+[33ma4b45e4[m Merge pull request #45 from kovvurisuryavenkatareddy/main
+[33mb777770[m Merge branch 'gopisiripina:main' into main
+[33m2ee69fd[m Refactor code structure for improved readability and maintainability
+[33meaeea1a[m Merge branch 'gopisiripina:main' into main
+[33m8d1b60a[m Merge pull request #44 from kovvurisuryavenkatareddy/main
+[33m9054c0e[m Merge branch 'gopisiripina:main' into main
+[33mcf81d73[m api added in the emailclient
+[33m73e118d[m Update nginx.conf
+[33mdc8bba2[m Update Dockerfile

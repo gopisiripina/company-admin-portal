@@ -83,14 +83,29 @@ class AuthService {
             email: userData.email,
             name: userData.name || 'User',
             role: userData.role || 'User',
-            profileImage: userData.profileimage, // Note: using profileimage from schema
+            profileimage: userData.profileimage, // Note: using profileimage from schema
             photoURL: userData.photourl,
             isActive: true, // Set to true since user just logged in
             employeeId: userData.employee_id,
             isFirstLogin: userData.isfirstlogin !== undefined ? userData.isfirstlogin : false,
             createdAt: userData.created_at ? new Date(userData.created_at) : new Date(),
             updatedAt: new Date(),
-            password: undefined // Don't include password in the returned object
+            employee_type:userData.employee_type,
+            password: undefined,
+            mobile: userData.mobile,
+            work_phone:userData.work_phone,
+            address:userData.address,
+            birth_date:userData.birth_date,
+            education:userData.education,
+            total_experience:userData.total_experience,
+            technical_skills:userData.technical_skills,
+            certifications:userData.certifications,
+            languages:userData.languages,
+            linkedin_url:userData.linkedin_url,
+            github_url:userData.github_url,
+            twitter_url:userData.twitter_url,
+            pay:userData.pay,
+            department:userData.department
           };
           
          
@@ -265,26 +280,36 @@ async changeFirstLoginPassword(userId, newPassword) {
         email: user.email,
         name: user.name || 'User',
         role: user.role || 'User',
-        profileImage: user.profileImage,
+        profileimage: user.profileimage,
         photoURL: user.photoURL,
         isActive: user.isActive,
         isFirstLogin: user.isFirstLogin || false,
         employeeId: user.employeeId,
+        mobile: user.mobile,
+        work_phone: user.work_phone,
+        employee_type: user.employee_type,    // Change from userData to user
+        address: user.address,                // Change from userData to user
+        birth_date: user.birth_date,          // Change from userData to user
+        education: user.education,            // Change from userData to user
+        total_experience: user.total_experience, // Change from userData to user
+        technical_skills: user.technical_skills, // Change from userData to user
+        certifications: user.certifications,     // Change from userData to user
+        languages: user.languages,               // Change from userData to user
+        linkedin_url: user.linkedin_url,         // Change from userData to user
+        github_url: user.github_url,             // Change from userData to user
+        twitter_url: user.twitter_url,           // Change from userData to user
+        department: user.department,             // Change from userData to user
         createdAt: user.createdAt,
-        updatedAt: user.updatedat
+        updatedAt: user.updatedAt  // Also fix this - was user.updatedat
       };
       
       console.log('Data to store:', dataToStore);
       
       if (rememberMe) {
-        // Store in localStorage for persistent login
         localStorage.setItem('userData', JSON.stringify(dataToStore));
-        // Clear sessionStorage to avoid conflicts
         sessionStorage.removeItem('userData');
       } else {
-        // Store in sessionStorage for session-only login
         sessionStorage.setItem('userData', JSON.stringify(dataToStore));
-        // Clear localStorage to avoid conflicts
         localStorage.removeItem('userData');
       }
       
@@ -293,7 +318,6 @@ async changeFirstLoginPassword(userId, newPassword) {
     }
   }
 }
-
   getStoredUserData() {
   try {
  

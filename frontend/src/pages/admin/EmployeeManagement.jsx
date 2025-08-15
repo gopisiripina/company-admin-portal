@@ -30,6 +30,7 @@ import {
   UploadOutlined, 
   UserOutlined
 } from '@ant-design/icons';
+import CryptoJS from 'crypto-js';
 import { supabase, supabaseAdmin } from '../../supabase/config';
 import ErrorPage from '../../error/ErrorPage';
 const { Title, Text } = Typography;
@@ -81,7 +82,7 @@ const generateEmployeeId = async (employeeType) => {
 };
 const sendWelcomeEmail = async (employeeData) => {
   try {
-    const response = await fetch('http://cap.myaccessio.com/api/send-email', {
+    const response = await fetch('https://cap.myaccessio.com/api/send-email', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -370,6 +371,8 @@ const deleteOldProfileImage = useCallback(async (imageUrl) => {
     console.error('Error deleting old image:', error);
   }
 }, []);
+
+const ENCRYPTION_KEY =  'My@cCe55!2021';
 const handleSubmit = useCallback(async (values) => {
   setLoading(true);
   
@@ -417,154 +420,181 @@ const handleSubmit = useCallback(async (values) => {
         await deleteOldProfileImage(editingEmployee.profileimage);
       }
 
-      // MODIFY THIS SECTION - Check if email is being updated
+      // Check if email is being updated or employee type changed
       let newEmployeeId = editingEmployee.employee_id;
-if ((isUpdatingEmail && values.newEmail && values.newEmail !== currentEmail) || 
-    (values.employeeType !== editingEmployee.employee_type)) {
-  // Generate new employee ID when email is updated OR employee type is changed
-  newEmployeeId = await generateEmployeeId(values.employeeType);
-}
+      if ((isUpdatingEmail && values.newEmail && values.newEmail !== currentEmail) || 
+          (values.employeeType !== editingEmployee.employee_type)) {
+        newEmployeeId = await generateEmployeeId(values.employeeType);
+      }
 
       const updateData = {
-  name: values.name,
-  email: isUpdatingEmail && values.newEmail ? values.newEmail : values.email,
-  mobile: values.mobile,
-  department: values.department,
-  role: values.role || 'employee',
-  employee_id: newEmployeeId,
-  isactive: values.isActive,
-  profileimage: profileImage,
-  employee_type: values.employeeType,
-  start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
-  end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
-  face_embedding: finalFaceEmbedding,
-  pay: values.pay ? parseFloat(values.pay) : null, // Update users.pay column
-};
+        name: values.name,
+        email: isUpdatingEmail && values.newEmail ? values.newEmail : values.email,
+        mobile: values.mobile,
+        department: values.department,
+        role: values.role || 'employee',
+        employee_id: newEmployeeId,
+        isactive: values.isActive,
+        profileimage: profileImage,
+        employee_type: values.employeeType,
+        start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
+        end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
+        face_embedding: finalFaceEmbedding,
+        pay: values.pay ? parseFloat(values.pay) : null,
+      };
 
-const { data, error } = await supabaseAdmin
-  .from('users')
-  .update(updateData)
-  .eq('id', editingEmployee.id)
-  .select();
+      // Generate new password when email is updated
+      let newPlainPassword = null;
+      if (isUpdatingEmail && values.newEmail && values.newEmail !== currentEmail) {
+        newPlainPassword = generatePassword();
+        const encryptedPassword = CryptoJS.AES.encrypt(newPlainPassword, ENCRYPTION_KEY).toString();
+        updateData.password = encryptedPassword;
+      }
 
-if (error) {
-  console.error('Supabase update error:', error);
-  throw error;
-}
+      const { data, error } = await supabaseAdmin
+        .from('users')
+        .update(updateData)
+        .eq('id', editingEmployee.id)
+        .select();
 
-// Update payroll record
-if (values.pay) {
-  const currentDate = new Date();
-  const currentMonth = currentDate.toISOString().slice(0, 7) + '-01';
-  const payAmount = parseFloat(values.pay);
-  
-  const { error: payrollError } = await supabaseAdmin
-    .from('payroll')
-    .upsert({
-      user_id: editingEmployee.id,
-      company_name: "My Access",
-      company_address: "Your Company Address",
-      city: "Your City", 
-      employee_name: values.name,
-      employee_id: newEmployeeId,
-      email_address: isUpdatingEmail && values.newEmail ? values.newEmail : values.email,
-      pay_period: currentMonth,
-      pay_date: currentDate.toISOString().slice(0, 10),
-      paid_days: 30,
-      lop_days: 0,
-      basic: payAmount, // This makes net_pay = payAmount
-      hra: 0,
-      income_tax: 0,
-      pf: 0
-    }, {
-      onConflict: 'employee_id,pay_period'
-    });
-    
-  if (payrollError) {
-    console.error('Payroll update error:', payrollError);
-    message.warning('Employee updated but payroll update failed');
-  }
-}
+      if (error) {
+        console.error('Supabase update error:', error);
+        throw error;
+      }
+
+      // Update payroll record
+      if (values.pay) {
+        const currentDate = new Date();
+        const currentMonth = currentDate.toISOString().slice(0, 7) + '-01';
+        const payAmount = parseFloat(values.pay);
+        
+        const { error: payrollError } = await supabaseAdmin
+          .from('payroll')
+          .upsert({
+            user_id: editingEmployee.id,
+            company_name: "My Access",
+            company_address: "Your Company Address",
+            city: "Your City", 
+            employee_name: values.name,
+            employee_id: newEmployeeId,
+            email_address: isUpdatingEmail && values.newEmail ? values.newEmail : values.email,
+            pay_period: currentMonth,
+            pay_date: currentDate.toISOString().slice(0, 10),
+            paid_days: 30,
+            lop_days: 0,
+            basic: payAmount,
+            hra: 0,
+            income_tax: 0,
+            pf: 0
+          }, {
+            onConflict: 'employee_id,pay_period'
+          });
+          
+        if (payrollError) {
+          console.error('Payroll update error:', payrollError);
+          message.warning('Employee updated but payroll update failed');
+        }
+      }
       
-      message.success('Employee updated successfully');
+      // Send email with new credentials if email was updated
+      if (newPlainPassword && isUpdatingEmail && values.newEmail && values.newEmail !== currentEmail) {
+        try {
+          const emailResult = await sendWelcomeEmail({
+            name: values.name,
+            email: values.newEmail,
+            password: newPlainPassword, // Use plain password for email
+            role: editingEmployee.role || 'employee'
+          });
+
+          if (emailResult.success) {
+            message.success('Employee updated and new credentials sent via email!');
+          } else {
+            message.warning('Employee updated but email could not be sent. Please share new credentials manually.');
+          }
+        } catch (emailError) {
+          console.error('Email send failed:', emailError);
+          message.warning('Employee updated but email could not be sent.');
+        }
+      } else {
+        message.success('Employee updated successfully');
+      }
+
     } else {
       // Create new employee
-      // Create new employee
-const password = generatePassword();
-const newEmployeeId = await generateEmployeeId(values.employeeType);
-const payAmount = values.pay ? parseFloat(values.pay) : null;
+      const password = generatePassword();
+      const encryptedPassword = CryptoJS.AES.encrypt(password, ENCRYPTION_KEY).toString();
+      const newEmployeeId = await generateEmployeeId(values.employeeType);
+      const payAmount = values.pay ? parseFloat(values.pay) : null;
 
-const employeeData = {
-  name: values.name,
-  email: values.email,
-  mobile: values.mobile,
-  department: values.department,
-  employee_id: newEmployeeId,
-  role: 'employee',
-  isactive: values.isActive !== undefined ? values.isActive : false,
-  isfirstlogin: true,
-  profileimage: profileImage,
-  password: password,
-  employee_type: values.employeeType,
-  start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
-  end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
-  face_embedding: finalFaceEmbedding,
-  pay: payAmount
-};
+      const employeeData = {
+        name: values.name,
+        email: values.email,
+        mobile: values.mobile,
+        department: values.department,
+        employee_id: newEmployeeId,
+        role: 'employee',
+        isactive: values.isActive !== undefined ? values.isActive : false,
+        isfirstlogin: true,
+        profileimage: profileImage,
+        password: encryptedPassword, // Store encrypted password
+        employee_type: values.employeeType,
+        start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
+        end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
+        face_embedding: finalFaceEmbedding,
+        pay: payAmount
+      };
 
-console.log('Creating employee with data:', employeeData);
+      console.log('Creating employee with data:', employeeData);
 
-const { data, error } = await supabaseAdmin
-  .from('users')
-  .insert([employeeData])
-  .select();
+      const { data, error } = await supabaseAdmin
+        .from('users')
+        .insert([employeeData])
+        .select();
 
-if (error) {
-  console.error('Supabase insert error:', error);
-  throw error;
-}
+      if (error) {
+        console.error('Supabase insert error:', error);
+        throw error;
+      }
 
-// Create payroll record with the net_pay amount (no deductions)
-if (values.pay && data && data[0]) {
-  const currentDate = new Date();
-  const payrollData = {
-    user_id: data[0].id,
-    company_name: "My Access", // Update with your company name
-    company_address: "Your Company Address", // Update with your address
-    city: "Your City", // Update with your city
-    employee_name: values.name,
-    employee_id: newEmployeeId,
-    email_address: values.email,
-    pay_period: currentDate.toISOString().slice(0, 7) + '-01', // First day of current month
-    pay_date: currentDate.toISOString().slice(0, 10), // Current date
-    paid_days: 30, // Default full month
-    lop_days: 0,
-    basic: payAmount, // Store full amount as basic
-
-    hra: 0, // No HRA for simplicity
-    income_tax: 0, // No deductions
-    pf: 0 // No deductions
-    // gross_earnings, total_deductions, and net_pay will be auto-calculated
-  };
-  
-  const { error: payrollError } = await supabaseAdmin
-    .from('payroll')
-    .insert(payrollData);
-    
-  if (payrollError) {
-    console.error('Payroll creation error:', payrollError);
-    message.warning('Employee created but payroll setup failed');
-  }
-}
+      // Create payroll record
+      if (values.pay && data && data[0]) {
+        const currentDate = new Date();
+        const payrollData = {
+          user_id: data[0].id,
+          company_name: "My Access",
+          company_address: "Your Company Address",
+          city: "Your City",
+          employee_name: values.name,
+          employee_id: newEmployeeId,
+          email_address: values.email,
+          pay_period: currentDate.toISOString().slice(0, 7) + '-01',
+          pay_date: currentDate.toISOString().slice(0, 10),
+          paid_days: 30,
+          lop_days: 0,
+          basic: payAmount,
+          hra: 0,
+          income_tax: 0,
+          pf: 0
+        };
+        
+        const { error: payrollError } = await supabaseAdmin
+          .from('payroll')
+          .insert(payrollData);
+          
+        if (payrollError) {
+          console.error('Payroll creation error:', payrollError);
+          message.warning('Employee created but payroll setup failed');
+        }
+      }
       
       message.success('Employee created successfully!');
       
-      // Send welcome email
+      // Send welcome email with plain password
       try {
         const emailResult = await sendWelcomeEmail({
           name: values.name,
           email: values.email,
-          password: password,
+          password: password, // Use plain password for email
           role: 'employee'
         });
 
@@ -579,15 +609,16 @@ if (values.pay && data && data[0]) {
       }
     }
 
+    // Reset form and close modal
     form.resetFields();
     setProfileImage(null);
     setFaceEmbedding(null);
     setUploadedFile(null);
-    // ADD THESE LINES:
     setIsUpdatingEmail(false);
     setCurrentEmail('');
     onSuccess();
     onClose();
+    
   } catch (error) {
     console.error('Error saving employee:', error);
     
@@ -886,11 +917,10 @@ const [filters, setFilters] = useState({
 
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
-  const handleSendCredentials = useCallback(async (employee) => {
+const handleSendCredentials = useCallback(async (employee) => {
   try {
     setLoading(true);
     
-    // Get the current password from database
     const { data, error } = await supabaseAdmin
       .from('users')
       .select('password')
@@ -902,10 +932,13 @@ const [filters, setFilters] = useState({
       return;
     }
 
+    // Decrypt password before sending email
+    const decryptedPassword = CryptoJS.AES.decrypt(data.password, ENCRYPTION_KEY).toString(CryptoJS.enc.Utf8);
+
     const emailResult = await sendWelcomeEmail({
       name: employee.name,
       email: employee.email,
-      password: data.password,
+      password: decryptedPassword,
       role: employee.role || 'employee'
     });
 
