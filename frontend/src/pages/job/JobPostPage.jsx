@@ -87,7 +87,7 @@ const postToLinkedIn = async (jobData) => {
       jobData: jobData,
       applicationUrl: applicationUrl
     };
-    const response = await fetch('https://cap.myaccessio.com/api/post-job', {
+    const response = await fetch('https://myaccessio.com/api/post-job', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

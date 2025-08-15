@@ -495,19 +495,32 @@ const handleEmailClick = async (email) => {
 };
 
 // Add download attachment handler
+// Updated handleDownloadAttachment function with better error handling
 const handleDownloadAttachment = async (emailUid, attachment) => {
   try {
     let folder = 'INBOX';
     if (activeFolder === 'sent') folder = 'INBOX.Sent';
     if (activeFolder === 'trash') folder = 'INBOX.Trash';
     
+    // Use filename as the primary identifier since that's what the backend expects
+    const attachmentId = attachment.filename || attachment.id;
+    
+    console.log('Downloading attachment:', {
+      emailUid,
+      attachmentId,
+      folder,
+      attachmentObject: attachment
+    });
+    
     const response = await fetch(`${API_BASE}/download-attachment`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
         ...emailCredentials,
         uid: emailUid,
-        attachmentId: attachment.id || attachment.filename,
+        attachmentId: attachmentId,
         folder: folder
       }),
     });
@@ -518,18 +531,27 @@ const handleDownloadAttachment = async (emailUid, attachment) => {
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = url;
-      a.download = attachment.filename;
+      a.download = attachment.filename || 'attachment';
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      message.success(`Downloaded ${attachment.filename}`);
+      message.success(`Downloaded ${attachment.filename || 'attachment'}`);
     } else {
-      message.error('Failed to download attachment');
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Download failed:', response.status, errorData);
+      message.error(`Failed to download attachment: ${errorData.error || 'Unknown error'}`);
+      
+      // Log debug info for troubleshooting
+      if (errorData.debug) {
+        console.log('Debug info:', errorData.debug);
+        console.log('Tried to find:', errorData.debug.searchedFor);
+        console.log('Available attachments:', errorData.debug.availableAttachments);
+      }
     }
   } catch (error) {
     console.error('Download error:', error);
-    message.error('Error downloading attachment');
+    message.error('Error downloading attachment: ' + error.message);
   }
 };
 
