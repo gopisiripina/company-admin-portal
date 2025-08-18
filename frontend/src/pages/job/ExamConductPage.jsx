@@ -54,6 +54,7 @@ const ExamConductPage = ({ userRole }) => {
   const [colleges, setColleges] = useState([]);
   const [applications, setApplications] = useState([]);
   const [showResponses, setShowResponses] = useState(false);
+  const [jobIdTitleMap, setJobIdTitleMap] = useState({});
 const [selectedExamResponses, setSelectedExamResponses] = useState([]);
 const [cutoffScore, setCutoffScore] = useState('');
 const [filteredResponses, setFilteredResponses] = useState([]);
@@ -163,22 +164,29 @@ const fetchJobsAndColleges = async () => {
 
     if (applicationsError) throw applicationsError;
 
-    // Fetch job descriptions data
+    // Fetch job descriptions data (remove job_id from select)
     const { data: jobDescriptionsData, error: jobDescriptionsError } = await supabase
       .from('job_descriptions')
-      .select('job_title, college_name');
+      .select('job_title, college_name'); // Only select existing columns
 
     if (jobDescriptionsError) throw jobDescriptionsError;
 
     const uniqueJobIds = [...new Set(applicationsData.map(app => app.job_id))].filter(Boolean);
     const uniqueColleges = [...new Set(jobDescriptionsData.map(job => job.college_name))].filter(Boolean);
-    
-    // Extract job titles from job_descriptions table
     const uniqueJobTitles = [...new Set(jobDescriptionsData.map(job => job.job_title))].filter(Boolean);
+
+    // For now, create a simple mapping using job titles from job_descriptions
+    // You'll need to modify this based on how your data is actually linked
+    const jobMapping = {};
+    // This is a temporary solution - you'll need to adjust based on your actual data structure
+    uniqueJobIds.forEach((jobId, index) => {
+      jobMapping[jobId] = uniqueJobTitles[index] || `Job ${jobId}`;
+    });
 
     setJobIds(uniqueJobIds);
     setColleges(uniqueColleges);
     setJobTitles(uniqueJobTitles);
+    setJobIdTitleMap(jobMapping);
     setApplications(applicationsData);
   } catch (error) {
     console.error('Error fetching jobs and colleges:', error);
@@ -777,25 +785,27 @@ const [jobTitles, setJobTitles] = useState([]);
   <Row gutter={[16, 0]}>
     <Col span={12}>
       <Form.Item
-        label="Job ID"
-        name="jobId"
-        rules={[{ required: true, message: 'Please enter job ID' }]}
-      >
-        <Select
-          mode="tags"
-          placeholder="Select existing Job ID or enter new one"
-          style={{ width: '100%' }}
-          tokenSeparators={[',']}
-          maxTagCount={1}
-          filterOption={(input, option) =>
-            option?.children?.toLowerCase().indexOf(input.toLowerCase()) >= 0
-          }
-        >
-          {jobIds.map(jobId => (
-            <Option key={jobId} value={jobId}>{jobId}</Option>
-          ))}
-        </Select>
-      </Form.Item>
+  label="Job ID"
+  name="jobId"
+  rules={[{ required: true, message: 'Please enter job ID' }]}
+>
+  <Select
+    mode="tags"
+    placeholder="Select existing Job ID or enter new one"
+    style={{ width: '100%' }}
+    tokenSeparators={[',']}
+    maxTagCount={1}
+    filterOption={(input, option) =>
+      option?.children?.toLowerCase().indexOf(input.toLowerCase()) >= 0
+    }
+  >
+    {jobIds.map(jobId => (
+      <Option key={jobId} value={jobId}>
+        {jobId} - {jobIdTitleMap[jobId] || 'No Title Available'}
+      </Option>
+    ))}
+  </Select>
+</Form.Item>
     </Col>
     <Col span={12}>
       <Form.Item
