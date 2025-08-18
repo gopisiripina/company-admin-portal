@@ -131,7 +131,15 @@ const PayrollManagement = () => {
           basic: values.basic || 0,
           hra: values.hra || 0,
           income_tax: values.incomeTax || 0,
-          pf: values.pf || 0
+          pf: values.pf || 0,
+          gender: values.gender || null,
+          designation: values.designation || null,
+          transaction_id: values.transactionId || null,
+          pan_number: values.panNumber || null,
+          employee_bank: values.employeeBank || null,
+          bank_account: values.bankAccount || null,
+          uan_number: values.uanNumber || null,
+          esi_number: values.esiNumber || null
         }])
         .select();
 
@@ -597,8 +605,8 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
     employee_name: employee.employee_name || employee.users?.name || 'N/A',
     employee_id: employee.employee_id || employee.users?.employee_id || 'N/A', 
     email_address: employee.email_address || employee.users?.email || 'N/A',
-    company_name: employee.company_name || 'Company Name',
-    company_address: employee.company_address || 'Company Address',
+    company_name: employee.company_name || 'MYACCESS PRIVATE LIMITED',
+    company_address: employee.company_address || 'NASSCOM CoE - IoT & AU, Andhra University Visakhapatnam - 530003\nAndhra Pradesh India',
     pay_period: employee.pay_period,
     pay_date: employee.pay_date,
     paid_days: Number(employee.paid_days) || 0,
@@ -606,7 +614,15 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
     basic: Number(employee.basic) || 0,
     hra: Number(employee.hra) || 0,
     income_tax: Number(employee.income_tax) || 0,
-    pf: Number(employee.pf) || 0
+    pf: Number(employee.pf) || 0,
+    gender: employee.gender || 'N/A',
+    designation: employee.designation || 'N/A',
+    transaction_id: employee.transaction_id || 'N/A',
+    pan_number: employee.pan_number || 'N/A',
+    employee_bank: employee.employee_bank || 'N/A',
+    bank_account: employee.bank_account || 'N/A',
+    uan_number: employee.uan_number || '-',
+    esi_number: employee.esi_number || '-'
   };
   
   const earningsData = employee.earnings_data || {
@@ -622,96 +638,224 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
   const totalEarnings = employee.total_earnings || Object.values(earningsData).reduce((sum, item) => sum + (item.value || 0), 0);
   const totalDeductions = employee.total_deductions || Object.values(deductionsData).reduce((sum, item) => sum + (item.value || 0), 0);
   const netPay = employee.net_pay || (totalEarnings - totalDeductions);
+
+  // Function to convert number to words (simplified version)
+  const numberToWords = (num) => {
+    if (num === 0) return "Zero";
+    // This is a simplified version - you might want to use a proper number-to-words library
+    return `${num.toLocaleString('en-IN')} Only`;
+  };
     
-    const htmlContent = `
-      <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 800px;">
-        <div style="border-bottom: 2px solid #2d5a4a; padding-bottom: 20px; margin-bottom: 20px;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <h1 style="margin: 0; font-size: 24px; color: #2d5a4a;">${employeeData.company_name}</h1>
-<p style="margin: 5px 0; color: #666;">${employeeData.company_address}</p>
-            </div>
-            <div style="text-align: right;">
-              <h2 style="margin: 0; font-size: 14px; color: #666;">Payslip For the Month</h2>
-              <h3 style="margin: 5px 0; font-size: 20px; color: #2d5a4a;">${dayjs(employeeData.pay_period).format('MMMM YYYY')}</h3>
-            </div>
-          </div>
-        </div>
+  const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyAccess Payslip</title>
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
+    
+    <div style="max-width: 800px; margin: 0 auto; background-color: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden;">
         
-        <div style="margin-bottom: 30px;">
-          <h3 style="font-size: 16px; margin-bottom: 15px; text-transform: uppercase; color: #2d5a4a;">Employee Summary</h3>
-          <div style="display: flex; justify-content: space-between;">
+        <!-- Header -->
+        <div style="background-color: white; padding: 20px; border-bottom: 1px solid #e0e0e0;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div style="flex: 1;">
+                    <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                        <div style="background-color: #2c5aa0; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-right: 10px;">
+                            MYACCESS
+                        </div>
+                        <h1 style="margin: 0; font-size: 18px; font-weight: bold; color: #333;">${employeeData.company_name}</h1>
+                    </div>
+                    <p style="margin: 0; font-size: 12px; color: #666; line-height: 1.4;">
+                        ${employeeData.company_address.replace(/\n/g, '<br>')}
+                    </p>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 12px; color: #666; margin-bottom: 5px;">Payslip For the Month</div>
+                    <div style="font-size: 18px; font-weight: bold; color: #333;">${dayjs(employeeData.pay_period).format('MMMM YYYY')}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Employee Summary and Net Pay -->
+        <div style="display: flex; padding: 20px; gap: 20px;">
             <div style="flex: 1;">
-              <p style="color: black"><strong>Employee Name:</strong> ${employeeData.employee_name || 'N/A'}</p>
-              <p style="color: black"><strong>Employee ID:</strong> ${employeeData.employee_id || 'N/A'}</p>
-              <p style="color: black"><strong>Pay Period:</strong> ${dayjs(employeeData.pay_period).format('MMMM YYYY')}</p>
-              <p style="color: black"><strong>Pay Date:</strong> ${dayjs(employeeData.pay_date).format('DD/MM/YYYY')}</p>
+                <h3 style="margin: 0 0 15px 0; font-size: 14px; color: #666; font-weight: normal;">EMPLOYEE SUMMARY</h3>
+                
+                <div style="margin-bottom: 12px;">
+                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">Employee Name</span>
+                    <span style="font-size: 12px; color: #333;">: ${employeeData.employee_name}</span>
+                </div>
+                
+                <div style="margin-bottom: 12px;">
+                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">Employee ID</span>
+                    <span style="font-size: 12px; color: #333;">: ${employeeData.employee_id}</span>
+                </div>
+                
+                <div style="margin-bottom: 12px;">
+                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">Pay Period</span>
+                    <span style="font-size: 12px; color: #333;">: ${dayjs(employeeData.pay_period).format('MMMM YYYY')}</span>
+                </div>
+                
+                <div style="margin-bottom: 12px;">
+                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">Pay Date</span>
+                    <span style="font-size: 12px; color: #333;">: ${dayjs(employeeData.pay_date).format('YYYY-MM-DD')}</span>
+                </div>
             </div>
-            <div style="width: 200px; background: #f0f9f4; border: 2px solid #10b981; border-radius: 8px; padding: 15px; text-align: center;">
-              <div style="font-size: 18px; font-weight: bold; color: #059669;">Rs.${netPay.toFixed(2)}</div>
-              <div style="font-size: 12px; color: #059669;">Total Net Pay</div>
-              <div style="margin-top: 10px; font-size: 12px;">
-                <div style="color: black">Paid Days: ${employeeData.paid_days || 0}</div>
-                <div style="color: black">LOP Days: ${employeeData.lop_days || 0}</div>
-              </div>
+            
+            <!-- Net Pay Box -->
+            <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; min-width: 200px; overflow: hidden;">
+                <div style="padding: 20px; position: relative;">
+                    <div style="position: absolute; top: 0; left: 0; right: 0; height: 85px; background-color: #e8f5e8;"></div>
+                    <div style="position: relative; z-index: 1;">
+                        <div style="border-left: 4px solid #4caf50; padding-left: 12px; margin-bottom: 15px;">
+                            <div style="font-size: 24px; font-weight: bold; color: #2e7d32; margin-bottom: 5px;">Rs.${netPay.toLocaleString('en-IN')}</div>
+                            <div style="font-size: 12px; color: #4caf50;">Employee Net Pay</div>
+                        </div>
+                        
+                        <div style="border-top: 1px dashed #ccc; padding-top: 15px;">
+                            <div style="margin-bottom: 8px;">
+                                <span style="display: inline-block; width: 80px; font-size: 12px; color: #666;">Paid Days</span>
+                                <span style="font-size: 12px; color: #333;">: ${employeeData.paid_days}</span>
+                            </div>
+                            <div>
+                                <span style="display: inline-block; width: 80px; font-size: 12px; color: #666;">LOP Days</span>
+                                <span style="font-size: 12px; color: #333;">: ${employeeData.lop_days}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
+        </div>
+
+        <!-- Employee Details -->
+        <div style="display: flex; padding: 0 20px 20px 20px; gap: 40px;">
+            <div style="flex: 1;">
+                <div style="margin-bottom: 12px;">
+                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">Gender</span>
+                    <span style="font-size: 12px; color: #333;">: ${employeeData.gender}</span>
+                </div>
+                
+                <div style="margin-bottom: 12px;">
+                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">Designation</span>
+                    <span style="font-size: 12px; color: #333;">: ${employeeData.designation}</span>
+                </div>
+                
+                <div style="margin-bottom: 12px;">
+                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">Transaction ID</span>
+                    <span style="font-size: 12px; color: #333;">: ${employeeData.transaction_id}</span>
+                </div>
+                
+                <div style="margin-bottom: 12px;">
+                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">PAN Number</span>
+                    <span style="font-size: 12px; color: #333;">: ${employeeData.pan_number}</span>
+                </div>
+            </div>
+            
+            <div style="flex: 1;">
+                <div style="margin-bottom: 12px;">
+                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">Employee Bank</span>
+                    <span style="font-size: 12px; color: #333;">: ${employeeData.employee_bank}</span>
+                </div>
+                
+                <div style="margin-bottom: 12px;">
+                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">Bank Account</span>
+                    <span style="font-size: 12px; color: #333;">: ${employeeData.bank_account}</span>
+                </div>
+                
+                <div style="margin-bottom: 12px;">
+                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">UAN Number</span>
+                    <span style="font-size: 12px; color: #333;">: ${employeeData.uan_number}</span>
+                </div>
+                
+                <div style="margin-bottom: 12px;">
+                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">ESI Number</span>
+                    <span style="font-size: 12px; color: #333;">: ${employeeData.esi_number}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Earnings and Deductions Table -->
+        <div style="margin: 20px; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; background-color: white;">
+            <div style="display: flex;">
+                <!-- Earnings -->
+                <div style="flex: 1; padding: 20px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px dotted #ddd;">
+                        <span style="font-size: 14px; font-weight: bold; color: #333;">EARNINGS</span>
+                        <span style="font-size: 14px; font-weight: bold; color: #333;">AMOUNT</span>
+                    </div>
+                    
+                    ${Object.values(earningsData).map(item => 
+                        `<div style="margin-bottom: 15px;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="font-size: 13px; color: #333;">${item.label}</span>
+                                <span style="font-size: 13px; color: #333; font-weight: 600;">Rs.${item.value.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                            </div>
+                        </div>`
+                    ).join('')}
+                    
+                    <div style="padding-top: 15px; border-top: 1px solid #e0e0e0;">
+                        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                            <span style="font-size: 14px; font-weight: bold; color: #333;">Gross Earnings</span>
+                            <span style="font-size: 14px; font-weight: bold; color: #333; margin-left: auto;">Rs.${totalEarnings.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Deductions -->
+                <div style="flex: 1; padding: 20px; border-left: 1px solid #e0e0e0;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px dotted #ddd;">
+                        <span style="font-size: 14px; font-weight: bold; color: #333;">DEDUCTIONS</span>
+                        <span style="font-size: 14px; font-weight: bold; color: #333;">AMOUNT</span>
+                    </div>
+                    
+                    ${Object.values(deductionsData).map(item => 
+                        `<div style="margin-bottom: 15px;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <span style="font-size: 13px; color: #333;">${item.label}</span>
+                                <span style="font-size: 13px; color: #333; font-weight: 600;">Rs.${item.value.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                            </div>
+                        </div>`
+                    ).join('')}
+                    
+                    <div style="padding-top: 15px; border-top: 1px solid #e0e0e0;">
+                        <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                            <span style="font-size: 14px; font-weight: bold; color: #333;">Total Deductions</span>
+                            <span style="font-size: 14px; font-weight: bold; color: #333; margin-left: auto;">Rs.${totalDeductions.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Net Payable -->
+        <div style="margin: 20px; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; background-color: white;">
+            <div style="padding: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 16px; font-weight: bold; color: #333; margin-bottom: 5px;">TOTAL NET PAYABLE</div>
+                        <div style="font-size: 13px; color: #666;">Gross Earnings - Total Deductions</div>
+                    </div>
+                    <div style="background-color: #e8f5e8; padding: 15px 20px; border-radius: 8px;">
+                        <div style="font-size: 26px; font-weight: bold; color: #2e7d32;">Rs.${netPay.toLocaleString('en-IN', {minimumFractionDigits: 2})}</div>
+                    </div>
+                </div>
+            </div>
         </div>
         
-        <div style="display: flex; gap: 20px; margin-bottom: 30px;">
-          <div style="flex: 1; border: 1px solid #ddd; border-radius: 5px;">
-            <div style="background: #f0f9f4; padding: 10px; border-bottom: 1px solid #ddd; color: #2d5a4a;">
-              <strong>EARNINGS</strong>
-              <span style="float: right;"><strong>AMOUNT</strong></span>
-            </div>
-            <div style="padding: 10px; color: black;">
-              ${Object.values(earningsData).map(item => 
-                `<div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                  <span>${item.label}</span>
-                  <span>Rs.${item.value.toFixed(2)}</span>
-                </div>`
-              ).join('')}
-              <div style="border-top: 1px solid #ddd; padding-top: 8px; margin-top: 8px; display: flex; justify-content: space-between; font-weight: bold; color: #059669;">
-                <span>Gross Earnings</span>
-                <span>Rs.${totalEarnings.toFixed(2)}</span>
-              </div>
-            </div>
-          </div>
-          
-          <div style="flex: 1; border: 1px solid #ddd; border-radius: 5px;">
-            <div style="background: #fef2f2; padding: 10px; border-bottom: 1px solid #ddd; color: #991b1b;">
-              <strong>DEDUCTIONS</strong>
-              <span style="float: right;"><strong>AMOUNT</strong></span>
-            </div>
-            <div style="padding: 10px; color: black;">
-              ${Object.values(deductionsData).map(item => 
-                `<div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                  <span>${item.label}</span>
-                  <span>Rs.${item.value.toFixed(2)}</span>
-                </div>`
-              ).join('')}
-              <div style="border-top: 1px solid #ddd; padding-top: 8px; margin-top: 8px; display: flex; justify-content: space-between; font-weight: bold; color: #dc2626;">
-                <span>Total Deductions</span>
-                <span>Rs.${totalDeductions.toFixed(2)}</span>
-              </div>
-            </div>
-          </div>
+        <!-- Amount in Words -->
+        <div style="margin: 0 20px 20px 20px; text-align: center;">
+            <div style="font-size: 12px; color: #666;">Amount In Words : Indian Rupee ${numberToWords(netPay)}</div>
         </div>
         
-        <div style="background: #f0f9f4; border: 2px solid #10b981; border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 20px;">
-          <h3 style="margin: 0 0 10px 0; color: #059669;">TOTAL NET PAYABLE</h3>
-          <div style="font-size: 24px; font-weight: bold; color: #047857;">Rs.${netPay.toFixed(2)}</div>
-        </div>
-        
-        <div style="text-align: center; margin-bottom: 20px; font-size: 13px; color: black;">
-          <strong>Amount In Words:</strong> ${netPay >= 0 ? `Indian Rupee ${Math.abs(netPay).toFixed(2)} Only` : `Minus Indian Rupee ${Math.abs(netPay).toFixed(2)} Only`}
-        </div>
-        
-        <div style="text-align: center; font-size: 11px; color: #666; font-style: italic; border-top: 1px solid #ddd; padding-top: 15px;">
-          -- This is a system-generated document. --
-        </div>
-      </div>
-    `;
+    </div>
+
+</body>
+</html>
+  `;
+
 
     if (returnBlob) {
       return new Promise((resolve) => {
@@ -1245,6 +1389,61 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
             </Row>
 
             <Divider />
+
+            <Title level={4} style={{ marginBottom: '24px', color: '#2d5a4a' }}>Additional Employee Details</Title>
+
+<Row gutter={24}>
+  <Col span={8}>
+    <Form.Item label="Gender" name="gender">
+      <Select size="large" placeholder="Select gender">
+        <Option value="Male">Male</Option>
+        <Option value="Female">Female</Option>
+        <Option value="Other">Other</Option>
+      </Select>
+    </Form.Item>
+  </Col>
+  <Col span={8}>
+    <Form.Item label="Designation" name="designation">
+      <Input size="large" placeholder="Employee designation" />
+    </Form.Item>
+  </Col>
+  <Col span={8}>
+    <Form.Item label="Transaction ID" name="transactionId">
+      <Input size="large" placeholder="Transaction ID" />
+    </Form.Item>
+  </Col>
+</Row>
+
+<Row gutter={24}>
+  <Col span={8}>
+    <Form.Item label="PAN Number" name="panNumber">
+      <Input size="large" placeholder="PAN Number" />
+    </Form.Item>
+  </Col>
+  <Col span={8}>
+    <Form.Item label="Employee Bank" name="employeeBank">
+      <Input size="large" placeholder="Bank name" />
+    </Form.Item>
+  </Col>
+  <Col span={8}>
+    <Form.Item label="Bank Account" name="bankAccount">
+      <Input size="large" placeholder="Account number" />
+    </Form.Item>
+  </Col>
+</Row>
+
+<Row gutter={24}>
+  <Col span={8}>
+    <Form.Item label="UAN Number" name="uanNumber">
+      <Input size="large" placeholder="UAN Number" />
+    </Form.Item>
+  </Col>
+  <Col span={8}>
+    <Form.Item label="ESI Number" name="esiNumber">
+      <Input size="large" placeholder="ESI Number" />
+    </Form.Item>
+  </Col>
+</Row>
 
             <Title level={4} style={{ marginBottom: '24px', color: '#2d5a4a' }}>Pay Period Details</Title>
 
