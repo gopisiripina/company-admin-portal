@@ -131,7 +131,7 @@ const handleProfileClick = async () => {
     
     avatar: userData?.profileimage || null,
     band: userData?.band || 'L5',
-    location: userData?.location || 'New York Office',
+    location: userData?.address || 'Not specified',
     timezone: userData?.timezone || 'EST (UTC-5)',
     skills: userData?.technical_skills || ['No Skills Provided'],
     experience: userData?.total_experience || 'Not specified',
