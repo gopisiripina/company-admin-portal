@@ -45,6 +45,7 @@ useEffect(() => {
 
  const sidebarItems = () => [
   { icon: Home, label: 'Dashboard', id: 'dashboard', color: '#3b82f6' },
+   
   {
     icon: Calendar,
     label: 'Mails',
@@ -58,7 +59,9 @@ useEffect(() => {
       { icon: DeleteOutlined, label: 'Trash', id: 'trash' }
     ] : []
   },
-  
+   ...(userRole === 'superadmin' || userRole === 'admin' ? [
+   { icon: Home, label: 'Employee Information', id: 'employee-information', color: '#3b82f6' }
+ ] : []),
    // Project Management (only for superadmin and admin)
 ...(userRole === 'superadmin' || userRole === 'admin' ? [
   {
@@ -80,6 +83,7 @@ useEffect(() => {
     ]
   }
 ] : []),
+
 // Replace the existing Human Resource section with this updated code:
 
 ...(userRole === 'superadmin' || userRole === 'admin' || userRole === 'hr' || userRole === 'employee' ? [

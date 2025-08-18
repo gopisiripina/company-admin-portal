@@ -39,13 +39,12 @@ const ProfileSection = ({ userData, onLogout, onProfileClick }) => {
   ];
 
   const handleMenuItemClick = async (itemId) => {
-    console.log('Menu item clicked:', itemId);
+    
     setIsDropdownOpen(false);
     
     if (itemId === 'logout') {
       await handleLogout();
     } else if (itemId === 'profile') {
-      console.log('Profile clicked, onProfileClick exists:', !!onProfileClick);
       if (onProfileClick) {
         onProfileClick();
       }

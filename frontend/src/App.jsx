@@ -68,6 +68,9 @@ const AppContent = () => {
      else if (path.includes('/direct-recruitement')) {
       setActiveSection('direct-recruitement');
        }
+        else if (path.includes('/employee-information')) {
+      setActiveSection('employee-information');
+       }
         else if (path.includes('/company-calender')) {
       setActiveSection('company-calender');
        }
@@ -212,18 +215,21 @@ const AppContent = () => {
     handleLogout();
   } else {
     setActiveSection(itemId);
-    // Update URL for specific sections
+    
      if (itemId === 'exam-conduct-page') {
       navigate('/dashboard/exam-conduct-page', { replace: true });
     } else if (['inbox', 'compose', 'sent', 'trash'].includes(itemId)) {
-  setActiveSection('mails'); // This makes Dashboard show EmailClient
-  setActiveEmailFolder(itemId); // This tells EmailClient which folder to open
+  setActiveSection('mails'); 
+  setActiveEmailFolder(itemId); 
   navigate('/dashboard/mails', { replace: true });
 }
 else if (itemId === 'on-campus-data') {
       navigate('/dashboard/on-campus-data', { replace: true });
 }else if (itemId === 'payroll') {
       navigate('/dashboard/payroll', { replace: true });
+    
+    }else if (itemId === 'employee-information') {
+      navigate('/dashboard/employee-information', { replace: true });
     }
     else if (itemId === 'employee-profile') {
   navigate('/dashboard/employee-profile', { replace: true });

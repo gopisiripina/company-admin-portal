@@ -21,7 +21,7 @@ import ExamConductPage from '../job/ExamConductPage';
 import EmailClient from '../email/EmailClient';
 import EmployeeProfileModal from '../profile/EmployeeProfileModal';
 
-
+import EmployeeInformationPage from '../profile/EmployeeInformationPage';
 import DirectRecruitmentPage from '../job/DirectRecruitmentPage';
 import EmployeeAttendancePage from '../hr/EmployeeAttendancePage';
 import { supabase } from '../../supabase/config';
@@ -69,7 +69,7 @@ useEffect(() => {
   
 }, [userData]);
 const handleProfileClick = () => {
-  console.log('handleProfileClick called');
+  
   onSectionChange('employee-profile'); // Change this line
 };
 {/* Add this before the closing </div> */}
@@ -1353,6 +1353,16 @@ if (activeSection === 'mails') {
         {renderHeader("Search employees...")}
         <main className="main-content">
           <EmployeeManagement userRole={userData?.role} />
+        </main>
+      </div>
+    );
+  }
+  if (activeSection === 'employee-information') {
+    return (
+      <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+        {renderHeader("Search employees...")}
+        <main className="main-content">
+          <EmployeeInformationPage userRole={userData?.role} />
         </main>
       </div>
     );
