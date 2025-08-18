@@ -343,7 +343,7 @@ return (
     className={`nav-item ${activeItem === logoutItem.id ? 'active' : ''}`}
     onClick={async () => {
       try {
-        console.log('Sidebar logout initiated for user:', userData);
+        
         
         // Remove email credentials like ProfileSection does
         localStorage.removeItem('emailCredentials');
@@ -352,7 +352,7 @@ return (
         const logoutSuccess = await authService.logout(userData);
         
         if (logoutSuccess) {
-          console.log('Sidebar logout successful');
+          
         } else {
           console.warn('Sidebar logout completed but there may have been issues updating Supabase');
         }

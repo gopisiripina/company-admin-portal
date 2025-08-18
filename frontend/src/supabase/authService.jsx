@@ -275,7 +275,6 @@ async changeFirstLoginPassword(userId, newPassword) {
   storeUserData(user, rememberMe = false) {
   if (user) {
     try {
-      console.log('Storing user data. Input user:', user, 'Remember me:', rememberMe);
       
       const dataToStore = {
         id: user.id,
@@ -307,7 +306,7 @@ async changeFirstLoginPassword(userId, newPassword) {
         updatedAt: user.updatedAt
       };
       
-      console.log('Data to store:', dataToStore);
+      
       
       if (rememberMe) {
         localStorage.setItem('userData', JSON.stringify(dataToStore));
@@ -346,7 +345,7 @@ async changeFirstLoginPassword(userId, newPassword) {
       return parsedData;
     }
     
-    console.log('No stored user data found in either storage');
+    
     return null;
   } catch (error) {
     console.error('Error retrieving stored user data:', error);
@@ -359,7 +358,7 @@ async changeFirstLoginPassword(userId, newPassword) {
     // Clear both localStorage and sessionStorage
     localStorage.removeItem('userData');
     sessionStorage.removeItem('userData');
-    console.log('Cleared all stored user data');
+    
   } catch (error) {
     console.error('Error clearing stored user data:', error);
   }
