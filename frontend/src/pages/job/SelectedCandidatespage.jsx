@@ -931,7 +931,7 @@ const result = await response.json();
 
       {/* Send Offer Letter Modal */}
       <Modal
-      
+        destroyOnHidden // <--- ADD THIS LINE
         title="Send Offer Letter"
         open={offerModalVisible}
         onCancel={() => setOfferModalVisible(false)}
