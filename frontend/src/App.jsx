@@ -205,7 +205,15 @@ const AppContent = () => {
     navigate('/', { replace: true });
   }
 };
-
+  const handleUserUpdate = (updatedData) => {
+    // This function updates the user state in real-time
+    const newUserData = { ...userData, ...updatedData };
+    setUserData(newUserData);
+    
+    // Also update the stored data in localStorage/sessionStorage to keep it consistent
+    const isRememberMe = !!localStorage.getItem('userData');
+    authService.storeUserData(newUserData, isRememberMe);
+  };
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
@@ -396,6 +404,7 @@ else if (itemId === 'on-campus-data') {
                   onToggleSidebar={handleToggleSidebar}
                   isEmailAuthenticated={isEmailAuthenticated}
                   setIsEmailAuthenticated={setIsEmailAuthenticated}
+                  onUserUpdate={handleUserUpdate}
                 />
               </div>
             </AnimatedBackground>
