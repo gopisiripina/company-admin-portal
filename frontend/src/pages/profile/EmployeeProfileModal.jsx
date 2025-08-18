@@ -74,7 +74,7 @@ const { Option } = Select;
 const { confirm } = Modal;
 const { useBreakpoint } = Grid;
 
-export default function EmployeeProfileModal({ isVisible, onClose, userData, isLoading = false }) {
+export default function EmployeeProfileModal({ isVisible, onClose, userData, isLoading = false,onProfileUpdate}) {
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [isViewMode, setIsViewMode] = useState(true);
@@ -404,7 +404,17 @@ export default function EmployeeProfileModal({ isVisible, onClose, userData, isL
   const handleEditSubmit = async () => {
     try {
       const values = await form.validateFields();
-      
+      const updatedFields = {
+        education: values.education,
+        total_experience: values.totalExperience,
+        technical_skills: values.technicalSkills,
+        certifications: values.certifications,
+        languages: values.languages,
+        linkedin_url: values.linkedinUrl,
+        github_url: values.githubUrl,
+        twitter_url: values.twitterUrl,
+        profileimage: profileImagePreview || employeeData.avatar
+      };
       const { data, error } = await supabase
         .from('users')
         .update({
@@ -426,6 +436,9 @@ export default function EmployeeProfileModal({ isVisible, onClose, userData, isL
       }
       
       message.success('Skills & Education updated successfully');
+        if (onProfileUpdate) {
+        onProfileUpdate(updatedFields);
+      }
       setIsEditModalVisible(false);
     } catch (error) {
       console.error('Full error:', error);
@@ -451,6 +464,9 @@ export default function EmployeeProfileModal({ isVisible, onClose, userData, isL
       if (error) throw error;
       
       message.success('Personal information updated successfully');
+       if (onProfileUpdate) {
+        onProfileUpdate(updateData);
+      }
       setIsEditPersonalVisible(false);
     } catch (error) {
       console.error('Full error:', error);
