@@ -31,7 +31,8 @@ import {
   Empty,
   Drawer,
   Switch,
-  Breadcrumb
+  Breadcrumb,
+  Grid 
   // Removed PageHeader - it's deprecated in Ant Design v5
 } from 'antd';
 import {
@@ -66,13 +67,13 @@ import {
   MoreOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { supabase } from '../../supabase/config'; // Add this line
+import { supabase,supabaseAdmin  } from '../../supabase/config'; // Add this line
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
 const { Option } = Select;
 const { confirm } = Modal;
-
+const { useBreakpoint } = Grid;
 export default function EmployeeProfileModal({ isVisible, onClose, userData, isLoading = false }) {
     
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
@@ -84,6 +85,10 @@ export default function EmployeeProfileModal({ isVisible, onClose, userData, isL
   const [isEditPersonalVisible, setIsEditPersonalVisible] = useState(false);
 const [personalForm] = Form.useForm();
 const [profileImagePreview, setProfileImagePreview] = useState(null);
+const screens = useBreakpoint();
+
+
+
 const handleProfileClick = async () => {
   const { data, error } = await supabase
     .from('users')
@@ -101,6 +106,8 @@ const handleProfileClick = async () => {
     console.error('Error fetching profile:', error);
   }
 };
+
+
   // Enhanced employee data with more professional structure
   const employeeData = {
   id: userData?.employeeId || userData?.id || 'EMP-001',
@@ -111,34 +118,36 @@ const handleProfileClick = async () => {
   mobile: userData?.mobile || 'Not provided', // Using mobile instead of phone
   workPhone: userData?.work_phone || 'Not provided',
   address: userData?.address || 'Not provided',
-  joinDate: userData?.start_date || userData?.joinDate, // Using start_date from your DB
+  joinDate: userData?.created_at || userData?.createdAt, // Using start_date from your DB
   birthDate: userData?.birth_date || userData?.birthDate,
   employeeType: userData?.employee_type || 'full-time',
-  status: userData?.isactive ? 'Active' : 'Inactive',
-  salary: userData?.payroll?.[0]?.net_pay
-  ? `₹${userData.payroll[0].net_pay}`
-  : userData?.pay
-    ? `₹${userData.pay}`
-    : 'Not specified',
-
-  avatar: userData?.profileimage || null,
+  status: userData?.isActive ? 'Active' : 'Inactive',
+  // salary: userData?.payroll?.[0]?.net_pay
+  // ? `₹${userData.payroll[0].net_pay}`
+  // : userData?.pay
+  //   ? `₹${userData.pay}`
+  //   : 'Not specified',
+    salary:userData?.pay || 'Not specified',
+    
+    avatar: userData?.profileimage || null,
     band: userData?.band || 'L5',
-    location: userData?.location || 'New York Office',
+    location: userData?.address || 'Not specified',
     timezone: userData?.timezone || 'EST (UTC-5)',
-    skills: userData?.skills || ['React', 'Node.js', 'Python', 'AWS', 'MongoDB', 'TypeScript', 'Docker', 'Kubernetes'],
-    experience: userData?.experience || '8 years',
+    skills: userData?.technical_skills || ['No Skills Provided'],
+    experience: userData?.total_experience || 'Not specified',
+
     education: userData?.education || 'Master of Computer Science',
-    certifications: userData?.certifications || ['AWS Solutions Architect', 'Google Cloud Professional', 'PMP'],
-    languages: userData?.languages || ['English (Native)', 'Spanish (Conversational)', 'French (Basic)'],
+    certifications: userData?.certifications || ['No Certifications Provided'],
+    languages: userData?.languages || ['No Languages Provided'],
     emergencyContact: userData?.emergencyContact || {
-      name: 'Jane Doe',
+      name: 'Jone jackson',
       relationship: 'Spouse',
-      phone: '+1 (555) 456-7890'
+      phone: '+91 95554567890'
     },
     socialLinks: userData?.socialLinks || {
-      linkedin: 'https://linkedin.com/in/johndoe',
-      github: 'https://github.com/johndoe',
-      twitter: 'https://twitter.com/johndoe'
+      linkedin: userData?.linkedin_url ||'https://www.linkedin.com/in/',
+      github: userData?.github_url || 'https://github.com/',
+      twitter: userData?.twitter_url || 'https://x.com/' // Default to a placeholder
     },
     
     lastActive: userData?.lastActive || '2024-01-15 09:30:00',
@@ -181,48 +190,6 @@ const handleProfileClick = async () => {
     }
   ];
 
-  // Enhanced projects data
-  const projectsData = [
-    {
-      key: '1',
-      project: 'Enterprise Platform Modernization',
-      role: 'Technical Lead',
-      status: 'Completed',
-      priority: 'High',
-      startDate: '2023-01-15',
-      endDate: '2023-12-20',
-      completion: 100,
-      team: 8,
-      budget: '$2.5M',
-      client: 'Internal - Platform Team'
-    },
-    {
-      key: '2',
-      project: 'Mobile Banking Application',
-      role: 'Senior Developer',
-      status: 'In Progress',
-      priority: 'Critical',
-      startDate: '2024-01-01',
-      endDate: '2024-06-30',
-      completion: 78,
-      team: 12,
-      budget: '$1.8M',
-      client: 'Banking Division'
-    },
-    {
-      key: '3',
-      project: 'API Gateway Implementation',
-      role: 'Architecture Consultant',
-      status: 'Planning',
-      priority: 'Medium',
-      startDate: '2024-03-01',
-      endDate: '2024-08-15',
-      completion: 15,
-      team: 6,
-      budget: '$800K',
-      client: 'Infrastructure Team'
-    }
-  ];
 
   // Enhanced timeline data
   const timelineData = [
@@ -460,13 +427,22 @@ const handleProfileClick = async () => {
   ];
 
   const handleEdit = useCallback(() => {
-    setIsEditModalVisible(true);
-    form.setFieldsValue({
-      ...employeeData,
-      joinDate: employeeData.joinDate ? dayjs(employeeData.joinDate) : null,
-      birthDate: employeeData.birthDate ? dayjs(employeeData.birthDate) : null
-    });
-  }, [employeeData, form]);
+  setIsEditModalVisible(true);
+  
+  // Initialize main form
+  form.setFieldsValue({
+    ...employeeData,
+    joinDate: employeeData.joinDate ? dayjs(employeeData.joinDate) : null,
+    birthDate: employeeData.birthDate ? dayjs(employeeData.birthDate) : null
+  });
+  
+  // ADD THIS: Initialize personal form when modal opens
+  personalForm.setFieldsValue({
+    workPhone: employeeData.workPhone,
+    address: employeeData.address,
+    birthDate: employeeData.birthDate ? dayjs(employeeData.birthDate) : null
+  });
+}, [employeeData, form, personalForm]);
 const handleImageUpload = useCallback(async (file) => {
   const isJpgOrPng = file.type === 'image/jpeg' || file.type === 'image/png' || file.type === 'image/jpg';
   if (!isJpgOrPng) {
@@ -515,7 +491,7 @@ const handleImageUpload = useCallback(async (file) => {
   try {
     const values = await form.validateFields();
     
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabase // Make sure using supabase, not supabaseAdmin
       .from('users')
       .update({
         education: values.education,
@@ -528,37 +504,44 @@ const handleImageUpload = useCallback(async (file) => {
         twitter_url: values.twitterUrl,
         profileimage: profileImagePreview || employeeData.avatar
       })
-      .eq('id', employeeData.id);
+      .eq('employee_id', employeeData.id); // Change from 'id' to 'employee_id' (or whatever column contains MYAEMP005)
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error:', error); // Add error logging
+      throw error;
+    }
     
     message.success('Skills & Education updated successfully');
     setIsEditModalVisible(false);
     // Refresh employee data here
   } catch (error) {
-    message.error('Failed to update skills & education');
+    console.error('Full error:', error); // Add error logging
+    message.error(`Failed to update skills & education: ${error.message}`);
   }
 };
 const handlePersonalInfoSave = async () => {
   try {
     const values = await personalForm.validateFields();
     
-    const { data, error } = await supabaseAdmin
+    const updateData = {
+      work_phone: values.workPhone,
+      address: values.address,
+      birth_date: values.birthDate ? values.birthDate.format('YYYY-MM-DD') : null
+    };
+    
+    // Change this line - use the correct column name
+    const { data, error } = await supabase
       .from('users')
-      .update({
-        work_phone: values.workPhone,
-        address: values.address,
-        birth_date: values.birthDate ? values.birthDate.format('YYYY-MM-DD') : null
-      })
-      .eq('id', employeeData.id);
+      .update(updateData)
+      .eq('employee_id', employeeData.id); // or .eq('emp_code', employeeData.id)
 
     if (error) throw error;
     
     message.success('Personal information updated successfully');
     setIsEditPersonalVisible(false);
-    // Refresh employee data here
   } catch (error) {
-    message.error('Failed to update personal information');
+    console.error('Full error:', error);
+    message.error(`Failed to update personal information: ${error.message}`);
   }
 };
   const handlePrintProfile = useCallback(() => {
@@ -634,8 +617,7 @@ const handlePersonalInfoSave = async () => {
     }}>
       {/* Breadcrumb Navigation */}
       <Breadcrumb style={{ marginBottom: '16px' }}>
-        <Breadcrumb.Item>HR Management</Breadcrumb.Item>
-        <Breadcrumb.Item>Employees</Breadcrumb.Item>
+         
         <Breadcrumb.Item>{employeeData.name}</Breadcrumb.Item>
       </Breadcrumb>
 
@@ -648,12 +630,12 @@ const handlePersonalInfoSave = async () => {
         }}
       >
         <Row align="middle" justify="space-between">
-          <Col flex="auto">
-            <Row align="middle" gutter={24}>
-              <Col>
+          <Col xs={24} sm={24} md={18} lg={18} xl={18}>
+            <Row  align="middle" gutter={[16, 16]}>
+              <Col xs={24} sm={8} md={6} lg={4}>
                 <div style={{ position: 'relative' }}>
                   <Avatar 
-                    size={140} 
+                    size={120} 
                     src={employeeData.avatar || "/api/placeholder/140/140"} 
                     icon={<UserOutlined />}
                     style={{ 
@@ -667,15 +649,15 @@ const handlePersonalInfoSave = async () => {
                       position: 'absolute', 
                       bottom: '10px', 
                       right: '10px',
-                      backgroundColor: '#fff',
-                      borderRadius: '50%',
+                      // backgroundColor: '#fff',
+                      borderRadius: '5\0%',
                       padding: '4px'
                     }} 
                   />
                 </div>
               </Col>
-              <Col flex="auto">
-                <Title level={2} style={{ margin: 0, color: '#1f2937' }}>
+              <Col xs={24} sm={16} md={18} lg={20}>
+                <Title level={2} style={{ margin: 0, color: '#1f2937',fontSize: { xs: '20px', sm: '24px', md: '30px' } }}>
                   {employeeData.name}
                 </Title>
                 <Text 
@@ -745,8 +727,10 @@ const handlePersonalInfoSave = async () => {
               </Col>
             </Row>
           </Col>
-          <Col>
-            {headerActions}
+          <Col xs={24} sm={24} md={6} lg={6} xl={6}>
+            <div style={{ textAlign: 'right', marginTop: '16px' }}>
+              {headerActions}
+            </div>
           </Col>
         </Row>
       </Card>
@@ -773,10 +757,10 @@ const handlePersonalInfoSave = async () => {
                 </span>
               ),
               children: (
-                <Row gutter={[24, 24]}>
+                <Row gutter={[16, 16]}>
                   {/* Personal Information */}
               {/* Personal Information - UPDATE THIS SECTION */}
-<Col span={12}>
+<Col xs={24} sm={24} md={12} lg={12} xl={12}>
   <Card 
     title={
       <Space>
@@ -795,7 +779,24 @@ const handlePersonalInfoSave = async () => {
     size="small"
     style={{ height: '100%' }}
   >
-    <Descriptions column={1} size="small" layout="horizontal" labelStyle={{ width: '140px', fontWeight: 600 }}>
+    <Descriptions 
+  column={1} 
+  size="small" 
+  layout={screens.md ? "horizontal" : "vertical"}
+  labelStyle={screens.md ? { 
+    width: '140px', 
+    fontWeight: 600 
+  } : { 
+    fontWeight: 600,
+    fontSize: '13px',
+    color: '#8c8c8c',
+    marginBottom: '4px'
+  }}
+  contentStyle={!screens.md ? {
+    fontSize: '15px',
+    marginBottom: '12px'
+  } : {}}
+>
       <Descriptions.Item label="Full Name">
         <Text strong>{employeeData.name}</Text>
       </Descriptions.Item>
@@ -834,7 +835,7 @@ const handlePersonalInfoSave = async () => {
 </Col>
 
                   {/* Employment Details */}
-          <Col span={12}>
+          <Col xs={24} sm={24} md={12} lg={12} xl={12}>
   <Card 
     title={
       <Space>
@@ -845,7 +846,24 @@ const handlePersonalInfoSave = async () => {
     size="small"
     style={{ height: '100%' }}
   >
-    <Descriptions column={1} size="small" layout="horizontal" labelStyle={{ width: '140px', fontWeight: 600 }}>
+    <Descriptions 
+  column={1} 
+  size="small" 
+  layout={screens.md ? "horizontal" : "vertical"}
+  labelStyle={screens.md ? { 
+    width: '140px', 
+    fontWeight: 600 
+  } : { 
+    fontWeight: 600,
+    fontSize: '13px',
+    color: '#8c8c8c',
+    marginBottom: '4px'
+  }}
+  contentStyle={!screens.md ? {
+    fontSize: '15px',
+    marginBottom: '12px'
+  } : {}}
+>
       <Descriptions.Item label="Position">
         <Text strong>{employeeData.position}</Text>
       </Descriptions.Item>
@@ -879,26 +897,41 @@ const handlePersonalInfoSave = async () => {
 </Col>
 
                   {/* Skills & Expertise */}
-                  <Col span={12}>
+                  <Col xs={24} sm={24} md={12} lg={12} xl={12}>
                     <Card 
-                      title={
-                        <Space>
-                          <StarOutlined style={{ color: '#faad14' }} />
-                          Skills & Expertise
-                        </Space>
-                      }
-                      size="small"
-                    >
-                      <div style={{ marginBottom: '16px' }}>
-                        <Text strong style={{ display: 'block', marginBottom: '8px' }}>Technical Skills</Text>
-                        <Space size={[4, 8]} wrap>
-                          {employeeData.skills.map(skill => (
-                            <Tag key={skill} color="geekblue" style={{ fontSize: '12px' }}>
-                              {skill}
-                            </Tag>
-                          ))}
-                        </Space>
-                      </div>
+  title={
+    <Space>
+      <StarOutlined style={{ color: '#faad14' }} />
+      Skills & Expertise
+    </Space>
+  }
+  size="small"
+  style={{ height: '100%' }}
+>
+  <div style={{ marginBottom: '16px' }}>
+    <Text strong style={{ 
+      display: 'block', 
+      marginBottom: screens.md ? '8px' : '6px',
+      fontSize: screens.md ? '14px' : '13px',
+      color: screens.md ? 'inherit' : '#8c8c8c'
+    }}>
+      Technical Skills
+    </Text>
+    <Space size={[4, 8]} wrap>
+      {employeeData.skills.map(skill => (
+        <Tag 
+          key={skill} 
+          color="geekblue" 
+          style={{ 
+            fontSize: screens.md ? '12px' : '13px',
+            padding: screens.md ? '2px 8px' : '4px 10px'
+          }}
+        >
+          {skill}
+        </Tag>
+      ))}
+    </Space>
+  </div>
                       
                       <div style={{ marginBottom: '16px' }}>
                         <Text strong style={{ display: 'block', marginBottom: '8px' }}>Certifications</Text>
@@ -925,7 +958,7 @@ const handlePersonalInfoSave = async () => {
                   </Col>
 
                   {/* Quick Stats */}
-                  <Col span={12}>
+                  <Col xs={24} sm={24} md={12} lg={12} xl={12}>
                     <Card 
                       title={
                         <Space>
@@ -953,17 +986,46 @@ const handlePersonalInfoSave = async () => {
                         </Col>
                       </Row>
                       <Divider />
-                      <Text strong style={{ display: 'block', marginBottom: '8px' }}>Education</Text>
-                      <Text>
-                        <BookOutlined style={{ marginRight: '8px', color: '#722ed1' }} />
-                        {employeeData.education}
-                      </Text>
+                      <div style={{ marginBottom: '16px' }}>
+  <Text strong style={{ 
+    display: 'block', 
+    marginBottom: screens.md ? '8px' : '4px',
+    fontSize: screens.md ? '14px' : '13px',
+    color: screens.md ? 'inherit' : '#8c8c8c'
+  }}>
+    Education
+  </Text>
+  <Text style={{ fontSize: screens.md ? '14px' : '15px' }}>
+    <BookOutlined style={{ marginRight: '8px', color: '#722ed1' }} />
+    {employeeData.education}
+  </Text>
+</div>
                       <Divider />
-                      <Text strong style={{ display: 'block', marginBottom: '8px' }}>Emergency Contact</Text>
-                      <Text style={{ display: 'block' }}>{employeeData.emergencyContact.name}</Text>
-                      <Text type="secondary" style={{ fontSize: '12px' }}>
-                        {employeeData.emergencyContact.relationship} • {employeeData.emergencyContact.phone}
-                      </Text>
+                      <div>
+  <Text strong style={{ 
+    display: 'block', 
+    marginBottom: screens.md ? '8px' : '4px',
+    fontSize: screens.md ? '14px' : '13px',
+    color: screens.md ? 'inherit' : '#8c8c8c'
+  }}>
+    Emergency Contact
+  </Text>
+  <div style={{ marginBottom: screens.md ? '0' : '12px' }}>
+    <Text style={{ 
+      display: 'block',
+      fontSize: screens.md ? '14px' : '15px',
+      marginBottom: '4px'
+    }}>
+      {employeeData.emergencyContact.name}
+    </Text>
+    <Text type="secondary" style={{ 
+      fontSize: screens.md ? '12px' : '13px',
+      lineHeight: '1.4'
+    }}>
+      {employeeData.emergencyContact.relationship} • {employeeData.emergencyContact.phone}
+    </Text>
+  </div>
+</div>
                     </Card>
                   </Col>
                 </Row>
@@ -978,8 +1040,8 @@ const handlePersonalInfoSave = async () => {
                 </span>
               ),
               children: (
-                <Row gutter={[24, 24]}>
-                  <Col span={18}>
+                <Row gutter={[16, 16]}>
+                  <Col xs={24} sm={24} md={18} lg={18} xl={18}>
                     <Card title="Performance History" style={{ height: '100%' }}>
                       <Table
                         dataSource={performanceData.map((item, index) => ({ ...item, key: index }))}
@@ -1042,7 +1104,7 @@ const handlePersonalInfoSave = async () => {
                       />
                     </Card>
                   </Col>
-                  <Col span={6}>
+                  <Col xs={24} sm={24} md={6} lg={6} xl={6}>
                     <Space direction="vertical" size="large" style={{ width: '100%' }}>
                       <Card title="Performance Summary" size="small">
                         <Statistic 
@@ -1093,50 +1155,7 @@ const handlePersonalInfoSave = async () => {
                 </Row>
               )
             },
-            {
-              key: 'projects',
-              label: (
-                <span>
-                  <ProjectOutlined />
-                  Projects
-                </span>
-              ),
-              children: (
-                <Card title="Current & Recent Projects">
-                  <Table
-                    dataSource={projectsData}
-                    columns={projectColumns}
-                    pagination={{ pageSize: 5, showSizeChanger: true }}
-                    scroll={{ x: 1200 }}
-                    expandable={{
-                      expandedRowRender: (record) => (
-                        <div style={{ padding: '16px', backgroundColor: '#fafafa' }}>
-                          <Row gutter={24}>
-                            <Col span={8}>
-                              <Text strong>Project Timeline:</Text>
-                              <br />
-                              <Text>Start: {dayjs(record.startDate).format('MMM DD, YYYY')}</Text>
-                              <br />
-                              <Text>End: {dayjs(record.endDate).format('MMM DD, YYYY')}</Text>
-                            </Col>
-                            <Col span={8}>
-                              <Text strong>Client/Department:</Text>
-                              <br />
-                              <Text>{record.client}</Text>
-                            </Col>
-                            <Col span={8}>
-                              <Text strong>Budget Allocation:</Text>
-                              <br />
-                              <Text style={{ color: '#52c41a', fontWeight: 600 }}>{record.budget}</Text>
-                            </Col>
-                          </Row>
-                        </div>
-                      ),
-                    }}
-                  />
-                </Card>
-              )
-            },
+         
             {
               key: 'timeline',
               label: (
@@ -1156,7 +1175,7 @@ const handlePersonalInfoSave = async () => {
                   <Divider />
                   
                   <Row gutter={24}>
-                    <Col span={8}>
+                    <Col xs={24} sm={24} md={8} lg={8} xl={8}>
                       <Card size="small" title="Milestones">
                         <Statistic 
                           title="Years of Service" 
@@ -1178,7 +1197,7 @@ const handlePersonalInfoSave = async () => {
                         />
                       </Card>
                     </Col>
-                    <Col span={16}>
+                    <Col xs={24} sm={24} md={16} lg={16} xl={16}>
                       <Card size="small" title="Upcoming Events">
                         <List
                           size="small"
@@ -1228,7 +1247,7 @@ const handlePersonalInfoSave = async () => {
                 </span>
               ),
               children: (
-                <Row gutter={[24, 24]}>
+                <Row gutter={[16, 16]}>
                   <Col span={24}>
                     <Card title="Document Management">
                       <Row gutter={16} style={{ marginBottom: '16px' }}>
@@ -1276,7 +1295,8 @@ const handlePersonalInfoSave = async () => {
         open={isEditModalVisible}
         onCancel={() => setIsEditModalVisible(false)}
         footer={null}
-        width={900}
+        width="90%"  // Responsive width
+  style={{ maxWidth: '900px' }}
         destroyOnClose
       >
         <Alert
@@ -1297,7 +1317,7 @@ const handlePersonalInfoSave = async () => {
           <TabPane tab="Skills & Education" key="skills">
   <Form.Item name="profileImage" label="Profile Image">
     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-      <Avatar size={64} src={profileImagePreview} icon={<UserOutlined />} />
+      <Avatar size={{ xs: 80, sm: 100, md: 120, lg: 140 }} src={profileImagePreview} icon={<UserOutlined />} />
       <Upload
         showUploadList={false}
         beforeUpload={handleImageUpload}

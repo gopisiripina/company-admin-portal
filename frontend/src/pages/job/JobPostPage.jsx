@@ -75,7 +75,7 @@ const [generatedLink, setGeneratedLink] = useState('');
 const postToLinkedIn = async (jobData) => {
   try {
     // Generate dynamic application URL with job parameters
-    const applicationUrl = `http://cap.myaccessio.com/job-application/${jobData.id}?` + 
+    const applicationUrl = `https://cap.myaccessio.com/job-application/${jobData.id}?` + 
       `title=${encodeURIComponent(jobData.job_title || '')}&` +
       `company=${encodeURIComponent(jobData.company_name || 'My Access')}&` +
       `location=${encodeURIComponent(jobData.location || '')}&` +
@@ -87,7 +87,7 @@ const postToLinkedIn = async (jobData) => {
       jobData: jobData,
       applicationUrl: applicationUrl
     };
-    const response = await fetch('https://cap.myaccessio.com/api/post-job', {
+    const response = await fetch('https://myaccessio.com/api/post-job', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -176,7 +176,7 @@ useEffect(() => {
 
 // Generate campus link function
 const generateCampusLink = (jobData) => {
-  const baseUrl = 'http://cap.myaccessio.com/campus-job-view'; // Changed from 'campus-job' to 'campus-job-view'
+  const baseUrl = 'https://cap.myaccessio.com/campus-job-view'; // Changed from 'campus-job' to 'campus-job-view'
   const uniqueId = Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
   
   const linkParams = new URLSearchParams({

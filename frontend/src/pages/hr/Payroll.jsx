@@ -157,19 +157,76 @@ const PayrollManagement = () => {
       const endOfMonth = selectedMonth.endOf('month').format('YYYY-MM-DD');
       
       const { data: payrollData, error } = await supabase
-        .from('payroll')
-        .select('*')
-        .gte('pay_period', startOfMonth)
-        .lt('pay_period', selectedMonth.add(1, 'month').startOf('month').format('YYYY-MM-DD'));
-      
-      if (error) throw error;
+  .from('payroll')
+  .select(`
+    *,
+    users (
+      name,
+      employee_id,
+      email
+    )
+  `)
+  .gte('pay_period', startOfMonth)
+  .lt('pay_period', selectedMonth.add(1, 'month').startOf('month').format('YYYY-MM-DD'));
+
+if (error) throw error;
+
+// Flatten the user data into the payroll records
+// Flatten the user data into the payroll records and structure earnings/deductions properly
+// Flatten the user data into the payroll records and structure earnings/deductions properly
+const enrichedPayrollData = payrollData?.map(record => {
+  // Use payroll data first, fallback to user data
+  const employeeName = record.employee_name || record.users?.name || 'N/A';
+  const employeeId = record.employee_id || record.users?.employee_id || 'N/A';
+  const emailAddress = record.email_address || record.users?.email || 'N/A';
+  
+  // Structure earnings data as expected by generatePayslipPDF
+  const earningsData = {
+    basic: { label: 'Basic', value: Number(record.basic) || 0 },
+    hra: { label: 'House Rent Allowance', value: Number(record.hra) || 0 }
+  };
+  
+  // Structure deductions data as expected by generatePayslipPDF
+  const deductionsData = {
+    incomeTax: { label: 'Income Tax', value: Number(record.income_tax) || 0 },
+    pf: { label: 'Provident Fund', value: Number(record.pf) || 0 }
+  };
+  
+  // Calculate totals (use database calculated values if available)
+  const totalEarnings = Number(record.gross_earnings) || Object.values(earningsData).reduce((sum, item) => sum + (item.value || 0), 0);
+  const totalDeductions = Number(record.total_deductions) || Object.values(deductionsData).reduce((sum, item) => sum + (item.value || 0), 0);
+  const netPay = Number(record.net_pay) || (totalEarnings - totalDeductions);
+
+  return {
+    // Spread original record first
+    ...record,
+    // Override with correct employee data
+    employee_name: employeeName,
+    employee_id: employeeId,
+    email_address: emailAddress,
+    // Ensure numeric values are properly converted
+    basic: Number(record.basic) || 0,
+    hra: Number(record.hra) || 0,
+    income_tax: Number(record.income_tax) || 0,
+    pf: Number(record.pf) || 0,
+    paid_days: Number(record.paid_days) || 0,
+    lop_days: Number(record.lop_days) || 0,
+    gross_earnings: totalEarnings,
+    total_deductions: totalDeductions,
+    net_pay: netPay,
+    // Add the structured data that generatePayslipPDF expects
+    earnings_data: earningsData,
+    deductions_data: deductionsData,
+    total_earnings: totalEarnings
+  };
+}) || [];
       
       if (!payrollData || payrollData.length === 0) {
         message.warning(`No payroll records found for ${selectedMonth.format('MMMM YYYY')}`);
         return;
       }
       
-      await generateBulkPDFsAsZip(payrollData, selectedMonth.format('YYYY-MM'));
+      await generateBulkPDFsAsZip(enrichedPayrollData, selectedMonth.format('YYYY-MM'));
       
       message.success(`Generated ${payrollData.length} payslips for ${selectedMonth.format('MMMM YYYY')}`);
       setBulkDownloadVisible(false);
@@ -192,7 +249,7 @@ const PayrollManagement = () => {
       
       formData.append('payslip', pdfBlob, `payslip_${employeeData.employee_name}_${dayjs(employeeData.pay_period).format('YYYY-MM')}.pdf`);
       
-      const response = await fetch('http://cap.myaccessio.com/api/payslip', {
+      const response = await fetch('https://cap.myaccessio.com/api/payslip', {
         method: 'POST',
         body: formData
       });
@@ -212,22 +269,42 @@ const PayrollManagement = () => {
   };
 
   const generateBulkPDFsAsZip = async (payrollData, monthYear) => {
-    const zip = new JSZip();
-    
-    for (const employee of payrollData) {
-      const pdfBlob = await generatePayslipPDF(employee, true);
-      const fileName = `${employee.employee_name}_${employee.employee_id}_${monthYear}.pdf`;
+  const zip = new JSZip();
+  
+  for (const employee of payrollData) {
+    try {
+      // Use the same method as individual download - call generatePayslipPDF without returnBlob first
+      // This ensures the employee object gets all the proper data structure
+      const pdfBlob = await new Promise((resolve) => {
+        // Create a temporary employee object with proper structure
+        const tempEmployee = {
+          ...employee,
+          // Ensure all required fields are present
+          employee_name: employee.employee_name || employee.users?.name || 'N/A',
+          employee_id: employee.employee_id || employee.users?.employee_id || 'N/A',
+          email_address: employee.email_address || employee.users?.email || 'N/A'
+        };
+        
+        // Call generatePayslipPDF with returnBlob = true to get the blob directly
+        generatePayslipPDF(tempEmployee, true).then(resolve);
+      });
+      
+      const fileName = `${employee.employee_name || employee.users?.name || 'Unknown'}_${employee.employee_id || employee.users?.employee_id || 'Unknown'}_${monthYear}.pdf`;
       zip.file(fileName, pdfBlob);
+    } catch (error) {
+      console.error(`Error generating PDF for employee ${employee.employee_name}:`, error);
+      // Continue with other employees even if one fails
     }
-    
-    const zipBlob = await zip.generateAsync({ type: 'blob' });
-    const url = URL.createObjectURL(zipBlob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Payslips_${monthYear}.zip`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  }
+  
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(zipBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Payslips_${monthYear}.zip`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
 
   const addDeduction = () => {
     const newKey = `deduction_${Date.now()}`;
@@ -334,12 +411,26 @@ const PayrollManagement = () => {
       const startOfMonth = selectedMonth.startOf('month').format('YYYY-MM-DD');
       
       const { data: payrollData, error } = await supabase
-        .from('payroll')
-        .select('*')
-        .gte('pay_period', startOfMonth)
-        .lt('pay_period', selectedMonth.add(1, 'month').startOf('month').format('YYYY-MM-DD'));
-      
-      if (error) throw error;
+  .from('payroll')
+  .select(`
+    *,
+    users (
+      name,
+      employee_id,
+      email
+    )
+  `)
+  .gte('pay_period', startOfMonth)
+  .lt('pay_period', selectedMonth.add(1, 'month').startOf('month').format('YYYY-MM-DD'));
+
+if (error) throw error;
+
+const enrichedPayrollData = payrollData?.map(record => ({
+  ...record,
+  employee_name: record.employee_name || record.users?.name,
+  employee_id: record.employee_id || record.users?.employee_id,
+  email_address: record.email_address || record.users?.email
+})) || [];
       
       if (!payrollData || payrollData.length === 0) {
         message.warning(`No payroll records found for ${selectedMonth.format('MMMM YYYY')}`);
@@ -404,43 +495,48 @@ const PayrollManagement = () => {
   // Professional Dashboard Header with green gradient
   const renderProfessionalHeader = () => (
     <div style={{
-      background: 'linear-gradient(135deg, #2d5a4a 0%, #1e3d2f 100%)',
-      padding: '40px 20px',
-      color: 'white'
-    }}>
+  background: 'transparent',
+  padding: '40px 20px',
+  color: '#2d5a4a',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+  borderRadius: '0px',
+}}>
       <Row gutter={[24, 24]} align="middle">
         <Col xs={24} md={12}>
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
-            <BankOutlined style={{ fontSize: '36px', marginRight: '16px', color: '#4ade80' }} />
+            <BankOutlined style={{ fontSize: '36px', marginRight: '16px', color: '#0D7139' }} />
             <div>
-              <Title level={1} style={{ color: 'white', margin: 0, fontSize: 'clamp(24px, 4vw, 32px)' }}>
-                Payroll Management
-              </Title>
-              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: '16px' }}>
-                Professional payroll processing made simple
-              </Text>
+              <Title level={1} style={{ color: '#0D7139', margin: 0, fontSize: 'clamp(24px, 4vw, 32px)' }}>
+  Payroll Management
+</Title>
+<Text style={{ color: 'black', fontSize: '16px' }}>
+  Professional payroll processing made simple
+</Text>
             </div>
           </div>
         </Col>
         <Col xs={24} md={12}>
           <Row gutter={16}>
             <Col xs={8} sm={8}>
-              <div style={{ textAlign: 'center', padding: '16px', background: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}>
-                <TeamOutlined style={{ fontSize: '24px', marginBottom: '8px', color: '#4ade80' }} />
+              <div style={{ textAlign: 'center', padding: '16px', background: 'linear-gradient(135deg, #caf0c7ff 0%, #caf0c7ff 100%)',
+border: '1px solid #0D7139', borderRadius: '8px' }}>
+                <TeamOutlined style={{ fontSize: '24px', marginBottom: '8px', color: '#0D7139' }} />
                 <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{stats.totalEmployees}</div>
                 <div style={{ fontSize: '12px', opacity: 0.8 }}>Employees</div>
               </div>
             </Col>
             <Col xs={8} sm={8}>
-              <div style={{ textAlign: 'center', padding: '16px', background: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}>
-                <BankOutlined style={{ fontSize: '24px', marginBottom: '8px', color: '#10b981' }} />
+              <div style={{ textAlign: 'center', padding: '16px', background: 'linear-gradient(135deg, #caf0c7ff 0%, #caf0c7ff 100%)',
+border: '1px solid #0D7139', borderRadius: '8px' }}>
+                <BankOutlined style={{ fontSize: '24px', marginBottom: '8px', color: '#0D7139' }} />
                 <div style={{ fontSize: '20px', fontWeight: 'bold' }}>₹{stats.totalPayroll.toLocaleString()}</div>
                 <div style={{ fontSize: '12px', opacity: 0.8 }}>Total Payroll</div>
               </div>
             </Col>
             <Col xs={8} sm={8}>
-              <div style={{ textAlign: 'center', padding: '16px', background: 'rgba(255,255,255,0.1)', borderRadius: '8px' }}>
-                <DashboardOutlined style={{ fontSize: '24px', marginBottom: '8px', color: '#34d399' }} />
+              <div style={{ textAlign: 'center', padding: '16px', background: 'linear-gradient(135deg, #caf0c7ff 0%, #caf0c7ff 100%)',
+border: '1px solid #0D7139', borderRadius: '8px' }}>
+                <DashboardOutlined style={{ fontSize: '24px', marginBottom: '8px', color: '#0D7139' }} />
                 <div style={{ fontSize: '20px', fontWeight: 'bold' }}>₹{stats.thisMonth.toLocaleString()}</div>
                 <div style={{ fontSize: '12px', opacity: 0.8 }}>This Month</div>
               </div>
@@ -453,24 +549,9 @@ const PayrollManagement = () => {
 
   // Professional Action Cards with green accents
   const renderActionCards = () => (
-    <div style={{ padding: '30px 20px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', }}>
-      <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card 
-            hoverable
-            style={{ 
-              textAlign: 'center', 
-              border: '1px solid #e2e8f0',
-              borderRadius: '12px',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-            }}
-            onClick={() => setCurrentView('addEmployee')}
-          >
-            <PlusOutlined style={{ fontSize: '32px', color: '#10b981', marginBottom: '12px' }} />
-            <div style={{ fontWeight: '600', fontSize: '16px', marginBottom: '4px' }}>Add Employee</div>
-            <div style={{ color: '#64748b', fontSize: '14px' }}>Create new payroll entry</div>
-          </Card>
-        </Col>
+    <div style={{ padding: '30px 20px', background: 'transparent', borderBottom: '1px solid #e2e8f0', }}>
+      <Row gutter={[24, 24]}>
+        
         <Col xs={24} sm={12} lg={6}>
           <Card 
             hoverable
@@ -496,21 +577,6 @@ const PayrollManagement = () => {
               borderRadius: '12px',
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
             }}
-          >
-            <FilePdfOutlined style={{ fontSize: '32px', color: '#047857', marginBottom: '12px' }} />
-            <div style={{ fontWeight: '600', fontSize: '16px', marginBottom: '4px' }}>PDF & Email</div>
-            <div style={{ color: '#64748b', fontSize: '14px' }}>Generate and send</div>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card 
-            hoverable
-            style={{ 
-              textAlign: 'center', 
-              border: '1px solid #e2e8f0',
-              borderRadius: '12px',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-            }}
             onClick={() => setEmailOnlyVisible(true)}
           >
             <SendOutlined style={{ fontSize: '32px', color: '#065f46', marginBottom: '12px' }} />
@@ -523,31 +589,51 @@ const PayrollManagement = () => {
   );
 
   const generatePayslipPDF = async (employee, returnBlob = false) => {
-    const earningsData = employee.earnings_data || {
-      basic: { label: 'Basic', value: employee.basic || 0 },
-      hra: { label: 'House Rent Allowance', value: employee.hra || 0 }
-    };
-    
-    const deductionsData = employee.deductions_data || {
-      incomeTax: { label: 'Income Tax', value: employee.income_tax || 0 },
-      pf: { label: 'Provident Fund', value: employee.pf || 0 }
-    };
-    
-    const totalEarnings = employee.total_earnings || Object.values(earningsData).reduce((sum, item) => sum + item.value, 0);
-    const totalDeductions = employee.total_deductions || Object.values(deductionsData).reduce((sum, item) => sum + item.value, 0);
-    const netPay = employee.net_pay || (totalEarnings - totalDeductions);
+  // Debug log to see what data we're getting
+  console.log('PDF Generation - Employee data:', employee);
+  
+  // Ensure we have the required fields with proper fallbacks
+  const employeeData = {
+    employee_name: employee.employee_name || employee.users?.name || 'N/A',
+    employee_id: employee.employee_id || employee.users?.employee_id || 'N/A', 
+    email_address: employee.email_address || employee.users?.email || 'N/A',
+    company_name: employee.company_name || 'Company Name',
+    company_address: employee.company_address || 'Company Address',
+    pay_period: employee.pay_period,
+    pay_date: employee.pay_date,
+    paid_days: Number(employee.paid_days) || 0,
+    lop_days: Number(employee.lop_days) || 0,
+    basic: Number(employee.basic) || 0,
+    hra: Number(employee.hra) || 0,
+    income_tax: Number(employee.income_tax) || 0,
+    pf: Number(employee.pf) || 0
+  };
+  
+  const earningsData = employee.earnings_data || {
+    basic: { label: 'Basic', value: employeeData.basic },
+    hra: { label: 'House Rent Allowance', value: employeeData.hra }
+  };
+  
+  const deductionsData = employee.deductions_data || {
+    incomeTax: { label: 'Income Tax', value: employeeData.income_tax },
+    pf: { label: 'Provident Fund', value: employeeData.pf }
+  };
+  
+  const totalEarnings = employee.total_earnings || Object.values(earningsData).reduce((sum, item) => sum + (item.value || 0), 0);
+  const totalDeductions = employee.total_deductions || Object.values(deductionsData).reduce((sum, item) => sum + (item.value || 0), 0);
+  const netPay = employee.net_pay || (totalEarnings - totalDeductions);
     
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 800px;">
         <div style="border-bottom: 2px solid #2d5a4a; padding-bottom: 20px; margin-bottom: 20px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
-              <h1 style="margin: 0; font-size: 24px; color: #2d5a4a;">${employee.company_name || 'Company Name'}</h1>
-              <p style="margin: 5px 0; color: #666;">${employee.company_address || 'Company Address'}</p>
+              <h1 style="margin: 0; font-size: 24px; color: #2d5a4a;">${employeeData.company_name}</h1>
+<p style="margin: 5px 0; color: #666;">${employeeData.company_address}</p>
             </div>
             <div style="text-align: right;">
               <h2 style="margin: 0; font-size: 14px; color: #666;">Payslip For the Month</h2>
-              <h3 style="margin: 5px 0; font-size: 20px; color: #2d5a4a;">${dayjs(employee.pay_period).format('MMMM YYYY')}</h3>
+              <h3 style="margin: 5px 0; font-size: 20px; color: #2d5a4a;">${dayjs(employeeData.pay_period).format('MMMM YYYY')}</h3>
             </div>
           </div>
         </div>
@@ -556,17 +642,17 @@ const PayrollManagement = () => {
           <h3 style="font-size: 16px; margin-bottom: 15px; text-transform: uppercase; color: #2d5a4a;">Employee Summary</h3>
           <div style="display: flex; justify-content: space-between;">
             <div style="flex: 1;">
-              <p><strong>Employee Name:</strong> ${employee.employee_name || 'N/A'}</p>
-              <p><strong>Employee ID:</strong> ${employee.employee_id || 'N/A'}</p>
-              <p><strong>Pay Period:</strong> ${dayjs(employee.pay_period).format('MMMM YYYY')}</p>
-              <p><strong>Pay Date:</strong> ${dayjs(employee.pay_date).format('DD/MM/YYYY')}</p>
+              <p style="color: black"><strong>Employee Name:</strong> ${employeeData.employee_name || 'N/A'}</p>
+              <p style="color: black"><strong>Employee ID:</strong> ${employeeData.employee_id || 'N/A'}</p>
+              <p style="color: black"><strong>Pay Period:</strong> ${dayjs(employeeData.pay_period).format('MMMM YYYY')}</p>
+              <p style="color: black"><strong>Pay Date:</strong> ${dayjs(employeeData.pay_date).format('DD/MM/YYYY')}</p>
             </div>
             <div style="width: 200px; background: #f0f9f4; border: 2px solid #10b981; border-radius: 8px; padding: 15px; text-align: center;">
               <div style="font-size: 18px; font-weight: bold; color: #059669;">Rs.${netPay.toFixed(2)}</div>
               <div style="font-size: 12px; color: #059669;">Total Net Pay</div>
               <div style="margin-top: 10px; font-size: 12px;">
-                <div>Paid Days: ${employee.paid_days || 0}</div>
-                <div>LOP Days: ${employee.lop_days || 0}</div>
+                <div style="color: black">Paid Days: ${employeeData.paid_days || 0}</div>
+                <div style="color: black">LOP Days: ${employeeData.lop_days || 0}</div>
               </div>
             </div>
           </div>
@@ -578,7 +664,7 @@ const PayrollManagement = () => {
               <strong>EARNINGS</strong>
               <span style="float: right;"><strong>AMOUNT</strong></span>
             </div>
-            <div style="padding: 10px;">
+            <div style="padding: 10px; color: black;">
               ${Object.values(earningsData).map(item => 
                 `<div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                   <span>${item.label}</span>
@@ -597,7 +683,7 @@ const PayrollManagement = () => {
               <strong>DEDUCTIONS</strong>
               <span style="float: right;"><strong>AMOUNT</strong></span>
             </div>
-            <div style="padding: 10px;">
+            <div style="padding: 10px; color: black;">
               ${Object.values(deductionsData).map(item => 
                 `<div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                   <span>${item.label}</span>
@@ -617,7 +703,7 @@ const PayrollManagement = () => {
           <div style="font-size: 24px; font-weight: bold; color: #047857;">Rs.${netPay.toFixed(2)}</div>
         </div>
         
-        <div style="text-align: center; margin-bottom: 20px; font-size: 13px;">
+        <div style="text-align: center; margin-bottom: 20px; font-size: 13px; color: black;">
           <strong>Amount In Words:</strong> ${netPay >= 0 ? `Indian Rupee ${Math.abs(netPay).toFixed(2)} Only` : `Minus Indian Rupee ${Math.abs(netPay).toFixed(2)} Only`}
         </div>
         
@@ -791,9 +877,46 @@ const PayrollManagement = () => {
   const renderDashboard = () => (
     <>
       {renderProfessionalHeader()}
-      {renderActionCards()}
+<div style={{ marginTop: '24px' }}>
+  {renderActionCards()}
+</div>
       
-      <div style={{ padding: '30px 20px', background: '#ffffff', minHeight: 'calc(100vh - 300px)' }}>
+     <div style={{ padding: '30px 20px', background: 'transparent', minHeight: 'calc(100vh - 300px)' }}>
+        <style>
+          {`.ant-input:hover,
+.ant-input:focus,
+.ant-input-focused {
+  border-color: #0D7139 !important;
+}
+
+.ant-input:focus,
+.ant-input-focused {
+  box-shadow: 0 0 0 2px rgba(13, 113, 57, 0.2) !important;
+}
+
+.ant-select:hover .ant-select-selector,
+.ant-select-focused .ant-select-selector,
+.ant-select-selector:focus {
+  border-color: #0D7139 !important;
+}
+
+.ant-select-focused .ant-select-selector {
+  box-shadow: 0 0 0 2px rgba(13, 113, 57, 0.2) !important;
+}
+
+.ant-input-number:hover,
+.ant-input-number:focus,
+.ant-input-number-focused {
+  border-color: #0D7139 !important;
+}
+
+.ant-input-number:focus,
+.ant-input-number-focused {
+  box-shadow: 0 0 0 2px rgba(13, 113, 57, 0.2) !important;
+
+  
+}`}
+        </style>
         {employees.length === 0 ? (
           <Card style={{ 
             textAlign: 'center', 
