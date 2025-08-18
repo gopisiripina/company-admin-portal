@@ -123,7 +123,7 @@ const AppContent = () => {
   }, [location.pathname, isLoggedIn]); 
 
   const handleLoginSuccess = (user) => {
-  console.log('Login successful, user data:', user);
+ 
   
   // Store the COMPLETE user object
  const completeUserData = {
@@ -163,7 +163,7 @@ const AppContent = () => {
   // Don't store here - authService already handled storage in login component
   // Just verify what's stored
   const storedData = authService.getStoredUserData();
-  console.log('Stored user data after login:', storedData);
+  
   
   // Navigate to dashboard after successful login
   navigate('/dashboard', { replace: true });
