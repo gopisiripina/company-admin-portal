@@ -247,6 +247,8 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
   const [uploadedFile, setUploadedFile] = useState(null);
   const [isUpdatingEmail, setIsUpdatingEmail] = useState(false);
   const [currentEmail, setCurrentEmail] = useState('');
+  const [employeeCreationType, setEmployeeCreationType] = useState(null); // 'new' or 'existing'
+const [offerLetter, setOfferLetter] = useState(null);
   useEffect(() => {
   if (isOpen) {
     if (editingEmployee) {
@@ -281,6 +283,28 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
     }
   }
 }, [editingEmployee, form, isOpen]);
+useEffect(() => {
+  if (isOpen && !editingEmployee) {
+    setEmployeeCreationType(null);
+    setOfferLetter(null);
+  }
+}, [isOpen, editingEmployee]);
+
+useEffect(() => {
+  if (!isOpen) {
+    form.resetFields();
+    setProfileImage(null);
+    setFaceEmbedding(null);
+    setUploadedFile(null);
+    setEmployeeCreationType(null); // ADD THIS
+    setOfferLetter(null); // ADD THIS
+    // Reset to default values
+    form.setFieldsValue({ 
+      isActive: false,
+      employeeType: 'full-time'
+    });
+  }
+}, [isOpen, form]);
 
   useEffect(() => {
   if (!isOpen) {
@@ -295,7 +319,41 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
     });
   }
 }, [isOpen, form]);
+const handleOfferLetterUpload = useCallback(async (file) => {
+  const isPdf = file.type === 'application/pdf';
+  if (!isPdf) {
+    message.error('You can only upload PDF files!');
+    return false;
+  }
+  
+  const isLt5M = file.size / 1024 / 1024 < 5;
+  if (!isLt5M) {
+    message.error('File must be smaller than 5MB!');
+    return false;
+  }
 
+  try {
+    const fileName = `offer-letter-${Date.now()}-${Math.random().toString(36).substring(2)}.pdf`;
+    const filePath = `offer-letters/${fileName}`;
+
+    const { data, error } = await supabase.storage
+      .from('profile-images') // Using existing bucket
+      .upload(filePath, file);
+
+    if (error) throw error;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('profile-images')
+      .getPublicUrl(filePath);
+
+    setOfferLetter(publicUrl);
+    message.success('Offer letter uploaded successfully');
+  } catch (error) {
+    message.error('Failed to upload offer letter');
+  }
+
+  return false;
+}, []);
   const generatePassword = useCallback(() => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
     let password = '';
@@ -641,6 +699,38 @@ const handleSubmit = useCallback(async (values) => {
       destroyOnHidden
       className="employee-form-modal"
     >
+        {!editingEmployee && !employeeCreationType ? (
+      // Employee Type Selection Screen
+      <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+        <Title level={4} style={{ marginBottom: '24px' }}>Select Employee Type</Title>
+        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          <Button
+            type="primary"
+            size="large"
+            onClick={() => setEmployeeCreationType('new')}
+            style={{ width: '200px', height: '50px', fontSize: '16px' }}
+            className="brand-primary"
+          >
+            New Employee
+          </Button>
+          <Button
+            type="default"
+            size="large"
+            onClick={() => setEmployeeCreationType('existing')}
+            style={{ width: '200px', height: '50px', fontSize: '16px' }}
+          >
+            Existing Employee
+          </Button>
+        </Space>
+        <Button 
+          type="text" 
+          onClick={onClose}
+          style={{ marginTop: '20px' }}
+        >
+          Cancel
+        </Button>
+      </div>
+    ) : (
       <Form
         form={form}
         layout="vertical"
@@ -686,6 +776,45 @@ const handleSubmit = useCallback(async (values) => {
 )}
           </div>
         </Form.Item>
+{/* ADD THIS AFTER PROFILE IMAGE SECTION */}
+        {!editingEmployee && employeeCreationType === 'existing' && (
+          <Form.Item
+            label="Offer Letter"
+            extra="Upload PDF file, max 5MB"
+            style={{ marginBottom: '24px' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <Upload
+                showUploadList={false}
+                beforeUpload={handleOfferLetterUpload}
+                accept="application/pdf"
+              >
+                <Button icon={<UploadOutlined />}>
+                  {offerLetter ? 'Change Offer Letter' : 'Upload Offer Letter'}
+                </Button>
+              </Upload>
+              {offerLetter && (
+                <>
+                  <Button 
+                    type="link" 
+                    onClick={() => window.open(offerLetter, '_blank')}
+                    size="small"
+                  >
+                    View PDF
+                  </Button>
+                  <Button 
+                    type="link" 
+                    danger 
+                    onClick={() => setOfferLetter(null)}
+                    size="small"
+                  >
+                    Remove
+                  </Button>
+                </>
+              )}
+            </div>
+          </Form.Item>
+        )}
 
         <Form.Item
           name="name"
@@ -885,7 +1014,9 @@ const handleSubmit = useCallback(async (values) => {
           </Space>
         </Form.Item>
       </Form>
+    )}
     </Modal>
+  
   );
 });
 
