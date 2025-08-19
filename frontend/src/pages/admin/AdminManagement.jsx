@@ -43,6 +43,12 @@ import ErrorPage from '../../error/ErrorPage';
 import { Upload, message as antMessage } from 'antd';
 const { Title, Text } = Typography;
 const { Search } = Input;
+
+
+// Add this function before handleSubmit
+ 
+
+
 const sendWelcomeEmail = async (employeeData) => {
   try {
     const response = await fetch('https://cap.myaccessio.com/api/send-email', {
@@ -205,7 +211,6 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
           form.setFieldsValue({
             name: editingAdmin.name,
             email: editingAdmin.email,
-            adminId: editingAdmin.employee_id,
             role: editingAdmin.role
           });
           setProfileImage(editingAdmin.profileimage || null);
@@ -231,6 +236,33 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
       password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return password;
+  }, []);
+
+
+  const generateAdminId = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('employee_id')
+        .eq('role', 'admin')
+        .like('employee_id', 'MYADIR%')
+        .order('employee_id', { ascending: false })
+        .limit(1);
+
+      if (error) throw error;
+
+      let nextNumber = 1;
+      if (data && data.length > 0) {
+        const lastId = data[0].employee_id;
+        const numberPart = parseInt(lastId.replace('MYADIR', ''));
+        nextNumber = numberPart + 1;
+      }
+
+      return `MYADIR${nextNumber.toString().padStart(3, '0')}`;
+    } catch (error) {
+      console.error('Error generating admin ID:', error);
+      return `MYADIR001`;
+    }
   }, []);
 
   // Image upload handler
@@ -289,10 +321,11 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
       // Create new admin
       const password = generatePassword();
       
+      const generatedAdminId = await generateAdminId();
       const adminData = {
         name: values.name,
         email: values.email,
-        employee_id: values.adminId,
+        employee_id: generatedAdminId, // Use generated ID instead of values.adminId
         role: 'admin',
         isactive: false,
         isfirstlogin: true,
@@ -351,7 +384,7 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
   } finally {
     setLoading(false);
   }
-}, [editingAdmin, generatePassword, onSuccess, onClose, form, profileImage]);
+}, [editingAdmin, generatePassword, onSuccess, onClose, form, profileImage,generateAdminId]);
 
   return (
      <Modal
@@ -425,22 +458,18 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
         </Form.Item>
 
         <Form.Item
-          name="adminId"
-          label="Admin ID"
-          rules={[
-            { required: true, message: 'Please enter admin ID' },
-            { pattern: /^[A-Z0-9]+$/, message: 'Admin ID should contain only uppercase letters and numbers' }
-          ]}
-        >
-          <Input 
-            placeholder="Enter admin ID (e.g., ADM001)" 
-            style={{ textTransform: 'uppercase' }}
-            onChange={(e) => {
-              // Auto-convert to uppercase
-              e.target.value = e.target.value.toUpperCase();
-            }}
-          />
-        </Form.Item>
+  name="employeeId"
+  label="Admin ID"
+>
+  <Input 
+    placeholder="Auto-generated on save"
+    disabled
+    style={{ 
+      backgroundColor: '#f5f5f5',
+      color: '#666'
+    }}
+  />
+</Form.Item>
 
         <Form.Item>
           <Space>

@@ -32,7 +32,7 @@ import * as faceapi from 'face-api.js';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import dayjs from 'dayjs';
-import PayrollManagement from '../hr/payroll';
+import PayrollManagement from '../hr/Payroll';
 const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionChange,activeEmailFolder, onToggleSidebar, isEmailAuthenticated, setIsEmailAuthenticated }) => {
   const { Text, Title } = Typography;
   const [currentJobId, setCurrentJobId] = useState(2);
@@ -1035,68 +1035,142 @@ const handleEmailFolderChange = (folder) => {
   };
 
   const searchableSections = [
-    { 
-      name: 'admin', 
-      section: 'admin', 
-      keywords: ['admin', 'administrator', 'management', 'manage admin'] 
-    },
-    { 
-      name: 'employee', 
-      section: 'employee', 
-      keywords: ['employee', 'staff', 'worker', 'manage employee'] 
-    },
-    { 
-      name: 'hr', 
-      section: 'Hr', 
-      keywords: ['hr', 'human resources', 'recruitment', 'hiring'] 
-    },
-    { 
-      name: 'job description', 
-      section: 'job-description', 
-      keywords: ['job description', 'jd', 'description', 'job desc'] 
-    },
-    { 
-      name: 'job post', 
-      section: 'job-post', 
-      keywords: ['job post', 'posting', 'vacancy', 'post job', 'job posting'] 
-    },
-    { 
-      name: 'job application', 
-      section: 'job-application', 
-      keywords: ['job application', 'application', 'apply job', 'applications'] 
-    },
-    { 
-      name: 'job apply', 
-      section: 'job-apply', 
-      keywords: ['job apply', 'apply', 'apply for job', 'job applications'] 
-    },
-    { 
-      name: 'interview', 
-      section: 'interview-management', 
-      keywords: ['interview', 'screening', 'interview management', 'interviews'] 
-    },
-    { 
-      name: 'resume', 
-      section: 'resume-list', 
-      keywords: ['resume', 'cv', 'curriculum', 'resume list', 'resumes'] 
-    },
-    { 
-      name: 'project timeline', 
-      section: 'project-timeline', 
-      keywords: ['project timeline', 'timeline', 'schedule', 'project schedule'] 
-    },
-    { 
-      name: 'project budget', 
-      section: 'project-budgeting', 
-      keywords: ['project budget', 'budget', 'budgeting', 'finance', 'project finance'] 
-    },
-    { 
-  name: 'employee attendance', 
-  section: 'employee-attendance', 
-  keywords: ['employee attendance', 'attendance', 'employee time', 'check in', 'check out'] 
-}
-  ];
-
+  { 
+    name: 'dashboard', 
+    section: 'dashboard', 
+    keywords: ['dashboard', 'home', 'overview', 'main', 'summary'] 
+  },
+  { 
+    name: 'admin', 
+    section: 'admin', 
+    keywords: ['admin', 'administrator', 'management', 'manage admin', 'admin panel'] 
+  },
+  { 
+    name: 'employee', 
+    section: 'employee', 
+    keywords: ['employee', 'staff', 'worker', 'manage employee', 'employee management'] 
+  },
+  { 
+    name: 'employee information', 
+    section: 'employee-information', 
+    keywords: ['employee information', 'employee info', 'employee details', 'staff info', 'worker info'] 
+  },
+  { 
+    name: 'employee profile', 
+    section: 'employee-profile', 
+    keywords: ['employee profile', 'profile', 'my profile', 'user profile', 'account profile'] 
+  },
+  { 
+    name: 'employee attendance', 
+    section: 'employee-attendance', 
+    keywords: ['employee attendance', 'attendance', 'employee time', 'check in', 'check out', 'time tracking'] 
+  },
+  { 
+    name: 'hr', 
+    section: 'Hr', 
+    keywords: ['hr', 'human resources', 'recruitment', 'hiring', 'hr management'] 
+  },
+  { 
+    name: 'company calendar', 
+    section: 'company-calender', 
+    keywords: ['company calendar', 'calendar', 'events', 'schedule', 'company events', 'meetings'] 
+  },
+  { 
+    name: 'direct recruitment', 
+    section: 'direct-recruitement', 
+    keywords: ['direct recruitment', 'direct hire', 'recruitment', 'hiring', 'direct recruiting'] 
+  },
+  { 
+    name: 'leave management', 
+    section: 'leave-manage', 
+    keywords: ['leave management', 'leave', 'vacation', 'time off', 'leave request', 'absence'] 
+  },
+  { 
+    name: 'payroll', 
+    section: 'payroll', 
+    keywords: ['payroll', 'salary', 'wages', 'pay', 'compensation', 'payslip', 'payment'] 
+  },
+  { 
+    name: 'job description', 
+    section: 'job-description', 
+    keywords: ['job description', 'jd', 'description', 'job desc', 'job details'] 
+  },
+  { 
+    name: 'job post', 
+    section: 'job-post', 
+    keywords: ['job post', 'posting', 'vacancy', 'post job', 'job posting', 'job listing'] 
+  },
+  { 
+    name: 'job application', 
+    section: 'job-application', 
+    keywords: ['job application', 'application', 'apply job', 'applications', 'job apply form'] 
+  },
+  { 
+    name: 'job apply', 
+    section: 'job-apply', 
+    keywords: ['job apply', 'apply', 'apply for job', 'job applications', 'submit application'] 
+  },
+  { 
+    name: 'interview management', 
+    section: 'interview-management', 
+    keywords: ['interview', 'screening', 'interview management', 'interviews', 'interview schedule'] 
+  },
+  { 
+    name: 'resume list', 
+    section: 'resume-list', 
+    keywords: ['resume', 'cv', 'curriculum', 'resume list', 'resumes', 'candidate resume'] 
+  },
+  { 
+    name: 'selected candidates', 
+    section: 'selected-list', 
+    keywords: ['selected candidates', 'selected list', 'hired', 'shortlisted', 'selected'] 
+  },
+  { 
+    name: 'campus recruitment', 
+    section: 'on-campus-data', 
+    keywords: ['campus recruitment', 'campus', 'on campus', 'campus data', 'campus hiring', 'college recruitment'] 
+  },
+  { 
+    name: 'exam conduct', 
+    section: 'exam-conduct-page', 
+    keywords: ['exam conduct', 'exam', 'test', 'assessment', 'online exam', 'examination'] 
+  },
+  { 
+    name: 'project timeline', 
+    section: 'project-timeline', 
+    keywords: ['project timeline', 'timeline', 'schedule', 'project schedule', 'project plan'] 
+  },
+  { 
+    name: 'project budgeting', 
+    section: 'project-budgeting', 
+    keywords: ['project budget', 'budget', 'budgeting', 'finance', 'project finance', 'cost management'] 
+  },
+  { 
+    name: 'emails', 
+    section: 'mails', 
+    keywords: ['emails', 'mail', 'inbox', 'messages', 'email client', 'compose', 'sent', 'trash'] 
+  },
+  { 
+    name: 'inbox', 
+    section: 'inbox', 
+    keywords: ['inbox', 'received emails', 'incoming mail', 'email inbox'] 
+  },
+  { 
+    name: 'compose email', 
+    section: 'compose', 
+    keywords: ['compose', 'write email', 'new email', 'send email', 'compose mail'] 
+  },
+  { 
+    name: 'sent emails', 
+    section: 'sent', 
+    keywords: ['sent', 'sent emails', 'sent mail', 'outgoing'] 
+  },
+  { 
+    name: 'trash', 
+    section: 'trash', 
+    keywords: ['trash', 'deleted', 'deleted emails', 'recycle bin'] 
+  }
+];
   const handleSearch = (e) => {
     if (e.key === 'Enter' && searchQuery.trim()) {
       console.log('Searching for:', searchQuery);
@@ -1296,23 +1370,7 @@ const handleEmailFolderChange = (folder) => {
       type: 'system'
     }
   ];
-if (activeSection === 'mails') {
-  return (
-    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-      {renderHeader("Search emails...")}
-      <main className="main-content">
-        <EmailClient 
-          userRole={userData?.role}
-          activeFolder={activeEmailFolder}
-          onFolderChange={handleEmailFolderChange}
-          onAuthSuccess={() => setIsEmailAuthenticated(true)}
-          onLogout={() => setIsEmailAuthenticated(false)}
-          userData={userData} 
-        />
-      </main>
-    </div>
-  );
-}
+
 
 
 
@@ -1346,7 +1404,23 @@ if (activeSection === 'mails') {
       </div>
     );
   }
-
+if (activeSection === 'mails') {
+  return (
+    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+      {renderHeader("Search emails...")}
+      <main className="main-content">
+        <EmailClient 
+          userRole={userData?.role}
+          activeFolder={activeEmailFolder} // Make sure this is passed correctly
+          onFolderChange={handleEmailFolderChange}
+          onAuthSuccess={() => setIsEmailAuthenticated(true)}
+          onLogout={() => setIsEmailAuthenticated(false)}
+          userData={userData} 
+        />
+      </main>
+    </div>
+  );
+}
   if (activeSection === 'employee') {
     return (
       <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
