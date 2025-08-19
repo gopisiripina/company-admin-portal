@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Table, Button, Modal, Form, Input, Space, Popconfirm, Card, Statistic, Row, Col, message, Avatar, Tag, Typography, Switch } from 'antd';
+import { Table, Button, Modal, Form, Input, Space, Popconfirm, Card, Statistic, Row, Col, message, Avatar, Tag, Typography, Switch,Select } from 'antd';
 import { UserAddOutlined, EditOutlined, DeleteOutlined, SearchOutlined, TeamOutlined, MailOutlined, UploadOutlined, UserOutlined } from '@ant-design/icons';
 import { supabase, supabaseAdmin } from '../../supabase/config';
 import './Employee Management.css';
@@ -153,7 +153,6 @@ const HRFormModal = React.memo(({ isOpen, onClose, editingHR, onSuccess,generate
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [profileImage, setProfileImage] = useState(null);
-
   
 
   useEffect(() => {
@@ -423,7 +422,7 @@ const HRManagement = ({ userRole }) => {
     pageSize: 10,
     total: 0
   });
-
+  const [statusFilter, setStatusFilter] = useState('all');
   
 
 const generateHRId = useCallback(async () => {
@@ -507,7 +506,7 @@ const generateHRId = useCallback(async () => {
   }
 }, []);
 
-const applyFiltersAndPagination = useCallback((hrList, search = '', page = 1, pageSize = 10) => {
+const applyFiltersAndPagination = useCallback((hrList, search = '', page = 1, pageSize = 10, status = 'all') => {
     let filteredHRs = [...hrList];
     
     if (search) {
@@ -517,6 +516,15 @@ const applyFiltersAndPagination = useCallback((hrList, search = '', page = 1, pa
         hr.email?.toLowerCase().includes(searchLower) ||
         (hr.employee_id && hr.employee_id.toLowerCase().includes(searchLower))
       );
+    }
+    
+    // Add status filtering
+    if (status !== 'all') {
+      filteredHRs = filteredHRs.filter(hr => {
+        if (status === 'active') return hr.isactive === true;
+        if (status === 'inactive') return hr.isactive === false;
+        return true;
+      });
     }
     
     const total = filteredHRs.length;
@@ -531,14 +539,14 @@ const applyFiltersAndPagination = useCallback((hrList, search = '', page = 1, pa
     });
     
     return paginatedHRs;
-  }, []);
+  }, [statusFilter]); // Add statusFilter to dependency array
 
 
 const fetchHRs = useCallback(async (page = 1, pageSize = 10, search = '') => {
   try {
     setLoading(true);
     const hrList = await fetchAllHRs();
-    applyFiltersAndPagination(hrList, search, page, pageSize);
+    applyFiltersAndPagination(hrList, search, page, pageSize,statusFilter);
   } catch (error) {
     console.error('Error fetching HRs:', error);
   } finally {
@@ -559,7 +567,7 @@ useEffect(() => {
     try {
       setLoading(true);
       const hrList = await fetchAllHRs();
-      applyFiltersAndPagination(hrList, searchQuery, 1, pagination.pageSize);
+      applyFiltersAndPagination(hrList, searchQuery, 1, pagination.pageSize, statusFilter);
     } catch (error) {
       console.error('Error refreshing data:', error);
     } finally {
@@ -613,12 +621,12 @@ useEffect(() => {
 
   // Event handlers
   const handleTableChange = useCallback((paginationInfo) => {
-    applyFiltersAndPagination(allHRs, searchQuery, paginationInfo.current, paginationInfo.pageSize);
+    applyFiltersAndPagination(allHRs, searchQuery, paginationInfo.current, paginationInfo.pageSize,statusFilter);
   }, [allHRs, searchQuery, applyFiltersAndPagination]);
 
   const handleSearch = useCallback((value) => {
     setSearchQuery(value);
-    applyFiltersAndPagination(allHRs, value, 1, pagination.pageSize);
+    applyFiltersAndPagination(allHRs, value, 1, pagination.pageSize,statusFilter);
   }, [allHRs, pagination.pageSize, applyFiltersAndPagination]);
 
   const handleEdit = useCallback((hr) => {
@@ -880,25 +888,57 @@ useEffect(() => {
           </Row>
 
           {/* Search Bar */}
-          <Card style={{ marginBottom: '24px' }} className={`animated-card-delayed ${isMobile ? 'mobile-search' : ''}`}>
-            <Search
-              placeholder="Search HRs by name or email..."
-              allowClear
-              enterButton={
-                <Button 
-                  type="primary" 
-                  icon={<SearchOutlined />}
-                  className="brand-primary"
-                  style={{ backgroundColor: '#1F4842', borderColor: '#1F4842' }}
-                >
-                  Search
-                </Button>
-              }
-              size={isMobile ? "middle" : "large"}
-              onSearch={handleSearch}
-              style={{ maxWidth: isMobile ? '100%' : '400px' }}
-            />
-          </Card>
+          {/* Search and Filters */}
+<Card style={{ marginBottom: '24px' }} className={`animated-card-delayed ${isMobile ? 'mobile-search' : ''}`}>
+  <Row gutter={[16, 16]} align="middle">
+    <Col xs={24} sm={24} md={14} lg={16}>
+      <Search
+        placeholder="Search HRs by name, email or HR ID..."
+        allowClear
+        enterButton={
+          <Button 
+            type="primary" 
+            icon={<SearchOutlined />}
+            className="brand-primary"
+            style={{ backgroundColor: '#1F4842', borderColor: '#1F4842' }}
+          >
+            {isMobile ? '' : 'Search'}
+          </Button>
+        }
+        size={isMobile ? "middle" : "large"}
+        onSearch={handleSearch}
+      />
+    </Col>
+    <Col xs={24} sm={24} md={10} lg={8}>
+      <Space size="middle" style={{ width: '100%', justifyContent: isMobile ? 'center' : 'flex-end' }}>
+        <Select
+          placeholder="Filter by Status"
+          value={statusFilter}
+          onChange={(value) => {
+            setStatusFilter(value);
+            applyFiltersAndPagination(allHRs, searchQuery, 1, pagination.pageSize, value);
+          }}
+          style={{ width: 140 }}
+          size={isMobile ? "middle" : "large"}
+        >
+          <Select.Option value="all">All Status</Select.Option>
+          <Select.Option value="active">Active</Select.Option>
+          <Select.Option value="inactive">Inactive</Select.Option>
+        </Select>
+        <Button 
+          onClick={() => {
+            setStatusFilter('all');
+            setSearchQuery('');
+            applyFiltersAndPagination(allHRs, '', 1, pagination.pageSize, 'all');
+          }}
+          size={isMobile ? "middle" : "large"}
+        >
+          Clear
+        </Button>
+      </Space>
+    </Col>
+  </Row>
+</Card>
 
           {/* HR List - Mobile Cards or Table */}
           {isMobile ? (
