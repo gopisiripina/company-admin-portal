@@ -88,8 +88,12 @@ const AppContent = () => {
     } else if (path.includes('/employee-attendance')) {
       setActiveSection('employee-attendance');
     } else if (path.includes('/mails')) {
-      setActiveSection('mails');
-    } else if (path.includes('/exam-conduct-page')) {
+  setActiveSection('mails');
+  const folder = path.split('/').pop();
+  if (['inbox', 'compose', 'sent', 'trash'].includes(folder)) {
+    setActiveEmailFolder(folder);
+  }
+} else if (path.includes('/exam-conduct-page')) {
       setActiveSection('exam-conduct-page');
     } else if (path.includes('/on-campus-data')) {
       setActiveSection('on-campus-data');
@@ -226,11 +230,11 @@ const AppContent = () => {
     
      if (itemId === 'exam-conduct-page') {
       navigate('/dashboard/exam-conduct-page', { replace: true });
-    } else if (['inbox', 'compose', 'sent', 'trash'].includes(itemId)) {
-  setActiveSection('mails'); 
-  setActiveEmailFolder(itemId); 
-  navigate('/dashboard/mails', { replace: true });
-}
+    } else if (itemId === 'inbox' || itemId === 'compose' || itemId === 'sent' || itemId === 'trash') {
+      setActiveSection('mails'); 
+      setActiveEmailFolder(itemId); 
+      navigate('/dashboard/mails', { replace: true });
+    }
 else if (itemId === 'on-campus-data') {
       navigate('/dashboard/on-campus-data', { replace: true });
 }else if (itemId === 'payroll') {

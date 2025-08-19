@@ -149,10 +149,12 @@ const MobileHRCard = React.memo(({ hr, onEdit, onDelete }) => (
 ));
 
 // HR Form Modal Component
-const HRFormModal = React.memo(({ isOpen, onClose, editingHR, onSuccess }) => {
+const HRFormModal = React.memo(({ isOpen, onClose, editingHR, onSuccess,generateHRId  }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [profileImage, setProfileImage] = useState(null);
+
+  
 
   useEffect(() => {
     if (isOpen) {
@@ -161,7 +163,6 @@ const HRFormModal = React.memo(({ isOpen, onClose, editingHR, onSuccess }) => {
           form.setFieldsValue({
             name: editingHR.name,
             email: editingHR.email,
-            employeeId: editingHR.employee_id,
             role: editingHR.role,
             isactive: editingHR.isactive !== undefined ? editingHR.isactive : false
           });
@@ -242,10 +243,11 @@ const HRFormModal = React.memo(({ isOpen, onClose, editingHR, onSuccess }) => {
         message.success('HR updated successfully');
       } else {
         const password = generatePassword();
+        const generatedHRId = await generateHRId();
         const hrData = {
           name: values.name,
           email: values.email,
-          employee_id: values.employeeId,
+          employee_id: generatedHRId,
           role: 'hr',
           isactive: values.isActive !== undefined ? values.isActive : false,
           profileimage: profileImage,
@@ -300,7 +302,7 @@ const HRFormModal = React.memo(({ isOpen, onClose, editingHR, onSuccess }) => {
     } finally {
       setLoading(false);
     }
-  }, [editingHR, generatePassword, onSuccess, onClose, form, profileImage]);
+  }, [editingHR, generatePassword, onSuccess, onClose, form,generateHRId, profileImage]);
 
   return (
    <Modal
@@ -373,21 +375,18 @@ const HRFormModal = React.memo(({ isOpen, onClose, editingHR, onSuccess }) => {
         </Form.Item>
 
         <Form.Item
-          name="employeeId"
-          label="HR ID"
-          rules={[
-            { required: true, message: 'Please enter HR ID' },
-            { pattern: /^[A-Z0-9]+$/, message: 'HR ID should contain only uppercase letters and numbers' }
-          ]}
-        >
-          <Input 
-            placeholder="Enter HR ID (e.g., HR001)" 
-            style={{ textTransform: 'uppercase' }}
-            onChange={(e) => {
-              e.target.value = e.target.value.toUpperCase();
-            }}
-          />
-        </Form.Item>
+  name="employeeId"
+  label="HR ID"
+>
+  <Input 
+    placeholder="Auto-generated on save"
+    disabled
+    style={{ 
+      backgroundColor: '#f5f5f5',
+      color: '#666'
+    }}
+  />
+</Form.Item>
 
 
         <Form.Item>
@@ -427,6 +426,32 @@ const HRManagement = ({ userRole }) => {
 
   
 
+const generateHRId = useCallback(async () => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .select('employee_id')
+      .eq('role', 'hr')
+      .like('employee_id', 'MYAHR%')
+      .order('employee_id', { ascending: false })
+      .limit(1);
+
+    if (error) throw error;
+
+    let nextNumber = 1;
+    if (data && data.length > 0) {
+      const lastId = data[0].employee_id;
+      const numberPart = parseInt(lastId.replace('MYAHR', ''));
+      nextNumber = numberPart + 1;
+    }
+
+    return `MYAHR${nextNumber.toString().padStart(3, '0')}`;
+  } catch (error) {
+    console.error('Error generating HR ID:', error);
+    return `MYAHR001`;
+  }
+}, []);
+
   // Use useMemo for calculations
   const { totalHRs, activeHRs, inactiveHRs } = useMemo(() => {
     const total = allHRs.length;
@@ -444,6 +469,8 @@ const HRManagement = ({ userRole }) => {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  
 
   // Fetch all HRs
   const fetchAllHRs = useCallback(async () => {
@@ -526,8 +553,6 @@ useEffect(() => {
   }
 }, [userRole, fetchHRs]);
 
-  // Apply filters and pagination
-  
 
   // Refresh data
   const refreshData = useCallback(async () => {
@@ -633,6 +658,8 @@ useEffect(() => {
   const handleFormSuccess = useCallback(async () => {
     await refreshData();
   }, [refreshData]);
+
+  
 
   // Table columns with memoization
   const columns = useMemo(() => [
@@ -971,6 +998,7 @@ useEffect(() => {
             onClose={handleFormClose}
             editingHR={editingHR}
             onSuccess={handleFormSuccess}
+            generateHRId={generateHRId}
           />
         </div>
       </div>
