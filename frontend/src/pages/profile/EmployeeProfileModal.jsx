@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback,useEffect  } from 'react';
 import {
   Card,
   Row,
@@ -46,6 +46,7 @@ import {
   BookOutlined,
   TeamOutlined,
   ProjectOutlined,
+  DeleteOutlined,
   ClockCircleOutlined,
   DollarOutlined,
   UploadOutlined,
@@ -85,6 +86,347 @@ export default function EmployeeProfileModal({ isVisible, onClose, userData, isL
   const [personalForm] = Form.useForm();
   const [profileImagePreview, setProfileImagePreview] = useState(null);
   const screens = useBreakpoint();
+  const [documents, setDocuments] = useState([]);
+const [documentLoading, setDocumentLoading] = useState(false);
+const [uploadModalVisible, setUploadModalVisible] = useState(false);
+const [uploadForm] = Form.useForm();
+
+const DOCUMENT_TYPES = [
+  { value: 'Certificate', label: 'Certificate', color: '#52c41a' },
+  { value: 'Contract', label: 'Employment Contract', color: '#52c41a' },
+  { value: 'Performance', label: 'Performance Review', color: '#52c41a' },
+  { value: 'Personal', label: 'Personal Document', color: '#52c41a' },
+  { value: 'Training', label: 'Training Document', color: '#52c41a' },
+  { value: 'Legal', label: 'Legal Document', color: '#52c41a' },
+  { value: 'Other', label: 'Other', color: '#666' }
+];
+// Load documents from user data
+// Replace the existing useEffect
+useEffect(() => {
+  if (userData?.documents) {
+    // Handle both array and string cases
+    let docs = userData.documents;
+    if (typeof docs === 'string') {
+      try {
+        docs = JSON.parse(docs);
+      } catch (e) {
+        docs = [];
+      }
+    }
+    setDocuments(Array.isArray(docs) ? docs : []);
+  } else {
+    // If no documents in userData, initialize empty array
+    setDocuments([]);
+  }
+}, [userData]);
+// Add this temporary useEffect for debugging
+useEffect(() => {
+  // console.log('userData received:', userData);
+  // console.log('userData.documents:', userData?.documents);
+}, [userData]);
+
+// Upload document function
+const handleDocumentUpload = async (values) => {
+  const { file, documentType, description } = values;
+  
+  // Get the actual file from the upload component
+  let actualFile;
+  if (file?.fileList && file.fileList.length > 0) {
+    actualFile = file.fileList[0].originFileObj;
+  } else if (file?.originFileObj) {
+    actualFile = file.originFileObj;
+  } else if (file?.file) {
+    actualFile = file.file.originFileObj || file.file;
+  }
+
+  if (!actualFile) {
+    message.error('Please select a file');
+    return;
+  }
+
+  setDocumentLoading(true);
+  try {
+    const fileExt = actualFile.name.split('.').pop();
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const filePath = `${employeeData.id}/${fileName}`;
+
+    // Upload file to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('employee-documents')
+      .upload(filePath, actualFile, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (uploadError) throw uploadError;
+
+    // Get file size in readable format
+    const formatFileSize = (bytes) => {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+
+    // Create document object
+    const newDocument = {
+      id: `doc_${Date.now()}`,
+      name: actualFile.name,
+      type: documentType,
+      description: description || '',
+      filePath: filePath,
+      size: formatFileSize(actualFile.size),
+      uploadDate: new Date().toISOString(),
+      status: 'Active'
+    };
+
+    // Update documents array
+    const updatedDocuments = [...documents, newDocument];
+
+  // In handleDocumentUpload function, replace the database update part:
+const { error: updateError } = await supabase
+          .from('users')
+          .update({ 
+            documents: JSON.stringify(updatedDocuments), // ✅ **MODIFY THIS LINE**
+            updated_at: new Date().toISOString()
+          })
+          .eq('employee_id', employeeData.id);
+
+        if (updateError) throw updateError;
+
+    // Update local state
+    setDocuments(updatedDocuments);
+    
+    // Notify parent component if needed
+    if (onProfileUpdate) {
+      onProfileUpdate({ documents: updatedDocuments });
+    }
+
+    message.success('Document uploaded successfully!');
+    setUploadModalVisible(false);
+    uploadForm.resetFields();
+
+  } catch (error) {
+    console.error('Upload error:', error);
+    message.error(`Failed to upload document: ${error.message}`);
+  } finally {
+    setDocumentLoading(false);
+  }
+};
+const handleDocumentDownload = async (document) => {
+  try {
+    const { data, error } = await supabase.storage
+      .from('employee-documents')
+      .download(document.filePath);
+
+    if (error) throw error;
+
+    // Create download link
+    const url = URL.createObjectURL(data);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = document.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    message.success('Document downloaded successfully!');
+  } catch (error) {
+    console.error('Download error:', error);
+    message.error(`Failed to download document: ${error.message}`);
+  }
+};
+
+// View document function
+const handleDocumentView = async (document) => {
+  try {
+    const { data } = supabase.storage
+      .from('employee-documents')
+      .getPublicUrl(document.filePath);
+
+    if (data?.publicUrl) {
+      window.open(data.publicUrl, '_blank');
+    } else {
+      message.error('Cannot view document');
+    }
+  } catch (error) {
+    console.error('View error:', error);
+    message.error('Failed to view document');
+  }
+};
+
+// Delete document function
+const handleDocumentDelete = async (documentId) => {
+  Modal.confirm({
+    title: 'Delete Document',
+    content: 'Are you sure you want to delete this document? This action cannot be undone.',
+    okText: 'Delete',
+    okType: 'danger',
+    cancelText: 'Cancel',
+    onOk: async () => {
+      try {
+        const documentToDelete = documents.find(doc => doc.id === documentId);
+        if (!documentToDelete) return;
+
+        // Delete from storage
+        const { error: storageError } = await supabase.storage
+          .from('employee-documents')
+          .remove([documentToDelete.filePath]);
+
+        if (storageError) throw storageError;
+
+        // Update documents array
+        const updatedDocuments = documents.filter(doc => doc.id !== documentId);
+
+        // Update database
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ 
+            documents: updatedDocuments,
+            updated_at: new Date().toISOString()
+          })
+          .eq('employee_id', employeeData.id);
+
+        if (updateError) throw updateError;
+
+        setDocuments(updatedDocuments);
+        
+        if (onProfileUpdate) {
+          onProfileUpdate({ documents: updatedDocuments });
+        }
+
+        message.success('Document deleted successfully!');
+      } catch (error) {
+        console.error('Delete error:', error);
+        message.error(`Failed to delete document: ${error.message}`);
+      }
+    }
+  });
+};
+
+// Updated document columns for table
+const documentColumns = [
+  {
+    title: 'Document Name',
+    dataIndex: 'name',
+    key: 'name',
+    render: (text, record) => (
+      <Space>
+        <FileTextOutlined style={{ color: '#0D7139' }} />
+        <div>
+          <Text strong>{text}</Text>
+          {record.description && (
+            <div>
+              <Text type="secondary" style={{ fontSize: '12px' }}>
+                {record.description}
+              </Text>
+            </div>
+          )}
+        </div>
+      </Space>
+    )
+  },
+  {
+    title: 'Type',
+    dataIndex: 'type',
+    key: 'type',
+    render: (type) => {
+      const typeConfig = DOCUMENT_TYPES.find(t => t.value === type);
+      return (
+        <Tag color={typeConfig?.color || '#666'} className="document-tag">
+          {typeConfig?.label || type}
+        </Tag>
+      );
+    }
+  },
+  {
+    title: 'Size',
+    dataIndex: 'size',
+    key: 'size',
+  },
+  {
+    title: 'Upload Date',
+    dataIndex: 'uploadDate',
+    key: 'uploadDate',
+    render: (date) => dayjs(date).format('MMM DD, YYYY')
+  },
+  // {
+  //   title: 'Status',
+  //   dataIndex: 'status',
+  //   key: 'status',
+  //   render: (status) => (
+  //     <Badge 
+  //       status={status === 'Active' ? 'success' : 'default'} 
+  //       text={status} 
+  //     />
+  //   )
+  // },
+  {
+    title: 'Actions',
+    key: 'actions',
+    render: (_, record) => (
+      <Space size="small">
+        <Tooltip title="View Document">
+          <Button 
+            type="text" 
+            size="small" 
+            icon={<EyeOutlined />} 
+            className="action-btn"
+            onClick={() => handleDocumentView(record)}
+          />
+        </Tooltip>
+        <Tooltip title="Download">
+          <Button 
+            type="text" 
+            size="small" 
+            icon={<DownloadOutlined />} 
+            className="action-btn"
+            onClick={() => handleDocumentDownload(record)}
+          />
+        </Tooltip>
+        <Tooltip title="Delete">
+          <Button 
+            type="text" 
+            size="small" 
+            icon={<DeleteOutlined />} 
+            className="action-btn"
+            danger
+            onClick={() => handleDocumentDelete(record.id)}
+          />
+        </Tooltip>
+      </Space>
+    ),
+  }
+];
+
+// Upload validation rules
+const uploadValidation = (file) => {
+  const validTypes = [
+    'application/pdf',
+    'image/jpeg',
+    'image/jpg', 
+    'image/png',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain'
+  ];
+  
+  if (!validTypes.includes(file.type)) {
+    message.error('Please upload PDF, Image, Word, or Text files only!');
+    return false;
+  }
+  
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  if (file.size > maxSize) {
+    message.error('File size must be less than 10MB!');
+    return false;
+  }
+  
+  return true;
+};
+
 
   // Enhanced employee data with more professional structure
   const employeeData = {
@@ -228,107 +570,9 @@ export default function EmployeeProfileModal({ isVisible, onClose, userData, isL
     }
   ];
 
-  // Documents data
-  const documentsData = [
-    {
-      key: '1',
-      name: 'Employment_Contract_2024.pdf',
-      type: 'Contract',
-      size: '2.1 MB',
-      uploadDate: '2024-01-15',
-      status: 'Active'
-    },
-    {
-      key: '2',
-      name: 'Performance_Review_Q4_2023.pdf',
-      type: 'Performance',
-      size: '1.5 MB',
-      uploadDate: '2024-01-02',
-      status: 'Archived'
-    },
-    {
-      key: '3',
-      name: 'AWS_Certification.pdf',
-      type: 'Certification',
-      size: '856 KB',
-      uploadDate: '2023-10-20',
-      status: 'Valid'
-    },
-    {
-      key: '4',
-      name: 'Emergency_Contacts.pdf',
-      type: 'Personal',
-      size: '245 KB',
-      uploadDate: '2023-03-15',
-      status: 'Current'
-    }
-  ];
+  
 
-  const documentColumns = [
-    {
-      title: 'Document Name',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text, record) => (
-        <Space>
-          <FileTextOutlined style={{ color: '#0D7139' }} />
-          <Text strong>{text}</Text>
-        </Space>
-      )
-    },
-    {
-      title: 'Type',
-      dataIndex: 'type',
-      key: 'type',
-      render: (type) => {
-        const colors = {
-          'Contract': '#0D7139',
-          'Performance': '#52c41a',
-          'Certification': '#faad14',
-          'Personal': '#722ed1'
-        };
-        return <Tag color={colors[type]} className="document-tag">{type}</Tag>;
-      }
-    },
-    {
-      title: 'Size',
-      dataIndex: 'size',
-      key: 'size',
-    },
-    {
-      title: 'Upload Date',
-      dataIndex: 'uploadDate',
-      key: 'uploadDate',
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status) => {
-        const colors = {
-          'Active': 'success',
-          'Archived': 'default',
-          'Valid': 'processing',
-          'Current': 'success'
-        };
-        return <Badge status={colors[status]} text={status} />;
-      }
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
-      render: (_, record) => (
-        <Space size="small">
-          <Tooltip title="View Document">
-            <Button type="text" size="small" icon={<EyeOutlined />} className="action-btn" />
-          </Tooltip>
-          <Tooltip title="Download">
-            <Button type="text" size="small" icon={<DownloadOutlined />} className="action-btn" />
-          </Tooltip>
-        </Space>
-      ),
-    }
-  ];
+
 
   const handleEdit = useCallback(() => {
     setIsEditModalVisible(true);
@@ -473,7 +717,17 @@ export default function EmployeeProfileModal({ isVisible, onClose, userData, isL
       message.error(`Failed to update personal information: ${error.message}`);
     }
   };
-
+const uploadProps = {
+  multiple: false,
+  maxCount: 1,
+  accept: ".pdf,.jpg,.jpeg,.png,.doc,.docx,.txt",
+  beforeUpload: uploadValidation,
+  onChange(info) {
+    if (info.file.status === "removed") {
+      message.info(`${info.file.name} removed`);
+    }
+  },
+};
   const handlePrintProfile = useCallback(() => {
     window.print();
   }, []);
@@ -481,40 +735,95 @@ export default function EmployeeProfileModal({ isVisible, onClose, userData, isL
   const handleExportProfile = useCallback(() => {
     message.info('Export functionality will be implemented');
   }, []);
+  {/* Document Upload Modal */}
+<Modal
+  title={
+    <Space style={{color: '#ffffff', fontSize: '18px', fontWeight: '700'}}>
+      <UploadOutlined style={{color: '#ffffff'}} />
+      Upload Document
+    </Space>
+  }
+  open={uploadModalVisible}
+  onCancel={() => {
+    setUploadModalVisible(false);
+    uploadForm.resetFields();
+  }}
+  footer={[
+    <Button 
+      key="cancel" 
+      onClick={() => {
+        setUploadModalVisible(false);
+        uploadForm.resetFields();
+      }}
+      className="action-button secondary"
+      size="large"
+    >
+      Cancel
+    </Button>,
+    <Button 
+      key="upload" 
+      type="primary" 
+      onClick={() => uploadForm.submit()}
+      loading={documentLoading}
+      className="action-button primary"
+      size="large"
+    >
+      Upload Document
+    </Button>
+  ]}
+  className="professional-modal"
+>
+  <Form 
+    form={uploadForm} 
+    layout="vertical"
+    onFinish={handleDocumentUpload}
+  >
+    <Form.Item
+      name="file"
+      label="Select Document"
+      rules={[{ required: true, message: 'Please select a file to upload' }]}
+    >
+      <Upload
+        {...uploadProps}
+        listType="text"
+        maxCount={1}
+      >
+        <Button icon={<UploadOutlined />} block size="large">
+          Click to Select File
+        </Button>
+      </Upload>
+    </Form.Item>
+    
+    <Form.Item
+      name="documentType"
+      label="Document Type"
+      rules={[{ required: true, message: 'Please select document type' }]}
+    >
+      <Select placeholder="Select document type" size="large">
+        {DOCUMENT_TYPES.map(type => (
+          <Option key={type.value} value={type.value}>
+            <Tag color={type.color} style={{ marginRight: 8 }}>
+              {type.label}
+            </Tag>
+          </Option>
+        ))}
+      </Select>
+    </Form.Item>
+    
+    <Form.Item
+      name="description"
+      label="Description (Optional)"
+    >
+      <Input.TextArea 
+        placeholder="Brief description of the document" 
+        rows={3}
+        size="large"
+      />
+    </Form.Item>
+  </Form>
+</Modal>
 
-  const uploadProps = {
-    name: 'file',
-    action: 'https://www.mocky.io/v2/5cc8019d300000980a055e76',
-    headers: {
-      authorization: 'authorization-text',
-    },
-    beforeUpload: (file) => {
-      const isValidType = file.type === 'application/pdf' || 
-                         file.type.startsWith('image/') ||
-                         file.type.includes('document');
-      if (!isValidType) {
-        message.error('You can only upload PDF, image, or document files!');
-        return false;
-      }
-      const isValidSize = file.size / 1024 / 1024 < 10;
-      if (!isValidSize) {
-        message.error('File must be smaller than 10MB!');
-        return false;
-      }
-      return true;
-    },
-    onChange(info) {
-      if (info.file.status === 'uploading') {
-        setUploading(true);
-      } else if (info.file.status === 'done') {
-        setUploading(false);
-        message.success(`${info.file.name} uploaded successfully`);
-      } else if (info.file.status === 'error') {
-        setUploading(false);
-        message.error(`${info.file.name} upload failed.`);
-      }
-    },
-  };
+
 
   const headerActions = (
     <Space size="middle">
@@ -1615,7 +1924,7 @@ export default function EmployeeProfileModal({ isVisible, onClose, userData, isL
               <Col flex={1}>
                 <Title className="profile-name">{employeeData.name}</Title>
                 <div className="profile-position">
-                  {employeeData.position} • {employeeData.department}
+                  {employeeData.position} â€¢ {employeeData.department}
                 </div>
                 <Space wrap size={[8, 8]} style={{ marginBottom: '16px' }}>
                   <Tag className="profile-tag" color="#52c41a">
@@ -1810,7 +2119,7 @@ export default function EmployeeProfileModal({ isVisible, onClose, userData, isL
                         {employeeData.emergencyContact.name}
                       </Text>
                       <Text type="secondary" style={{ fontSize: '13px' }}>
-                        {employeeData.emergencyContact.relationship} • {employeeData.emergencyContact.phone}
+                        {employeeData.emergencyContact.relationship} â€¢ {employeeData.emergencyContact.phone}
                       </Text>
                     </div>
                   </div>
@@ -1992,42 +2301,131 @@ export default function EmployeeProfileModal({ isVisible, onClose, userData, isL
 
          <Tabs.TabPane tab={<Space><FileTextOutlined />Documents</Space>} key="documents">
             <Card className="info-card" title="Document Management">
-              <div style={{marginBottom: '24px'}}>
-                <Upload {...uploadProps} showUploadList={false}>
-                  <Button 
-                    type="primary" 
-                    icon={<UploadOutlined />} 
-                    loading={uploading}
-                    size="large"
-                    className="action-button primary"
-                  >
-                    Upload Document
-                  </Button>
-                </Upload>
-              </div>
+            <div style={{marginBottom: '24px'}}>
+  <Button 
+    type="primary" 
+    icon={<UploadOutlined />} 
+    onClick={() => setUploadModalVisible(true)}
+    size="large"
+    className="action-button primary"
+    loading={documentLoading}
+  >
+    Upload New Document
+  </Button>
+</div>
               
               {/* Mobile: Add horizontal scroll container */}
               <div className="table-scroll-container">
-                <Table 
-                  dataSource={documentsData} 
-                  columns={documentColumns} 
-                  className="professional-table"
-                  scroll={screens.xs ? { x: 800 } : undefined}
-                  pagination={{
-                    pageSize: 10,
-                    showSizeChanger: true,
-                    showQuickJumper: !screens.xs,
-                    showTotal: (total, range) => 
-                      `${range[0]}-${range[1]} of ${total} documents`,
-                    simple: screens.xs
-                  }}
-                />
+            
+<Table 
+  dataSource={documents.map((doc, index) => ({
+    ...doc,
+    key: doc.id || `doc-${index}` // Ensure unique key
+  }))} 
+  columns={documentColumns} 
+  className="professional-table"
+  scroll={screens.xs ? { x: 800 } : undefined}
+  pagination={{
+    pageSize: 10,
+    showSizeChanger: true,
+    showQuickJumper: !screens.xs,
+    showTotal: (total, range) => 
+      `${range[0]}-${range[1]} of ${total} documents`,
+    simple: screens.xs
+  }}
+/>
               </div>
             </Card>
           </Tabs.TabPane>
         </Tabs>
       </Card>
-
+{/* Document Upload Modal */}
+<Modal
+  title={
+    <Space style={{color: '#ffffff', fontSize: '18px', fontWeight: '700'}}>
+      <UploadOutlined style={{color: '#ffffff'}} />
+      Upload Document
+    </Space>
+  }
+  open={uploadModalVisible}
+  onCancel={() => {
+    setUploadModalVisible(false);
+    uploadForm.resetFields();
+  }}
+  footer={[
+    <Button 
+      key="cancel" 
+      onClick={() => {
+        setUploadModalVisible(false);
+        uploadForm.resetFields();
+      }}
+      className="action-button secondary"
+      size="large"
+    >
+      Cancel
+    </Button>,
+    <Button 
+      key="upload" 
+      type="primary" 
+      onClick={() => uploadForm.submit()}
+      loading={documentLoading}
+      className="action-button primary"
+      size="large"
+    >
+      Upload Document
+    </Button>
+  ]}
+  className="professional-modal"
+>
+  <Form 
+    form={uploadForm} 
+    layout="vertical"
+    onFinish={handleDocumentUpload}
+  >
+    <Form.Item
+      name="file"
+      label="Select Document"
+      rules={[{ required: true, message: 'Please select a file to upload' }]}
+    >
+      <Upload
+        {...uploadProps}
+        listType="text"
+        maxCount={1}
+      >
+        <Button icon={<UploadOutlined />} block size="large">
+          Click to Select File
+        </Button>
+      </Upload>
+    </Form.Item>
+    
+    <Form.Item
+      name="documentType"
+      label="Document Type"
+      rules={[{ required: true, message: 'Please select document type' }]}
+    >
+      <Select placeholder="Select document type" size="large">
+        {DOCUMENT_TYPES.map(type => (
+          <Option key={type.value} value={type.value}>
+            <Tag color={type.color} style={{ marginRight: 8 }}>
+              {type.label}
+            </Tag>
+          </Option>
+        ))}
+      </Select>
+    </Form.Item>
+    
+    <Form.Item
+      name="description"
+      label="Description (Optional)"
+    >
+      <Input.TextArea 
+        placeholder="Brief description of the document" 
+        rows={3}
+        size="large"
+      />
+    </Form.Item>
+  </Form>
+</Modal>
       {/* Enhanced Edit Profile Modal */}
 <Modal
   title={null}

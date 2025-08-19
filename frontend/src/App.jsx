@@ -153,6 +153,7 @@ const AppContent = () => {
   start_date: user.start_date,
   isActive: user.isActive,
   employeeId: user.employeeId,
+   documents: user.documents || [],
   createdAt: user.createdAt,
   created_at: user.created_at || null,
   updatedAt: user.updatedAt,
@@ -175,7 +176,7 @@ const AppContent = () => {
 
   const handleLogout = async () => {
   try {
-    console.log('Logout initiated for user:', userData);
+    
     
     // Call authService logout to handle database updates and storage cleanup
     const success = await authService.logout(userData);
