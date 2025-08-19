@@ -1144,6 +1144,7 @@ useEffect(() => {
     initializeData();
   }
 }, [userRole]);
+
 const handleEmployeeTypeFilter = useCallback((value) => {
   const newFilters = { ...filters, employeeType: value };
   setFilters(newFilters);
