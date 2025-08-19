@@ -1,5 +1,5 @@
 import { supabase, supabaseAdmin } from '../supabase/config';
-
+import CryptoJS from 'crypto-js';
 // Demo credentials as fallback
 const validCredentials = [
   { email: 'admin@test.com', password: 'admin123', name: 'Admin User', role: 'Admin' },
@@ -50,49 +50,49 @@ class AuthService {
    * @returns {Promise<Object|null>} User data or null if not found
    */
   async checkSupabaseCredentials(email, password) {
-    try {
-      // Use admin client to bypass RLS for authentication
-      const { data: users, error } = await supabaseAdmin
-        .from('users')
-        .select('*')
-        .eq('email', email)
-        .limit(1);
+  try {
+    const ENCRYPTION_KEY = 'My@cCe55!2021'; // Must match the key used in EmployeeManagement
+    
+    const { data: users, error } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .limit(1);
 
-      if (error) {
-        console.error('Supabase query error:', error);
-        throw new Error('Database connection error');
-      }
+    if (error) {
+      console.error('Supabase query error:', error);
+      throw new Error('Database connection error');
+    }
 
-      // Check if we got any users back
-      if (users && users.length > 0) {
-        const userData = users[0];
+    if (users && users.length > 0) {
+      const userData = users[0];
+      
+      // Decrypt the stored password before comparison
+      const decryptedPassword = CryptoJS.AES.decrypt(
+        userData.password, 
+        ENCRYPTION_KEY
+      ).toString(CryptoJS.enc.Utf8);
+      
+      if (decryptedPassword === password) {
+        await this.updateUserActiveStatus(userData.id, true);
         
+        const createdAt = userData.createdat ? new Date(userData.createdat) : new Date();
         
-        // Check if password matches (Note: In production, use proper password hashing)
-        if (userData.password === password) {
-          // Update isActive to true when user successfully logs in
-          await this.updateUserActiveStatus(userData.id, true);
-          
-          // Convert date strings to Date objects if needed
-          const createdAt = userData.createdat ? new Date(userData.createdat) : new Date();
-          const updatedat = new Date(); // Current time for login
-          
-          // Construct the user object matching your schema
-          const user = {
-            id: userData.id,
-            email: userData.email,
-            name: userData.name || 'User',
-            role: userData.role || 'User',
-            profileimage: userData.profileimage, // Note: using profileimage from schema
-            photoURL: userData.photourl,
-            isActive: true, // Set to true since user just logged in
-            employeeId: userData.employee_id,
-            isFirstLogin: userData.isfirstlogin !== undefined ? userData.isfirstlogin : false,
-            createdAt: userData.created_at ? new Date(userData.created_at) : new Date(),
-            created_at: userData.created_at || userData.createdat || null,
-            updatedAt: new Date(),
-            employee_type:userData.employee_type,
-            password: undefined,
+        const user = {
+          id: userData.id,
+          email: userData.email,
+          name: userData.name || 'User',
+          role: userData.role || 'User',
+          profileimage: userData.profileimage,
+          photoURL: userData.photourl,
+          isActive: true,
+          employeeId: userData.employee_id,
+          isFirstLogin: userData.isfirstlogin !== undefined ? userData.isfirstlogin : false,
+          createdAt: userData.created_at ? new Date(userData.created_at) : new Date(),
+          created_at: userData.created_at || userData.createdat || null,
+          updatedAt: new Date(),
+          employee_type: userData.employee_type,
+          password: undefined,
             mobile: userData.mobile,
             work_phone:userData.work_phone,
             address:userData.address,
@@ -136,18 +136,19 @@ async changeFirstLoginPassword(userId, newPassword) {
       };
     }
 
-    console.log('Updating custom users table for user:', userId);
+    const ENCRYPTION_KEY = 'My@cCe55!2021'; // Must match the key used in EmployeeManagement
+    const encryptedPassword = CryptoJS.AES.encrypt(newPassword, ENCRYPTION_KEY).toString();
 
-    // Update your custom users table (NOT Supabase Auth)
     const { data, error } = await supabaseAdmin
-  .from('users')
-  .update({
-    password: newPassword,
-    isfirstlogin: false,
-    updated_at: new Date().toISOString()  // ✅ Correct - matches your schema
-  })
-  .eq('id', userId)
-  .select()
+      .from('users')
+      .update({
+        password: encryptedPassword, // Store encrypted password
+        isfirstlogin: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId)
+      .select();
+
     if (error) {
       console.error('Error changing password:', error);
       return {
@@ -156,10 +157,7 @@ async changeFirstLoginPassword(userId, newPassword) {
       };
     }
 
-    // Check if any rows were updated
-    console.log('Update result:', data);
-    
-    // Verify the update worked by checking if user exists
+    // Verify update
     const { data: verifyUser, error: verifyError } = await supabaseAdmin
       .from('users')
       .select('id, isfirstlogin')
@@ -174,8 +172,6 @@ async changeFirstLoginPassword(userId, newPassword) {
       };
     }
 
-    console.log('User after update:', verifyUser);
-    
     return {
       success: true,
       message: 'Password changed successfully'
