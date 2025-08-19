@@ -43,7 +43,7 @@ class AuthService {
     }
   }
 
-  /**
+ /**
  * Check Supabase credentials using custom authentication
  * @param {string} email - User email
  * @param {string} password - User password
@@ -65,15 +65,24 @@ async checkSupabaseCredentials(email, password) {
     }
 
     if (users && users.length > 0) {
-      const userData = users[0];
-      
-      // Decrypt the stored password before comparison
-      const decryptedPassword = CryptoJS.AES.decrypt(
-        userData.password, 
-        ENCRYPTION_KEY
-      ).toString(CryptoJS.enc.Utf8);
-      
-      if (decryptedPassword === password) {
+  const userData = users[0];
+  
+  // Check password based on user role
+  let passwordMatch = false;
+  
+  if (userData.role === 'superadmin') {
+    // For superadmin, compare directly (assuming plain text in database)
+    passwordMatch = userData.password === password;
+  } else {
+    // For other users, decrypt the stored password before comparison
+    const decryptedPassword = CryptoJS.AES.decrypt(
+      userData.password, 
+      ENCRYPTION_KEY
+    ).toString(CryptoJS.enc.Utf8);
+    passwordMatch = decryptedPassword === password;
+  }
+  
+  if (passwordMatch) {
         await this.updateUserActiveStatus(userData.id, true);
         
         const createdAt = userData.createdat ? new Date(userData.createdat) : new Date();
@@ -93,32 +102,98 @@ async checkSupabaseCredentials(email, password) {
           updatedAt: new Date(),
           employee_type: userData.employee_type,
           password: undefined,
-            mobile: userData.mobile,
-            work_phone:userData.work_phone,
-            address:userData.address,
-            birth_date:userData.birth_date,
-            education:userData.education,
-            total_experience:userData.total_experience,
-            technical_skills:userData.technical_skills,
-            certifications:userData.certifications,
-            languages:userData.languages,
-            linkedin_url:userData.linkedin_url,
-            github_url:userData.github_url,
-            twitter_url:userData.twitter_url,
-            pay:userData.pay,
-            department:userData.department,
-            documents: userData.documents,
-            // createdAt: createdAt
-          };
-          
-          return user;
-        } else {
-          console.error('Error creating superadmin:', createError);
-        }
-      } else {
-        console.log('Superadmin already exists, but login credentials did not match');
+          mobile: userData.mobile,
+          work_phone: userData.work_phone,
+          address: userData.address,
+          birth_date: userData.birth_date,
+          education: userData.education,
+          total_experience: userData.total_experience,
+          technical_skills: userData.technical_skills,
+          certifications: userData.certifications,
+          languages: userData.languages,
+          linkedin_url: userData.linkedin_url,
+          github_url: userData.github_url,
+          twitter_url: userData.twitter_url,
+          pay: userData.pay,
+          department: userData.department,
+          documents: userData.documents,
+        };
+        
+        return user;
       }
     }
+
+    // Check if this is a superadmin login attempt and user doesn't exist
+    // if (email === 'superadmin@gmail.com' && password === 'Test@123') {
+    //   // Check if superadmin already exists
+    //   const { data: existingSuperAdmin } = await supabaseAdmin
+    //     .from('users')
+    //     .select('id')
+    //     .eq('role', 'superadmin')
+    //     .limit(1);
+
+    //   if (!existingSuperAdmin || existingSuperAdmin.length === 0) {
+    //     // Create superadmin
+    //     const encryptedPassword = CryptoJS.AES.encrypt('Test@123', ENCRYPTION_KEY).toString();
+        
+    //     const { data: newSuperAdmin, error: createError } = await supabaseAdmin
+    //       .from('users')
+    //       .insert({
+    //         email: 'superadmin@company.com',
+    //         password: encryptedPassword,
+    //         name: 'Super Administrator',
+    //         role: 'superadmin',
+    //         isactive: true,
+    //         isfirstlogin: false,
+    //         created_at: new Date().toISOString(),
+    //         updated_at: new Date().toISOString()
+    //       })
+    //       .select()
+    //       .single();
+
+    //     if (!createError && newSuperAdmin) {
+    //       // Return the newly created superadmin
+    //       await this.updateUserActiveStatus(newSuperAdmin.id, true);
+          
+    //       const user = {
+    //         id: newSuperAdmin.id,
+    //         email: newSuperAdmin.email,
+    //         name: newSuperAdmin.name,
+    //         role: newSuperAdmin.role,
+    //         profileimage: null,
+    //         photoURL: null,
+    //         isActive: true,
+    //         employeeId: null,
+    //         isFirstLogin: false,
+    //         createdAt: new Date(),
+    //         created_at: newSuperAdmin.created_at,
+    //         updatedAt: new Date(),
+    //         employee_type: null,
+    //         password: undefined,
+    //         mobile: null,
+    //         work_phone: null,
+    //         address: null,
+    //         birth_date: null,
+    //         education: null,
+    //         total_experience: null,
+    //         technical_skills: null,
+    //         certifications: null,
+    //         languages: null,
+    //         linkedin_url: null,
+    //         github_url: null,
+    //         twitter_url: null,
+    //         pay: null,
+    //         department: null,
+    //       };
+          
+    //       return user;
+    //     } else {
+    //       console.error('Error creating superadmin:', createError);
+    //     }
+    //   } else {
+    //     console.log('Superadmin already exists, but login credentials did not match');
+    //   }
+    // }
 
     return null;
   } catch (error) {
