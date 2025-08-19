@@ -203,7 +203,6 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [profileImage, setProfileImage] = useState(null);
-
   useEffect(() => {
     if (isOpen) {
       if (editingAdmin) {
@@ -499,6 +498,7 @@ const AdminManagement = ({ userRole }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFormModal, setShowFormModal] = useState(false);
   const [editingAdmin, setEditingAdmin] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('all');
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
@@ -587,8 +587,16 @@ useEffect(() => {
   }
 }, []);
   // Apply filters and pagination
-  const applyFiltersAndPagination = useCallback((adminList, search = '', page = 1, pageSize = 10) => {
+  const applyFiltersAndPagination = useCallback((adminList, search = '', page = 1, pageSize = 10, status = 'all') => {
   let filteredAdmins = [...adminList];
+
+  if (status !== 'all') {
+  filteredAdmins = filteredAdmins.filter(admin => {
+    if (status === 'active') return admin.isactive === true;
+    if (status === 'inactive') return admin.isactive === false;
+    return true;
+  });
+}
   
   if (search) {
     const searchLower = search.toLowerCase();
@@ -611,7 +619,7 @@ useEffect(() => {
   });
   
   return paginatedAdmins;
-}, []);
+}, [statusFilter]);
 
   // Fetch admins with pagination
  const fetchAdmins = useCallback(async (page = 1, pageSize = 10, search = '') => {
@@ -623,7 +631,7 @@ useEffect(() => {
       adminList = await fetchAllAdmins();
     }
     
-    applyFiltersAndPagination(adminList, search, page, pageSize);
+    applyFiltersAndPagination(adminList, search, page, pageSize, statusFilter);
     
   } catch (error) {
     console.error('Error in fetchAdmins:', error);
@@ -683,7 +691,7 @@ useEffect(() => {
     try {
       setLoading(true);
       const adminList = await fetchAllAdmins();
-      applyFiltersAndPagination(adminList, searchQuery, 1, pagination.pageSize);
+      applyFiltersAndPagination(adminList, searchQuery, 1, pagination.pageSize,statusFilter);
     } catch (error) {
       console.error('Error refreshing data:', error);
     } finally {
@@ -737,12 +745,12 @@ useEffect(() => {
 }, [refreshData]);
   // Event handlers
   const handleTableChange = useCallback((paginationInfo) => {
-    applyFiltersAndPagination(allAdmins, searchQuery, paginationInfo.current, paginationInfo.pageSize);
+    applyFiltersAndPagination(allAdmins, searchQuery, paginationInfo.current, paginationInfo.pageSize,statusFilter);
   }, [allAdmins, searchQuery, applyFiltersAndPagination]);
 
   const handleSearch = useCallback((value) => {
     setSearchQuery(value);
-    applyFiltersAndPagination(allAdmins, value, 1, pagination.pageSize);
+    applyFiltersAndPagination(allAdmins, value, 1, pagination.pageSize,statusFilter);
   }, [allAdmins, pagination.pageSize, applyFiltersAndPagination]);
 
   const handleEdit = useCallback((admin) => {
@@ -1014,25 +1022,57 @@ useEffect(() => {
         </Row>
 
         {/* Search Bar */}
-        <Card style={{ marginBottom: '24px' }} className={`animated-card-delayed ${isMobile ? 'mobile-search' : ''}`}>
-          <Search
-            placeholder="Search admins by name, email or admin ID..."
-            allowClear
-            enterButton={
-              <Button 
-                type="primary" 
-                icon={<SearchOutlined />}
-                className="brand-primary"
-                style={{ backgroundColor: '#1F4842', borderColor: '#1F4842' }}
-              >
-                {isMobile ? '' : 'Search'}
-              </Button>
-            }
-            size={isMobile ? "middle" : "large"}
-            onSearch={handleSearch}
-            style={{ width: '100%' }}
-          />
-        </Card>
+        {/* Search and Filters */}
+<Card style={{ marginBottom: '24px' }} className={`animated-card-delayed ${isMobile ? 'mobile-search' : ''}`}>
+  <Row gutter={[16, 16]} align="middle">
+    <Col xs={24} sm={24} md={14} lg={16}>
+      <Search
+        placeholder="Search admins by name, email or admin ID..."
+        allowClear
+        enterButton={
+          <Button 
+            type="primary" 
+            icon={<SearchOutlined />}
+            className="brand-primary"
+            style={{ backgroundColor: '#1F4842', borderColor: '#1F4842' }}
+          >
+            {isMobile ? '' : 'Search'}
+          </Button>
+        }
+        size={isMobile ? "middle" : "large"}
+        onSearch={handleSearch}
+      />
+    </Col>
+    <Col xs={24} sm={24} md={10} lg={8}>
+      <Space size="middle" style={{ width: '100%', justifyContent: isMobile ? 'center' : 'flex-end' }}>
+        <Select
+          placeholder="Filter by Status"
+          value={statusFilter}
+          onChange={(value) => {
+  setStatusFilter(value);
+  applyFiltersAndPagination(allAdmins, searchQuery, 1, pagination.pageSize, value);
+}}
+          style={{ width: 140 }}
+          size={isMobile ? "middle" : "large"}
+        >
+          <Select.Option value="all">All Status</Select.Option>
+          <Select.Option value="active">Active</Select.Option>
+          <Select.Option value="inactive">Inactive</Select.Option>
+        </Select>
+        <Button 
+          onClick={() => {
+            setStatusFilter('all');
+            setSearchQuery('');
+            applyFiltersAndPagination(allAdmins, '', 1, pagination.pageSize,'all');
+          }}
+          size={isMobile ? "middle" : "large"}
+        >
+          Clear
+        </Button>
+      </Space>
+    </Col>
+  </Row>
+</Card>
 
         {/* Admin List - Mobile Cards or Table */}
         {isMobile ? (
