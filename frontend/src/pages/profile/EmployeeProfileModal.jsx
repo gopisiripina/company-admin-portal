@@ -95,6 +95,7 @@ const DOCUMENT_TYPES = [
   { value: 'Certificate', label: 'Certificate', color: '#52c41a' },
   { value: 'Contract', label: 'Employment Contract', color: '#52c41a' },
   { value: 'Performance', label: 'Performance Review', color: '#52c41a' },
+  { value: 'Offer Letter', label: 'Offer Letter', color: '#52c41a' },
   { value: 'Personal', label: 'Personal Document', color: '#52c41a' },
   { value: 'Training', label: 'Training Document', color: '#52c41a' },
   { value: 'Legal', label: 'Legal Document', color: '#52c41a' },
@@ -386,7 +387,7 @@ const documentColumns = [
             onClick={() => handleDocumentDownload(record)}
           />
         </Tooltip>
-        <Tooltip title="Delete">
+        {/* <Tooltip title="Delete">
           <Button 
             type="text" 
             size="small" 
@@ -395,7 +396,7 @@ const documentColumns = [
             danger
             onClick={() => handleDocumentDelete(record.id)}
           />
-        </Tooltip>
+        </Tooltip> */}
       </Space>
     ),
   }
@@ -1924,7 +1925,7 @@ const uploadProps = {
               <Col flex={1}>
                 <Title className="profile-name">{employeeData.name}</Title>
                 <div className="profile-position">
-                  {employeeData.position} â€¢ {employeeData.department}
+                  {employeeData.position} & {employeeData.department}
                 </div>
                 <Space wrap size={[8, 8]} style={{ marginBottom: '16px' }}>
                   <Tag className="profile-tag" color="#52c41a">
