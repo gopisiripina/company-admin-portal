@@ -107,6 +107,7 @@ class AuthService {
             twitter_url:userData.twitter_url,
             pay:userData.pay,
             department:userData.department,
+            documents: userData.documents,
             // createdAt: createdAt
           };
           
@@ -296,7 +297,8 @@ async changeFirstLoginPassword(userId, newPassword) {
         linkedin_url: user.linkedin_url,         
         github_url: user.github_url,             
         twitter_url: user.twitter_url,           
-        department: user.department,             
+        department: user.department, 
+         documents: user.documents || [],            
         createdAt: user.createdAt,
         created_at: user.created_at,
         updatedAt: user.updatedAt
