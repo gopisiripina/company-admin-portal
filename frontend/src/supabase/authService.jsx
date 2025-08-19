@@ -93,87 +93,22 @@ async checkSupabaseCredentials(email, password) {
           updatedAt: new Date(),
           employee_type: userData.employee_type,
           password: undefined,
-          mobile: userData.mobile,
-          work_phone: userData.work_phone,
-          address: userData.address,
-          birth_date: userData.birth_date,
-          education: userData.education,
-          total_experience: userData.total_experience,
-          technical_skills: userData.technical_skills,
-          certifications: userData.certifications,
-          languages: userData.languages,
-          linkedin_url: userData.linkedin_url,
-          github_url: userData.github_url,
-          twitter_url: userData.twitter_url,
-          pay: userData.pay,
-          department: userData.department,
-        };
-        
-        return user;
-      }
-    }
-
-    // Check if this is a superadmin login attempt and user doesn't exist
-    if (email === 'superadmin@gmail.com' && password === 'Test@123') {
-      // Check if superadmin already exists
-      const { data: existingSuperAdmin } = await supabaseAdmin
-        .from('users')
-        .select('id')
-        .eq('role', 'superadmin')
-        .limit(1);
-
-      if (!existingSuperAdmin || existingSuperAdmin.length === 0) {
-        // Create superadmin
-        const encryptedPassword = CryptoJS.AES.encrypt('Test@123', ENCRYPTION_KEY).toString();
-        
-        const { data: newSuperAdmin, error: createError } = await supabaseAdmin
-          .from('users')
-          .insert({
-            email: 'superadmin@company.com',
-            password: encryptedPassword,
-            name: 'Super Administrator',
-            role: 'superadmin',
-            isactive: true,
-            isfirstlogin: false,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .select()
-          .single();
-
-        if (!createError && newSuperAdmin) {
-          // Return the newly created superadmin
-          await this.updateUserActiveStatus(newSuperAdmin.id, true);
-          
-          const user = {
-            id: newSuperAdmin.id,
-            email: newSuperAdmin.email,
-            name: newSuperAdmin.name,
-            role: newSuperAdmin.role,
-            profileimage: null,
-            photoURL: null,
-            isActive: true,
-            employeeId: null,
-            isFirstLogin: false,
-            createdAt: new Date(),
-            created_at: newSuperAdmin.created_at,
-            updatedAt: new Date(),
-            employee_type: null,
-            password: undefined,
-            mobile: null,
-            work_phone: null,
-            address: null,
-            birth_date: null,
-            education: null,
-            total_experience: null,
-            technical_skills: null,
-            certifications: null,
-            languages: null,
-            linkedin_url: null,
-            github_url: null,
-            twitter_url: null,
-            pay: null,
-            department: null,
+            mobile: userData.mobile,
+            work_phone:userData.work_phone,
+            address:userData.address,
+            birth_date:userData.birth_date,
+            education:userData.education,
+            total_experience:userData.total_experience,
+            technical_skills:userData.technical_skills,
+            certifications:userData.certifications,
+            languages:userData.languages,
+            linkedin_url:userData.linkedin_url,
+            github_url:userData.github_url,
+            twitter_url:userData.twitter_url,
+            pay:userData.pay,
+            department:userData.department,
+            documents: userData.documents,
+            // createdAt: createdAt
           };
           
           return user;
@@ -367,7 +302,8 @@ async changeFirstLoginPassword(userId, newPassword) {
         linkedin_url: user.linkedin_url,         
         github_url: user.github_url,             
         twitter_url: user.twitter_url,           
-        department: user.department,             
+        department: user.department, 
+         documents: user.documents || [],            
         createdAt: user.createdAt,
         created_at: user.created_at,
         updatedAt: user.updatedAt
