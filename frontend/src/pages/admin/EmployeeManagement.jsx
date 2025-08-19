@@ -1245,7 +1245,7 @@ useEffect(() => {
           );
         } else if (payload.eventType === 'INSERT') {
           setAllEmployees(prev => [payload.new, ...prev]);
-          refreshData();
+          applyFiltersAndPagination([payload.new, ...allEmployees], searchQuery, pagination.current, pagination.pageSize, filters);
         } else if (payload.eventType === 'DELETE') {
           setAllEmployees(prev => prev.filter(employee => employee.id !== payload.old.id));
           setEmployees(prev => prev.filter(employee => employee.id !== payload.old.id));
@@ -1256,19 +1256,15 @@ useEffect(() => {
   return () => {
     subscription.unsubscribe();
   };
-}, [refreshData]);
+}, [] );
 
-  useEffect(() => {
-  if (userRole === 'superadmin' || userRole === 'admin' || userRole === 'hr') {
-    fetchEmployees(1, 10, '', {});
-  }
-}, [userRole, fetchEmployees]);
 useEffect(() => {
   if (userRole === 'superadmin' || userRole === 'admin' || userRole === 'hr') {
     const initializeData = async () => {
       try {
         setLoading(true);
         const employeeList = await fetchAllEmployees();
+        setAllEmployees(employeeList);
         applyFiltersAndPagination(employeeList, '', 1, 10, {});
       } catch (error) {
         console.error('Error initializing data:', error);
