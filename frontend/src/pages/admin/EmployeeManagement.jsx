@@ -296,8 +296,8 @@ useEffect(() => {
     setProfileImage(null);
     setFaceEmbedding(null);
     setUploadedFile(null);
-    setEmployeeCreationType(null); // ADD THIS
-    setOfferLetter(null); // ADD THIS
+    setEmployeeCreationType(null);
+    setOfferLetter(null);
     // Reset to default values
     form.setFieldsValue({ 
       isActive: false,
@@ -337,16 +337,34 @@ const handleOfferLetterUpload = useCallback(async (file) => {
     const filePath = `offer-letters/${fileName}`;
 
     const { data, error } = await supabase.storage
-      .from('profile-images') // Using existing bucket
+      .from('employee-documents') // Changed bucket name
       .upload(filePath, file);
 
     if (error) throw error;
 
-    const { data: { publicUrl } } = supabase.storage
-      .from('profile-images')
-      .getPublicUrl(filePath);
+    // Helper function to format file size
+    const formatFileSize = (bytes) => {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    };
+    
+    // **MODIFIED PART STARTS HERE**
+    // Create a document object that matches the structure in EmployeeProfileModal
+    setOfferLetter({
+      id: `doc_${Date.now()}`, // A unique ID for the document
+      name: file.name, // Use 'name' instead of 'fileName'
+      type: 'Offer Letter', // Use a type consistent with your DOCUMENT_TYPES, e.g., 'Contract'
+      description: 'Offer Letter uploaded during onboarding.', // Optional description
+      filePath: filePath, // **Crucial:** Store the path for viewing/downloading later
+      size: formatFileSize(file.size), // Store the formatted file size
+      uploadDate: new Date().toISOString(), // Use 'uploadDate' instead of 'uploadedAt'
+      status: 'Active' // Add a status field
+    });
+    // **MODIFIED PART ENDS HERE**
 
-    setOfferLetter(publicUrl);
     message.success('Offer letter uploaded successfully');
   } catch (error) {
     message.error('Failed to upload offer letter');
@@ -354,6 +372,8 @@ const handleOfferLetterUpload = useCallback(async (file) => {
 
   return false;
 }, []);
+
+
   const generatePassword = useCallback(() => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
     let password = '';
@@ -599,7 +619,9 @@ const handleSubmit = useCallback(async (values) => {
         start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
         end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
         face_embedding: finalFaceEmbedding,
-        pay: payAmount
+        pay: payAmount,
+        // ✅ *** THIS IS THE LINE TO CHANGE *** ✅
+        documents: offerLetter ? JSON.stringify([offerLetter]) : JSON.stringify([]) 
       };
 
       console.log('Creating employee with data:', employeeData);
@@ -688,7 +710,7 @@ const handleSubmit = useCallback(async (values) => {
   } finally {
     setLoading(false);
   }
-}, [editingEmployee, generatePassword, onSuccess, onClose, form, profileImage, deleteOldProfileImage, faceEmbedding, uploadedFile, isUpdatingEmail, currentEmail]); 
+}, [editingEmployee, generatePassword, onSuccess, onClose, form, profileImage, deleteOldProfileImage, faceEmbedding, uploadedFile, isUpdatingEmail, currentEmail,offerLetter]); 
 
   return (
     <Modal
@@ -793,25 +815,25 @@ const handleSubmit = useCallback(async (values) => {
                   {offerLetter ? 'Change Offer Letter' : 'Upload Offer Letter'}
                 </Button>
               </Upload>
-              {offerLetter && (
-                <>
-                  <Button 
-                    type="link" 
-                    onClick={() => window.open(offerLetter, '_blank')}
-                    size="small"
-                  >
-                    View PDF
-                  </Button>
-                  <Button 
-                    type="link" 
-                    danger 
-                    onClick={() => setOfferLetter(null)}
-                    size="small"
-                  >
-                    Remove
-                  </Button>
-                </>
-              )}
+         {offerLetter && (
+  <>
+    <Button 
+      type="link" 
+      onClick={() => window.open(offerLetter.url, '_blank')} // Changed from offerLetter to offerLetter.url
+      size="small"
+    >
+      View PDF
+    </Button>
+    <Button 
+      type="link" 
+      danger 
+      onClick={() => setOfferLetter(null)}
+      size="small"
+    >
+      Remove
+    </Button>
+  </>
+)}
             </div>
           </Form.Item>
         )}
