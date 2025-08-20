@@ -115,50 +115,65 @@ const sendWelcomeEmail = async (employeeData) => {
 };
 
 // Mobile Employee Card Component
-const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete, onSendCredentials  }) => (
+const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete, onSendCredentials, onAccessToggle }) => (
   <Card 
     size="small" 
     className="mobile-employee-card"
     style={{ marginBottom: '12px' }}
     actions={[
-  <Button 
-    key="edit"
-    type="primary" 
-    icon={<EditOutlined />} 
-    size="small"
-    onClick={() => onEdit(employee)}
-    className="brand-primary"
+      <Button 
+        key="edit"
+        type="primary" 
+        icon={<EditOutlined />} 
+        size="small"
+        onClick={() => onEdit(employee)}
+        className="brand-primary"
+      >
+        Edit
+      </Button>,
+      <Button 
+        key="credentials"
+        type="default" 
+        icon={<MailOutlined />} 
+        size="small"
+        onClick={() => onSendCredentials(employee)}
+        style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: 'white' }}
+      >
+        Send
+      </Button>,
+      <Button 
+        key="access"
+        type={employee.portal_access ? "primary" : "default"}
+        size="small"
+        onClick={() => onAccessToggle(employee.id, !employee.portal_access)}
+        style={{ 
+          backgroundColor: employee.portal_access ? '#10b981' : '#ef4444', 
+          borderColor: employee.portal_access ? '#10b981' : '#ef4444', 
+          color: 'white' 
+        }}
+        title={employee.portal_access ? 'Click to deny access' : 'Click to grant access'}
+      >
+        {employee.portal_access ? 'Access ✓' : 'Access ✗'}
+      </Button>,
+      <Popconfirm
+        key="delete"
+        title="Delete Employee"
+        description="Are you sure you want to delete this employee?"
+        onConfirm={() => onDelete(employee.id)}
+        okText="Yes"
+        cancelText="No"
+      >
+        <Button 
+          danger 
+          icon={<DeleteOutlined />} 
+          size="small"
+        >
+          Delete
+        </Button>
+      </Popconfirm>
+    ]}
   >
-    Edit
-  </Button>,
-  <Button 
-    key="credentials"
-    type="default" 
-    icon={<MailOutlined />} 
-    size="small"
-    onClick={() => onSendCredentials(employee)} // You'll need to pass this prop
-    style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: 'white' }}
-  >
-    Send
-  </Button>,
-  <Popconfirm
-    key="delete"
-    title="Delete Employee"
-    description="Are you sure you want to delete this employee?"
-    onConfirm={() => onDelete(employee.id)}
-    okText="Yes"
-    cancelText="No"
-  >
-    <Button 
-      danger 
-      icon={<DeleteOutlined />} 
-      size="small"
-    >
-      Delete
-    </Button>
-  </Popconfirm>
-]}
-  >
+    {/* Add portal access tag in the mobile card info */}
     <div className="mobile-employee-info">
       <div style={{ 
         display: 'flex', 
@@ -189,27 +204,27 @@ const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete, onSendCrede
             {employee.name}
           </div>
         
-<Text type="secondary" style={{ 
-  fontSize: '12px',
-  display: 'block',
-  marginBottom: '4px'
-}}>
-  <MailOutlined /> {employee.email}
-</Text>
-{employee.mobile && (
-  <Text type="secondary" style={{ 
-    fontSize: '12px',
-    display: 'block',
-    marginBottom: '4px'
-  }}>
-    📱 +91 {employee.mobile}
-  </Text>
-)}
-{employee.employee_id && (
-  <Text type="secondary" style={{ fontSize: '12px' }}>
-    ID: {employee.employee_id}
-  </Text>
-)}
+          <Text type="secondary" style={{ 
+            fontSize: '12px',
+            display: 'block',
+            marginBottom: '4px'
+          }}>
+            <MailOutlined /> {employee.email}
+          </Text>
+          {employee.mobile && (
+            <Text type="secondary" style={{ 
+              fontSize: '12px',
+              display: 'block',
+              marginBottom: '4px'
+            }}>
+              📱 +91 {employee.mobile}
+            </Text>
+          )}
+          {employee.employee_id && (
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              ID: {employee.employee_id}
+            </Text>
+          )}
         </div>
       </div>
       <div style={{ 
@@ -218,22 +233,29 @@ const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete, onSendCrede
         gap: '6px',
         justifyContent: 'flex-start'
       }}>
-         <Tag color="blue" size="small">{employee.role}</Tag>
-    {employee.employee_id && (
-      <Tag color="geekblue" size="small">{employee.employee_id}</Tag>
-    )}
-    {employee.created_at && (
-      <Tag color="purple" size="small">
-        {new Date(employee.created_at).toLocaleDateString()}
-      </Tag>
-    )}
-    <Tag 
-      color={employee.isactive ? 'green' : 'red'} 
-      size="small"
-    >
-      {employee.isactive ? 'Active' : 'Inactive'}
-    </Tag>
-  </div>
+        <Tag color="blue" size="small">{employee.role}</Tag>
+        {employee.employee_id && (
+          <Tag color="geekblue" size="small">{employee.employee_id}</Tag>
+        )}
+        {employee.created_at && (
+          <Tag color="purple" size="small">
+            {new Date(employee.created_at).toLocaleDateString()}
+          </Tag>
+        )}
+        <Tag 
+          color={employee.isactive ? 'green' : 'red'} 
+          size="small"
+        >
+          {employee.isactive ? 'Active' : 'Inactive'}
+        </Tag>
+        {/* ADD THIS NEW TAG */}
+        <Tag 
+          color={employee.portal_access ? 'cyan' : 'volcano'} 
+          size="small"
+        >
+          {employee.portal_access ? 'Portal Access' : 'No Portal Access'}
+        </Tag>
+      </div>
     </div>
   </Card>
 ));
@@ -249,7 +271,7 @@ const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSucc
   const [currentEmail, setCurrentEmail] = useState('');
   const [employeeCreationType, setEmployeeCreationType] = useState(null); // 'new' or 'existing'
 const [offerLetter, setOfferLetter] = useState(null);
-  useEffect(() => {
+useEffect(() => {
   if (isOpen) {
     if (editingEmployee) {
       setTimeout(() => {
@@ -261,6 +283,7 @@ const [offerLetter, setOfferLetter] = useState(null);
           department: editingEmployee.department,
           role: editingEmployee.role,
           isActive: editingEmployee.isactive !== undefined ? editingEmployee.isactive : true,
+          portal_access: editingEmployee.portal_access !== undefined ? editingEmployee.portal_access : true, // ADD THIS LINE
           employeeType: editingEmployee.employee_type || 'full-time',
           startDate: editingEmployee.start_date ? dayjs(editingEmployee.start_date) : null,
           endDate: editingEmployee.end_date ? dayjs(editingEmployee.end_date) : null,
@@ -268,21 +291,24 @@ const [offerLetter, setOfferLetter] = useState(null);
         });
         setProfileImage(editingEmployee.profileimage || null);
         setFaceEmbedding(editingEmployee.face_embedding || null);
-        // ADD THESE LINES:
         setCurrentEmployeeType(editingEmployee.employee_type || 'full-time');
         setIsUpdatingEmail(false);
       }, 0);
     } else {
       form.resetFields();
-      form.setFieldsValue({ isActive: false,email: '' });
+      form.setFieldsValue({ 
+        isActive: false, 
+        portal_access: true, // ADD THIS LINE
+        email: '' 
+      });
       setProfileImage(null);
       setFaceEmbedding(null);
-      // ADD THESE LINES:
       setIsUpdatingEmail(false);
       setCurrentEmail('');
     }
   }
 }, [editingEmployee, form, isOpen]);
+
 useEffect(() => {
   if (isOpen && !editingEmployee) {
     setEmployeeCreationType(null);
@@ -504,22 +530,22 @@ const handleSubmit = useCallback(async (values) => {
           (values.employeeType !== editingEmployee.employee_type)) {
         newEmployeeId = await generateEmployeeId(values.employeeType);
       }
-
-      const updateData = {
-        name: values.name,
-        email: isUpdatingEmail && values.newEmail ? values.newEmail : values.email,
-        mobile: values.mobile,
-        department: values.department,
-        role: values.role || 'employee',
-        employee_id: newEmployeeId,
-        isactive: values.isActive,
-        profileimage: profileImage,
-        employee_type: values.employeeType,
-        start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
-        end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
-        face_embedding: finalFaceEmbedding,
-        pay: values.pay ? parseFloat(values.pay) : null,
-      };
+const updateData = {
+  name: values.name,
+  email: isUpdatingEmail && values.newEmail ? values.newEmail : values.email,
+  mobile: values.mobile,
+  department: values.department,
+  role: values.role || 'employee',
+  employee_id: newEmployeeId,
+  isactive: values.isActive,
+  portal_access: values.portal_access !== undefined ? values.portal_access : true, // ADD THIS LINE
+  profileimage: profileImage,
+  employee_type: values.employeeType,
+  start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
+  end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
+  face_embedding: finalFaceEmbedding,
+  pay: values.pay ? parseFloat(values.pay) : null,
+};
 
       // Generate new password when email is updated
       let newPlainPassword = null;
@@ -604,26 +630,25 @@ const handleSubmit = useCallback(async (values) => {
       const newEmployeeId = await generateEmployeeId(values.employeeType);
       const payAmount = values.pay ? parseFloat(values.pay) : null;
 
-      const employeeData = {
-        name: values.name,
-        email: values.email,
-        mobile: values.mobile,
-        department: values.department,
-        employee_id: newEmployeeId,
-        role: 'employee',
-        isactive: values.isActive !== undefined ? values.isActive : false,
-        isfirstlogin: true,
-        profileimage: profileImage,
-        password: encryptedPassword, // Store encrypted password
-        employee_type: values.employeeType,
-        start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
-        end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
-        face_embedding: finalFaceEmbedding,
-        pay: payAmount,
-        // ✅ *** THIS IS THE LINE TO CHANGE *** ✅
-        documents: offerLetter ? JSON.stringify([offerLetter]) : JSON.stringify([]) 
-      };
-
+     const employeeData = {
+  name: values.name,
+  email: values.email,
+  mobile: values.mobile,
+  department: values.department,
+  employee_id: newEmployeeId,
+  role: 'employee',
+  isactive: values.isActive !== undefined ? values.isActive : false,
+  portal_access: values.portal_access !== undefined ? values.portal_access : true, // ADD THIS LINE
+  isfirstlogin: true,
+  profileimage: profileImage,
+  password: encryptedPassword,
+  employee_type: values.employeeType,
+  start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
+  end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
+  face_embedding: finalFaceEmbedding,
+  pay: payAmount,
+  documents: offerLetter ? JSON.stringify([offerLetter]) : JSON.stringify([])
+};
       console.log('Creating employee with data:', employeeData);
 
       const { data, error } = await supabaseAdmin
@@ -945,6 +970,17 @@ const handleSubmit = useCallback(async (values) => {
     min="0"
   />
 </Form.Item>
+<Form.Item
+  name="portal_access"
+  label="Portal Access"
+  valuePropName="checked"
+  extra="Controls whether employee can login to the portal"
+>
+  <Switch 
+    checkedChildren="Granted" 
+    unCheckedChildren="Denied" 
+  />
+</Form.Item>
 
         <Form.Item
   name="employeeType"
@@ -1114,42 +1150,41 @@ const handleSendCredentials = useCallback(async (employee) => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+
   const fetchAllEmployees = useCallback(async () => {
   try {
     const { data, error } = await supabaseAdmin
-  .from('users')
-  .select(`
-    id,
-    name,
-    email,
-    mobile,
-    role,
-    employee_id,
-    isactive,
-    profileimage,
-    employee_type,
-    start_date,
-    end_date,
-    created_at,
-    updated_at,
-    face_embedding,
-    department,
-    pay,
-    payroll(
-      id,
-      basic,
-      hra,
-      gross_earnings,
-      income_tax,
-      pf,
-      total_deductions,
-      net_pay,
-      pay_period,
-      pay_date
-    )
-  `)
-  .eq('role', 'employee')
-  .order('created_at', { ascending: false });
+      .from('users')
+      .select(`
+        id,
+        name,
+        email,
+        mobile,
+        role,
+        employee_id,
+        isactive,
+        portal_access,
+        profileimage,
+        employee_type,
+        start_date,
+        end_date,
+        created_at,
+        updated_at,
+        face_embedding,
+        department,
+        pay,
+        payroll(
+          id,
+          basic,
+          hra,
+          income_tax,
+          pf,
+          pay_period,
+          pay_date
+        )
+      `)
+      .eq('role', 'employee')
+      .order('created_at', { ascending: false });
     
     if (error) {
       console.error('Fetch error:', error);
@@ -1164,7 +1199,6 @@ const handleSendCredentials = useCallback(async (employee) => {
     return [];
   }
 }, []);
-
   const applyFiltersAndPagination = useCallback((employeeList, search = '', page = 1, pageSize = 10, filterOptions = {}) => {
   let filteredEmployees = [...employeeList];
   
@@ -1226,8 +1260,7 @@ if (filterOptions.status && filterOptions.status !== '' && filterOptions.status 
     setLoading(false);
   }
 }, [allEmployees, fetchAllEmployees, applyFiltersAndPagination]);
-
-  const refreshData = useCallback(async () => {
+const refreshData = useCallback(async () => {
   try {
     setLoading(true);
     const employeeList = await fetchAllEmployees();
@@ -1238,6 +1271,27 @@ if (filterOptions.status && filterOptions.status !== '' && filterOptions.status 
     setLoading(false);
   }
 }, [fetchAllEmployees, applyFiltersAndPagination, searchQuery, pagination.pageSize, filters]);
+
+const handleAccessToggle = useCallback(async (employeeId, hasAccess) => {
+  try {
+    setLoading(true);
+    
+    const { error } = await supabaseAdmin
+      .from('users')
+      .update({ portal_access: hasAccess })
+      .eq('id', employeeId);
+
+    if (error) throw error;
+    
+    message.success(`Portal access ${hasAccess ? 'granted' : 'denied'} successfully`);
+    await refreshData();
+  } catch (error) {
+    console.error('Error updating portal access:', error);
+    message.error('Failed to update portal access');
+  } finally {
+    setLoading(false);
+  }
+}, [refreshData]);
 
 useEffect(() => {
   const subscription = supabase
@@ -1485,6 +1539,23 @@ const handleClearFilters = useCallback(() => {
   ),
   responsive: ['md'],
 },
+  {
+    title: 'Portal Access',
+    dataIndex: 'portal_access',
+    key: 'portalAccess',
+    width: 130,
+    render: (portalAccess, record) => (
+      <Switch
+        checked={portalAccess}
+        onChange={(checked) => handleAccessToggle(record.id, checked)}
+        checkedChildren="Granted"
+        unCheckedChildren="Denied"
+        loading={loading}
+        size="small"
+      />
+    ),
+    responsive: ['md'],
+  },
 {
   title: 'Pay',
   dataIndex: ['pay'],
@@ -1495,16 +1566,16 @@ const handleClearFilters = useCallback(() => {
   ),
   responsive: ['lg'],
 },
-    {
-      title: 'Created Date',
-      dataIndex: 'created_at',
-      key: 'createdAt',
-      width: 120,
-      render: (date) => (
-        date ? new Date(date).toLocaleDateString() : 'Unknown'
-      ),
-      responsive: ['xl'],
-    },
+    // {
+    //   title: 'Created Date',
+    //   dataIndex: 'created_at',
+    //   key: 'createdAt',
+    //   width: 120,
+    //   render: (date) => (
+    //     date ? new Date(date).toLocaleDateString() : 'Unknown'
+    //   ),
+    //   responsive: ['xl'],
+    // },
     {
   title: 'Actions',
   key: 'actions',
@@ -1545,7 +1616,7 @@ const handleClearFilters = useCallback(() => {
     </div>
   ),
 },
-  ], [isMobile, handleEdit, handleDelete]);
+  ], [isMobile, handleEdit, handleDelete, handleSendCredentials, handleAccessToggle, loading]);
 
   if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
     return <ErrorPage errorType="403" />;
@@ -1704,6 +1775,7 @@ const handleClearFilters = useCallback(() => {
                       onEdit={handleEdit}
                       onDelete={handleDelete}
                       onSendCredentials={handleSendCredentials}
+                      onAccessToggle={handleAccessToggle}
                       loading={loading}
                     />
                   ))}

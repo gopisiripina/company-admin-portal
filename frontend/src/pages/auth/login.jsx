@@ -165,6 +165,14 @@ const Login = ({ onLoginSuccess }) => {
       
       if (authResult.success) {
         
+        // --- START OF ADDED CODE ---
+        // Check if the user has portal access before proceeding
+        if (authResult.user && authResult.user.portal_access === false) {
+          setError('Your portal access has been denied. Please contact an administrator.');
+          setLoading(false);
+          return; // Stop the login process
+        }
+        // --- END OF ADDED CODE ---
         
         // Check if this is first time login
         if (authResult.isFirstLogin) {
@@ -193,7 +201,6 @@ const Login = ({ onLoginSuccess }) => {
       setLoading(false);
     }
   };
-
   const handleSocialLogin = async (provider) => {
     setLoading(true);
     setError('');
