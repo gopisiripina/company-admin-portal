@@ -337,13 +337,13 @@ const handleOfferLetterUpload = useCallback(async (file) => {
     const filePath = `offer-letters/${fileName}`;
 
     const { data, error } = await supabase.storage
-      .from('profile-images') // Using existing bucket
+      .from('employee-documents') // Using existing bucket
       .upload(filePath, file);
 
     if (error) throw error;
 
     const { data: { publicUrl } } = supabase.storage
-      .from('profile-images')
+      .from('employee-documents')
       .getPublicUrl(filePath);
 
     setOfferLetter(publicUrl);
@@ -521,38 +521,36 @@ const handleSubmit = useCallback(async (values) => {
       }
 
       // Update payroll record
-      if (values.pay) {
-        const currentDate = new Date();
-        const currentMonth = currentDate.toISOString().slice(0, 7) + '-01';
-        const payAmount = parseFloat(values.pay);
-        
-        const { error: payrollError } = await supabaseAdmin
-          .from('payroll')
-          .upsert({
-            user_id: editingEmployee.id,
-            company_name: "My Access",
-            company_address: "Your Company Address",
-            city: "Your City", 
-            employee_name: values.name,
-            employee_id: newEmployeeId,
-            email_address: isUpdatingEmail && values.newEmail ? values.newEmail : values.email,
-            pay_period: currentMonth,
-            pay_date: currentDate.toISOString().slice(0, 10),
-            paid_days: 30,
-            lop_days: 0,
-            basic: payAmount,
-            hra: 0,
-            income_tax: 0,
-            pf: 0
-          }, {
-            onConflict: 'employee_id,pay_period'
-          });
-          
-        if (payrollError) {
-          console.error('Payroll update error:', payrollError);
-          message.warning('Employee updated but payroll update failed');
-        }
-      }
+      // Create payroll record
+if (values.pay && data && data[0]) {
+  const currentDate = new Date();
+  const payrollData = {
+    user_id: data[0].id,
+    company_name: "My Access",
+    company_address: "Your Company Address",
+    city: "Your City",
+    employee_name: values.name,
+    employee_id: newEmployeeId,
+    email_address: values.email,
+    pay_period: currentDate.toISOString().slice(0, 7) + '-01',
+    pay_date: currentDate.toISOString().slice(0, 10),
+    paid_days: 30,
+    lop_days: 0,
+    basic: payAmount,
+    hra: 0,
+    income_tax: 0,
+    pf: 0
+  };
+  
+  const { error: payrollError } = await supabaseAdmin
+    .from('payroll')
+    .insert(payrollData);
+    
+  if (payrollError) {
+    console.error('Payroll creation error:', payrollError);
+    message.warning('Employee created but payroll setup failed');
+  }
+}
       
       // Send email with new credentials if email was updated
       if (newPlainPassword && isUpdatingEmail && values.newEmail && values.newEmail !== currentEmail) {
@@ -613,38 +611,6 @@ const handleSubmit = useCallback(async (values) => {
         console.error('Supabase insert error:', error);
         throw error;
       }
-
-      // Create payroll record
-      if (values.pay && data && data[0]) {
-        const currentDate = new Date();
-        const payrollData = {
-          user_id: data[0].id,
-          company_name: "My Access",
-          company_address: "Your Company Address",
-          city: "Your City",
-          employee_name: values.name,
-          employee_id: newEmployeeId,
-          email_address: values.email,
-          pay_period: currentDate.toISOString().slice(0, 7) + '-01',
-          pay_date: currentDate.toISOString().slice(0, 10),
-          paid_days: 30,
-          lop_days: 0,
-          basic: payAmount,
-          hra: 0,
-          income_tax: 0,
-          pf: 0
-        };
-        
-        const { error: payrollError } = await supabaseAdmin
-          .from('payroll')
-          .insert(payrollData);
-          
-        if (payrollError) {
-          console.error('Payroll creation error:', payrollError);
-          message.warning('Employee created but payroll setup failed');
-        }
-      }
-      
       message.success('Employee created successfully!');
       
       // Send welcome email with plain password
