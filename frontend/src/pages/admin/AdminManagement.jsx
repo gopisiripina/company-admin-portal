@@ -714,7 +714,7 @@ useEffect(() => {
         filter: 'role=eq.admin'
       },
       (payload) => {
-        console.log('Real-time update received:', payload);
+       
         
         if (payload.eventType === 'UPDATE') {
           // Update the specific admin in state

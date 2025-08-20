@@ -261,8 +261,8 @@ const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete, onSendCrede
 ));
 
 // Employee Form Modal Component
-const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSuccess }) => {
-  const [form] = Form.useForm();
+const EmployeeFormModal = React.memo(({ isOpen, onClose, editingEmployee, onSuccess, isMobile }) => {
+    const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [profileImage, setProfileImage] = useState(null);
   const [faceEmbedding, setFaceEmbedding] = useState(null);
@@ -703,344 +703,1764 @@ if (values.pay && data && data[0]) {
   }
 }, [editingEmployee, generatePassword, onSuccess, onClose, form, profileImage, deleteOldProfileImage, faceEmbedding, uploadedFile, isUpdatingEmail, currentEmail,offerLetter]); 
 
-  return (
+ return (
     <Modal
       title={editingEmployee ? 'Edit Employee' : 'Add New Employee'}
       open={isOpen}
       onCancel={onClose}
       footer={null}
       destroyOnHidden
+      width={900}
+      centered
       className="employee-form-modal"
     >
-        {!editingEmployee && !employeeCreationType ? (
-      // Employee Type Selection Screen
-      <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-        <Title level={4} style={{ marginBottom: '24px' }}>Select Employee Type</Title>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          <Button
-            type="primary"
-            size="large"
-            onClick={() => setEmployeeCreationType('new')}
-            style={{ width: '200px', height: '50px', fontSize: '16px' }}
-            className="brand-primary"
-          >
-            New Employee
-          </Button>
-          <Button
-            type="default"
-            size="large"
-            onClick={() => setEmployeeCreationType('existing')}
-            style={{ width: '200px', height: '50px', fontSize: '16px' }}
-          >
-            Existing Employee
-          </Button>
-        </Space>
+  
+
+
+
+{!editingEmployee && !employeeCreationType ? (
+  // Professional Employee Type Selection Screen
+  <div style={{ 
+    padding: '32px',
+    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+    minHeight: '500px',
+    borderRadius: '16px',
+    position: 'relative',
+    overflow: 'hidden'
+  }}>
+    {/* Background Pattern */}
+    <div style={{
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundImage: `radial-gradient(circle at 20% 20%, rgba(31, 72, 66, 0.05) 0%, transparent 50%),
+                       radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.05) 0%, transparent 50%)`,
+      pointerEvents: 'none'
+    }} />
+    
+    <div style={{ position: 'relative', zIndex: 1 }}>
+      {/* Header */}
+      <div style={{ textAlign: 'center', marginBottom: '48px' }}>
+        <div style={{
+          width: '80px',
+          height: '80px',
+          borderRadius: '24px',
+          background: 'linear-gradient(135deg, #1F4842 0%, #2d5a50 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          margin: '0 auto 24px',
+          boxShadow: '0 12px 40px rgba(31, 72, 66, 0.25)',
+          position: 'relative'
+        }}>
+          <UserAddOutlined style={{ fontSize: '32px', color: 'white' }} />
+          <div style={{
+            position: 'absolute',
+            top: '-2px',
+            right: '-2px',
+            width: '20px',
+            height: '20px',
+            borderRadius: '50%',
+            background: '#10b981',
+            border: '3px solid white',
+            animation: 'pulse 2s infinite'
+          }} />
+        </div>
+        <Title level={2} style={{ 
+          marginBottom: '12px', 
+          color: '#0f172a',
+          fontWeight: '700',
+          fontSize: '28px'
+        }}>
+          Create New Employee
+        </Title>
+        <Text style={{ 
+          fontSize: '16px',
+          color: '#475569',
+          fontWeight: '400',
+          lineHeight: '1.6'
+        }}>
+          Choose the appropriate employee category to begin the onboarding process
+        </Text>
+      </div>
+      
+      {/* Selection Cards */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
+        gap: '24px', 
+        marginBottom: '32px',
+        maxWidth: '800px',
+        margin: '0 auto'
+      }}>
+        {/* New Employee Card */}
+        <Card
+          hoverable
+          onClick={() => setEmployeeCreationType('new')}
+          style={{
+            borderRadius: '16px',
+            border: '2px solid #e5e7eb',
+            transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            cursor: 'pointer',
+            overflow: 'hidden',
+            position: 'relative',
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)'
+          }}
+          bodyStyle={{ padding: '28px' }}
+          className="employee-type-card"
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-8px) scale(1.02)';
+            e.currentTarget.style.boxShadow = '0 20px 60px rgba(59, 130, 246, 0.15)';
+            e.currentTarget.style.borderColor = '#3b82f6';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.08)';
+            e.currentTarget.style.borderColor = '#e5e7eb';
+          }}
+        >
+          {/* Card Background Gradient */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: '100px',
+            height: '100px',
+            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, transparent 70%)',
+            borderRadius: '0 16px 0 100px'
+          }} />
+          
+          <div style={{ position: 'relative', zIndex: 1 }}>
+                        <div style={{ 
+              display: 'flex', 
+              flexDirection: isMobile ? 'column' : 'row', // Stack vertically on mobile
+              alignItems: 'flex-start', 
+              gap: '20px' 
+            }}>
+              <div style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '16px',
+                background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 8px 25px rgba(59, 130, 246, 0.15)',
+                position: 'relative'
+              }}>
+                <UserAddOutlined style={{ fontSize: '24px', color: '#1d4ed8' }} />
+                <div style={{
+                  position: 'absolute',
+                  top: '-4px',
+                  right: '-4px',
+                  width: '16px',
+                  height: '16px',
+                  borderRadius: '50%',
+                  background: '#22c55e',
+                  border: '2px solid white'
+                }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <Title level={4} style={{ 
+                  margin: 0, 
+                  marginBottom: '8px', 
+                  color: '#1e293b',
+                  fontWeight: '600',
+                  fontSize: '18px'
+                }}>
+                  New Employee
+                </Title>
+                <Text style={{ 
+                  fontSize: '14px',
+                  color: '#64748b',
+                  lineHeight: '1.5',
+                  display: 'block',
+                  marginBottom: '12px'
+                }}>
+                  Create a comprehensive profile for a fresh team member starting their journey
+                </Text>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <Tag color="blue" style={{ fontSize: '11px', padding: '2px 8px' }}>Full Onboarding</Tag>
+                  <Tag color="green" style={{ fontSize: '11px', padding: '2px 8px' }}>Document Upload</Tag>
+                </div>
+              </div>
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #1F4842 0%, #2d5a50 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'transform 0.3s ease',
+                alignSelf: 'center'
+              }}>
+                <span style={{ color: 'white', fontSize: '16px', fontWeight: 'bold' }}>→</span>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Existing Employee Card */}
+        <Card
+          hoverable
+          onClick={() => setEmployeeCreationType('existing')}
+          style={{
+            borderRadius: '16px',
+            border: '2px solid #e5e7eb',
+            transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            cursor: 'pointer',
+            overflow: 'hidden',
+            position: 'relative',
+            background: 'linear-gradient(135deg, #ffffff 0%, #fefbf3 100%)'
+          }}
+          bodyStyle={{ padding: '28px' }}
+          className="employee-type-card"
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-8px) scale(1.02)';
+            e.currentTarget.style.boxShadow = '0 20px 60px rgba(245, 158, 11, 0.15)';
+            e.currentTarget.style.borderColor = '#f59e0b';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.08)';
+            e.currentTarget.style.borderColor = '#e5e7eb';
+          }}
+        >
+          {/* Card Background Gradient */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: '100px',
+            height: '100px',
+            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, transparent 70%)',
+            borderRadius: '0 16px 0 100px'
+          }} />
+          
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '20px' }}>
+              <div style={{
+                width: '64px',
+                height: '64px',
+                borderRadius: '16px',
+                background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 8px 25px rgba(245, 158, 11, 0.15)',
+                position: 'relative'
+              }}>
+                <TeamOutlined style={{ fontSize: '24px', color: '#d97706' }} />
+                <div style={{
+                  position: 'absolute',
+                  top: '-4px',
+                  right: '-4px',
+                  width: '16px',
+                  height: '16px',
+                  borderRadius: '50%',
+                  background: '#f59e0b',
+                  border: '2px solid white'
+                }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <Title level={4} style={{ 
+                  margin: 0, 
+                  marginBottom: '8px', 
+                  color: '#1e293b',
+                  fontWeight: '600',
+                  fontSize: '18px'
+                }}>
+                  Existing Employee
+                </Title>
+                <Text style={{ 
+                  fontSize: '14px',
+                  color: '#64748b',
+                  lineHeight: '1.5',
+                  display: 'block',
+                  marginBottom: '12px'
+                }}>
+                  Add someone who already has experience and history with the company
+                </Text>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <Tag color="orange" style={{ fontSize: '11px', padding: '2px 8px' }}>Quick Setup</Tag>
+                  <Tag color="purple" style={{ fontSize: '11px', padding: '2px 8px' }}>Experienced</Tag>
+                </div>
+              </div>
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #1F4842 0%, #2d5a50 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'transform 0.3s ease',
+                alignSelf: 'center'
+              }}>
+                <span style={{ color: 'white', fontSize: '16px', fontWeight: 'bold' }}>→</span>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Footer */}
+      <div style={{ textAlign: 'center', marginTop: '40px' }}>
         <Button 
           type="text" 
           onClick={onClose}
-          style={{ marginTop: '20px' }}
+          size="large"
+          style={{ 
+            color: '#64748b',
+            fontSize: '14px',
+            padding: '12px 24px',
+            borderRadius: '10px',
+            fontWeight: '500',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#f1f5f9';
+            e.currentTarget.style.color = '#334155';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent';
+            e.currentTarget.style.color = '#64748b';
+          }}
         >
-          Cancel
+          ← Cancel and Return
         </Button>
       </div>
-    ) : (
+    </div>
+  </div>
+) : (
+  // Professional Form Layout
+  <div style={{ 
+    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+    minHeight: '100%',
+    padding: '0',
+    borderRadius: '16px',
+    margin: '-24px',
+    marginTop: '0',
+    position: 'relative',
+    overflow: 'hidden'
+  }}>
+    {/* Background Elements */}
+    <div style={{
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: '200px',
+      background: 'linear-gradient(90deg, #0D7139 0%, #52c41a 50%, #8ac185 100%)',
+      clipPath: 'polygon(0 0, 100% 0, 100% 70%, 0 100%)'
+    }} />
+    
+    <div style={{ position: 'relative', zIndex: 1, padding: '32px' }}>
+      {/* Enhanced Header Section */}
+      <div style={{ 
+        textAlign: 'center', 
+        marginBottom: '40px',
+        paddingBottom: '32px'
+      }}>
+        <div style={{
+          width: '72px',
+          height: '72px',
+          borderRadius: '20px',
+          background: 'white',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          margin: '0 auto 20px',
+          boxShadow: '0 12px 40px rgba(31, 72, 66, 0.2)',
+          border: '4px solid rgba(255, 255, 255, 0.9)'
+        }}>
+          <UserAddOutlined style={{ fontSize: '32px', color: '#1F4842' }} />
+        </div>
+        <Title level={2} style={{ 
+          marginBottom: '8px', 
+          color: 'white',
+          fontWeight: '700',
+          fontSize: '24px',
+          textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+        }}>
+          {editingEmployee ? 'Update Employee Profile' : 
+           (employeeCreationType === 'new' ? 'New Employee Registration' : 'Existing Employee Setup')}
+        </Title>
+        <Text style={{ 
+          fontSize: '14px',
+          color: 'rgba(226, 230, 231, 0.97)',
+          fontWeight: '400'
+        }}>
+          {editingEmployee ? 'Modify employee information and settings' :
+           (employeeCreationType === 'new' 
+            ? 'Complete onboarding process for new team member'
+            : 'Quick setup for experienced company employee'
+          )}
+        </Text>
+      </div>
+
       <Form
         form={form}
         layout="vertical"
         onFinish={handleSubmit}
         initialValues={{ role: 'employee', isActive: false }}
+        style={{ maxWidth: '100%' }}
       >
-        <Form.Item
-          label="Profile Image"
-          extra="Upload JPG/PNG files, max 2MB"
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <Avatar 
-              size={64} 
-              src={profileImage}
-              style={{ backgroundColor: '#1F4842' }}
-              icon={!profileImage && <UserOutlined />}
-            >
-              {!profileImage && form.getFieldValue('name')?.charAt(0)?.toUpperCase()}
-            </Avatar>
-            <Upload
-              showUploadList={false}
-              beforeUpload={handleImageUpload}
-              accept="image/*"
-            >
-              <Button icon={<UploadOutlined />}>
-                {profileImage ? 'Change Image' : 'Upload Image'}
-              </Button>
-            </Upload>
-            {profileImage && (
-  <Button 
-    type="link" 
-    danger 
-    onClick={async () => {
-      if (profileImage.includes('profile-images')) {
-        await deleteOldProfileImage(profileImage);
-      }
-      setProfileImage(null);
-    }}
-    size="small"
-  >
-    Remove
-  </Button>
-)}
-          </div>
-        </Form.Item>
-{/* ADD THIS AFTER PROFILE IMAGE SECTION */}
-        {!editingEmployee && employeeCreationType === 'existing' && (
-          <Form.Item
-            label="Offer Letter"
-            extra="Upload PDF file, max 5MB"
-            style={{ marginBottom: '24px' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <Upload
-                showUploadList={false}
-                beforeUpload={handleOfferLetterUpload}
-                accept="application/pdf"
-              >
-                <Button icon={<UploadOutlined />}>
-                  {offerLetter ? 'Change Offer Letter' : 'Upload Offer Letter'}
-                </Button>
-              </Upload>
-         {offerLetter && (
-  <>
-    <Button 
-      type="link" 
-      onClick={() => window.open(offerLetter.url, '_blank')} // Changed from offerLetter to offerLetter.url
-      size="small"
-    >
-      View PDF
-    </Button>
-    <Button 
-      type="link" 
-      danger 
-      onClick={() => setOfferLetter(null)}
-      size="small"
-    >
-      Remove
-    </Button>
-  </>
-)}
+        {/* Enhanced Profile Section */}
+        <div style={{
+          background: 'white',
+          padding: '32px',
+          borderRadius: '16px',
+          marginBottom: '24px',
+          border: '1px solid rgba(226, 232, 240, 0.8)',
+          boxShadow: '0 4px 25px rgba(0, 0, 0, 0.08)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          {/* Section Background Pattern */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: '120px',
+            height: '120px',
+            background: 'radial-gradient(circle, rgba(59, 130, 246, 0.05) 0%, transparent 70%)',
+            pointerEvents: 'none'
+          }} />
+          
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              marginBottom: '28px',
+              paddingBottom: '16px',
+              borderBottom: '2px solid #f1f5f9'
+            }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <UserOutlined style={{ fontSize: '18px', color: '#1d4ed8' }} />
+              </div>
+              <Title level={4} style={{ 
+                margin: 0,
+                color: '#1e293b',
+                fontWeight: '600',
+                fontSize: '18px'
+              }}>
+                Profile Information
+              </Title>
             </div>
-          </Form.Item>
+
+            {/* Enhanced Profile Image Upload */}
+            <Form.Item
+              label={
+                <span style={{ 
+                  fontWeight: '600', 
+                  color: '#374151',
+                  fontSize: '14px'
+                }}>
+                  Profile Image
+                </span>
+              }
+              extra={
+                <span style={{ color: '#6b7280', fontSize: '12px' }}>
+                  JPG/PNG files, max 2MB • High quality images improve face recognition accuracy
+                </span>
+              }
+            >
+                         <div style={{ 
+                display: 'flex', 
+                flexDirection: isMobile ? 'column' : 'row', // This is the key change
+                alignItems: 'center', 
+                gap: '24px',
+                padding: '24px',
+                background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                borderRadius: '12px',
+                border: '2px dashed #cbd5e1',
+                transition: 'all 0.3s ease'
+              }}>
+                <div style={{ position: 'relative' }}>
+                  <Avatar 
+                    size={100} 
+                    src={profileImage}
+                    style={{ 
+                      backgroundColor: '#1F4842',
+                      border: '4px solid white',
+                      boxShadow: '0 8px 30px rgba(31, 72, 66, 0.2)'
+                    }}
+                    icon={!profileImage && <UserOutlined />}
+                  >
+                    {!profileImage && form.getFieldValue('name')?.charAt(0)?.toUpperCase()}
+                  </Avatar>
+                  {profileImage && (
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '0',
+                      right: '0',
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '50%',
+                      background: '#22c55e',
+                      border: '3px solid white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <span style={{ color: 'white', fontSize: '12px' }}>✓</span>
+                    </div>
+                  )}
+                </div>
+                <div style={{ flex: 1, width: isMobile ? '100%' : 'auto' }}>
+                  <Upload
+                    showUploadList={false}
+                    beforeUpload={handleImageUpload}
+                    accept="image/*"
+                  >
+                    <Button 
+                      icon={<UploadOutlined />}
+                      style={{
+                        borderRadius: '8px',
+                        marginBottom: '12px',
+                        background: profileImage ? 
+                          'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 
+                          'linear-gradient(135deg, #1F4842 0%, #2d5a50 100%)',
+                        border: 'none',
+                        color: 'white',
+                        fontWeight: '500',
+                        height: '40px',
+                        boxShadow: profileImage ? 
+                          '0 4px 15px rgba(245, 158, 11, 0.3)' :
+                          '0 4px 15px rgba(31, 72, 66, 0.3)'
+                      }}
+                      block
+                    >
+                      {profileImage ? 'Change Profile Image' : 'Upload Profile Image'}
+                    </Button>
+                  </Upload>
+                  {profileImage && (
+                    <Button 
+                      type="link" 
+                      danger 
+                      onClick={async () => {
+                        if (profileImage.includes('profile-images')) {
+                          await deleteOldProfileImage(profileImage);
+                        }
+                        setProfileImage(null);
+                      }}
+                      size="small"
+                      style={{ 
+                        padding: '0', 
+                        height: 'auto',
+                        fontSize: '12px',
+                        fontWeight: '500'
+                      }}
+                    >
+                      🗑️ Remove Image
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </Form.Item>
+
+            <Row gutter={24}>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="name"
+                  label={
+                    <span style={{ 
+                      fontWeight: '600', 
+                      color: '#374151',
+                      fontSize: '14px'
+                    }}>
+                      Full Name
+                    </span>
+                  }
+                  rules={[{ required: true, message: 'Please enter employee name' }]}
+                >
+                  <Input 
+                    placeholder="Enter complete full name"
+                    style={{
+                      borderRadius: '10px',
+                      border: '2px solid #e5e7eb',
+                      padding: '12px 16px',
+                      fontSize: '14px',
+                      transition: 'all 0.3s ease',
+                      background: '#fafafa'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#1F4842';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(31, 72, 66, 0.1)';
+                      e.target.style.background = 'white';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#e5e7eb';
+                      e.target.style.boxShadow = 'none';
+                      e.target.style.background = '#fafafa';
+                    }}
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="mobile"
+                  label={
+                    <span style={{ 
+                      fontWeight: '600', 
+                      color: '#374151',
+                      fontSize: '14px'
+                    }}>
+                      Mobile Number
+                    </span>
+                  }
+                  rules={[
+                    { required: true, message: 'Please enter mobile number' },
+                    { 
+                      pattern: /^[6-9]\d{9}$/, 
+                      message: 'Please enter a valid 10-digit mobile number' 
+                    }
+                  ]}
+                >
+                  <Input 
+                    placeholder="Enter 10-digit mobile number" 
+                    prefix={
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center',
+                        gap: '8px',
+                        paddingRight: '8px',
+                        borderRight: '1px solid #e5e7eb',
+                        marginRight: '8px'
+                      }}>
+                        <span style={{ fontSize: '16px' }}>🇮🇳</span>
+                        <span style={{ color: '#6b7280', fontWeight: '600' }}>+91</span>
+                      </div>
+                    }
+                    maxLength={10}
+                    style={{
+                      borderRadius: '10px',
+                      border: '2px solid #e5e7eb',
+                      padding: '12px 16px',
+                      fontSize: '14px',
+                      transition: 'all 0.3s ease',
+                      background: '#fafafa'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#1F4842';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(31, 72, 66, 0.1)';
+                      e.target.style.background = 'white';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#e5e7eb';
+                      e.target.style.boxShadow = 'none';
+                      e.target.style.background = '#fafafa';
+                    }}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+          </div>
+        </div>
+
+        {/* Enhanced Document Section - Only for existing employees */}
+        {!editingEmployee && employeeCreationType === 'existing' && (
+          <div style={{
+            background: 'white',
+            padding: '32px',
+            borderRadius: '16px',
+            marginBottom: '24px',
+            border: '1px solid rgba(226, 232, 240, 0.8)',
+            boxShadow: '0 4px 25px rgba(0, 0, 0, 0.08)',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            {/* Section Background Pattern */}
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              width: '120px',
+              height: '120px',
+              background: 'radial-gradient(circle, rgba(245, 158, 11, 0.05) 0%, transparent 70%)',
+              pointerEvents: 'none'
+            }} />
+            
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                marginBottom: '28px',
+                paddingBottom: '16px',
+                borderBottom: '2px solid #f1f5f9'
+              }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <UploadOutlined style={{ fontSize: '18px', color: '#d97706' }} />
+                </div>
+                <Title level={4} style={{ 
+                  margin: 0,
+                  color: '#1e293b',
+                  fontWeight: '600',
+                  fontSize: '18px'
+                }}>
+                  Document Upload
+                </Title>
+              </div>
+
+              <Form.Item
+                label={
+                  <span style={{ 
+                    fontWeight: '600', 
+                    color: '#374151',
+                    fontSize: '14px'
+                  }}>
+                    Offer Letter
+                  </span>
+                }
+                extra={
+                  <span style={{ color: '#6b7280', fontSize: '12px' }}>
+                    PDF format only • Maximum 5MB file size
+                  </span>
+                }
+              >
+                <div style={{ 
+                  padding: '28px',
+                  background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                  borderRadius: '12px',
+                  border: '2px dashed #cbd5e1',
+                  textAlign: 'center',
+                  transition: 'all 0.3s ease',
+                  position: 'relative'
+                }}>
+                  {!offerLetter ? (
+                    <div>
+                      <div style={{ marginBottom: '16px' }}>
+                        <div style={{
+                          width: '64px',
+                          height: '64px',
+                          borderRadius: '16px',
+                          background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          margin: '0 auto 16px',
+                          boxShadow: '0 8px 25px rgba(245, 158, 11, 0.15)'
+                        }}>
+                          <UploadOutlined style={{ fontSize: '24px', color: '#d97706' }} />
+                        </div>
+                        <Title level={5} style={{ 
+                          color: '#374151', 
+                          marginBottom: '4px',
+                          fontWeight: '600'
+                        }}>
+                          Upload Offer Letter
+                        </Title>
+                        <Text style={{ color: '#6b7280', fontSize: '13px' }}>
+                          Drag and drop your PDF file here, or click to browse
+                        </Text>
+                      </div>
+                      <Upload
+                        showUploadList={false}
+                        beforeUpload={handleOfferLetterUpload}
+                        accept="application/pdf"
+                      >
+                        <Button 
+                          size="large"
+                          style={{
+                            borderRadius: '10px',
+                            background: 'linear-gradient(135deg, #1F4842 0%, #2d5a50 100%)',
+                            border: 'none',
+                            color: 'white',
+                            fontWeight: '600',
+                            height: '48px',
+                            padding: '0 32px',
+                            boxShadow: '0 4px 15px rgba(31, 72, 66, 0.3)',
+                            transition: 'all 0.3s ease'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.boxShadow = '0 6px 20px rgba(31, 72, 66, 0.4)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = '0 4px 15px rgba(31, 72, 66, 0.3)';
+                          }}
+                        >
+                          📎 Choose PDF File
+                        </Button>
+                      </Upload>
+                    </div>
+                  ) : (
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between',
+                      padding: '20px',
+                      background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+                      borderRadius: '10px',
+                      border: '2px solid #bbf7d0'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        <div style={{
+                          width: '48px',
+                          height: '48px',
+                          borderRadius: '10px',
+                          background: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: '0 4px 15px rgba(220, 38, 38, 0.2)'
+                        }}>
+                          <span style={{ color: 'white', fontSize: '14px', fontWeight: 'bold' }}>PDF</span>
+                        </div>
+                        <div>
+                          <Text style={{ 
+                            fontWeight: '600', 
+                            color: '#065f46',
+                            fontSize: '14px',
+                            display: 'block'
+                          }}>
+                            {offerLetter.name}
+                          </Text>
+                          <Text style={{ 
+                            fontSize: '11px', 
+                            color: '#6b7280',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            📄 {offerLetter.size} • PDF Document
+                          </Text>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        <Button 
+                          type="link" 
+                          size="small"
+                          style={{ 
+                            color: '#1F4842', 
+                            fontWeight: '600',
+                            background: 'rgba(31, 72, 66, 0.1)',
+                            borderRadius: '6px',
+                            padding: '4px 12px'
+                          }}
+                        >
+                          👁️ Preview
+                        </Button>
+                        <Button 
+                          type="link" 
+                          danger 
+                          onClick={() => setOfferLetter(null)}
+                          size="small"
+                          style={{
+                            fontWeight: '600',
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            borderRadius: '6px',
+                            padding: '4px 12px'
+                          }}
+                        >
+                          🗑️ Remove
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Form.Item>
+            </div>
+          </div>
         )}
 
-        <Form.Item
-          name="name"
-          label="Name"
-          rules={[{ required: true, message: 'Please enter employee name' }]}
-        >
-          <Input placeholder="Enter employee name" />
-        </Form.Item>
+        {/* Enhanced Contact & Employment Information */}
+        <div style={{
+          background: 'white',
+          padding: '32px',
+          borderRadius: '16px',
+          marginBottom: '24px',
+          border: '1px solid rgba(226, 232, 240, 0.8)',
+          boxShadow: '0 4px 25px rgba(0, 0, 0, 0.08)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          {/* Section Background Pattern */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: '120px',
+            height: '120px',
+            background: 'radial-gradient(circle, rgba(16, 185, 129, 0.05) 0%, transparent 70%)',
+            pointerEvents: 'none'
+          }} />
+          
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              marginBottom: '28px',
+              paddingBottom: '16px',
+              borderBottom: '2px solid #f1f5f9'
+            }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <MailOutlined style={{ fontSize: '18px', color: '#059669' }} />
+              </div>
+              <Title level={4} style={{ 
+                margin: 0,
+                color: '#1e293b',
+                fontWeight: '600',
+                fontSize: '18px'
+              }}>
+                Contact & Employment Details
+              </Title>
+            </div>
 
-        {/* Email Section - REPLACE THE EXISTING EMAIL FORM ITEM WITH THIS */}
-{editingEmployee && !isUpdatingEmail ? (
-  <Form.Item label="Email">
-    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-      <Input
-        value={editingEmployee.email}
-        disabled
-        style={{ 
-          backgroundColor: '#f5f5f5',
-          color: '#666',
-          flex: 1
-        }}
-      />
-      <Button 
-        type="link"
-        onClick={() => {
-          setIsUpdatingEmail(true);
-          form.setFieldsValue({ newEmail: '' });
-        }}
-        style={{ color: '#1F4842' }}
-      >
-        Update
-      </Button>
-    </div>
-  </Form.Item>
-) : (
-  <>
-    {editingEmployee && isUpdatingEmail && (
-      <Form.Item label="Current Email">
-        <Input
-          value={currentEmail}
-          disabled
-          style={{ 
-            backgroundColor: '#f5f5f5',
-            color: '#666'
-          }}
-        />
-      </Form.Item>
-    )}
-    <Form.Item
-      name={editingEmployee && isUpdatingEmail ? "newEmail" : "email"}
-      label={editingEmployee && isUpdatingEmail ? "New Email" : "Email"}
-      rules={[
-        { required: true, message: 'Please enter email' },
-        { type: 'email', message: 'Please enter valid email' }
-      ]}
-    >
-      <Input placeholder="Enter email address" />
-    </Form.Item>
-    {editingEmployee && isUpdatingEmail && (
-      <Form.Item>
-        <Button 
-          type="link"
-          onClick={() => {
-            setIsUpdatingEmail(false);
-            form.setFieldsValue({ email: currentEmail, newEmail: '' });
-          }}
-          style={{ color: '#666', padding: 0 }}
-        >
-          Cancel Update
-        </Button>
-      </Form.Item>
-    )}
-  </>
-)}
-{/* ADD MOBILE NUMBER FIELD AFTER EMAIL SECTION */}
-<Form.Item
-  name="mobile"
-  label="Mobile Number"
-  rules={[
-    { required: true, message: 'Please enter mobile number' },
-    { 
-      pattern: /^[6-9]\d{9}$/, 
-      message: 'Please enter a valid 10-digit mobile number' 
-    }
-  ]}
->
-  <Input 
-    placeholder="Enter 10-digit mobile number" 
-    prefix="+91"
-    maxLength={10}
-  />
-</Form.Item>
-{/* ADD PAY FIELD AFTER DEPARTMENT FIELD */}
-<Form.Item
-  name="pay"
-  label="Pay/Salary"
-  rules={[
-    { pattern: /^\d+(\.\d{1,2})?$/, message: 'Please enter a valid amount (max 2 decimal places)' }
-  ]}
->
-  <Input 
-    placeholder="Enter salary amount" 
-    prefix="₹"
-    type="number"
-    step="0.01"
-    min="0"
-  />
-</Form.Item>
-<Form.Item
-  name="portal_access"
-  label="Portal Access"
-  valuePropName="checked"
-  extra="Controls whether employee can login to the portal"
->
-  <Switch 
-    checkedChildren="Granted" 
-    unCheckedChildren="Denied" 
-  />
-</Form.Item>
+            {/* Enhanced Email Section */}
+            {editingEmployee && !isUpdatingEmail ? (
+              <Form.Item 
+                label={
+                  <span style={{ 
+                    fontWeight: '600', 
+                    color: '#374151',
+                    fontSize: '14px'
+                  }}>
+                    Email Address
+                  </span>
+                }
+              >
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '16px',
+                  padding: '16px',
+                  background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                  borderRadius: '10px',
+                  border: '2px solid #e2e8f0'
+                }}>
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <MailOutlined style={{ fontSize: '14px', color: '#1d4ed8' }} />
+                  </div>
+                  <Input
+                    value={editingEmployee.email}
+                    disabled
+                    style={{ 
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      color: '#64748b',
+                      flex: 1,
+                      padding: '0',
+                      fontSize: '14px',
+                      fontWeight: '500'
+                    }}
+                  />
+                  <Button 
+                    type="link"
+                    onClick={() => {
+                      setIsUpdatingEmail(true);
+                      form.setFieldsValue({ newEmail: '' });
+                    }}
+                    style={{ 
+                      color: 'white',
+                      fontWeight: '600',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      background: 'linear-gradient(135deg, #1F4842 0%, #2d5a50 100%)',
+                      border: 'none',
+                      fontSize: '12px',
+                      boxShadow: '0 4px 15px rgba(31, 72, 66, 0.2)'
+                    }}
+                  >
+                    🔄 Update Email
+                  </Button>
+                </div>
+              </Form.Item>
+            ) : (
+              <>
+                {editingEmployee && isUpdatingEmail && (
+                  <Form.Item 
+                    label={
+                      <span style={{ 
+                        fontWeight: '600', 
+                        color: '#374151',
+                        fontSize: '14px'
+                      }}>
+                        Current Email
+                      </span>
+                    }
+                  >
+                    <Input
+                      value={currentEmail}
+                      disabled
+                      prefix={
+                        <div style={{
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '6px',
+                          background: '#fef2f2',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          <span style={{ fontSize: '12px' }}>⚠️</span>
+                        </div>
+                      }
+                      style={{ 
+                        backgroundColor: '#fef2f2',
+                        color: '#991b1b',
+                        borderColor: '#fecaca',
+                        borderRadius: '10px',
+                        padding: '12px 16px',
+                        fontWeight: '500'
+                      }}
+                    />
+                  </Form.Item>
+                )}
+                <Form.Item
+                  name={editingEmployee && isUpdatingEmail ? "newEmail" : "email"}
+                  label={
+                    <span style={{ 
+                      fontWeight: '600', 
+                      color: '#374151',
+                      fontSize: '14px'
+                    }}>
+                      {editingEmployee && isUpdatingEmail ? "New Email Address" : "Email Address"}
+                    </span>
+                  }
+                  rules={[
+                    { required: true, message: 'Please enter email' },
+                    { type: 'email', message: 'Please enter valid email' }
+                  ]}
+                >
+                  <Input 
+                    placeholder="Enter professional email address"
+                    prefix={
+                      <div style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '6px',
+                        background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <MailOutlined style={{ fontSize: '12px', color: '#1d4ed8' }} />
+                      </div>
+                    }
+                    style={{
+                      borderRadius: '10px',
+                      border: '2px solid #e5e7eb',
+                      padding: '12px 16px',
+                      fontSize: '14px',
+                      transition: 'all 0.3s ease',
+                      background: '#fafafa'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#1F4842';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(31, 72, 66, 0.1)';
+                      e.target.style.background = 'white';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#e5e7eb';
+                      e.target.style.boxShadow = 'none';
+                      e.target.style.background = '#fafafa';
+                    }}
+                  />
+                </Form.Item>
+                {editingEmployee && isUpdatingEmail && (
+                  <Form.Item>
+                    <Button 
+                      type="link"
+                      onClick={() => {
+                        setIsUpdatingEmail(false);
+                        form.setFieldsValue({ email: currentEmail, newEmail: '' });
+                      }}
+                      style={{ 
+                        color: '#6b7280', 
+                        padding: '0',
+                        fontSize: '13px',
+                        fontWeight: '500'
+                      }}
+                    >
+                      ← Cancel Email Update
+                    </Button>
+                  </Form.Item>
+                )}
+              </>
+            )}
 
-        <Form.Item
-  name="employeeType"
-  label="Employee Type"
-  rules={[{ required: true, message: 'Please select employee type' }]}
->
-  <Select placeholder="Select employee type">
-    <Select.Option value="full-time">Full-time</Select.Option>
-    <Select.Option value="temporary">Temporary</Select.Option>
-    <Select.Option value="internship">Internship</Select.Option>
-  </Select>
-</Form.Item>
+            <Row gutter={24}>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="department"
+                  label={
+                    <span style={{ 
+                      fontWeight: '600', 
+                      color: '#374151',
+                      fontSize: '14px'
+                    }}>
+                      Department
+                    </span>
+                  }
+                  rules={[{ required: true, message: 'Please enter department' }]}
+                >
+                  <Input 
+                    placeholder="e.g., Software Development, Marketing"
+                    prefix={
+                      <div style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '6px',
+                        background: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <TeamOutlined style={{ fontSize: '12px', color: '#7c3aed' }} />
+                      </div>
+                    }
+                    style={{
+                      borderRadius: '10px',
+                      border: '2px solid #e5e7eb',
+                      padding: '12px 16px',
+                      fontSize: '14px',
+                      transition: 'all 0.3s ease',
+                      background: '#fafafa'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#1F4842';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(31, 72, 66, 0.1)';
+                      e.target.style.background = 'white';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#e5e7eb';
+                      e.target.style.boxShadow = 'none';
+                      e.target.style.background = '#fafafa';
+                    }}
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="pay"
+                  label={
+                    <span style={{ 
+                      fontWeight: '600', 
+                      color: '#374151',
+                      fontSize: '14px'
+                    }}>
+                      Monthly Salary
+                    </span>
+                  }
+                  rules={[
+                    { pattern: /^\d+(\.\d{1,2})?$/, message: 'Please enter a valid amount' }
+                  ]}
+                >
+                  <Input 
+                    placeholder="Enter monthly compensation" 
+                    prefix={
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center',
+                        gap: '8px',
+                        paddingRight: '8px',
+                        borderRight: '1px solid #e5e7eb',
+                        marginRight: '8px'
+                      }}>
+                        <div style={{
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '4px',
+                          background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          <span style={{ fontSize: '10px', fontWeight: 'bold' }}>₹</span>
+                        </div>
+                        <span style={{ color: '#6b7280', fontWeight: '600', fontSize: '14px' }}>INR</span>
+                      </div>
+                    }
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    style={{
+                      borderRadius: '10px',
+                      border: '2px solid #e5e7eb',
+                      padding: '12px 16px',
+                      fontSize: '14px',
+                      transition: 'all 0.3s ease',
+                      background: '#fafafa'
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#1F4842';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(31, 72, 66, 0.1)';
+                      e.target.style.background = 'white';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#e5e7eb';
+                      e.target.style.boxShadow = 'none';
+                      e.target.style.background = '#fafafa';
+                    }}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
 
-<Form.Item
-  name="startDate"
-  label="Start Date"
-  rules={[{ required: true, message: 'Please select start date' }]}
->
-  <DatePicker style={{ width: '100%' }} />
-</Form.Item>
+            <Row gutter={24}>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="employeeType"
+                  label={
+                    <span style={{ 
+                      fontWeight: '600', 
+                      color: '#374151',
+                      fontSize: '14px'
+                    }}>
+                      Employment Type
+                    </span>
+                  }
+                  rules={[{ required: true, message: 'Please select employee type' }]}
+                >
+                  <Select 
+                    placeholder="Select employment category"
+                    style={{
+                      borderRadius: '10px'
+                    }}
+                    size="large"
+                    dropdownStyle={{
+                      borderRadius: '12px',
+                      boxShadow: '0 8px 30px rgba(0, 0, 0, 0.12)',
+                      border: '1px solid #e5e7eb'
+                    }}
+                  >
+                    <Select.Option value="full-time">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '4px 0' }}>
+                        <div style={{ 
+                          width: '12px', 
+                          height: '12px', 
+                          borderRadius: '50%', 
+                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                          boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
+                        }} />
+                        <div>
+                          <div style={{ fontWeight: '600', color: '#1e293b' }}>Full-time Employee</div>
+                          
+                        </div>
+                      </div>
+                    </Select.Option>
+                    <Select.Option value="temporary">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '4px 0' }}>
+                        <div style={{ 
+                          width: '12px', 
+                          height: '12px', 
+                          borderRadius: '50%', 
+                          background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                          boxShadow: '0 2px 8px rgba(245, 158, 11, 0.3)'
+                        }} />
+                        <div>
+                          <div style={{ fontWeight: '600', color: '#1e293b' }}>Temporary Employee</div>
+                          
+                        </div>
+                      </div>
+                    </Select.Option>
+                    <Select.Option value="internship">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '4px 0' }}>
+                        <div style={{ 
+                          width: '12px', 
+                          height: '12px', 
+                          borderRadius: '50%', 
+                          background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                          boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)'
+                        }} />
+                        <div>
+                          <div style={{ fontWeight: '600', color: '#1e293b' }}>Internship</div>
+                          
+                        </div>
+                      </div>
+                    </Select.Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="employeeId"
+                  label={
+                    <span style={{ 
+                      fontWeight: '600', 
+                      color: '#374151',
+                      fontSize: '14px'
+                    }}>
+                      Employee ID
+                    </span>
+                  }
+                >
+                  <div style={{
+                    padding: '16px',
+                    background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+                    borderRadius: '10px',
+                    border: '2px solid #bbf7d0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px'
+                  }}>
+                    <div style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '8px',
+                      background: 'linear-gradient(135d, #22c55e 0%, #16a34a 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <span style={{ color: 'white', fontSize: '12px', fontWeight: 'bold' }}>ID</span>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ 
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        color: '#065f46'
+                      }}>
+                        Auto-generated upon creation
+                      </div>
+                      <div style={{ 
+                        fontSize: '11px',
+                        color: '#6b7280'
+                      }}>
+                        Unique identifier will be assigned automatically
+                      </div>
+                    </div>
+                  </div>
+                </Form.Item>
+              </Col>
+            </Row>
+          </div>
+        </div>
 
-<Form.Item
-  shouldUpdate={(prevValues, currentValues) => 
-    prevValues.employeeType !== currentValues.employeeType
-  }
->
-  {({ getFieldValue }) => {
-    const employeeType = getFieldValue('employeeType');
-    const showEndDate = employeeType === 'temporary' || employeeType === 'internship';
-    
-    return showEndDate ? (
-      <Form.Item
-        name="endDate"
-        label="End Date"
-        rules={[
-          { required: true, message: 'Please select end date' },
-          ({ getFieldValue }) => ({
-            validator(_, value) {
-              const startDate = getFieldValue('startDate');
-              if (!value || !startDate) return Promise.resolve();
-              if (value.isAfter(startDate)) return Promise.resolve();
-              return Promise.reject(new Error('End date must be after start date'));
-            },
-          }),
-        ]}
-      >
-        <DatePicker style={{ width: '100%' }} />
-      </Form.Item>
-    ) : null;
-  }}
-</Form.Item>
+        {/* Enhanced Work Schedule Section */}
+        <div style={{
+          background: 'white',
+          padding: '32px',
+          borderRadius: '16px',
+          marginBottom: '24px',
+          border: '1px solid rgba(226, 232, 240, 0.8)',
+          boxShadow: '0 4px 25px rgba(0, 0, 0, 0.08)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          {/* Section Background Pattern */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: '120px',
+            height: '120px',
+            background: 'radial-gradient(circle, rgba(139, 92, 246, 0.05) 0%, transparent 70%)',
+            pointerEvents: 'none'
+          }} />
+          
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              marginBottom: '28px',
+              paddingBottom: '16px',
+              borderBottom: '2px solid #f1f5f9'
+            }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <TeamOutlined style={{ fontSize: '18px', color: '#7c3aed' }} />
+              </div>
+              <Title level={4} style={{ 
+                margin: 0,
+                color: '#1e293b',
+                fontWeight: '600',
+                fontSize: '18px'
+              }}>
+                Work Schedule & Duration
+              </Title>
+            </div>
 
-        <Form.Item
-  name="department"
-  label="Department"
-  rules={[{ required: true, message: 'Please enter department' }]}
->
-  <Input placeholder="Enter department (e.g., Software Engineer)" />
-</Form.Item>
+            <Row gutter={24}>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="startDate"
+                  label={
+                    <span style={{ 
+                      fontWeight: '600', 
+                      color: '#374151',
+                      fontSize: '14px'
+                    }}>
+                      Start Date
+                    </span>
+                  }
+                  rules={[{ required: true, message: 'Please select start date' }]}
+                >
+                  <DatePicker 
+                    placeholder="Select joining date"
+                    style={{ 
+                      width: '100%',
+                      borderRadius: '10px',
+                      border: '2px solid #e5e7eb',
+                      padding: '12px 16px',
+                      background: '#fafafa',
+                      transition: 'all 0.3s ease'
+                    }}
+                    size="large"
+                    onFocus={(e) => {
+                      e.target.style.borderColor = '#1F4842';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(31, 72, 66, 0.1)';
+                      e.target.style.background = 'white';
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#e5e7eb';
+                      e.target.style.boxShadow = 'none';
+                      e.target.style.background = '#fafafa';
+                    }}
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  shouldUpdate={(prevValues, currentValues) => 
+                    prevValues.employeeType !== currentValues.employeeType
+                  }
+                >
+                  {({ getFieldValue }) => {
+                    const employeeType = getFieldValue('employeeType');
+                    const showEndDate = employeeType === 'temporary' || employeeType === 'internship';
+                    
+                    return showEndDate ? (
+                      <Form.Item
+                        name="endDate"
+                        label={
+                          <span style={{ 
+                            fontWeight: '600', 
+                            color: '#374151',
+                            fontSize: '14px'
+                          }}>
+                            End Date
+                          </span>
+                        }
+                        rules={[
+                          { required: true, message: 'Please select end date' },
+                          ({ getFieldValue }) => ({
+                            validator(_, value) {
+                              const startDate = getFieldValue('startDate');
+                              if (!value || !startDate) return Promise.resolve();
+                              if (value.isAfter(startDate)) return Promise.resolve();
+                              return Promise.reject(new Error('End date must be after start date'));
+                            },
+                          }),
+                        ]}
+                      >
+                        <DatePicker 
+                          placeholder="Select contract end date"
+                          style={{ 
+                            width: '100%',
+                            borderRadius: '10px',
+                            border: '2px solid #e5e7eb',
+                            padding: '12px 16px',
+                            background: '#fafafa',
+                            transition: 'all 0.3s ease'
+                          }}
+                          size="large"
+                          onFocus={(e) => {
+                            e.target.style.borderColor = '#1F4842';
+                            e.target.style.boxShadow = '0 0 0 3px rgba(31, 72, 66, 0.1)';
+                            e.target.style.background = 'white';
+                          }}
+                          onBlur={(e) => {
+                            e.target.style.borderColor = '#e5e7eb';
+                            e.target.style.boxShadow = 'none';
+                            e.target.style.background = '#fafafa';
+                          }}
+                        />
+                      </Form.Item>
+                    ) : (
+                      <div style={{ marginTop: '32px' }}>
+                        <div style={{ 
+                          padding: '24px',
+                          background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+                          borderRadius: '12px',
+                          border: '2px solid #bbf7d0',
+                          textAlign: 'center',
+                          position: 'relative'
+                        }}>
+                          <div style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            margin: '0 auto 12px',
+                            boxShadow: '0 4px 15px rgba(34, 197, 94, 0.3)'
+                          }}>
+                            <span style={{ color: 'white', fontSize: '18px' }}>∞</span>
+                          </div>
+                          <Text style={{ 
+                            color: '#065f46', 
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            display: 'block'
+                          }}>
+                            Permanent Position
+                          </Text>
+                          <Text style={{ 
+                            color: '#6b7280', 
+                            fontSize: '12px'
+                          }}>
+                            No end date required for full-time employees
+                          </Text>
+                        </div>
+                      </div>
+                    );
+                  }}
+                </Form.Item>
+              </Col>
+            </Row>
+          </div>
+        </div>
 
-<Form.Item
-  name="employeeId"
-  label="Employee ID"
->
-  <Input 
-    placeholder="Auto-generated on save"
-    disabled
-    style={{ 
-      backgroundColor: '#f5f5f5',
-      color: '#666'
-    }}
-  />
-</Form.Item>
+        {/* Enhanced Access & Permissions Section */}
+        <div style={{
+          background: 'white',
+          padding: '32px',
+          borderRadius: '16px',
+          marginBottom: '32px',
+          border: '1px solid rgba(226, 232, 240, 0.8)',
+          boxShadow: '0 4px 25px rgba(0, 0, 0, 0.08)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          {/* Section Background Pattern */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: '120px',
+            height: '120px',
+            background: 'radial-gradient(circle, rgba(6, 182, 212, 0.05) 0%, transparent 70%)',
+            pointerEvents: 'none'
+          }} />
+          
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              marginBottom: '28px',
+              paddingBottom: '16px',
+              borderBottom: '2px solid #f1f5f9'
+            }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #cffafe 0%, #a5f3fc 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <TeamOutlined style={{ fontSize: '18px', color: '#0891b2' }} />
+              </div>
+              <Title level={4} style={{ 
+                margin: 0,
+                color: '#1e293b',
+                fontWeight: '600',
+                fontSize: '18px'
+              }}>
+                Access & Permissions
+              </Title>
+            </div>
 
+            <Row gutter={24} align="middle">
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="portal_access"
+                  label={
+                    <span style={{ 
+                      fontWeight: '600', 
+                      color: '#374151',
+                      fontSize: '14px'
+                    }}>
+                      Portal Access
+                    </span>
+                  }
+                  valuePropName="checked"
+                  extra={
+                    <span style={{ color: '#6b7280', fontSize: '12px' }}>
+                      Enable or disable employee portal login access
+                    </span>
+                  }
+                >
+                  <div style={{ 
+                    padding: '20px',
+                    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                    borderRadius: '10px',
+                    border: '2px solid #e2e8f0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}>
+                    <Text style={{ fontWeight: '500', color: '#374151' }}>
+                      Login Access Status
+                    </Text>
+                    <Switch 
+                      checkedChildren={
+                        <span style={{ fontSize: '12px', fontWeight: '600' }}>Granted</span>
+                      } 
+                      unCheckedChildren={
+                        <span style={{ fontSize: '12px', fontWeight: '600' }}>Denied</span>
+                      }
+                      style={{
+                        background: form.getFieldValue('portal_access') ? '#1F4842' : '#ef4444'
+                      }}
+                    />
+                  </div>
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12}>
+                <div style={{ 
+                  padding: '20px',
+                  background: 'linear-gradient(135deg, #fefce8 0%, #fef9c3 100%)',
+                  borderRadius: '10px',
+                  border: '2px solid #fde047',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px',
+                  marginTop: '16px'
+                }}>
+                  <div style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #facc15 0%, #eab308 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 15px rgba(250, 204, 21, 0.3)'
+                  }}>
+                    <span style={{ fontSize: '18px' }}>📧</span>
+                  </div>
+                  <Text style={{ 
+                    color: '#a16207', 
+                    fontSize: '13px',
+                    fontWeight: '500'
+                  }}>
+                    Login credentials will be automatically sent to the employee's email address upon creation.
+                  </Text>
+                </div>
+              </Col>
+            </Row>
+          </div>
+        </div>
 
-        <Form.Item>
-          <Space>
-            <Button onClick={onClose}>
-              Cancel
-            </Button>
-            <Button 
-              type="primary" 
-              htmlType="submit" 
-              loading={loading}
-              className="brand-primary"
-            >
-              {editingEmployee ? 'Update' : 'Create'}
-            </Button>
-          </Space>
-        </Form.Item>
+        {/* Enhanced Action Buttons */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'center',
+          gap: '20px',
+          paddingTop: '32px',
+          borderTop: '2px solid #e2e8f0',
+          marginTop: '24px'
+        }}>
+          <Button 
+            onClick={onClose}
+            size="large"
+            style={{
+              borderRadius: '10px',
+              padding: '12px 32px',
+              fontWeight: '600',
+              border: '2px solid #d1d5db',
+              color: '#6b7280',
+              height: '52px',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = '#6b7280';
+              e.currentTarget.style.background = '#f1f5f9';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = '#d1d5db';
+              e.currentTarget.style.background = 'transparent';
+            }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            type="primary" 
+            htmlType="submit" 
+            loading={loading}
+            size="large"
+            style={{
+              borderRadius: '10px',
+              padding: '12px 48px',
+              fontWeight: '600',
+              background: 'linear-gradient(135deg, #1F4842 0%, #2d5a50 100%)',
+              border: 'none',
+              boxShadow: '0 6px 20px rgba(31, 72, 66, 0.3)',
+              height: '52px',
+              transition: 'all 0.3s ease'
+            }}
+             onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 8px 25px rgba(31, 72, 66, 0.4)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 6px 20px rgba(31, 72, 66, 0.3)';
+            }}
+          >
+            {editingEmployee ? 'Update Employee' : 'Create Employee'}
+          </Button>
+        </div>
       </Form>
-    )}
+    </div>
+  </div>
+)}
     </Modal>
-  
   );
 });
 
@@ -1829,11 +3249,12 @@ const handleClearFilters = useCallback(() => {
             </Card>
           )}
 
-          <EmployeeFormModal
+         <EmployeeFormModal
             isOpen={showFormModal}
             onClose={handleFormClose}
             editingEmployee={editingEmployee}
             onSuccess={handleFormSuccess}
+            isMobile={isMobile} // Add this prop
           />
         </div>
       </div>

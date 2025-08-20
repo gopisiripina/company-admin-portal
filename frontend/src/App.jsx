@@ -182,7 +182,7 @@ const AppContent = () => {
     const success = await authService.logout(userData);
     
     if (success) {
-      console.log('Logout successful');
+      
       
       // Clear local state
       setIsLoggedIn(false);
