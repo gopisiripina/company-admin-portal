@@ -96,6 +96,7 @@ async checkSupabaseCredentials(email, password) {
           photoURL: userData.photourl,
           isActive: true,
           employeeId: userData.employee_id,
+           portal_access: userData.portal_access,
           isFirstLogin: userData.isfirstlogin !== undefined ? userData.isfirstlogin : false,
           createdAt: userData.created_at ? new Date(userData.created_at) : new Date(),
           created_at: userData.created_at || userData.createdat || null,
