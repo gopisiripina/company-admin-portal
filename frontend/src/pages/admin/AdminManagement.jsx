@@ -40,6 +40,7 @@ import {
 import { supabase, supabaseAdmin } from '../../supabase/config';
 import './AdminManagement.css';
 import ErrorPage from '../../error/ErrorPage';
+import CryptoJS from 'crypto-js';
 import { Upload, message as antMessage } from 'antd';
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -319,20 +320,22 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
     } else {
       // Create new admin
       const password = generatePassword();
-      
-      const generatedAdminId = await generateAdminId();
-      const adminData = {
-        name: values.name,
-        email: values.email,
-        employee_id: generatedAdminId, // Use generated ID instead of values.adminId
-        role: 'admin',
-        isactive: false,
-        isfirstlogin: true,
-        profileimage: profileImage,
-        password,
-        // created_at: new Date().toISOString(),
-        // updatedat: new Date().toISOString()
-      };
+const ENCRYPTION_KEY = 'My@cCe55!2021'; // Same key as in authService.jsx
+const encryptedPassword = CryptoJS.AES.encrypt(password, ENCRYPTION_KEY).toString();
+const generatedAdminId = await generateAdminId();
+
+const adminData = {
+  name: values.name,
+  email: values.email,
+  employee_id: generatedAdminId,
+  role: 'admin',
+  isactive: false,
+  isfirstlogin: true,
+  profileimage: profileImage,
+  password: encryptedPassword, // ← Use encrypted password
+  // created_at: new Date().toISOString(),
+  // updatedat: new Date().toISOString()
+};
       
       // Use regular supabase instead of supabaseAdmin
       const { data, error } = await supabase

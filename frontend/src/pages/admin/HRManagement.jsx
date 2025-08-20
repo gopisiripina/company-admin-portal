@@ -3,6 +3,7 @@ import { Table, Button, Modal, Form, Input, Space, Popconfirm, Card, Statistic, 
 import { UserAddOutlined, EditOutlined, DeleteOutlined, SearchOutlined, TeamOutlined, MailOutlined, UploadOutlined, UserOutlined } from '@ant-design/icons';
 import { supabase, supabaseAdmin } from '../../supabase/config';
 import './Employee Management.css';
+import CryptoJS from 'crypto-js';
 import { Upload, message as antMessage } from 'antd';
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -243,17 +244,20 @@ const HRFormModal = React.memo(({ isOpen, onClose, editingHR, onSuccess,generate
       } else {
         const password = generatePassword();
         const generatedHRId = await generateHRId();
-        const hrData = {
-          name: values.name,
-          email: values.email,
-          employee_id: generatedHRId,
-          role: 'hr',
-          isactive: values.isActive !== undefined ? values.isActive : false,
-          profileimage: profileImage,
-          password,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
+const ENCRYPTION_KEY = 'My@cCe55!2021'; // Same key as in authService.jsx
+const encryptedPassword = CryptoJS.AES.encrypt(password, ENCRYPTION_KEY).toString();
+
+const hrData = {
+  name: values.name,
+  email: values.email,
+  employee_id: generatedHRId,
+  role: 'hr',
+  isactive: values.isActive !== undefined ? values.isActive : false,
+  profileimage: profileImage,
+  password: encryptedPassword, // ← Use encrypted password
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString()
+};
         
         const { data, error } = await supabaseAdmin
           .from('users')
