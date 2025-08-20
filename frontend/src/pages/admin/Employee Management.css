@@ -43,7 +43,229 @@
 .admin-management-container {
   padding: 24px;
 }
+/* EmployeeForm.css */
 
+/* --- Main Variables --- */
+:root {
+  --primary-color: #1F4842;
+  --primary-color-dark: #1a3d37;
+  --secondary-color: #f59e0b;
+  --background-light: #f8fafc;
+  --border-color: #e2e8f0;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --card-hover-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  --border-radius: 12px;
+  --color-success: #10b981;
+}
+
+/* --- Employee Type Selection Screen --- */
+.employee-creation-container {
+  padding: 24px;
+  background-color: var(--background-light);
+}
+
+.selection-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.header-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  background-color: #e0f2fe;
+  color: var(--primary-color);
+  border-radius: 50%;
+  margin: 0 auto 16px;
+  font-size: 28px;
+}
+
+.header-title {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.header-subtitle {
+  font-size: 16px;
+  color: var(--text-secondary);
+  max-width: 450px;
+  margin: 0 auto;
+}
+
+.selection-cards-wrapper {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.selection-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  transition: all 0.3s ease;
+  box-shadow: var(--card-shadow);
+}
+
+.selection-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--card-hover-shadow);
+  border-color: var(--primary-color);
+}
+
+.selection-card .card-content {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px;
+}
+
+.card-icon-container {
+  flex-shrink: 0;
+  width: 50px;
+  height: 50px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+
+.card-icon-container.new-employee-icon {
+  background-color: #dbeafe;
+  color: #3b82f6;
+}
+
+.card-icon-container.existing-employee-icon {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.card-text-content {
+  flex-grow: 1;
+}
+
+.card-title {
+  margin-bottom: 4px !important;
+  color: var(--text-primary);
+}
+
+.card-description {
+  color: var(--text-secondary);
+  margin-bottom: 0 !important;
+  font-size: 14px;
+}
+
+.card-arrow-icon {
+  font-size: 20px;
+  color: var(--text-secondary);
+  transition: transform 0.3s ease;
+}
+
+.selection-card:hover .card-arrow-icon {
+  transform: translateX(5px);
+  color: var(--primary-color);
+}
+
+.selection-footer {
+  text-align: center;
+  margin-top: 32px;
+}
+
+
+/* --- Employee Form --- */
+.employee-form-container {
+  background-color: #fff;
+  padding: 24px;
+}
+
+.form-header {
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.form-section {
+  background-color: var(--background-light);
+  padding: 24px;
+  border-radius: var(--border-radius);
+  margin-bottom: 24px;
+  border: 1px solid var(--border-color);
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--primary-color);
+  margin-bottom: 24px !important;
+  font-weight: 600;
+}
+
+/* Avatar uploader styles */
+.avatar-uploader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #fff;
+  border-radius: var(--border-radius);
+}
+
+.profile-avatar {
+  border: 4px solid #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  background-color: var(--primary-color);
+}
+
+.access-alert .ant-alert-action {
+  align-self: center;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  padding-top: 24px;
+  margin-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.employee-form .ant-input-number,
+.employee-form .ant-picker,
+.employee-form .ant-select {
+    width: 100%;
+}
+
+/* --- Responsiveness --- */
+@media (min-width: 768px) {
+  .selection-cards-wrapper {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 576px) {
+  .employee-form-container, .employee-creation-container {
+    padding: 16px;
+  }
+
+  .form-section {
+    padding: 16px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions .ant-btn {
+    width: 100%;
+  }
+}
 /* Custom scrollbar */
 .admin-management-wrapper::-webkit-scrollbar {
   height: 8px;
