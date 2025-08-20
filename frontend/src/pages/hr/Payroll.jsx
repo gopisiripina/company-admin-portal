@@ -1,4 +1,3 @@
-  
 import React, { useState, useEffect } from 'react';
 import { 
   Layout, 
@@ -179,40 +178,30 @@ const PayrollManagement = () => {
 
 if (error) throw error;
 
-// Flatten the user data into the payroll records
-// Flatten the user data into the payroll records and structure earnings/deductions properly
-// Flatten the user data into the payroll records and structure earnings/deductions properly
 const enrichedPayrollData = payrollData?.map(record => {
-  // Use payroll data first, fallback to user data
   const employeeName = record.employee_name || record.users?.name || 'N/A';
   const employeeId = record.employee_id || record.users?.employee_id || 'N/A';
   const emailAddress = record.email_address || record.users?.email || 'N/A';
   
-  // Structure earnings data as expected by generatePayslipPDF
   const earningsData = {
     basic: { label: 'Basic', value: Number(record.basic) || 0 },
     hra: { label: 'House Rent Allowance', value: Number(record.hra) || 0 }
   };
   
-  // Structure deductions data as expected by generatePayslipPDF
   const deductionsData = {
     incomeTax: { label: 'Income Tax', value: Number(record.income_tax) || 0 },
     pf: { label: 'Provident Fund', value: Number(record.pf) || 0 }
   };
   
-  // Calculate totals (use database calculated values if available)
   const totalEarnings = Number(record.gross_earnings) || Object.values(earningsData).reduce((sum, item) => sum + (item.value || 0), 0);
   const totalDeductions = Number(record.total_deductions) || Object.values(deductionsData).reduce((sum, item) => sum + (item.value || 0), 0);
   const netPay = Number(record.net_pay) || (totalEarnings - totalDeductions);
 
   return {
-    // Spread original record first
     ...record,
-    // Override with correct employee data
     employee_name: employeeName,
     employee_id: employeeId,
     email_address: emailAddress,
-    // Ensure numeric values are properly converted
     basic: Number(record.basic) || 0,
     hra: Number(record.hra) || 0,
     income_tax: Number(record.income_tax) || 0,
@@ -222,7 +211,6 @@ const enrichedPayrollData = payrollData?.map(record => {
     gross_earnings: totalEarnings,
     total_deductions: totalDeductions,
     net_pay: netPay,
-    // Add the structured data that generatePayslipPDF expects
     earnings_data: earningsData,
     deductions_data: deductionsData,
     total_earnings: totalEarnings
@@ -281,19 +269,14 @@ const enrichedPayrollData = payrollData?.map(record => {
   
   for (const employee of payrollData) {
     try {
-      // Use the same method as individual download - call generatePayslipPDF without returnBlob first
-      // This ensures the employee object gets all the proper data structure
       const pdfBlob = await new Promise((resolve) => {
-        // Create a temporary employee object with proper structure
         const tempEmployee = {
           ...employee,
-          // Ensure all required fields are present
           employee_name: employee.employee_name || employee.users?.name || 'N/A',
           employee_id: employee.employee_id || employee.users?.employee_id || 'N/A',
           email_address: employee.email_address || employee.users?.email || 'N/A'
         };
         
-        // Call generatePayslipPDF with returnBlob = true to get the blob directly
         generatePayslipPDF(tempEmployee, true).then(resolve);
       });
       
@@ -301,7 +284,6 @@ const enrichedPayrollData = payrollData?.map(record => {
       zip.file(fileName, pdfBlob);
     } catch (error) {
       console.error(`Error generating PDF for employee ${employee.employee_name}:`, error);
-      // Continue with other employees even if one fails
     }
   }
   
@@ -500,107 +482,9 @@ const enrichedPayrollData = payrollData?.map(record => ({
     }
   };
 
-  // Professional Dashboard Header with green gradient
-  const renderProfessionalHeader = () => (
-    <div style={{
-  background: 'transparent',
-  padding: '40px 20px',
-  color: '#2d5a4a',
-  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-  borderRadius: '0px',
-}}>
-      <Row gutter={[24, 24]} align="middle">
-        <Col xs={24} md={12}>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
-            <BankOutlined style={{ fontSize: '36px', marginRight: '16px', color: '#0D7139' }} />
-            <div>
-              <Title level={1} style={{ color: '#0D7139', margin: 0, fontSize: 'clamp(24px, 4vw, 32px)' }}>
-  Payroll Management
-</Title>
-<Text style={{ color: 'black', fontSize: '16px' }}>
-  Professional payroll processing made simple
-</Text>
-            </div>
-          </div>
-        </Col>
-        <Col xs={24} md={12}>
-          <Row gutter={16}>
-            <Col xs={8} sm={8}>
-              <div style={{ textAlign: 'center', padding: '16px', background: 'linear-gradient(135deg, #caf0c7ff 0%, #caf0c7ff 100%)',
-border: '1px solid #0D7139', borderRadius: '8px' }}>
-                <TeamOutlined style={{ fontSize: '24px', marginBottom: '8px', color: '#0D7139' }} />
-                <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{stats.totalEmployees}</div>
-                <div style={{ fontSize: '12px', opacity: 0.8 }}>Employees</div>
-              </div>
-            </Col>
-            <Col xs={8} sm={8}>
-              <div style={{ textAlign: 'center', padding: '16px', background: 'linear-gradient(135deg, #caf0c7ff 0%, #caf0c7ff 100%)',
-border: '1px solid #0D7139', borderRadius: '8px' }}>
-                <BankOutlined style={{ fontSize: '24px', marginBottom: '8px', color: '#0D7139' }} />
-                <div style={{ fontSize: '20px', fontWeight: 'bold' }}>₹{stats.totalPayroll.toLocaleString()}</div>
-                <div style={{ fontSize: '12px', opacity: 0.8 }}>Total Payroll</div>
-              </div>
-            </Col>
-            <Col xs={8} sm={8}>
-              <div style={{ textAlign: 'center', padding: '16px', background: 'linear-gradient(135deg, #caf0c7ff 0%, #caf0c7ff 100%)',
-border: '1px solid #0D7139', borderRadius: '8px' }}>
-                <DashboardOutlined style={{ fontSize: '24px', marginBottom: '8px', color: '#0D7139' }} />
-                <div style={{ fontSize: '20px', fontWeight: 'bold' }}>₹{stats.thisMonth.toLocaleString()}</div>
-                <div style={{ fontSize: '12px', opacity: 0.8 }}>This Month</div>
-              </div>
-            </Col>
-          </Row>
-        </Col>
-      </Row>
-    </div>
-  );
-
-  // Professional Action Cards with green accents
-  const renderActionCards = () => (
-    <div style={{ padding: '30px 20px', background: 'transparent', borderBottom: '1px solid #e2e8f0', }}>
-      <Row gutter={[24, 24]}>
-        
-        <Col xs={24} sm={12} lg={6}>
-          <Card 
-            hoverable
-            style={{ 
-              textAlign: 'center', 
-              border: '1px solid #e2e8f0',
-              borderRadius: '12px',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-            }}
-            onClick={() => setBulkDownloadVisible(true)}
-          >
-            <DownloadOutlined style={{ fontSize: '32px', color: '#059669', marginBottom: '12px' }} />
-            <div style={{ fontWeight: '600', fontSize: '16px', marginBottom: '4px' }}>Bulk Download</div>
-            <div style={{ color: '#64748b', fontSize: '14px' }}>Generate all payslips</div>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card 
-            hoverable
-            style={{ 
-              textAlign: 'center', 
-              border: '1px solid #e2e8f0',
-              borderRadius: '12px',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-            }}
-            onClick={() => setEmailOnlyVisible(true)}
-          >
-            <SendOutlined style={{ fontSize: '32px', color: '#065f46', marginBottom: '12px' }} />
-            <div style={{ fontWeight: '600', fontSize: '16px', marginBottom: '4px' }}>Email Only</div>
-            <div style={{ color: '#64748b', fontSize: '14px' }}>Send to all employees</div>
-          </Card>
-        </Col>
-      </Row>
-    </div>
-  );
-
   const generatePayslipPDF = async (employee, returnBlob = false) => {
-  // Debug log to see what data we're getting
   console.log('PDF Generation - Employee data:', employee);
   
-  // Ensure we have the required fields with proper fallbacks
   const employeeData = {
     employee_name: employee.employee_name || employee.users?.name || 'N/A',
     employee_id: employee.employee_id || employee.users?.employee_id || 'N/A', 
@@ -639,10 +523,8 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
   const totalDeductions = employee.total_deductions || Object.values(deductionsData).reduce((sum, item) => sum + (item.value || 0), 0);
   const netPay = employee.net_pay || (totalEarnings - totalDeductions);
 
-  // Function to convert number to words (simplified version)
   const numberToWords = (num) => {
     if (num === 0) return "Zero";
-    // This is a simplified version - you might want to use a proper number-to-words library
     return `${num.toLocaleString('en-IN')} Only`;
   };
     
@@ -658,7 +540,6 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
     
     <div style="max-width: 800px; margin: 0 auto; background-color: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden;">
         
-        <!-- Header -->
         <div style="background-color: white; padding: 20px; border-bottom: 1px solid #e0e0e0;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div style="flex: 1;">
@@ -679,7 +560,6 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
             </div>
         </div>
 
-        <!-- Employee Summary and Net Pay -->
         <div style="display: flex; padding: 20px; gap: 20px;">
             <div style="flex: 1;">
                 <h3 style="margin: 0 0 15px 0; font-size: 14px; color: #666; font-weight: normal;">EMPLOYEE SUMMARY</h3>
@@ -705,7 +585,6 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
                 </div>
             </div>
             
-            <!-- Net Pay Box -->
             <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; min-width: 200px; overflow: hidden;">
                 <div style="padding: 20px; position: relative;">
                     <div style="position: absolute; top: 0; left: 0; right: 0; height: 85px; background-color: #e8f5e8;"></div>
@@ -730,7 +609,6 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
             </div>
         </div>
 
-        <!-- Employee Details -->
         <div style="display: flex; padding: 0 20px 20px 20px; gap: 40px;">
             <div style="flex: 1;">
                 <div style="margin-bottom: 12px;">
@@ -777,10 +655,8 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
             </div>
         </div>
 
-        <!-- Earnings and Deductions Table -->
         <div style="margin: 20px; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; background-color: white;">
             <div style="display: flex;">
-                <!-- Earnings -->
                 <div style="flex: 1; padding: 20px;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px dotted #ddd;">
                         <span style="font-size: 14px; font-weight: bold; color: #333;">EARNINGS</span>
@@ -804,7 +680,6 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
                     </div>
                 </div>
 
-                <!-- Deductions -->
                 <div style="flex: 1; padding: 20px; border-left: 1px solid #e0e0e0;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px dotted #ddd;">
                         <span style="font-size: 14px; font-weight: bold; color: #333;">DEDUCTIONS</span>
@@ -830,7 +705,6 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
             </div>
         </div>
 
-        <!-- Total Net Payable -->
         <div style="margin: 20px; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; background-color: white;">
             <div style="padding: 20px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -845,7 +719,6 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
             </div>
         </div>
         
-        <!-- Amount in Words -->
         <div style="margin: 0 20px 20px 20px; text-align: center;">
             <div style="font-size: 12px; color: #666;">Amount In Words : Indian Rupee ${numberToWords(netPay)}</div>
         </div>
@@ -892,11 +765,10 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
         }).catch(error => {
           document.body.removeChild(tempDiv);
           console.error('Error generating PDF:', error);
-          resolve(new Blob()); // Return empty blob on error
+          resolve(new Blob());
         });
       });
     } else {
-      // For email sending, we also need blob
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = htmlContent;
       tempDiv.style.position = 'absolute';
@@ -927,7 +799,6 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
           
           pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
           
-          // For print dialog
           const printWindow = window.open('', '_blank');
           printWindow.document.write(htmlContent);
           printWindow.document.close();
@@ -938,7 +809,6 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
             };
           };
           
-          // Return blob for email
           const blob = pdf.output('blob');
           resolve(blob);
         });
@@ -976,11 +846,9 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
 
       if (data && data[0]) {
         if (submitAction === 'pdf') {
-          // Generate and show PDF
           await generatePayslipPDF(data[0]);
           message.success('Employee added and PDF generated successfully!');
         } else if (submitAction === 'email') {
-          // Generate PDF blob and send email
           const pdfBlob = await generatePayslipPDF(data[0], true);
           await sendPayslipEmail(data[0], pdfBlob);
           message.success('Employee added and email sent successfully!');
@@ -997,13 +865,12 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
       message.error('Error: ' + error.message);
     } finally {
       setLoading(false);
-      setSubmitAction('save'); // Reset action
+      setSubmitAction('save');
     }
   };
 
   const getMergedEmployeeData = () => {
     return users.map(user => {
-      // Find the latest payroll record for this user
       const latestPayroll = employees
         .filter(emp => emp.user_id === user.id)
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
@@ -1018,264 +885,285 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
     });
   };
 
+  // NEW: Professional Dashboard Component
   const renderDashboard = () => (
-    <>
-      {renderProfessionalHeader()}
-<div style={{ marginTop: '24px' }}>
-  {renderActionCards()}
-</div>
-      
-     <div style={{ padding: '30px 20px', background: 'transparent', minHeight: 'calc(100vh - 300px)' }}>
-        <style>
-          {`.ant-input:hover,
-.ant-input:focus,
-.ant-input-focused {
-  border-color: #0D7139 !important;
-}
+    <div style={{ background: '#f7fafc', minHeight: '100vh', padding: '24px' }}>
+      <style>
+        {`
+          .ant-btn-primary { background: #10b981; border-color: #10b981; }
+          .ant-btn-primary:hover { background: #059669; border-color: #059669; }
+          .ant-table-thead > tr > th { background: #f8f9fa !important; color: #475569; font-weight: 600; }
+          .ant-table-tbody > tr > td { border-bottom: 1px solid #e2e8f0; }
+          .ant-table-tbody > tr:hover > td { background: #f8f9fa; }
+          .ant-card { border: 1px solid #e2e8f0; }
+          .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+          }
+          .stat-card:hover {
+             transform: translateY(-5px);
+             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+          }
+        `}
+      </style>
 
-.ant-input:focus,
-.ant-input-focused {
-  box-shadow: 0 0 0 2px rgba(13, 113, 57, 0.2) !important;
-}
-
-.ant-select:hover .ant-select-selector,
-.ant-select-focused .ant-select-selector,
-.ant-select-selector:focus {
-  border-color: #0D7139 !important;
-}
-
-.ant-select-focused .ant-select-selector {
-  box-shadow: 0 0 0 2px rgba(13, 113, 57, 0.2) !important;
-}
-
-.ant-input-number:hover,
-.ant-input-number:focus,
-.ant-input-number-focused {
-  border-color: #0D7139 !important;
-}
-
-.ant-input-number:focus,
-.ant-input-number-focused {
-  box-shadow: 0 0 0 2px rgba(13, 113, 57, 0.2) !important;
-
-  
-}`}
-        </style>
-        {employees.length === 0 ? (
-          <Card style={{ 
-            textAlign: 'center', 
-            padding: '60px 20px',
-            border: '2px dashed #e2e8f0',
-            borderRadius: '12px',
-            background: '#fafbfc'
-          }}>
-            <TeamOutlined style={{ fontSize: '64px', color: '#cbd5e1', marginBottom: '24px' }} />
-            <Title level={2} style={{ color: '#475569', marginBottom: '16px', fontSize: 'clamp(20px, 3vw, 28px)' }}>
-              No Employees Added Yet
+      {/* Header */}
+      <div style={{ marginBottom: '24px' }}>
+        <Row gutter={[24, 24]} align="middle">
+          <Col flex="auto">
+            <Title level={2} style={{ margin: 0, color: '#1e293b' }}>
+              Payroll Dashboard
             </Title>
-            <Text style={{ color: '#64748b', fontSize: '16px', marginBottom: '32px', display: 'block' }}>
-              Get started by adding your first employee to the payroll system.
+            <Text type="secondary" style={{ fontSize: '16px' }}>
+              Manage your employee payroll efficiently.
             </Text>
-            <Button 
-              type="primary" 
-              size="large" 
-              icon={<PlusOutlined />}
-              onClick={() => setCurrentView('addEmployee')}
-              style={{ 
-                background: '#10b981', 
-                borderColor: '#10b981',
-                height: '48px',
-                fontSize: '16px',
+          </Col>
+        </Row>
+      </div>
+
+      {/* Stats Cards */}
+      <Row gutter={[24, 24]} style={{ marginBottom: '24px' }}>
+        <Col xs={24} sm={8}>
+          <div className="stat-card">
+            <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }}>
+              <div style={{ 
+                background: '#e6f7ff', 
+                color: '#1890ff',
+                padding: '12px',
                 borderRadius: '8px',
-                paddingLeft: '32px',
-                paddingRight: '32px'
-              }}
-            >
-              Add First Employee
-            </Button>
-          </Card>
-        ) : (
-          <Card style={{ borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-            <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-              <Title level={3} style={{ margin: 0, color: '#1e293b' }}>Employee Payroll Records</Title>
-              <Space wrap>
-                <Button icon={<DownloadOutlined />} style={{ borderRadius: '6px' }}>
-                  Export CSV
-                </Button>
-                <Button 
-                  type="primary" 
-                  icon={<PlusOutlined />} 
-                  onClick={() => setCurrentView('addEmployee')} 
-                  style={{ 
-                    borderRadius: '6px',
-                    background: '#10b981',
-                    borderColor: '#10b981'
-                  }}
-                >
-                  Add Employee
-                </Button>
-              </Space>
-            </div>
-            <Table
-              dataSource={getMergedEmployeeData()}
-              rowKey="id"
-              loading={loading}
-              scroll={{ x: 800 }}
-              pagination={{
-                pageSize: 10,
-                showSizeChanger: true,
-                showQuickJumper: true,
-               showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} employees`,
-                 itemRender: (current, type, originalElement) => {
-    if (type === 'page') {
-      return (
-        <a style={{ 
-          color: '#000000d9', 
-          backgroundColor: 'white',
-          border: '1px solid #d9d9d9'
+                fontSize: '24px'
+              }}>
+                <TeamOutlined />
+              </div>
+              <div>
+                <Text type="secondary">Total Employees</Text>
+                <Title level={3} style={{ margin: 0 }}>{stats.totalEmployees}</Title>
+              </div>
+            </Space>
+          </div>
+        </Col>
+        <Col xs={24} sm={8}>
+          <div className="stat-card">
+            <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }}>
+              <div style={{ 
+                background: '#fffbe6', 
+                color: '#faad14',
+                padding: '12px',
+                borderRadius: '8px',
+                fontSize: '24px'
+              }}>
+                <BankOutlined />
+              </div>
+              <div>
+                <Text type="secondary">Total Payroll</Text>
+                <Title level={3} style={{ margin: 0 }}>₹{stats.totalPayroll.toLocaleString()}</Title>
+              </div>
+            </Space>
+          </div>
+        </Col>
+        <Col xs={24} sm={8}>
+          <div className="stat-card">
+            <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }}>
+              <div style={{ 
+                background: '#f6ffed', 
+                color: '#52c41a',
+                padding: '12px',
+                borderRadius: '8px',
+                fontSize: '24px'
+              }}>
+                <DashboardOutlined />
+              </div>
+              <div>
+                <Text type="secondary">This Month's Payroll</Text>
+                <Title level={3} style={{ margin: 0 }}>₹{stats.thisMonth.toLocaleString()}</Title>
+              </div>
+            </Space>
+          </div>
+        </Col>
+      </Row>
+
+      {/* Main Content */}
+      {employees.length === 0 ? (
+        <Card style={{ 
+          textAlign: 'center', 
+          padding: '60px 20px',
+          border: '2px dashed #e2e8f0',
+          borderRadius: '12px',
+          background: '#fafbfc'
         }}>
-          {current}
-        </a>
-      );
-    }
-    return originalElement;
-  }   
-              }}
-              columns={[
-                {
-                  title: 'Employee',
-                  key: 'employee',
-                  render: (_, record) => (
-                    <div>
-                      <div style={{ fontWeight: '600', color: '#1e293b' }}>{record.name}</div>
-                      <div style={{ fontSize: '12px', color: '#64748b' }}>ID: {record.employee_id}</div>
-                    </div>
-                  ),
-                  responsive: ['xs', 'sm', 'md', 'lg']
-                },
-                {
-                  title: 'Email',
-                  dataIndex: 'email',
-                  key: 'email',
-                  responsive: ['sm', 'md', 'lg']
-                },
-                {
-                  title: 'Role',
-                  dataIndex: 'role',
-                  key: 'role',
-                  render: (role) => (
-                    <span style={{ 
-                      padding: '4px 8px', 
-                      borderRadius: '4px', 
-                      background: role === 'hr' ? '#e6f7ff' : '#f0f9f4',
-                      color: role === 'hr' ? '#1890ff' : '#059669',
-                      fontSize: '12px',
-                      fontWeight: '500'
-                    }}>
-                      {role.toUpperCase()}
-                    </span>
-                  ),
-                  responsive: ['md', 'lg']
-                },
-                {
-                  title: 'Pay Period',
-                  dataIndex: 'pay_period',
-                  key: 'pay_period',
-                  render: (date) => dayjs(date).format('MMM YYYY'),
-                  responsive: ['md', 'lg']
-                },
-                {
-                  title: 'Net Pay',
-                  dataIndex: 'net_pay',
-                  key: 'net_pay',
-                  render: (amount) => (
-                    <span style={{ fontWeight: '600', color: '#059669' }}>
-                      ₹{amount?.toLocaleString() || 0}
-                    </span>
-                  ),
-                  responsive: ['xs', 'sm', 'md', 'lg']
-                },
-                {
-                  title: 'Actions',
-                  key: 'actions',
-                  render: (_, record) => (
-                    <Space wrap>
+          <TeamOutlined style={{ fontSize: '64px', color: '#cbd5e1', marginBottom: '24px' }} />
+          <Title level={2} style={{ color: '#475569', marginBottom: '16px' }}>
+            No Payroll Records Found
+          </Title>
+          <Text style={{ color: '#64748b', fontSize: '16px', marginBottom: '32px', display: 'block' }}>
+            Get started by adding your first employee to the payroll system.
+          </Text>
+          <Button 
+            type="primary" 
+            size="large" 
+            icon={<PlusOutlined />}
+            onClick={() => setCurrentView('addEmployee')}
+          >
+            Add First Employee
+          </Button>
+        </Card>
+      ) : (
+        <Card style={{ borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
+          <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+            <Title level={4} style={{ margin: 0, color: '#1e293b' }}>Employee Records</Title>
+            <Space wrap>
+              <Button icon={<DownloadOutlined />} onClick={() => setBulkDownloadVisible(true)}>
+                Bulk Download
+              </Button>
+              <Button icon={<SendOutlined />} onClick={() => setEmailOnlyVisible(true)}>
+                Email All
+              </Button>
+              <Button 
+                type="primary" 
+                icon={<PlusOutlined />} 
+                onClick={() => setCurrentView('addEmployee')} 
+              >
+                Add Payroll
+              </Button>
+            </Space>
+          </div>
+          <Table
+            dataSource={getMergedEmployeeData()}
+            rowKey="id"
+            loading={loading}
+            scroll={{ x: 800 }}
+            pagination={{
+              pageSize: 10,
+              showSizeChanger: true,
+              showQuickJumper: true,
+              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} employees`,
+            }}
+            columns={[
+              {
+                title: 'Employee',
+                key: 'employee',
+                render: (_, record) => (
+                  <div>
+                    <div style={{ fontWeight: '600', color: '#1e293b' }}>{record.name}</div>
+                    <div style={{ fontSize: '12px', color: '#64748b' }}>ID: {record.employee_id}</div>
+                  </div>
+                ),
+              },
+              {
+                title: 'Email',
+                dataIndex: 'email',
+                key: 'email',
+                responsive: ['sm'],
+              },
+              {
+                title: 'Role',
+                dataIndex: 'role',
+                key: 'role',
+                render: (role) => (
+                  <span style={{ 
+                    padding: '4px 8px', 
+                    borderRadius: '4px', 
+                    background: role === 'hr' ? '#e6f7ff' : '#f0f9f4',
+                    color: role === 'hr' ? '#1890ff' : '#059669',
+                    fontSize: '12px',
+                    fontWeight: '500'
+                  }}>
+                    {role.toUpperCase()}
+                  </span>
+                ),
+                responsive: ['md'],
+              },
+              {
+                title: 'Last Pay Period',
+                dataIndex: 'pay_period',
+                key: 'pay_period',
+                render: (date) => date ? dayjs(date).format('MMM YYYY') : 'N/A',
+                responsive: ['lg'],
+              },
+              {
+                title: 'Last Net Pay',
+                dataIndex: 'net_pay',
+                key: 'net_pay',
+                render: (amount) => (
+                  <span style={{ fontWeight: '600', color: '#059669' }}>
+                    ₹{amount?.toLocaleString() || 0}
+                  </span>
+                ),
+              },
+              {
+                title: 'Actions',
+                key: 'actions',
+                align: 'right',
+                render: (_, record) => (
+                  <Space>
+                    <Button 
+                      size="small"
+                      icon={<PlusOutlined />}
+                      onClick={() => {
+                        const latestPayroll = employees
+                          .filter(emp => emp.user_id === record.id)
+                          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+                        
+                        const formValues = {
+                          userId: record.id,
+                          employeeName: record.name,
+                          employeeId: record.employee_id,
+                          emailAddress: record.email,
+                          payPeriod: dayjs(),
+                          payDate: dayjs(),
+                        };
+                        
+                        if (latestPayroll) {
+                          formValues.companyName = latestPayroll.company_name;
+                          formValues.companyAddress = latestPayroll.company_address;
+                          formValues.city = latestPayroll.city;
+                          formValues.country = latestPayroll.country;
+                          formValues.paidDays = latestPayroll.paid_days;
+                          formValues.lopDays = latestPayroll.lop_days;
+                          formValues.basic = latestPayroll.basic;
+                          formValues.hra = latestPayroll.hra;
+                          formValues.incomeTax = latestPayroll.income_tax;
+                          formValues.pf = latestPayroll.pf;
+                        }
+                        
+                        form.setFieldsValue(formValues);
+                        setCurrentView('addEmployee');
+                      }}
+                      type="primary"
+                    >
+                      Run Payroll
+                    </Button>
+                    {record.hasPayroll && (
                       <Button 
-                        type="primary" 
                         size="small"
-                        icon={<PlusOutlined />}
+                        icon={<FilePdfOutlined />}
                         onClick={() => {
-    // Find the latest payroll record for this user
-    const latestPayroll = employees
-      .filter(emp => emp.user_id === record.id)
-      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
-    
-    // Set form values with existing payroll data if available
-    const formValues = {
-      userId: record.id,
-      employeeName: record.name,
-      employeeId: record.employee_id,
-      emailAddress: record.email,
-      // Reset pay period and pay date to current defaults
-      payPeriod: dayjs(),
-      payDate: dayjs(),
-    };
-    
-    // If payroll data exists, populate other fields
-    if (latestPayroll) {
-      formValues.companyName = latestPayroll.company_name;
-      formValues.companyAddress = latestPayroll.company_address;
-      formValues.city = latestPayroll.city;
-      formValues.country = latestPayroll.country;
-      formValues.paidDays = latestPayroll.paid_days;
-      formValues.lopDays = latestPayroll.lop_days;
-      formValues.basic = latestPayroll.basic;
-      formValues.hra = latestPayroll.hra;
-      formValues.incomeTax = latestPayroll.income_tax;
-      formValues.pf = latestPayroll.pf;
-    }
-    
-    form.setFieldsValue(formValues);
-    setCurrentView('addEmployee');
-  }}  
-                        style={{ 
-                          borderRadius: '6px',
-                          background: '#10b981',
-                          borderColor: '#10b981'
+                          const latestPayroll = employees
+                            .filter(emp => emp.user_id === record.id)
+                            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+                          if (latestPayroll) {
+                            generatePayslipPDF(latestPayroll);
+                          }
                         }}
                       >
-                        Create Payroll
+                        Payslip
                       </Button>
-                      {record.hasPayroll && (
-                        <Button 
-                          size="small"
-                          icon={<FilePdfOutlined />}
-                          onClick={() => {
-                            const latestPayroll = employees
-                              .filter(emp => emp.user_id === record.id)
-                              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
-                            if (latestPayroll) {
-                              generatePayslipPDF(latestPayroll);
-                            }
-                          }}
-                          style={{ borderRadius: '6px' }}
-                        >
-                          PDF
-                        </Button>
-                      )}
-                    </Space>
-                  ),
-                  responsive: ['xs', 'sm', 'md', 'lg']
-                },
-              ]}
-            />
-          </Card>
-        )}
-      </div>
-    </>
+                    )}
+                  </Space>
+                ),
+              },
+            ]}
+          />
+        </Card>
+      )}
+    </div>
   );
 
-  if (!users || users.length === 0) {
+  if (!users) {
     return (
       <div style={{ padding: '50px', textAlign: 'center' }}>
         <Spin size="large" />
@@ -1302,7 +1190,7 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
             onClick={() => setCurrentView('dashboard')}
             style={{ color: 'white', marginRight: '20px', fontSize: '16px' }}
           >
-            Back to Employees
+            Back to Dashboard
           </Button>
         </div>
       </div>
@@ -1310,7 +1198,7 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
       <div style={{ padding: '30px 50px', background: '#f5f5f5', minHeight: 'calc(100vh - 120px)' }}>
         <div style={{ marginBottom: '30px' }}>
           <Title level={2} style={{ color: '#262626', marginBottom: '8px' }}>
-            Add New Employee
+            Create New Payroll
           </Title>
           <Text style={{ color: '#8c8c8c', fontSize: '16px' }}>
             Create professional payslips for your employees with ease.
@@ -1791,10 +1679,7 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
                     style={{ 
                       width: '100px',
                       height: '45px',
-                      fontSize: '16px',
-                      background: '#8c8c8c',
-                      borderColor: '#8c8c8c',
-                      color: 'white'
+                      fontSize: '16px'
                     }}
                     onClick={() => form.resetFields()}
                   >
@@ -1809,11 +1694,11 @@ border: '1px solid #0D7139', borderRadius: '8px' }}>
     );
 
     return (
-      <Layout style={{ minHeight: '100vh' }}>
+      <Layout style={{ minHeight: '100vh', background: '#f7fafc' }}>
         <Content>
           {currentView === 'dashboard' ? renderDashboard() : renderAddEmployee()}
         </Content>
-        {/* ADD THE MODAL HERE - RIGHT AFTER </Content> AND BEFORE </Layout> */}
+        
     <Modal
       title="Bulk Download Payslips"
       open={bulkDownloadVisible}
