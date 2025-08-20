@@ -567,38 +567,36 @@ const updateData = {
       }
 
       // Update payroll record
-      if (values.pay) {
-        const currentDate = new Date();
-        const currentMonth = currentDate.toISOString().slice(0, 7) + '-01';
-        const payAmount = parseFloat(values.pay);
-        
-        const { error: payrollError } = await supabaseAdmin
-          .from('payroll')
-          .upsert({
-            user_id: editingEmployee.id,
-            company_name: "My Access",
-            company_address: "Your Company Address",
-            city: "Your City", 
-            employee_name: values.name,
-            employee_id: newEmployeeId,
-            email_address: isUpdatingEmail && values.newEmail ? values.newEmail : values.email,
-            pay_period: currentMonth,
-            pay_date: currentDate.toISOString().slice(0, 10),
-            paid_days: 30,
-            lop_days: 0,
-            basic: payAmount,
-            hra: 0,
-            income_tax: 0,
-            pf: 0
-          }, {
-            onConflict: 'employee_id,pay_period'
-          });
-          
-        if (payrollError) {
-          console.error('Payroll update error:', payrollError);
-          message.warning('Employee updated but payroll update failed');
-        }
-      }
+      // Create payroll record
+if (values.pay && data && data[0]) {
+  const payAmount = parseFloat(values.pay);
+  const currentDate = new Date();
+  
+  // Create basic earnings array with user's pay
+  const earningsArray = [
+    { type: `earning_${Date.now()}`, label: "Basic", amount: payAmount }
+  ];
+  
+  const payrollData = {
+    user_id: data[0].id,
+    company_name: "My Access",
+    company_address: "Your Company Address", 
+    city: "Your City",
+    employee_name: values.name,
+    employee_id: newEmployeeId,
+    email_address: values.email,
+    pay_period: currentDate.toISOString().slice(0, 7) + '-01',
+    pay_date: currentDate.toISOString().slice(0, 10),
+    paid_days: 30,
+    lop_days: 0,
+    earnings: earningsArray,  // Use new JSONB structure
+    deductions: []            // Empty deductions array
+  };
+  
+  const { error: payrollError } = await supabaseAdmin
+    .from('payroll')
+    .insert(payrollData);
+}
       
       // Send email with new credentials if email was updated
       if (newPlainPassword && isUpdatingEmail && values.newEmail && values.newEmail !== currentEmail) {
@@ -660,38 +658,6 @@ const updateData = {
         console.error('Supabase insert error:', error);
         throw error;
       }
-
-      // Create payroll record
-      if (values.pay && data && data[0]) {
-        const currentDate = new Date();
-        const payrollData = {
-          user_id: data[0].id,
-          company_name: "My Access",
-          company_address: "Your Company Address",
-          city: "Your City",
-          employee_name: values.name,
-          employee_id: newEmployeeId,
-          email_address: values.email,
-          pay_period: currentDate.toISOString().slice(0, 7) + '-01',
-          pay_date: currentDate.toISOString().slice(0, 10),
-          paid_days: 30,
-          lop_days: 0,
-          basic: payAmount,
-          hra: 0,
-          income_tax: 0,
-          pf: 0
-        };
-        
-        const { error: payrollError } = await supabaseAdmin
-          .from('payroll')
-          .insert(payrollData);
-          
-        if (payrollError) {
-          console.error('Payroll creation error:', payrollError);
-          message.warning('Employee created but payroll setup failed');
-        }
-      }
-      
       message.success('Employee created successfully!');
       
       // Send welcome email with plain password
@@ -1154,37 +1120,37 @@ const handleSendCredentials = useCallback(async (employee) => {
   const fetchAllEmployees = useCallback(async () => {
   try {
     const { data, error } = await supabaseAdmin
-      .from('users')
-      .select(`
-        id,
-        name,
-        email,
-        mobile,
-        role,
-        employee_id,
-        isactive,
-        portal_access,
-        profileimage,
-        employee_type,
-        start_date,
-        end_date,
-        created_at,
-        updated_at,
-        face_embedding,
-        department,
-        pay,
-        payroll(
-          id,
-          basic,
-          hra,
-          income_tax,
-          pf,
-          pay_period,
-          pay_date
-        )
-      `)
-      .eq('role', 'employee')
-      .order('created_at', { ascending: false });
+  .from('users')
+  .select(`
+    id,
+    name,
+    email,
+    mobile,
+    role,
+    employee_id,
+    isactive,
+    profileimage,
+    employee_type,
+    start_date,
+    end_date,
+    created_at,
+    updated_at,
+    face_embedding,
+    department,
+    pay,
+    payroll(
+      id,
+      basic,
+      hra,
+      income_tax,
+      earnings,
+      pf,
+      pay_period,
+      pay_date
+    )
+  `)
+  .eq('role', 'employee')
+  .order('created_at', { ascending: false });
     
     if (error) {
       console.error('Fetch error:', error);
@@ -1558,13 +1524,36 @@ const handleClearFilters = useCallback(() => {
   },
 {
   title: 'Pay',
-  dataIndex: ['pay'],
-  key: 'pay',
-  width: 120,
-  render: (pay) => (
-    pay ? `₹${parseFloat(pay).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'N/A'
-  ),
-  responsive: ['lg'],
+  render: (text, record) => {
+    console.log('Record payroll:', record.payroll); // You can remove this after testing
+    
+    // Check if employee has payroll records
+    if (!record.payroll || !Array.isArray(record.payroll) || record.payroll.length === 0) {
+      return 'No Payroll';
+    }
+    
+    // Get the first payroll record
+    const payrollRecord = record.payroll[0];
+    const earnings = payrollRecord.earnings;
+    
+    if (!earnings || !Array.isArray(earnings)) {
+      return 'N/A';
+    }
+    
+    // Find the earning with label "basic" or "Basic" (case-insensitive)
+    const basicEarning = earnings.find(earning => 
+      earning.label && earning.label.toLowerCase() === "basic"
+    );
+    
+    if (basicEarning && basicEarning.amount) {
+      return `₹${parseFloat(basicEarning.amount).toLocaleString('en-US', { 
+        minimumFractionDigits: 2, 
+        maximumFractionDigits: 2 
+      })}`;
+    }
+    
+    return 'N/A';
+  },
 },
     // {
     //   title: 'Created Date',
