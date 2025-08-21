@@ -310,8 +310,19 @@ resolve(true);
 
 const downloadUserPayslip = async (payslipData) => {
   try {
-    await generatePayslipPDF(payslipData, false);
-    console.log('Payslip downloaded successfully');
+    if (payslipData.pdf_url) {
+      // Direct download from the stored PDF URL
+      const link = document.createElement('a');
+      link.href = payslipData.pdf_url;
+      link.download = `payslip_${payslipData.employee_name}_${dayjs(payslipData.pay_period).format('YYYY-MM')}.pdf`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      console.log('Payslip downloaded successfully');
+    } else {
+      throw new Error('PDF URL not found');
+    }
   } catch (error) {
     console.error('Error downloading payslip:', error);
     Modal.error({
@@ -491,21 +502,33 @@ const fetchUserPayslips = async () => {
   if (!userData || !userData.id) return;
   
   try {
-    // ❌ CHANGE THIS - Add month filtering
-    const startOfMonth = selectedPayslipMonth.startOf('month').format('YYYY-MM-DD');
-    const endOfMonth = selectedPayslipMonth.endOf('month').format('YYYY-MM-DD');
-    
     const { data, error } = await supabase
       .from('payroll')
-      .select('*')
+      .select('final_payslips') // Only fetch final_payslips column
       .eq('user_id', userData.id)
-      .gte('pay_period', startOfMonth)  // ❌ ADD THIS
-      .lte('pay_period', endOfMonth)    // ❌ ADD THIS
-      .order('pay_period', { ascending: false });
+      .not('final_payslips', 'is', null) // Only get records with payslips
+      .order('created_at', { ascending: false });
     
     if (error) throw error;
     
-    setUserPayslips(data || []);
+    // Transform the data to flatten the final_payslips array
+    const transformedPayslips = [];
+    data.forEach(record => {
+      if (record.final_payslips && Array.isArray(record.final_payslips)) {
+        record.final_payslips.forEach(payslip => {
+          transformedPayslips.push({
+            ...payslip,
+            employee_name: userData.name || userData.displayName,
+            pay_period: payslip.month + '-01', // Convert to date format
+            net_pay: payslip.amount,
+            pdf_url: payslip.pdf_url,
+            generated_at: payslip.generated_at
+          });
+        });
+      }
+    });
+    
+    setUserPayslips(transformedPayslips);
   } catch (error) {
     console.error('Error fetching payslips:', error);
   }
@@ -1961,9 +1984,10 @@ if (activeSection === 'payroll') {
 
     {/* Payslips List */}
     <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-      {userPayslips.filter(payslip => 
-        dayjs(payslip.pay_period).format('YYYY-MM') === selectedPayslipMonth.format('YYYY-MM')
-      ).map(payslip => (
+      {userPayslips.filter(payslip => {
+  const payslipMonth = payslip.month || dayjs(payslip.pay_period).format('YYYY-MM');
+  return payslipMonth === selectedPayslipMonth.format('YYYY-MM');
+}).map(payslip => (
         <Card 
           key={payslip.id} 
           size="small"
@@ -2023,9 +2047,10 @@ if (activeSection === 'payroll') {
     </div>
     
     {/* Empty State */}
-    {userPayslips.filter(payslip => 
-      dayjs(payslip.pay_period).format('YYYY-MM') === selectedPayslipMonth.format('YYYY-MM')
-    ).length === 0 && (
+    {userPayslips.filter(payslip => {
+  const payslipMonth = payslip.month || dayjs(payslip.pay_period).format('YYYY-MM');
+  return payslipMonth === selectedPayslipMonth.format('YYYY-MM');
+}).length === 0 && (
       <div style={{ 
         textAlign: 'center', 
         padding: '40px 20px',
