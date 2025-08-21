@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Layout, 
   Button, 
@@ -71,7 +71,244 @@ const PayrollManagement = () => {
   });
   const [earnings, setEarnings] = useState([]);
 const [deductions, setDeductions] = useState([]);
+const [monthlyExpensesData, setMonthlyExpensesData] = useState([]);
+const [expensesList, setExpensesList] = useState([]);
+const [thisMonthPayroll, setThisMonthPayroll] = useState(0);
+const [isPayrollEdited, setIsPayrollEdited] = useState(false);
+const [expensesModalVisible, setExpensesModalVisible] = useState(false);
+const [payrollEditModalVisible, setPayrollEditModalVisible] = useState(false);
+const [selectedEmployees, setSelectedEmployees] = useState([]);
+const [bulkActionType, setBulkActionType] = useState('');
+const ExpensesList = ({ expenses, onChange }) => {
+  const [localExpenses, setLocalExpenses] = useState(expenses || [{ label: '', amount: 0 }]);
 
+  // Only sync when expenses prop actually changes from parent
+  useEffect(() => {
+    if (expenses && expenses !== localExpenses) {
+      setLocalExpenses(expenses);
+    }
+  }, [expenses]);
+
+  // Update parent only when user stops typing (debounced)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onChange(localExpenses);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [localExpenses]);
+
+  const addExpense = () => {
+    setLocalExpenses([...localExpenses, { label: '', amount: 0 }]);
+  };
+
+  const updateExpense = (index, field, value) => {
+    const updated = [...localExpenses];
+    updated[index][field] = value;
+    setLocalExpenses(updated);
+  };
+
+  const removeExpense = (index) => {
+    if (localExpenses.length > 1) {
+      setLocalExpenses(localExpenses.filter((_, i) => i !== index));
+    }
+  };
+
+  return (
+    <div>
+      <Button 
+        type="dashed" 
+        icon={<PlusOutlined />} 
+        onClick={addExpense}
+        style={{ marginBottom: '16px' }}
+      >
+        Add Expense
+      </Button>
+      
+      {localExpenses.map((expense, index) => (
+        <Row key={index} gutter={8} style={{ marginBottom: '8px' }}>
+          <Col span={12}>
+            <Input
+              placeholder="Expense label"
+              value={expense.label}
+              onChange={(e) => updateExpense(index, 'label', e.target.value)}
+            />
+          </Col>
+          <Col span={8}>
+            <InputNumber
+              placeholder="Amount"
+              value={expense.amount}
+              onChange={(value) => updateExpense(index, 'amount', value || 0)}
+              style={{ width: '100%' }}
+            />
+          </Col>
+          <Col span={4}>
+            <Button 
+              danger 
+              onClick={() => removeExpense(index)}
+              disabled={localExpenses.length === 1}
+            >
+              Delete
+            </Button>
+          </Col>
+        </Row>
+      ))}
+      
+      <div style={{ marginTop: '16px', textAlign: 'right', fontWeight: 'bold' }}>
+        Total: ₹{localExpenses.reduce((sum, exp) => sum + (exp.amount || 0), 0).toLocaleString()}
+      </div>
+    </div>
+  );
+};
+
+const handleExcelExport = async () => {
+  try {
+    setLoading(true);
+    
+    const startOfMonth = selectedMonth.startOf('month').format('YYYY-MM-DD');
+    
+    const { data: payrollData, error } = await supabase
+      .from('payroll')
+      .select(`
+        *,
+        users (
+          name,
+          employee_id,
+          email,
+          role,
+          pay
+        )
+      `)
+      .gte('pay_period', startOfMonth)
+      .lt('pay_period', selectedMonth.add(1, 'month').startOf('month').format('YYYY-MM-DD'))
+      .in('user_id', selectedEmployees);
+
+    if (error) throw error;
+
+    const excelData = payrollData?.map(record => {
+      const earningsArray = record.earnings || [];
+      const deductionsArray = record.deductions || [];
+      const totalEarnings = earningsArray.reduce((sum, item) => sum + (item.amount || 0), 0);
+      const totalDeductions = deductionsArray.reduce((sum, item) => sum + (item.amount || 0), 0);
+      const netPay = totalEarnings - totalDeductions;
+      
+      return {
+        'Employee ID': record.employee_id || record.users?.employee_id,
+        'Name': record.employee_name || record.users?.name,
+        'Email': record.email_address || record.users?.email,
+        'Role': record.users?.role,
+        'Salary': netPay
+      };
+    }) || [];
+
+    // Convert to CSV and download
+    const csvContent = [
+      Object.keys(excelData[0]).join(','),
+      ...excelData.map(row => Object.values(row).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Payroll_${selectedMonth.format('YYYY-MM')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    message.success('Excel export completed!');
+    setBulkDownloadVisible(false);
+  } catch (error) {
+    message.error('Error exporting data: ' + error.message);
+  } finally {
+    setLoading(false);
+  }
+};
+
+const saveMonthlyExpenses = async (expenses) => {
+  try {
+    const currentMonth = dayjs().format('YYYY-MM');
+    
+    const { data: existing, error: fetchError } = await supabase
+      .from('monthly_expenses')
+      .select('id')
+      .eq('month_year', currentMonth)
+      .maybeSingle();
+    
+    if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+    
+    if (existing) {
+      const { error } = await supabase
+        .from('monthly_expenses')
+        .update({ 
+          expenses: expenses,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existing.id);
+      
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from('monthly_expenses')
+        .insert({
+          month_year: currentMonth,
+          expenses: expenses,
+          this_month_payroll: thisMonthPayroll,
+          is_payroll_edited: false
+        });
+      
+      if (error) throw error;
+    }
+    
+    message.success('Monthly expenses saved successfully!');
+    fetchStats();
+  } catch (error) {
+    message.error('Error saving expenses: ' + error.message);
+  }
+};
+
+const saveEditedPayroll = async (amount) => {
+  try {
+    const currentMonth = dayjs().format('YYYY-MM');
+    
+    const { data: existing, error: fetchError } = await supabase
+      .from('monthly_expenses')
+      .select('id')
+      .eq('month_year', currentMonth)
+      .maybeSingle();
+    
+    if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+    
+    if (existing) {
+      const { error } = await supabase
+        .from('monthly_expenses')
+        .update({ 
+          this_month_payroll: amount,
+          is_payroll_edited: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existing.id);
+      
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from('monthly_expenses')
+        .insert({
+          month_year: currentMonth,
+          expenses: monthlyExpensesData,
+          this_month_payroll: amount,
+          is_payroll_edited: true
+        });
+      
+      if (error) throw error;
+    }
+    
+    message.success('This month payroll updated successfully!');
+    setPayrollEditModalVisible(false);
+    fetchStats();
+  } catch (error) {
+    message.error('Error updating payroll: ' + error.message);
+  }
+};
   const addEarning = () => {
   const newKey = `earning_${Date.now()}`;
   const newEarning = { key: newKey, label: '', value: 0 };
@@ -83,7 +320,17 @@ const [deductions, setDeductions] = useState([]);
   form.setFieldsValue(formValues);
 };
 
-
+useEffect(() => {
+  const initializeData = async () => {
+    await loadUsers();
+    await fetchEmployees();
+    const currentMonth = dayjs().format('YYYY-MM');
+    await fetchExpenses(currentMonth);
+    fetchStats();
+  };
+  
+  initializeData();
+}, []);
 
 const handleEmployeeSelect = async (userId) => {
   const selectedUser = users.find(user => user.id === userId);
@@ -193,35 +440,155 @@ const handleEmployeeSelect = async (userId) => {
 
 const fetchStats = async () => {
   try {
-    // Get only final_payslips JSONB data for accurate stats
-    const { data, error } = await supabase
-      .from('payroll')
-      .select('final_payslips');
-    
-    if (error) throw error;
-    
-    let totalPayroll = 0;
-    let thisMonth = 0;
     const currentMonth = dayjs().format('YYYY-MM');
     
-    data.forEach(record => {
-  const payslips = record.final_payslips || [];
-  payslips.forEach(payslip => {
-    totalPayroll += payslip.amount || 0;
-    // Only count current month (2025-08) for "This Month's Payroll"
-    if (payslip.month === currentMonth) {
-      thisMonth += payslip.amount || 0;
+    // Get monthly expenses data
+    const { data: monthlyData, error: monthlyError } = await supabase
+      .from('monthly_expenses')
+      .select('*')
+      .eq('month_year', currentMonth)
+      .maybeSingle();
+    
+    if (monthlyError && monthlyError.code !== 'PGRST116') throw monthlyError;
+    
+    let thisMonth = 0;
+    let isEdited = false;
+    
+    if (monthlyData) {
+      if (monthlyData.is_payroll_edited && monthlyData.this_month_payroll !== null) {
+        // Use edited value
+        thisMonth = monthlyData.this_month_payroll;
+        isEdited = true;
+      } else {
+        // Calculate from payroll data
+        thisMonth = await calculateThisMonthPayroll(currentMonth);
+      }
+      setMonthlyExpensesData(monthlyData.expenses || []);
+    } else {
+      // Calculate from payroll data for new month
+      thisMonth = await calculateThisMonthPayroll(currentMonth);
+      setMonthlyExpensesData([]);
     }
+    
+    // Get total payroll from all months
+    const { data: allMonthlyData, error: totalError } = await supabase
+  .from('monthly_expenses')
+  .select('this_month_payroll, is_payroll_edited, month_year');
+
+if (totalError) throw totalError;
+
+let totalPayroll = 0;
+for (const record of allMonthlyData || []) {
+  if (record.is_payroll_edited && record.this_month_payroll !== null) {
+    totalPayroll += record.this_month_payroll;
+  } else {
+    // Calculate from payroll data for this specific month
+    const monthPayroll = await calculateThisMonthPayroll(record.month_year);
+    totalPayroll += monthPayroll;
+  }
+}
+
+// If no monthly data exists, calculate total from all payroll records
+if (!allMonthlyData || allMonthlyData.length === 0) {
+  const { data: payrollData, error: payrollError } = await supabase
+    .from('payroll')
+    .select('final_payslips');
+  
+  if (payrollError) throw payrollError;
+  
+  payrollData?.forEach(record => {
+    const payslips = record.final_payslips || [];
+    payslips.forEach(payslip => {
+      totalPayroll += payslip.amount || 0;
+    });
   });
-});
+}
     
     setStats({ 
       totalEmployees: users.length, 
       totalPayroll, 
       thisMonth 
     });
+    setThisMonthPayroll(thisMonth);
+    setIsPayrollEdited(isEdited);
   } catch (error) {
     console.error('Error fetching stats:', error);
+  }
+};
+
+const calculateThisMonthPayroll = async (currentMonth) => {
+  const { data: payrollData, error } = await supabase
+    .from('payroll')
+    .select('final_payslips');
+  
+  if (error) throw error;
+  
+  let total = 0;
+  payrollData?.forEach(record => {
+    const payslips = record.final_payslips || [];
+    payslips.forEach(payslip => {
+      if (payslip.month === currentMonth) {
+        total += payslip.amount || 0;
+      }
+    });
+  });
+  
+  return total;
+};
+
+const fetchExpenses = async (monthYear) => {
+  try {
+    const { data, error } = await supabase
+      .from('monthly_expenses')
+      .select('*')
+      .eq('month_year', monthYear)
+      .order('created_at', { ascending: true });
+    
+    if (error) throw error;
+    setExpensesList(data || []);
+  } catch (error) {
+    message.error('Error fetching expenses: ' + error.message);
+  }
+};
+
+const saveExpense = async (values) => {
+  try {
+    const currentMonth = dayjs().format('YYYY-MM');
+    
+    const { error } = await supabase
+      .from('monthly_expenses')
+      .insert({
+        month_year: currentMonth,
+        label: values.label,
+        amount: values.amount
+      });
+    
+    if (error) throw error;
+    
+    message.success('Expense added successfully!');
+    expenseForm.resetFields();
+    fetchExpenses(currentMonth);
+    fetchStats(); // Refresh stats
+  } catch (error) {
+    message.error('Error saving expense: ' + error.message);
+  }
+};
+
+const deleteExpense = async (id) => {
+  try {
+    const { error } = await supabase
+      .from('monthly_expenses')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
+    
+    message.success('Expense deleted successfully!');
+    const currentMonth = dayjs().format('YYYY-MM');
+    fetchExpenses(currentMonth);
+    fetchStats(); // Refresh stats
+  } catch (error) {
+    message.error('Error deleting expense: ' + error.message);
   }
 };
 
@@ -413,7 +780,8 @@ const uploadPDFToStorage = async (pdfBlob, employee) => {
     )
   `)
   .gte('pay_period', startOfMonth)
-  .lt('pay_period', selectedMonth.add(1, 'month').startOf('month').format('YYYY-MM-DD'));
+  .lt('pay_period', selectedMonth.add(1, 'month').startOf('month').format('YYYY-MM-DD'))
+  .in('user_id', selectedEmployees);
 
 if (error) throw error;
 
@@ -599,7 +967,7 @@ const netPay = Number(record.net_pay) || (totalEarnings - totalDeductions);
       const { data, error } = await supabase
         .from('users')
         .select('id, name, employee_id, email, role')
-        .in('role', ['employee', 'hr'])
+        .in('role', ['employee'])
       
       if (error) throw error;
       
@@ -672,7 +1040,8 @@ const netPay = Number(record.net_pay) || (totalEarnings - totalDeductions);
     )
   `)
   .gte('pay_period', startOfMonth)
-  .lt('pay_period', selectedMonth.add(1, 'month').startOf('month').format('YYYY-MM-DD'));
+  .lt('pay_period', selectedMonth.add(1, 'month').startOf('month').format('YYYY-MM-DD'))
+  .in('user_id', selectedEmployees);
 
 if (error) throw error;
 
@@ -738,7 +1107,91 @@ const enrichedPayrollData = payrollData?.map(record => ({
   const totalEarnings = earningsArray.reduce((sum, item) => sum + (item.amount || 0), 0);
   const totalDeductions = deductionsArray.reduce((sum, item) => sum + (item.amount || 0), 0);
   const netPay = totalEarnings - totalDeductions;
-  
+  const saveMonthlyExpenses = async (expenses) => {
+  try {
+    const currentMonth = dayjs().format('YYYY-MM');
+    
+    const { data: existing, error: fetchError } = await supabase
+      .from('monthly_expenses')
+      .select('id')
+      .eq('month_year', currentMonth)
+      .maybeSingle();
+    
+    if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+    
+    if (existing) {
+      const { error } = await supabase
+        .from('monthly_expenses')
+        .update({ 
+          expenses: expenses,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existing.id);
+      
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from('monthly_expenses')
+        .insert({
+          month_year: currentMonth,
+          expenses: expenses,
+          this_month_payroll: thisMonthPayroll,
+          is_payroll_edited: false
+        });
+      
+      if (error) throw error;
+    }
+    
+    message.success('Monthly expenses saved successfully!');
+    fetchStats();
+  } catch (error) {
+    message.error('Error saving expenses: ' + error.message);
+  }
+};
+
+const saveEditedPayroll = async (amount) => {
+  try {
+    const currentMonth = dayjs().format('YYYY-MM');
+    
+    const { data: existing, error: fetchError } = await supabase
+      .from('monthly_expenses')
+      .select('id')
+      .eq('month_year', currentMonth)
+      .maybeSingle();
+    
+    if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+    
+    if (existing) {
+      const { error } = await supabase
+        .from('monthly_expenses')
+        .update({ 
+          this_month_payroll: amount,
+          is_payroll_edited: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existing.id);
+      
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from('monthly_expenses')
+        .insert({
+          month_year: currentMonth,
+          expenses: monthlyExpensesData,
+          this_month_payroll: amount,
+          is_payroll_edited: true
+        });
+      
+      if (error) throw error;
+    }
+    
+    message.success('This month payroll updated successfully!');
+    setPayrollEditModalVisible(false);
+    fetchStats();
+  } catch (error) {
+    message.error('Error updating payroll: ' + error.message);
+  }
+};
   const employeeData = {
     employee_name: employee.employee_name || employee.users?.name || 'N/A',
     employee_id: employee.employee_id || employee.users?.employee_id || 'N/A', 
@@ -1258,24 +1711,45 @@ if (printWindow) {
       {/* Stats Cards */}
       <Row gutter={[24, 24]} style={{ marginBottom: '24px' }}>
         <Col xs={24} sm={8}>
-          <div className="stat-card">
-            <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }}>
-              <div style={{ 
-                background: '#e6f7ff', 
-                color: '#1890ff',
-                padding: '12px',
-                borderRadius: '8px',
-                fontSize: '24px'
-              }}>
-                <TeamOutlined />
-              </div>
-              <div>
-                <Text type="secondary">Total Employees</Text>
-                <Title level={3} style={{ margin: 0 }}>{stats.totalEmployees}</Title>
-              </div>
-            </Space>
-          </div>
-        </Col>
+  <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => setExpensesModalVisible(true)}>
+    <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }}>
+      <div style={{ 
+        background: '#e6f7ff', 
+        color: '#1890ff',
+        padding: '12px',
+        borderRadius: '8px',
+        fontSize: '24px'
+      }}>
+        <PlusOutlined />
+      </div>
+      <div>
+        <Text type="secondary">Monthly Expenses</Text>
+        <Title level={3} style={{ margin: 0 }}>
+          ₹{monthlyExpensesData.reduce((sum, exp) => sum + (exp.amount || 0), 0).toLocaleString()}
+        </Title>
+      </div>
+    </Space>
+  </div>
+</Col>
+<Col xs={24} sm={8}>
+  <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => setPayrollEditModalVisible(true)}>
+    <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }}>
+      <div style={{ 
+        background: '#f6ffed', 
+        color: '#52c41a',
+        padding: '12px',
+        borderRadius: '8px',
+        fontSize: '24px'
+      }}>
+        {isPayrollEdited ? <EditOutlined /> : <DashboardOutlined />}
+      </div>
+      <div>
+        <Text type="secondary">This Month's Payroll {isPayrollEdited && <span style={{color: '#52c41a'}}>(Edited)</span>}</Text>
+        <Title level={3} style={{ margin: 0 }}>₹{thisMonthPayroll.toLocaleString()}</Title>
+      </div>
+    </Space>
+  </div>
+</Col>
         <Col xs={24} sm={8}>
           <div className="stat-card">
             <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }}>
@@ -1295,25 +1769,7 @@ if (printWindow) {
             </Space>
           </div>
         </Col>
-        <Col xs={24} sm={8}>
-          <div className="stat-card">
-            <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }}>
-              <div style={{ 
-                background: '#f6ffed', 
-                color: '#52c41a',
-                padding: '12px',
-                borderRadius: '8px',
-                fontSize: '24px'
-              }}>
-                <DashboardOutlined />
-              </div>
-              <div>
-                <Text type="secondary">This Month's Payroll</Text>
-                <Title level={3} style={{ margin: 0 }}>₹{stats.thisMonth.toLocaleString()}</Title>
-              </div>
-            </Space>
-          </div>
-        </Col>
+        
       </Row>
 
       {/* Main Content */}
@@ -1346,25 +1802,42 @@ if (printWindow) {
           <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
             <Title level={4} style={{ margin: 0, color: '#1e293b' }}>Employee Records</Title>
             <Space wrap>
-              <Button icon={<DownloadOutlined />} onClick={() => setBulkDownloadVisible(true)}>
-                Bulk Download
-              </Button>
-              <Button icon={<SendOutlined />} onClick={() => setEmailOnlyVisible(true)}>
-                Email All
-              </Button>
-              <Button 
-                type="primary" 
-                icon={<PlusOutlined />} 
-                onClick={() => setCurrentView('addEmployee')} 
-              >
-                Add Payroll
-              </Button>
-            </Space>
+  <Button icon={<DownloadOutlined />} onClick={() => {
+    setBulkActionType('download');
+    setBulkDownloadVisible(true);
+  }}>
+    Bulk Download
+  </Button>
+  <Button icon={<SendOutlined />} onClick={() => {
+    setBulkActionType('email');
+    setBulkDownloadVisible(true);
+  }}>
+    Bulk Email
+  </Button>
+  <Button icon={<DownloadOutlined />} onClick={() => {
+    setBulkActionType('excel');
+    setBulkDownloadVisible(true);
+  }}>
+    Export Excel
+  </Button>
+  <Button 
+    type="primary" 
+    icon={<PlusOutlined />} 
+    onClick={() => setCurrentView('addEmployee')} 
+  >
+    Add Payroll
+  </Button>
+</Space>  
           </div>
           <Table
             dataSource={getMergedEmployeeData()}
             rowKey="id"
             loading={loading}
+            rowSelection={{
+    selectedRowKeys: selectedEmployees,
+    onChange: setSelectedEmployees,
+    type: 'checkbox',
+  }}
             scroll={{ x: 800 }}
             pagination={{
               pageSize: 10,
@@ -2025,36 +2498,88 @@ if (printWindow) {
         </Content>
         
     <Modal
-      title="Bulk Download Payslips"
-      open={bulkDownloadVisible}
-      onCancel={() => setBulkDownloadVisible(false)}
-      footer={[
-        <Button key="cancel" onClick={() => setBulkDownloadVisible(false)}>
-          Cancel
-        </Button>,
-        <Button key="download" type="primary" loading={loading} onClick={handleBulkDownload}>
-          Download Payslips
-        </Button>
-      ]}
+  title={
+    bulkActionType === 'download' ? "Bulk Download Payslips" : 
+    bulkActionType === 'email' ? "Bulk Send Emails" : 
+    "Export Excel Data"
+  }
+  open={bulkDownloadVisible}
+  onCancel={() => setBulkDownloadVisible(false)}
+  footer={[
+    <Button key="cancel" onClick={() => setBulkDownloadVisible(false)}>
+      Cancel
+    </Button>,
+    <Button 
+      key="action" 
+      type="primary" 
+      loading={loading} 
+      onClick={
+        bulkActionType === 'download' ? handleBulkDownload : 
+        bulkActionType === 'email' ? handleEmailOnly :
+        bulkActionType === 'excel' ? handleExcelExport : null
+      }
+      disabled={selectedEmployees.length === 0}
     >
-      <div style={{ padding: '20px 0' }}>
-        <Text strong style={{ display: 'block', marginBottom: '16px' }}>
-          Select month to download all payslips:
-        </Text>
-        <DatePicker
-          picker="month"
-          value={selectedMonth}
-          onChange={setSelectedMonth}
-          style={{ width: '100%' }}
-          size="large"
-        />
-        <div style={{ marginTop: '16px', padding: '12px', background: '#f6ffed', borderRadius: '6px' }}>
-          <Text type="secondary">
-            All payslips for {selectedMonth.format('MMMM YYYY')} will be generated and downloaded.
-          </Text>
-        </div>
-      </div>
-    </Modal>
+      {bulkActionType === 'download' ? 'Download Selected' : 
+       bulkActionType === 'email' ? 'Send to Selected' :
+       bulkActionType === 'excel' ? 'Export Excel' : 'Action'}
+    </Button>
+  ]}
+>
+  <div style={{ padding: '20px 0' }}>
+    <Text strong style={{ display: 'block', marginBottom: '16px' }}>
+      Select month and employees:
+    </Text>
+    <DatePicker
+      picker="month"
+      value={selectedMonth}
+      onChange={setSelectedMonth}
+      style={{ width: '100%', marginBottom: '16px' }}
+      size="large"
+    />
+    <Text>Selected employees: {selectedEmployees.length}</Text>
+  </div>
+</Modal>
+
+    <Modal
+  title="Monthly Expenses"
+  open={expensesModalVisible}
+  onCancel={() => setExpensesModalVisible(false)}
+  width={600}
+  onOk={() => {
+    saveMonthlyExpenses(monthlyExpensesData);
+    setExpensesModalVisible(false);
+  }}
+>
+  <ExpensesList 
+    expenses={monthlyExpensesData}
+    onChange={setMonthlyExpensesData}
+  />
+</Modal>
+
+<Modal
+  title="Edit This Month's Payroll"
+  open={payrollEditModalVisible}
+  onCancel={() => setPayrollEditModalVisible(false)}
+  onOk={() => {
+    const form = document.getElementById('payroll-edit-input');
+    if (form) {
+      saveEditedPayroll(parseFloat(form.value) || 0);
+    }
+  }}
+>
+  <div>
+    <Text>Current calculated amount: ₹{thisMonthPayroll.toLocaleString()}</Text>
+    <Input
+      id="payroll-edit-input"
+      type="number"
+      placeholder="Enter custom amount"
+      defaultValue={thisMonthPayroll}
+      style={{ marginTop: '10px' }}
+    />
+  </div>
+</Modal>
+
     <Modal
   title="Send Payslip Emails"
   open={emailOnlyVisible}

@@ -10,7 +10,7 @@ const { Search } = Input;
 
 const sendWelcomeEmail = async (employeeData) => {
   try {
-    const response = await fetch('https://ksvreddy4.pythonanywhere.com/api/send-email', {
+    const response = await fetch('https://cap.myaccessio.com/api/send-email', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
