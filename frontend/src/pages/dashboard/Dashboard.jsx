@@ -32,7 +32,7 @@ import * as faceapi from 'face-api.js';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import dayjs from 'dayjs';
-import PayrollManagement from '../hr/payroll';
+import PayrollManagement from '../hr/Payroll';
 const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionChange,activeEmailFolder, onToggleSidebar, isEmailAuthenticated, setIsEmailAuthenticated, onUserUpdate = () => {} }) => {  const { Text, Title } = Typography;
 
   const [currentJobId, setCurrentJobId] = useState(2);

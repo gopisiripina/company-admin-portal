@@ -290,7 +290,7 @@ const sendInterviewMail = async (values) => {
 const emailPayload = {
   recipientEmail: selectedResume.email,
   subject: `Interview Invitation - ${selectedResume.jobTitle} Position`,
-  smtpServer: "smtp.gmail.com",
+  smtpServer: "smtp.hostinger.in",
   smtpPort: 587,
   templateData: {
   candidate_name: selectedResume.name,
