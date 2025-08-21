@@ -1924,9 +1924,9 @@ const uploadProps = {
               </Col>
               <Col flex={1}>
                 <Title className="profile-name">{employeeData.name}</Title>
-                <div className="profile-position">
+                {/* <div className="profile-position">
                   {employeeData.position} & {employeeData.department}
-                </div>
+                </div> */}
                 <Space wrap size={[8, 8]} style={{ marginBottom: '16px' }}>
                   <Tag className="profile-tag" color="#52c41a">
                     <UserOutlined /> ID: {employeeData.id}
