@@ -1101,7 +1101,7 @@ const handleComplete = async () => {
   } catch (error) {
     message.error('Failed to mark event as completed');
   }
-};
+}; 
 
   const handleReject = async () => {
     try {
