@@ -946,7 +946,7 @@ const result = await response.json();
               candidateName: selectedCandidate.name,
               candidateEmail: selectedCandidate.email,
               jobTitle: selectedCandidate.jobTitle,
-              companyName: 'Your Company Name',
+              companyName: 'MyAccess Private Limited',
               salaryAmount: selectedCandidate.expectedSalary,
               workLocation: 'Office/Remote/Hybrid',
               offerValidUntil: '7 days from offer date'
