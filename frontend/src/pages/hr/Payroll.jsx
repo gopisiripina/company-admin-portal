@@ -79,8 +79,11 @@ const [expensesModalVisible, setExpensesModalVisible] = useState(false);
 const [payrollEditModalVisible, setPayrollEditModalVisible] = useState(false);
 const [selectedEmployees, setSelectedEmployees] = useState([]);
 const [bulkActionType, setBulkActionType] = useState('');
+const [selectedExpenseMonth, setSelectedExpenseMonth] = useState(dayjs().format('YYYY-MM'));
 const ExpensesList = ({ expenses, onChange }) => {
   const [localExpenses, setLocalExpenses] = useState(expenses || [{ label: '', amount: 0 }]);
+
+
 
   // Only sync when expenses prop actually changes from parent
   useEffect(() => {
@@ -97,6 +100,8 @@ const ExpensesList = ({ expenses, onChange }) => {
 
     return () => clearTimeout(timer);
   }, [localExpenses]);
+
+  
 
   const addExpense = () => {
     setLocalExpenses([...localExpenses, { label: '', amount: 0 }]);
@@ -542,10 +547,12 @@ const fetchExpenses = async (monthYear) => {
       .from('monthly_expenses')
       .select('*')
       .eq('month_year', monthYear)
-      .order('created_at', { ascending: true });
+      .maybeSingle(); // Change to maybeSingle since we want one record per month
     
-    if (error) throw error;
-    setExpensesList(data || []);
+    if (error && error.code !== 'PGRST116') throw error;
+    
+    // Set the expenses array from the single record
+    setMonthlyExpensesData(data?.expenses || [{ label: '', amount: 0 }]);
   } catch (error) {
     message.error('Error fetching expenses: ' + error.message);
   }
@@ -761,6 +768,26 @@ const uploadPDFToStorage = async (pdfBlob, employee) => {
   }
 };
 
+const handleExpensesExport = async () => {
+  try {
+    const csvContent = [
+      ['Label', 'Amount'],
+      ...monthlyExpensesData.map(expense => [expense.label, expense.amount])
+    ].map(row => row.join(',')).join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Monthly_Expenses_${selectedExpenseMonth}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    message.success('Expenses exported successfully!');
+  } catch (error) {
+    message.error('Error exporting expenses: ' + error.message);
+  }
+};
 
   const handleBulkDownload = async () => {
     try {
@@ -1429,32 +1456,34 @@ const saveEditedPayroll = async (amount) => {
     document.body.appendChild(tempDiv);
     
     html2canvas(tempDiv, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#ffffff'
-    }).then(canvas => {
-      document.body.removeChild(tempDiv);
-      
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgData = canvas.toDataURL('image/png');
-      
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = canvas.width;
-      const imgHeight = canvas.height;
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-      const imgX = (pdfWidth - imgWidth * ratio) / 2;
-      const imgY = 0;
-      
-      pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
-      const blob = pdf.output('blob');
-      resolve(blob);
-    }).catch(error => {
-      document.body.removeChild(tempDiv);
-      console.error('Error generating PDF:', error);
-      resolve(new Blob());
-    });
+  scale: 1.5, // Reduce from 2 to 1.5
+  useCORS: true,
+  allowTaint: true,
+  backgroundColor: '#ffffff',
+  logging: false, // Disable logging for better performance
+  imageTimeout: 30000
+}).then(canvas => {
+  document.body.removeChild(tempDiv);
+  
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const imgData = canvas.toDataURL('image/jpeg', 0.8); // Use JPEG with 80% quality instead of PNG
+  
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfHeight = pdf.internal.pageSize.getHeight();
+  const imgWidth = canvas.width;
+  const imgHeight = canvas.height;
+  const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+  const imgX = (pdfWidth - imgWidth * ratio) / 2;
+  const imgY = 0;
+  
+  pdf.addImage(imgData, 'JPEG', imgX, imgY, imgWidth * ratio, imgHeight * ratio); // Use JPEG
+  const blob = pdf.output('blob');
+  resolve(blob);
+}).catch(error => {
+  document.body.removeChild(tempDiv);
+  console.error('Error generating PDF:', error);
+  resolve(new Blob());
+});
   });
 
   // When PDF is generated successfully and returnBlob is true, store PDF in Supabase Storage
@@ -2545,12 +2574,36 @@ if (printWindow) {
   title="Monthly Expenses"
   open={expensesModalVisible}
   onCancel={() => setExpensesModalVisible(false)}
-  width={600}
-  onOk={() => {
-    saveMonthlyExpenses(monthlyExpensesData);
-    setExpensesModalVisible(false);
-  }}
+  width={800}
+  footer={[
+    <Button key="cancel" onClick={() => setExpensesModalVisible(false)}>
+      Cancel
+    </Button>,
+    <Button key="save" type="primary" onClick={() => {
+      saveMonthlyExpenses(monthlyExpensesData);
+      setExpensesModalVisible(false);
+    }}>
+      Save Expenses
+    </Button>,
+    <Button key="excel" icon={<DownloadOutlined />} onClick={handleExpensesExport}>
+      Export to Excel
+    </Button>
+  ]}
 >
+  <div style={{ marginBottom: '20px' }}>
+    <Text strong>Select Month:</Text>
+    <DatePicker
+      picker="month"
+      value={dayjs(selectedExpenseMonth || dayjs().format('YYYY-MM'))}
+      onChange={(date) => {
+        const monthYear = date.format('YYYY-MM');
+        setSelectedExpenseMonth(monthYear);
+        fetchExpenses(monthYear);
+      }}
+      style={{ width: '100%', marginTop: '8px' }}
+      size="large"
+    />
+  </div>
   <ExpensesList 
     expenses={monthlyExpensesData}
     onChange={setMonthlyExpensesData}
