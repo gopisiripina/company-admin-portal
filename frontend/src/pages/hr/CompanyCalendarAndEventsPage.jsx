@@ -104,49 +104,60 @@ const CompanyCalendarAndEventsPage = ({ userRole = 'hr', currentUserId = '1' }) 
   }, []);
   
   // Handle creating, updating, or deleting an event
-  const handleEventAction = async (eventData, action = 'create') => {
-    setLoading(true);
-    try {
-      if (action === 'create') {
-        const { error } = await supabase
-          .from('events')
-          .insert([{
-            ...eventData,
-            created_by: 'Current User',
-            created_at: new Date().toISOString()
-          }]);
-        if (error) throw error;
-        message.success('Event created successfully!');
-      } else if (action === 'update') {
-        const { error } = await supabase
-          .from('events')
-          .update(eventData)
-          .eq('id', selectedEvent.id);
-        if (error) throw error;
-        message.success('Event updated successfully!');
-      } else if (action === 'delete') {
-        if (!selectedEvent || !selectedEvent.id) {
-          message.error('No event selected for deletion');
-          return;
-        }
-        const { error } = await supabase
-          .from('events')
-          .delete()
-          .eq('id', selectedEvent.id);
-        if (error) throw error;
-        message.success('Event deleted successfully!');
-      }
-      
-      setEventModal(false);
-      setSelectedEvent(null);
-      eventForm.resetFields();
-    } catch (error) {
-      console.error('Error with event action:', error);
-      message.error('Failed to perform event action');
-    } finally {
-      setLoading(false);
-    }
-  };
+const handleEventAction = async (eventData, action = 'create') => {
+  setLoading(true);
+  try {
+    if (action === 'create') {
+    const { error } = await supabase
+  .from('events')
+  .insert([{
+    ...eventData,
+    time: eventData.time ? dayjs(eventData.time).format('HH:mm:ss') : null,
+    status: 'active',
+    created_by: 'Current User',
+    created_at: new Date().toISOString()
+  }]);
+      if (error) throw error;
+      message.success('Event created successfully!');
+    } else if (action === 'update') {
+      const { error } = await supabase
+  .from('events')
+  .update({
+    ...eventData,
+    time: eventData.time ? dayjs(eventData.time).format('HH:mm:ss') : null,
+    updated_at: new Date().toISOString()
+  })
+  .eq('id', eventData.id || selectedEvent.id);
+      if (error) throw error;
+      message.success('Event updated successfully!');
+  } else if (action === 'delete') {
+  if (!selectedEvent?.id && !eventData?.id) {
+    message.error('No event selected for deletion');
+    return;
+  }
+  const eventId = selectedEvent?.id || eventData?.id;
+  const { error } = await supabase
+    .from('events')
+    .delete()
+    .eq('id', eventId);
+  if (error) throw error;
+  message.success('Event deleted successfully!');
+}
+    
+    setEventModal(false);
+    setSelectedEvent(null);
+    eventForm.resetFields();
+    
+    // Refresh events
+    const updatedEvents = await fetchEvents();
+    setEvents(updatedEvents);
+  } catch (error) {
+    console.error('Error with event action:', error);
+    message.error('Failed to perform event action');
+  } finally {
+    setLoading(false);
+  }
+};
   
   // Event Card Component for displaying individual events
   const EventCard = ({ event, userRole, onEdit, onDelete, isPast = false }) => {
@@ -166,15 +177,15 @@ const CompanyCalendarAndEventsPage = ({ userRole = 'hr', currentUserId = '1' }) 
         }}
         bodyStyle={{ padding: '12px' }}
         actions={userRole !== 'employee' && !isPast ? [
-          <Button 
-            type="text" 
-            size="small" 
-            icon={<EditOutlined />}
-            onClick={() => {
-              onEdit(event);
-              setEventModal(true);
-            }}
-          />,
+         <Button 
+  type="text" 
+  size="small" 
+  icon={<EditOutlined />}
+  onClick={() => {
+    setSelectedEvent(event);
+    setEventModal(true);
+  }}
+/>,
           <Popconfirm
             title="Delete this event?"
             onConfirm={() => {
@@ -325,133 +336,1117 @@ const CompanyCalendarAndEventsPage = ({ userRole = 'hr', currentUserId = '1' }) 
   };
 
   // Main component for the Events Management Tab
-  const EventsManagement = () => {
-    const today = dayjs();
-    const upcomingEvents = events.filter(event => dayjs(event.event_date).isAfter(today.subtract(1, 'day')));
-    const todayEvents = events.filter(event => dayjs(event.event_date).isSame(today, 'day'));
-    const pastEvents = events.filter(event => dayjs(event.event_date).isBefore(today, 'day'));
+const EventsManagement = () => {
+  // Enhanced event filtering with proper time consideration
+const now = dayjs();
+const today = now.startOf('day');
 
-    return (
-      <Spin spinning={loading}>
-        <div>
-          {/* Events Header */}
-          <Card style={{ 
-            marginBottom: '24px',
-            background: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(10px)',
-            border: 'none',
-            borderRadius: '16px',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
-          }}>
-            <Row align="middle" justify="space-between" gutter={[16, 16]}>
-              <Col>
-                <Space size="large">
-                  <Avatar size={64} icon={<CalendarOutlined />} style={{ backgroundColor: '#03481def' }} />
-                  <div>
-                    <Title level={2} style={{ margin: 0, color: '#03481def' }}>Company Events</Title>
-                    <Text type="secondary" style={{ fontSize: '16px' }}>
-                      {userRole === 'employee' ? "Stay updated with company events" : "Manage company events and announcements"}
-                    </Text>
+const todayEvents = events.filter(event => {
+  if (event.status === 'completed' || event.status === 'rejected') return false;
+  
+  const eventDate = dayjs(event.event_date);
+  const eventDateTime = event.time ? 
+    eventDate.hour(dayjs(event.time, 'HH:mm').hour()).minute(dayjs(event.time, 'HH:mm').minute()) : 
+    eventDate.hour(23).minute(59); // End of day if no time specified
+  
+  return eventDate.isSame(today, 'day') && eventDateTime.isAfter(now.subtract(2, 'hours'));
+});
+
+const upcomingEvents = events.filter(event => {
+  if (event.status === 'completed' || event.status === 'rejected') return false;
+  
+  const eventDate = dayjs(event.event_date);
+  const eventDateTime = event.time ? 
+    eventDate.hour(dayjs(event.time, 'HH:mm').hour()).minute(dayjs(event.time, 'HH:mm').minute()) : 
+    eventDate.hour(23).minute(59);
+  
+  return eventDateTime.isAfter(now) && !eventDate.isSame(today, 'day');
+});
+
+const ongoingEvents = events.filter(event => {
+  if (event.status === 'completed' || event.status === 'rejected') return false;
+  
+  const eventDate = dayjs(event.event_date);
+  if (!eventDate.isSame(today, 'day')) return false;
+  
+  if (event.time) {
+    const eventStartTime = eventDate.hour(dayjs(event.time, 'HH:mm').hour()).minute(dayjs(event.time, 'HH:mm').minute());
+    const eventEndTime = eventStartTime.add(2, 'hours'); // Assuming 2-hour duration
+    return now.isAfter(eventStartTime) && now.isBefore(eventEndTime);
+  }
+  return false;
+});
+
+const pastEvents = events.filter(event => {
+  if (event.status !== 'completed' && event.status !== 'rejected') {
+    const eventDate = dayjs(event.event_date);
+    const eventDateTime = event.time ? 
+      eventDate.hour(dayjs(event.time, 'HH:mm').hour()).minute(dayjs(event.time, 'HH:mm').minute()) : 
+      eventDate.hour(23).minute(59);
+    
+    return eventDateTime.isBefore(now.subtract(2, 'hours'));
+  }
+  return event.status === 'completed' || event.status === 'rejected';
+});
+
+  return (
+    <Spin spinning={loading}>
+      <div>
+        {/* Professional Events Header */}
+        <Card style={{ 
+          marginBottom: '32px',
+          background: 'linear-gradient(to top, #0D7139, #52c41a)',
+          border: 'none',
+          borderRadius: '20px',
+          overflow: 'hidden',
+          position: 'relative'
+        }}>
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: '200px',
+            height: '200px',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)',
+            borderRadius: '50%',
+            transform: 'translate(50px, -50px)'
+          }} />
+          
+          <Row align="middle" justify="space-between" gutter={[24, 24]}>
+            <Col flex="auto">
+              <Space size="large" align="start">
+                <div style={{
+                  // width: '80px',
+                  // height: '80px',
+                  // background: 'rgba(255, 255, 255, 0.2)',
+                  // backdropFilter: 'blur(10px)',
+                  // borderRadius: '20px',
+                  // display: 'flex',
+                  // alignItems: 'center',
+                  // justifyContent: 'center',
+                  // border: '1px solid rgba(255, 255, 255, 0.3)'
+                }}>
+                  {/* <CalendarOutlined style={{ fontSize: '36px', color: 'white' }} /> */}
+                </div>
+                <div>
+                  <Title level={1} style={{ 
+                    margin: 0, 
+                    color: 'white',
+                    fontSize: 'clamp(24px, 5vw, 36px)',
+                    fontWeight: '700',
+                    letterSpacing: '-0.02em'
+                  }}>
+                    Company Events
+                  </Title>
+                  <Text style={{ 
+                    color: 'rgba(255, 255, 255, 0.9)',
+                    fontSize: '16px',
+                    fontWeight: '400',
+                    display: 'block',
+                    marginTop: '8px'
+                  }}>
+                    {userRole === 'employee' 
+                      ? "Stay connected with upcoming company activities" 
+                      : "Orchestrate memorable experiences for your team"
+                    }
+                  </Text>
+                  
+                  {/* Event Stats */}
+                  <div style={{ 
+                    display: 'flex',
+                    gap: '24px',
+                    marginTop: '16px',
+                    flexWrap: 'wrap'
+                  }}>
+                    <div style={{
+                      padding: '8px 16px',
+                      background: 'rgba(255, 255, 255, 0.15)',
+                      borderRadius: '12px',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)'
+                    }}>
+                      <Text style={{ color: 'white', fontSize: '12px', opacity: 0.9 }}>Today</Text>
+                      <br />
+                      <Text style={{ color: 'white', fontSize: '18px', fontWeight: '600' }}>
+                        {todayEvents.length + ongoingEvents.length}
+                      </Text>
+                    </div>
+                    <div style={{
+                      padding: '8px 16px',
+                      background: 'rgba(255, 255, 255, 0.15)',
+                      borderRadius: '12px',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)'
+                    }}>
+                      <Text style={{ color: 'white', fontSize: '12px', opacity: 0.9 }}>Upcoming</Text>
+                      <br />
+                      <Text style={{ color: 'white', fontSize: '18px', fontWeight: '600' }}>
+                        {upcomingEvents.length}
+                      </Text>
+                    </div>
                   </div>
-                </Space>
+                </div>
+              </Space>
+            </Col>
+            {userRole !== 'employee' && (
+              <Col>
+                <Button
+                  type="primary"
+                  size="large"
+                  icon={<PlusOutlined />}
+                  onClick={() => {
+                    setSelectedEvent(null);
+                    eventForm.resetFields();
+                    setEventModal(true);
+                  }}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    borderRadius: '16px',
+                    height: '56px',
+                    padding: '0 32px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    color: 'white',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+                  }}
+                >
+                  Create Event
+                </Button>
               </Col>
-              {userRole !== 'employee' && (
-                <Col>
-                  <Button
-                    type="primary"
-                    size="large"
-                    icon={<PlusOutlined />}
-                    onClick={() => {
-                      setSelectedEvent(null);
-                      eventForm.resetFields();
-                      setEventModal(true);
-                    }}
-                    style={{
-                      background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
-                      border: 'none',
-                      borderRadius: '8px',
-                      height: '50px',
-                      padding: '0 24px'
-                    }}
-                  >
-                    Add Event
-                  </Button>
-                </Col>
-              )}
-            </Row>
-          </Card>
+            )}
+          </Row>
+        </Card>
 
-          {/* Event Timelines */}
-          <Row gutter={[24, 24]}>
-            <Col xs={24} lg={8}>
-              <Card title="Today's Events" style={{ borderRadius: '12px', minHeight: '400px' }}>
-                {todayEvents.length > 0 ? (
+        {/* Enhanced Event Timelines Grid */}
+        <Row gutter={[24, 24]}>
+          {/* Ongoing Events */}
+          {ongoingEvents.length > 0 && (
+            <Col xs={24} lg={6}>
+              <Card 
+                title={
+                  <Space>
+                    <div style={{
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '6px',
+                      background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <ThunderboltOutlined style={{ color: 'white', fontSize: '12px' }} />
+                    </div>
+                    <Text strong>Live Now</Text>
+                    <Badge count={ongoingEvents.length} style={{ backgroundColor: '#ff4d4f' }} />
+                  </Space>
+                }
+                style={{ 
+                  borderRadius: '16px',
+                  minHeight: '480px',
+                  border: '2px solid #ff4d4f20',
+                  background: 'linear-gradient(135deg, #fff5f5 0%, #ffffff 100%)'
+                }}
+                headStyle={{
+                  borderBottom: '1px solid #ff4d4f20',
+                  background: 'transparent'
+                }}
+              >
+                <Timeline
+                  items={ongoingEvents.map(event => ({
+                    key: event.id,
+                    dot: <div style={{
+                      width: '12px',
+                      height: '12px',
+                      borderRadius: '50%',
+                      background: 'linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%)',
+                      animation: 'pulse 2s infinite',
+                      boxShadow: '0 0 0 4px rgba(255, 77, 79, 0.2)'
+                    }} />,
+                    children: <EnhancedEventCard 
+                      event={event} 
+                      userRole={userRole} 
+                      onEdit={setSelectedEvent} 
+                      onDelete={handleEventAction}
+                      type="ongoing"
+                    />
+                  }))}
+                />
+              </Card>
+            </Col>
+          )}
+
+          {/* Today's Events */}
+          <Col xs={24} lg={ongoingEvents.length > 0 ? 6 : 8}>
+            <Card 
+              title={
+                <Space>
+                  <div style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '6px',
+                    background: 'linear-gradient(135deg, #4ecdc4 0%, #2ab7ca 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <ClockCircleOutlined style={{ color: 'white', fontSize: '12px' }} />
+                  </div>
+                  <Text strong>Today</Text>
+                  <Badge count={todayEvents.length} style={{ backgroundColor: '#1890ff' }} />
+                </Space>
+              }
+              style={{ 
+                borderRadius: '16px',
+                minHeight: '480px',
+                border: '2px solid #1890ff20',
+                background: 'linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%)'
+              }}
+              headStyle={{
+                borderBottom: '1px solid #1890ff20',
+                background: 'transparent'
+              }}
+            >
+              {todayEvents.length > 0 ? (
+                <Timeline
+                  items={todayEvents.map(event => ({
+                    key: event.id,
+                    dot: <ClockCircleOutlined style={{ color: '#1890ff', fontSize: '16px' }} />,
+                    children: <EnhancedEventCard 
+                      event={event} 
+                      userRole={userRole} 
+                      onEdit={setSelectedEvent} 
+                      onDelete={handleEventAction}
+                      type="today"
+                    />
+                  }))}
+                />
+              ) : (
+                <Empty 
+                  description="No events scheduled for today"
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  style={{ margin: '60px 0' }}
+                />
+              )}
+            </Card>
+          </Col>
+
+          {/* Upcoming Events */}
+          <Col xs={24} lg={ongoingEvents.length > 0 ? 6 : 8}>
+            <Card 
+              title={
+                <Space>
+                  <div style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '6px',
+                    background: 'linear-gradient(135deg, #52c41a 0%, #389e0d 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <CalendarTwoTone style={{ fontSize: '12px' }} />
+                  </div>
+                  <Text strong>Upcoming</Text>
+                  <Badge count={upcomingEvents.length} style={{ backgroundColor: '#52c41a' }} />
+                </Space>
+              }
+              style={{ 
+                borderRadius: '16px',
+                minHeight: '480px',
+                border: '2px solid #52c41a20',
+                background: 'linear-gradient(135deg, #f6ffed 0%, #ffffff 100%)'
+              }}
+              headStyle={{
+                borderBottom: '1px solid #52c41a20',
+                background: 'transparent'
+              }}
+            >
+              {upcomingEvents.length > 0 ? (
+                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                   <Timeline
-                    items={todayEvents.map(event => ({
+                    items={upcomingEvents.slice(0, 12).map(event => ({
                       key: event.id,
-                      dot: <ClockCircleOutlined style={{ color: '#ff4d4f' }} />,
-                      children: <EventCard event={event} userRole={userRole} onEdit={setSelectedEvent} onDelete={handleEventAction} />
+                      dot: <CalendarTwoTone twoToneColor="#52c41a" />,
+                      children: <EnhancedEventCard 
+                        event={event} 
+                        userRole={userRole} 
+                        onEdit={setSelectedEvent} 
+                        onDelete={handleEventAction}
+                        type="upcoming"
+                      />
                     }))}
                   />
-                ) : <Empty description="No events today" />}
-              </Card>
-            </Col>
-            <Col xs={24} lg={8}>
-              <Card title="Upcoming Events" style={{ borderRadius: '12px', minHeight: '400px' }}>
-                {upcomingEvents.length > 0 ? (
-                  <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                    <Timeline
-                      items={upcomingEvents.slice(0, 10).map(event => ({
-                        key: event.id,
-                        dot: <CalendarTwoTone twoToneColor="#52c41a" />,
-                        children: <EventCard event={event} userRole={userRole} onEdit={setSelectedEvent} onDelete={handleEventAction} />
-                      }))}
-                    />
+                </div>
+              ) : (
+                <Empty 
+                  description="No upcoming events"
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  style={{ margin: '60px 0' }}
+                />
+              )}
+            </Card>
+          </Col>
+
+          {/* Past Events */}
+          <Col xs={24} lg={ongoingEvents.length > 0 ? 6 : 8}>
+            <Card 
+              title={
+                <Space>
+                  <div style={{
+                    width: '24px',
+                    height: '24px',
+                    borderRadius: '6px',
+                    background: 'linear-gradient(135deg, #bfbfbf 0%, #8c8c8c 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <HistoryOutlined style={{ color: 'white', fontSize: '12px' }} />
                   </div>
-                ) : <Empty description="No upcoming events" />}
-              </Card>
+                  <Text strong>Completed</Text>
+                  <Badge count={pastEvents.length} style={{ backgroundColor: '#8c8c8c' }} />
+                </Space>
+              }
+              style={{ 
+                borderRadius: '16px',
+                minHeight: '480px',
+                border: '2px solid #d9d9d920',
+                background: 'linear-gradient(135deg, #fafafa 0%, #ffffff 100%)'
+              }}
+              headStyle={{
+                borderBottom: '1px solid #d9d9d920',
+                background: 'transparent'
+              }}
+            >
+              {pastEvents.length > 0 ? (
+                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                  <Timeline
+                    items={pastEvents.slice(0, 8).map(event => ({
+                      key: event.id,
+                      dot: <div style={{ 
+                        width: '8px', 
+                        height: '8px', 
+                        borderRadius: '50%', 
+                        background: '#bfbfbf' 
+                      }} />,
+                      children: <EnhancedEventCard 
+                        event={event} 
+                        userRole={userRole} 
+                        type="past"
+                      />
+                    }))}
+                  />
+                </div>
+              ) : (
+                <Empty 
+                  description="No past events"
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  style={{ margin: '60px 0' }}
+                />
+              )}
+            </Card>
+          </Col>
+        </Row>
+
+        {/* Enhanced Event Modal */}
+        <Modal
+          title={null}
+          open={eventModal}
+          onCancel={() => setEventModal(false)}
+          footer={null}
+          width={800}
+          centered
+          styles={{
+            body: { padding: 0 },
+            content: { borderRadius: '24px', overflow: 'hidden' }
+          }}
+        >
+         <EventFormModal 
+  form={eventForm}
+  selectedEvent={selectedEvent}
+  onFinish={(values) => {
+    const eventData = selectedEvent ? { ...values, id: selectedEvent.id } : values;
+    handleEventAction(eventData, selectedEvent ? 'update' : 'create');
+  }}
+  onCancel={() => setEventModal(false)}
+  loading={loading}
+/>
+        </Modal>
+      </div>
+
+      {/* Add pulse animation CSS */}
+      <style>{`
+        @keyframes pulse {
+          0% {
+            box-shadow: 0 0 0 0 rgba(255, 77, 79, 0.4);
+          }
+          70% {
+            box-shadow: 0 0 0 10px rgba(255, 77, 79, 0);
+          }
+          100% {
+            box-shadow: 0 0 0 0 rgba(255, 77, 79, 0);
+          }
+        }
+      `}</style>
+    </Spin>
+  );
+};
+const EventFormModal = ({ form, selectedEvent, onFinish, onCancel, loading }) => {
+  useEffect(() => {
+    if (selectedEvent) {
+     form.setFieldsValue({
+  ...selectedEvent,
+  event_date: dayjs(selectedEvent.event_date),
+  time: selectedEvent.time ? dayjs(selectedEvent.time, 'HH:mm:ss') : null
+});
+    }
+  }, [selectedEvent, form]);
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{
+        padding: '32px',
+        background: 'linear-gradient(135deg, #0D7139 0%, #52c41a 100%)',
+        color: 'white',
+        textAlign: 'center'
+      }}>
+        <div style={{
+          width: '64px',
+          height: '64px',
+          margin: '0 auto 16px',
+          borderRadius: '50%',
+          background: 'rgba(255, 255, 255, 0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backdropFilter: 'blur(10px)'
+        }}>
+          <CalendarOutlined style={{ fontSize: '28px' }} />
+        </div>
+        <Title level={2} style={{ color: 'white', margin: 0, fontSize: '28px' }}>
+          {selectedEvent ? 'Edit Event' : 'Create New Event'}
+        </Title>
+        <Text style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '16px' }}>
+          {selectedEvent ? 'Update event details' : 'Plan something amazing for your team'}
+        </Text>
+      </div>
+
+      {/* Form */}
+      <div style={{ padding: '32px' }}>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={onFinish}
+          initialValues={{
+            event_date: dayjs(),
+            priority: 'medium'
+          }}
+        >
+          <div style={{
+            padding: '24px',
+            background: '#f8f9fa',
+            borderRadius: '16px',
+            marginBottom: '24px'
+          }}>
+            <Title level={4} style={{ margin: '0 0 16px 0', color: '#495057' }}>
+              Event Details
+            </Title>
+            
+            <Row gutter={[24, 16]}>
+              <Col xs={24} md={16}>
+                <Form.Item
+                  name="title"
+                  label={<Text strong style={{ fontSize: '14px' }}>Event Title</Text>}
+                  rules={[{ required: true, message: 'Please enter event title' }]}
+                >
+                  <Input 
+                    placeholder="e.g., Annual Team Building, Product Launch"
+                    size="large"
+                    style={{ borderRadius: '8px' }}
+                    prefix={<CalendarOutlined style={{ color: '#8c8c8c' }} />}
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={8}>
+                <Form.Item
+                  name="priority"
+                  label={<Text strong style={{ fontSize: '14px' }}>Priority Level</Text>}
+                >
+                  <Select size="large" style={{ borderRadius: '8px' }}>
+                    <Option value="low">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#52c41a' }} />
+                        Low Priority
+                      </div>
+                    </Option>
+                    <Option value="medium">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#faad14' }} />
+                        Medium Priority
+                      </div>
+                    </Option>
+                    <Option value="high">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ff4d4f' }} />
+                        High Priority
+                      </div>
+                    </Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+            </Row>
+          </div>
+
+          <div style={{
+            padding: '24px',
+            background: '#f0f9ff',
+            borderRadius: '16px',
+            marginBottom: '24px'
+          }}>
+            <Title level={4} style={{ margin: '0 0 16px 0', color: '#495057' }}>
+              Schedule Information
+            </Title>
+            
+            <Row gutter={[24, 16]}>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="event_date"
+                  label={<Text strong style={{ fontSize: '14px' }}>Event Date</Text>}
+                  rules={[{ required: true, message: 'Please select event date' }]}
+                >
+                  <DatePicker 
+                    style={{ width: '100%', borderRadius: '8px' }}
+                    size="large"
+                    format="DD/MM/YYYY"
+                    disabledDate={(current) => current && current < dayjs().startOf('day')}
+                    placeholder="Select date"
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="time"
+                  label={<Text strong style={{ fontSize: '14px' }}>Time (Optional)</Text>}
+                >
+                  <TimePicker 
+                    format="HH:mm"
+                    style={{ width: '100%', borderRadius: '8px' }}
+                    size="large"
+                    placeholder="Select time"
+                    minuteStep={15}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+          </div>
+
+          <div style={{
+            padding: '24px',
+            background: '#f6ffed',
+            borderRadius: '16px',
+            marginBottom: '24px'
+          }}>
+            <Title level={4} style={{ margin: '0 0 16px 0', color: '#495057' }}>
+              Additional Information
+            </Title>
+            
+            <Form.Item
+              name="location"
+              label={<Text strong style={{ fontSize: '14px' }}>Location</Text>}
+            >
+              <Input 
+                placeholder="e.g., Conference Room A, Zoom Meeting, Outdoor Venue"
+                size="large"
+                style={{ borderRadius: '8px' }}
+                prefix={<EnvironmentOutlined style={{ color: '#8c8c8c' }} />}
+              />
+            </Form.Item>
+
+            <Form.Item
+              name="description"
+              label={<Text strong style={{ fontSize: '14px' }}>Event Description</Text>}
+            >
+              <TextArea
+                rows={4}
+                placeholder="Describe the event, agenda, what attendees should expect, or any special instructions..."
+                maxLength={500}
+                showCount
+                style={{ borderRadius: '8px' }}
+              />
+            </Form.Item>
+          </div>
+
+          {/* Footer Actions */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: '12px',
+            paddingTop: '24px',
+            borderTop: '1px solid #f0f0f0'
+          }}>
+            <Button 
+              size="large"
+              onClick={onCancel}
+              style={{
+                borderRadius: '8px',
+                padding: '0 24px',
+                height: '48px'
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="primary" 
+              size="large"
+              htmlType="submit"
+              loading={loading}
+              style={{
+                background: 'linear-gradient(to top, #0D7139, #52c41a)',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '0 32px',
+                height: '48px',
+                fontSize: '16px',
+                fontWeight: '600'
+              }}
+              icon={<SaveOutlined />}
+            >
+              {selectedEvent ? 'Update Event' : 'Create Event'}
+            </Button>
+          </div>
+        </Form>
+      </div>
+    </div>
+  );
+};
+const EnhancedEventCard = ({ event, userRole, onEdit, onDelete, type = 'upcoming' }) => {
+  const [actionModal, setActionModal] = useState(false);
+  const [rescheduleModal, setRescheduleModal] = useState(false);
+  const [rescheduleForm] = Form.useForm();
+  
+  const eventDate = dayjs(event.event_date);
+  const eventDateTime = event.time ? 
+    eventDate.hour(dayjs(event.time, 'HH:mm').hour()).minute(dayjs(event.time, 'HH:mm').minute()) : 
+    eventDate;
+  const timeFromNow = eventDateTime.fromNow();
+  const isPast = type === 'past';
+  const isOngoing = type === 'ongoing';
+  const isToday = type === 'today';
+
+  const getCardStyle = () => {
+    switch (type) {
+      case 'ongoing':
+        return {
+          background: 'linear-gradient(135deg, #fff2f0 0%, #ffffff 100%)',
+          border: '2px solid #ff4d4f20',
+          borderLeft: '4px solid #ff4d4f'
+        };
+      case 'today':
+        return {
+          background: 'linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%)',
+          border: '2px solid #1890ff20',
+          borderLeft: '4px solid #1890ff'
+        };
+      case 'upcoming':
+        return {
+          background: 'linear-gradient(135deg, #f6ffed 0%, #ffffff 100%)',
+          border: '2px solid #52c41a20',
+          borderLeft: '4px solid #52c41a'
+        };
+      default:
+        return {
+          background: 'linear-gradient(135deg, #fafafa 0%, #ffffff 100%)',
+          border: '2px solid #d9d9d920',
+          borderLeft: '4px solid #bfbfbf',
+          opacity: 0.9
+        };
+    }
+  };
+
+  const handleReschedule = async (values) => {
+    try {
+      const updatedEvent = {
+        ...event,
+        event_date: values.newDate.format('YYYY-MM-DD'),
+        time: values.newTime ? values.newTime.format('HH:mm') : event.time,
+        description: values.reason ? 
+          `${event.description || ''}\n\nRescheduled: ${values.reason}` : 
+          event.description
+      };
+      
+      // Update event (you'll need to implement this in your handleEventAction)
+      await handleEventAction(updatedEvent, 'update');
+      setRescheduleModal(false);
+      setActionModal(false);
+      rescheduleForm.resetFields();
+      message.success('Event rescheduled successfully!');
+    } catch (error) {
+      message.error('Failed to reschedule event');
+    }
+  };
+const handleComplete = async () => {
+  try {
+    const completedEvent = {
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      id: event.id
+    };
+    
+    await onDelete(completedEvent, 'update');
+    setActionModal(false);
+    message.success('Event marked as completed!');
+  } catch (error) {
+    message.error('Failed to mark event as completed');
+  }
+}; 
+
+  const handleReject = async () => {
+    try {
+      const rejectedEvent = {
+        ...event,
+        status: 'rejected',
+        rejected_at: new Date().toISOString()
+      };
+      
+      await handleEventAction(rejectedEvent, 'update');
+      setActionModal(false);
+      message.success('Event has been rejected');
+    } catch (error) {
+      message.error('Failed to reject event');
+    }
+  };
+
+  return (
+    <>
+      <Card 
+        size="small" 
+        style={{ 
+          marginBottom: '12px',
+          borderRadius: '12px',
+          ...getCardStyle(),
+          transition: 'all 0.3s ease',
+          cursor: 'pointer'
+        }}
+        bodyStyle={{ padding: '16px' }}
+        hoverable
+        actions={!isPast && userRole !== 'employee' ? [
+          <Tooltip title="Edit Event">
+          <Button 
+  type="text" 
+  size="small" 
+  icon={<EditOutlined />}
+  onClick={(e) => {
+    e.stopPropagation();
+    setSelectedEvent(event);
+    setEventModal(true);
+  }}
+  style={{ color: '#1890ff' }}
+/>
+          </Tooltip>,
+          <Tooltip title="Event Actions">
+            <Button 
+              type="text" 
+              size="small" 
+              icon={<CheckCircleOutlined />}
+              onClick={(e) => {
+                e.stopPropagation();
+                setActionModal(true);
+              }}
+              style={{ color: '#52c41a' }}
+            />
+          </Tooltip>,
+          <Tooltip title="Delete Event">
+          <Popconfirm
+  title="Delete this event?"
+  onConfirm={(e) => {
+    e?.stopPropagation();
+    onDelete(event, 'delete'); // Pass the event object directly
+  }}
+  okText="Delete"
+  cancelText="Cancel"
+  placement="topRight"
+>
+  <Button 
+    type="text" 
+    size="small" 
+    icon={<DeleteOutlined />}
+    danger
+    onClick={(e) => e.stopPropagation()}
+  />
+</Popconfirm>
+          </Tooltip>
+        ] : undefined}
+      >
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+            <Title level={5} style={{ 
+              margin: 0,
+              color: isPast ? '#8c8c8c' : isOngoing ? '#ff4d4f' : '#262626',
+              fontSize: '16px',
+              fontWeight: '600'
+            }}>
+              {event.title}
+            </Title>
+            {isOngoing && (
+              <Tag color="red" style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '8px' }}>
+                LIVE
+              </Tag>
+            )}
+            {event.priority && (
+              <Tag 
+                color={event.priority === 'high' ? 'red' : event.priority === 'medium' ? 'orange' : 'green'}
+                style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '8px' }}
+              >
+                {event.priority.toUpperCase()}
+              </Tag>
+            )}
+          </div>
+          
+          <div style={{ marginBottom: '8px' }}>
+            <Space wrap size={[8, 4]}>
+              <Text style={{ 
+                fontSize: '13px', 
+                color: isPast ? '#bfbfbf' : '#666',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}>
+                <CalendarOutlined style={{ fontSize: '12px' }} />
+                {eventDate.format('MMM DD, YYYY')}
+              </Text>
+              
+              {event.time && (
+                <Text style={{ 
+                  fontSize: '13px', 
+                  color: isPast ? '#bfbfbf' : '#666',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  <ClockCircleOutlined style={{ fontSize: '12px' }} />
+                  {event.time}
+                </Text>
+              )}
+              
+              {event.location && (
+                <Text style={{ 
+                  fontSize: '13px', 
+                  color: isPast ? '#bfbfbf' : '#666',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  <EnvironmentOutlined style={{ fontSize: '12px' }} />
+                  {event.location}
+                </Text>
+              )}
+            </Space>
+          </div>
+          
+          <Text style={{ 
+            fontSize: '11px', 
+            color: isPast ? '#bfbfbf' : isOngoing ? '#ff4d4f' : '#52c41a',
+            fontWeight: '500'
+          }}>
+            {isOngoing ? 'Happening now' : timeFromNow}
+          </Text>
+          
+          {event.description && (
+            <Paragraph 
+              ellipsis={{ rows: 2, expandable: true, symbol: 'more' }}
+              style={{ 
+                fontSize: '13px', 
+                marginTop: '8px', 
+                marginBottom: 0,
+                color: isPast ? '#8c8c8c' : '#666'
+              }}
+            >
+              {event.description}
+            </Paragraph>
+          )}
+        </div>
+      </Card>
+
+      {/* Event Action Modal */}
+      <Modal
+        title={
+          <div style={{ textAlign: 'center', padding: '8px 0' }}>
+            <div style={{
+              width: '48px',
+              height: '48px',
+              margin: '0 auto 12px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <CheckCircleOutlined style={{ color: 'white', fontSize: '24px' }} />
+            </div>
+            <Title level={4} style={{ margin: 0 }}>Event Status</Title>
+            <Text type="secondary">What would you like to do with "{event.title}"?</Text>
+          </div>
+        }
+        open={actionModal}
+        onCancel={() => setActionModal(false)}
+        footer={null}
+        centered
+        width={500}
+      >
+        <div style={{ padding: '24px 0' }}>
+          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            <Button
+              type="primary"
+              size="large"
+              icon={<CheckCircleOutlined />}
+              onClick={handleComplete}
+              style={{
+                width: '100%',
+                height: '56px',
+                background: 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)',
+                border: 'none',
+                borderRadius: '12px',
+                fontSize: '16px'
+              }}
+            >
+              Mark as Completed
+            </Button>
+            
+            <Button
+              size="large"
+              icon={<ClockCircleOutlined />}
+              onClick={() => {
+                setActionModal(false);
+                setRescheduleModal(true);
+              }}
+              style={{
+                width: '100%',
+                height: '56px',
+                borderRadius: '12px',
+                fontSize: '16px',
+                borderColor: '#1890ff',
+                color: '#1890ff'
+              }}
+            >
+              Reschedule Event
+            </Button>
+            
+            <Button
+              danger
+              size="large"
+              icon={<CloseCircleOutlined />}
+              onClick={handleReject}
+              style={{
+                width: '100%',
+                height: '56px',
+                borderRadius: '12px',
+                fontSize: '16px'
+              }}
+            >
+              Cancel Event
+            </Button>
+          </Space>
+        </div>
+      </Modal>
+
+      {/* Reschedule Modal */}
+      <Modal
+        title={
+          <div style={{ textAlign: 'center', padding: '8px 0' }}>
+            <div style={{
+              width: '48px',
+              height: '48px',
+              margin: '0 auto 12px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #1890ff 0%, #40a9ff 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <ClockCircleOutlined style={{ color: 'white', fontSize: '24px' }} />
+            </div>
+            <Title level={4} style={{ margin: 0 }}>Reschedule Event</Title>
+            <Text type="secondary">Choose a new date and time for "{event.title}"</Text>
+          </div>
+        }
+        open={rescheduleModal}
+        onCancel={() => {
+          setRescheduleModal(false);
+          rescheduleForm.resetFields();
+        }}
+        footer={[
+          <Button key="cancel" onClick={() => setRescheduleModal(false)}>
+            Cancel
+          </Button>,
+          <Button 
+            key="submit" 
+            type="primary" 
+            onClick={() => rescheduleForm.submit()}
+            style={{
+              background: 'linear-gradient(135deg, #1890ff 0%, #40a9ff 100%)',
+              border: 'none'
+            }}
+          >
+            Reschedule
+          </Button>
+        ]}
+        centered
+        width={600}
+      >
+        <Form
+          form={rescheduleForm}
+          layout="vertical"
+          onFinish={handleReschedule}
+          style={{ padding: '24px 0' }}
+        >
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="newDate"
+                label="New Date"
+                rules={[{ required: true, message: 'Please select new date' }]}
+              >
+                <DatePicker 
+                  style={{ width: '100%' }}
+                  size="large"
+                  disabledDate={(current) => current && current < dayjs().startOf('day')}
+                />
+              </Form.Item>
             </Col>
-            <Col xs={24} lg={8}>
-              <Card title="Past Events" style={{ borderRadius: '12px', minHeight: '400px' }}>
-                {pastEvents.length > 0 ? (
-                  <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                    <Timeline
-                      items={pastEvents.slice(0, 5).map(event => ({
-                        key: event.id,
-                        dot: <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#bfbfbf' }} />,
-                        children: <EventCard event={event} userRole={userRole} isPast={true} />
-                      }))}
-                    />
-                  </div>
-                ) : <Empty description="No past events" />}
-              </Card>
+            <Col span={12}>
+              <Form.Item
+                name="newTime"
+                label="New Time"
+              >
+                <TimePicker 
+                  format="HH:mm"
+                  style={{ width: '100%' }}
+                  size="large"
+                />
+              </Form.Item>
             </Col>
           </Row>
-
-          {/* Event Modal */}
-          <Modal
-            title={selectedEvent ? 'Edit Event' : 'Add New Event'}
-            open={eventModal}
-            onCancel={() => setEventModal(false)}
-            footer={[
-              <Button key="cancel" onClick={() => setEventModal(false)}>Cancel</Button>,
-              <Button key="submit" type="primary" loading={loading} onClick={() => eventForm.submit()}>
-                {selectedEvent ? 'Update Event' : 'Create Event'}
-              </Button>,
-            ]}
-            width={600}
+          
+          <Form.Item
+            name="reason"
+            label="Reason for Rescheduling"
+            rules={[{ required: true, message: 'Please provide reason for rescheduling' }]}
           >
-            <EventForm 
-              form={eventForm} 
-              onFinish={(values) => handleEventAction(values, selectedEvent ? 'update' : 'create')} 
-              initialValues={selectedEvent} 
+            <TextArea
+              rows={3}
+              placeholder="Please explain why this event needs to be rescheduled..."
+              maxLength={200}
+              showCount
             />
-          </Modal>
-        </div>
-      </Spin>
-    );
-  };
-  
+          </Form.Item>
+        </Form>
+      </Modal>
+    </>
+  );
+};
   // Main component for the Company Calendar Tab with enhanced UI
   const LeaveCalendarView = ({ userRole }) => {
     const [selectedDate, setSelectedDate] = useState(dayjs());

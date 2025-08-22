@@ -1593,31 +1593,31 @@ const completeStyles = professionalStyles + actionButtonStyles;
                   <Option value="Morning">
                     <Space>
                       <SunOutlined style={{ color: '#faad14' }} />
-                      Morning (8:00 - 10:00 AM)
+                      Morning 
                     </Space>
                   </Option>
                   <Option value="Before Lunch">
                     <Space>
                       <CoffeeOutlined style={{ color: '#8c4a2b' }} />
-                      Before Lunch (10:00 AM - 12:00 PM)
+                      Before Lunch 
                     </Space>
                   </Option>
                   <Option value="Middle">
                     <Space>
                       <ClockCircleFilled style={{ color: '#1890ff' }} />
-                      Middle (12:00 - 2:00 PM)
+                      Middle
                     </Space>
                   </Option>
                   <Option value="After Lunch">
                     <Space>
                       <CoffeeOutlined style={{ color: '#52c41a' }} />
-                      After Lunch (2:00 - 4:00 PM)
+                      After Lunch
                     </Space>
                   </Option>
                   <Option value="Evening">
                     <Space>
                       <MoonOutlined style={{ color: '#722ed1' }} />
-                      Evening (4:00 - 6:00 PM)
+                      Evening
                     </Space>
                   </Option>
                 </Select>
