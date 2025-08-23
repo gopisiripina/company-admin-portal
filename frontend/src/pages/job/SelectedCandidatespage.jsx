@@ -399,41 +399,74 @@ if (response.ok && result.success) {
     // ... existing database update logic for job_applications table
     
   } 
-  // NEW: For manual offers, store in manual_offers table
-  else {
-    try {
-      const { error: insertError } = await supabase
-        .from('manual_offers')
-        .insert({
-          candidate_name: candidateData.name,
-          candidate_email: candidateData.email,
-          candidate_phone: offerData.candidatePhone,
-          candidate_address: offerData.candidateAddress,
-          job_title: offerData.jobTitle,
-          company_name: offerData.companyName,
-          salary_amount: offerData.salaryAmount,
-          joining_date: formattedJoiningDate,
-          work_location: offerData.workLocation,
-          reporting_manager: offerData.reportingManager,
-          offer_valid_until: offerData.offerValidUntil,
-          hr_contact: offerData.hrContact,
-          additional_benefits: offerData.additionalBenefits,
-          message: offerData.message,
-          email_status: 'sent'
-        });
+  // Replace the manual offer database insert section in sendOfferLetter function
 
-      if (insertError) {
-        console.error('Error saving manual offer:', insertError);
-        message.warning('Email sent but failed to save record in database');
-      } else {
-        // Refresh the candidates list to show the new manual offer
-        fetchSelectedCandidates();
-      }
-    } catch (error) {
-      console.error('Error saving manual offer:', error);
-      message.warning('Email sent but failed to save record');
+// NEW: For manual offers, store in manual_offers table
+else {
+  try {
+    // Format the joining date properly for PostgreSQL
+    let formattedJoiningDateForDB = null;
+    if (offerData.joiningDate) {
+      // If it's a moment object from DatePicker, convert to JS Date first
+      const dateObj = offerData.joiningDate._isAMomentObject ? 
+        offerData.joiningDate.toDate() : 
+        new Date(offerData.joiningDate);
+      
+      // Format as YYYY-MM-DD for PostgreSQL
+      formattedJoiningDateForDB = dateObj.toISOString().split('T')[0];
     }
+
+    // Format offer valid until date if it's a date
+    let formattedValidUntilForDB = null;
+    if (offerData.offerValidUntil && offerData.offerValidUntil !== '7 days from offer date') {
+      try {
+        const validUntilDate = new Date(offerData.offerValidUntil);
+        if (!isNaN(validUntilDate.getTime())) {
+          formattedValidUntilForDB = validUntilDate.toISOString().split('T')[0];
+        } else {
+          formattedValidUntilForDB = offerData.offerValidUntil; // Keep as text if not a valid date
+        }
+      } catch (e) {
+        formattedValidUntilForDB = offerData.offerValidUntil; // Keep as text if parsing fails
+      }
+    } else {
+      formattedValidUntilForDB = offerData.offerValidUntil; // Keep as text
+    }
+
+    const { error: insertError } = await supabase
+      .from('manual_offers')
+      .insert({
+        candidate_name: candidateData.name,
+        candidate_email: candidateData.email,
+        candidate_phone: offerData.candidatePhone,
+        candidate_address: offerData.candidateAddress,
+        job_title: offerData.jobTitle,
+        company_name: offerData.companyName,
+        salary_amount: offerData.salaryAmount,
+        joining_date: formattedJoiningDateForDB, // Use properly formatted date
+        work_location: offerData.workLocation,
+        reporting_manager: offerData.reportingManager,
+        offer_valid_until: formattedValidUntilForDB, // Use properly formatted date or text
+        hr_contact: offerData.hrContact,
+        additional_benefits: offerData.additionalBenefits,
+        message: offerData.message,
+        email_status: 'sent',
+        sent_date: new Date().toISOString() // Current timestamp in proper format
+      });
+
+    if (insertError) {
+      console.error('Error saving manual offer:', insertError);
+      message.warning('Email sent but failed to save record in database');
+    } else {
+      console.log('Manual offer saved successfully');
+      // Refresh the candidates list to show the new manual offer
+      fetchSelectedCandidates();
+    }
+  } catch (error) {
+    console.error('Error saving manual offer:', error);
+    message.warning('Email sent but failed to save record');
   }
+}
   
   setOfferModalVisible(false);
   message.success(`Offer letter sent successfully to ${candidateData.name}!`);
