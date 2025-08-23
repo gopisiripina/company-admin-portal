@@ -82,7 +82,7 @@ const generateEmployeeId = async (employeeType) => {
 };
 const sendWelcomeEmail = async (employeeData) => {
   try {
-    const response = await fetch('https://cap.myaccessio.com/api/send-email', {
+    const response = await fetch('http://localhost:5000/api/send-email', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -141,20 +141,21 @@ const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete, onSendCrede
       >
         Send
       </Button>,
-      <Button 
-        key="access"
-        type={employee.portal_access ? "primary" : "default"}
-        size="small"
-        onClick={() => onAccessToggle(employee.id, !employee.portal_access)}
-        style={{ 
-          backgroundColor: employee.portal_access ? '#10b981' : '#ef4444', 
-          borderColor: employee.portal_access ? '#10b981' : '#ef4444', 
-          color: 'white' 
-        }}
-        title={employee.portal_access ? 'Click to deny access' : 'Click to grant access'}
-      >
-        {employee.portal_access ? 'Access ✓' : 'Access ✗'}
-      </Button>,
+     // CHANGE THIS PART in MobileEmployeeCard actions array:
+<Button 
+  key="access"
+  type={employee.portal_access ? "primary" : "default"}
+  size="small"
+  onClick={() => onAccessToggle(employee.id, !employee.portal_access)}
+  style={{ 
+    backgroundColor: employee.portal_access ? '#10b981' : '#ef4444', 
+    borderColor: employee.portal_access ? '#10b981' : '#ef4444', 
+    color: 'white' 
+  }}
+  title={employee.portal_access ? 'Click to deny access' : 'Click to grant access'}
+>
+  {employee.portal_access ? 'Access ✓' : 'Access ✗'}
+</Button>,
       <Popconfirm
         key="delete"
         title="Delete Employee"
@@ -249,12 +250,13 @@ const MobileEmployeeCard = React.memo(({ employee, onEdit, onDelete, onSendCrede
           {employee.isactive ? 'Active' : 'Inactive'}
         </Tag>
         {/* ADD THIS NEW TAG */}
-        <Tag 
-          color={employee.portal_access ? 'cyan' : 'volcano'} 
-          size="small"
-        >
-          {employee.portal_access ? 'Portal Access' : 'No Portal Access'}
-        </Tag>
+       {/* CHANGE THIS TAG in the mobile card tags section: */}
+<Tag 
+  color={employee.portal_access ? 'cyan' : 'volcano'} 
+  size="small"
+>
+  {employee.portal_access ? 'Portal Access' : 'No Portal Access'}
+</Tag>
       </div>
     </div>
   </Card>
@@ -2537,40 +2539,41 @@ const handleSendCredentials = useCallback(async (employee) => {
   }, []);
 
 
-  const fetchAllEmployees = useCallback(async () => {
+const fetchAllEmployees = useCallback(async () => {
   try {
     const { data, error } = await supabaseAdmin
-  .from('users')
-  .select(`
-    id,
-    name,
-    email,
-    mobile,
-    role,
-    employee_id,
-    isactive,
-    profileimage,
-    employee_type,
-    start_date,
-    end_date,
-    created_at,
-    updated_at,
-    face_embedding,
-    department,
-    pay,
-    payroll(
-      id,
-      basic,
-      hra,
-      income_tax,
-      earnings,
-      pf,
-      pay_period,
-      pay_date
-    )
-  `)
-  .eq('role', 'employee')
-  .order('created_at', { ascending: false });
+      .from('users')
+      .select(`
+        id,
+        name,
+        email,
+        mobile,
+        role,
+        employee_id,
+        isactive,
+        portal_access,
+        profileimage,
+        employee_type,
+        start_date,
+        end_date,
+        created_at,
+        updated_at,
+        face_embedding,
+        department,
+        pay,
+        payroll (
+          id,
+          basic,
+          hra,
+          income_tax,
+          earnings,
+          pf,
+          pay_period,
+          pay_date
+        )
+      `)
+      .eq('role', 'employee')
+      .order('created_at', { ascending: false });
     
     if (error) {
       console.error('Fetch error:', error);
@@ -2925,23 +2928,23 @@ const handleClearFilters = useCallback(() => {
   ),
   responsive: ['md'],
 },
-  {
-    title: 'Portal Access',
-    dataIndex: 'portal_access',
-    key: 'portalAccess',
-    width: 130,
-    render: (portalAccess, record) => (
-      <Switch
-        checked={portalAccess}
-        onChange={(checked) => handleAccessToggle(record.id, checked)}
-        checkedChildren="Granted"
-        unCheckedChildren="Denied"
-        loading={loading}
-        size="small"
-      />
-    ),
-    responsive: ['md'],
-  },
+{
+  title: 'Portal Access',
+  dataIndex: 'portal_access',
+  key: 'portalAccess',
+  width: 130,
+  render: (portalAccess, record) => (
+    <Switch
+      checked={portalAccess === true}  // ADD === true for explicit boolean check
+      onChange={(checked) => handleAccessToggle(record.id, checked)}
+      checkedChildren="Granted"
+      unCheckedChildren="Denied"
+      loading={loading}
+      size="small"
+    />
+  ),
+  responsive: ['md'],
+},
 {
   title: 'Pay',
   render: (text, record) => {

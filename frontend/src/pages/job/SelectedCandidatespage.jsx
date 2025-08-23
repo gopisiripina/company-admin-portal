@@ -5,6 +5,7 @@ import {
   message, Drawer, Timeline, Tooltip, InputNumber, Descriptions,
   Alert, Steps, Progress, Statistic
 } from 'antd';
+import jsPDF from 'jspdf';
 import {
   SearchOutlined, EyeOutlined, DownloadOutlined, MailOutlined, 
   UserOutlined, FileTextOutlined, TrophyOutlined, CloseCircleOutlined,
@@ -14,7 +15,10 @@ import {
   BankOutlined, IdcardOutlined, HomeOutlined, ContactsOutlined,
   UpOutlined, DownOutlined
 } from '@ant-design/icons';
+import suryaSignature from '../../assets/surya.png'; // Add this line for the founder's signature
+import naveenSignature from '../../assets/naveen.png'; 
 import ErrorPage from '../../error/ErrorPage';
+import logoImage from '../../assets/logo.png'; // Ensure you have a logo image in assets
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 const { Title, Text, Paragraph } = Typography;
@@ -66,134 +70,197 @@ useEffect(() => {
   return () => window.removeEventListener('resize', handleResize);
 }, []);
 
-const mobileColumns = [
-  {
-    title: 'Candidate',
-    key: 'candidate',
-    render: (_, record) => (
-      <div>
-        <div style={{ fontWeight: 500, fontSize: '14px' }}>{record.name}</div>
-        <div style={{ fontSize: '12px', color: '#666' }}>{record.jobTitle}</div>
-        <div style={{ fontSize: '11px', color: '#999' }}>{record.email}</div>
-        <div style={{ marginTop: '4px' }}>
-          {record.offerSent ? (
-            <Tag color="green" size="small">Offer Sent</Tag>
-          ) : (
-            <Tag color="orange" size="small">Pending</Tag>
-          )}
-        </div>
-      </div>
-    ),
-  },
-  {
-    title: 'Actions',
-    key: 'actions',
-    width: 100,
-    render: (_, record) => (
-      <Space direction="vertical" size="small">
-        <Button 
-          size="small" 
-          block
-          icon={<EyeOutlined />}
-          onClick={() => {
-            setSelectedCandidate(record);
-            setCandidateModalVisible(true);
-          }}
-        >
-          Details
-        </Button>
-        <Button
-          size="small"
-          block
-          type={record.offerSent ? "default" : "primary"}
-          icon={<SendOutlined />}
-          onClick={() => {
-            setSelectedCandidate(record);
-            setOfferModalVisible(true);
-          }}
-          disabled={record.offerSent}
-        >
-          {record.offerSent ? 'Sent' : 'Send Offer'}
-        </Button>
-      </Space>
-    ),
-  }
-];
-  // Fetch selected candidates from Supabase
-  const fetchSelectedCandidates = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('job_applications')
-        .select(`
-          *,
-          interview_type,
-          interview_date,
-          interview_time,
-          interview_link,
-          interview_platform,
-          mail_sent_date,
-          interview_status,
-          technical_rating,
-          communication_rating,
-          interview_feedback,
-          interviewer_name,
-          mail_history
-        `)
-        .eq('status', 'selected')
-        .order('applied_at', { ascending: false });
-      
-      if (error) {
-        console.error('Error fetching selected candidates:', error);
-        message.error('Failed to load selected candidates');
-        return;
-      }
+// const mobileColumns = [
+//   {
+//     title: 'Candidate',
+//     key: 'candidate',
+//     render: (_, record) => (
+//       <div>
+//         <div style={{ fontWeight: 500, fontSize: '14px' }}>{record.name}</div>
+//         <div style={{ fontSize: '12px', color: '#666' }}>{record.jobTitle}</div>
+//         <div style={{ fontSize: '11px', color: '#999' }}>{record.email}</div>
+//         <div style={{ marginTop: '4px' }}>
+//           {record.offerSent ? (
+//             <Tag color="green" size="small">Offer Sent</Tag>
+//           ) : (
+//             <Tag color="orange" size="small">Pending</Tag>
+//           )}
+//         </div>
+//       </div>
+//     ),
+//   },
+//   {
+//     title: 'Actions',
+//     key: 'actions',
+//     width: 100,
+//     render: (_, record) => (
+//       <Space direction="vertical" size="small">
+//         <Button 
+//           size="small" 
+//           block
+//           icon={<EyeOutlined />}
+//           onClick={() => {
+//             setSelectedCandidate(record);
+//             setCandidateModalVisible(true);
+//           }}
+//         >
+//           Details
+//         </Button>
+//         <Button
+//           size="small"
+//           block
+//           type={record.offerSent ? "default" : "primary"}
+//           icon={<SendOutlined />}
+//           onClick={() => {
+//             setSelectedCandidate(record);
+//             setOfferModalVisible(true);
+//           }}
+//           disabled={record.offerSent}
+//         >
+//           {record.offerSent ? 'Sent' : 'Send Offer'}
+//         </Button>
+//       </Space>
+//     ),
+//   }
+// ];
+const fetchSelectedCandidates = async () => {
+  setLoading(true);
+  try {
+    // Fetch selected candidates from job_applications
+    const { data: selectedData, error: selectedError } = await supabase
+      .from('job_applications')
+      .select(`
+        *,
+        interview_type,
+        interview_date,
+        interview_time,
+        interview_link,
+        interview_platform,
+        mail_sent_date,
+        interview_status,
+        technical_rating,
+        communication_rating,
+        interview_feedback,
+        interviewer_name,
+        mail_history
+      `)
+      .eq('status', 'selected')
+      .order('applied_at', { ascending: false });
 
-      // Transform data for display
-      const transformedData = data.map(candidate => ({
-        id: candidate.id,
-        name: candidate.full_name,
-        email: candidate.email,
-        phone: candidate.phone,
-        jobTitle: candidate.job_title,
-        department: candidate.current_company || 'Not specified',
-        selectedDate: candidate.applied_at,
-        experience: candidate.experience_years,
-        skills: candidate.skills ? candidate.skills.split(',') : [],
-        status: candidate.status,
-        resumeUrl: candidate.resume_url,
-        location: candidate.location,
-        expectedSalary: candidate.expected_salary,
-        currentPosition: candidate.current_position,
-        education: candidate.education,
-        linkedinUrl: candidate.linkedin_url,
-        portfolioUrl: candidate.portfolio_url,
-        technicalRating: candidate.technical_rating,
-        communicationRating: candidate.communication_rating,
-        interviewFeedback: candidate.interview_feedback,
-        interviewerName: candidate.interviewer_name,
-        interviewDate: candidate.interview_date,
-        interviewTime: candidate.interview_time,
-        mailHistory: candidate.mail_history || [],
-        offerSent: candidate.mail_history ? candidate.mail_history.some(mail => mail.type === 'offer') : false,
-        offerSentDate: candidate.mail_history ? 
-          candidate.mail_history.find(mail => mail.type === 'offer')?.sentDate : null
-      }));
+    // Fetch manual offers
+    const { data: manualData, error: manualError } = await supabase
+      .from('manual_offers')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-      setCandidates(transformedData);
-      
-      // Extract unique job titles
-      const uniqueTitles = [...new Set(transformedData.map(item => item.jobTitle))];
-      setJobTitles(uniqueTitles);
-
-    } catch (error) {
-      console.error('Error loading selected candidates:', error);
+    if (selectedError) {
+      console.error('Error fetching selected candidates:', selectedError);
       message.error('Failed to load selected candidates');
-    } finally {
-      setLoading(false);
+      return;
     }
-  };
 
+    if (manualError) {
+      console.error('Error fetching manual offers:', manualError);
+      message.error('Failed to load manual offers');
+      return;
+    }
+
+    // Transform selected candidates data
+    const transformedSelected = selectedData.map(candidate => ({
+      id: candidate.id,
+      name: candidate.full_name,
+      email: candidate.email,
+      phone: candidate.phone,
+      jobTitle: candidate.job_title,
+      department: candidate.current_company || 'Not specified',
+      selectedDate: candidate.applied_at,
+      experience: candidate.experience_years,
+      skills: candidate.skills ? candidate.skills.split(',') : [],
+      status: candidate.status,
+      resumeUrl: candidate.resume_url,
+      location: candidate.location,
+      expectedSalary: candidate.expected_salary,
+      currentPosition: candidate.current_position,
+      education: candidate.education,
+      linkedinUrl: candidate.linkedin_url,
+      portfolioUrl: candidate.portfolio_url,
+      technicalRating: candidate.technical_rating,
+      communicationRating: candidate.communication_rating,
+      interviewFeedback: candidate.interview_feedback,
+      interviewerName: candidate.interviewer_name,
+      interviewDate: candidate.interview_date,
+      interviewTime: candidate.interview_time,
+      mailHistory: candidate.mail_history || [],
+      offerSent: candidate.mail_history ? candidate.mail_history.some(mail => mail.type === 'offer') : false,
+      offerSentDate: candidate.mail_history ? 
+        candidate.mail_history.find(mail => mail.type === 'offer')?.sentDate : null,
+      isManual: false // Flag to identify source
+    }));
+
+    // Transform manual offers data
+    const transformedManual = manualData.map(manual => ({
+      id: `manual_${manual.id}`, // Prefix to avoid ID conflicts
+      name: manual.candidate_name,
+      email: manual.candidate_email,
+      phone: manual.candidate_phone,
+      jobTitle: manual.job_title,
+      department: manual.company_name,
+      selectedDate: manual.created_at,
+      experience: 'N/A',
+      skills: [],
+      status: 'manual_offer',
+      resumeUrl: null,
+      location: manual.work_location,
+      expectedSalary: manual.salary_amount,
+      currentPosition: 'External Candidate',
+      education: 'N/A',
+      linkedinUrl: null,
+      portfolioUrl: null,
+      technicalRating: null,
+      communicationRating: null,
+      interviewFeedback: null,
+      interviewerName: null,
+      interviewDate: null,
+      interviewTime: null,
+      mailHistory: [{
+        type: 'offer',
+        sentDate: manual.sent_date,
+        offerDetails: {
+          jobTitle: manual.job_title,
+          companyName: manual.company_name,
+          salaryAmount: manual.salary_amount,
+          joiningDate: manual.joining_date,
+          workLocation: manual.work_location,
+          reportingManager: manual.reporting_manager,
+          additionalBenefits: manual.additional_benefits,
+          offerValidUntil: manual.offer_valid_until,
+          candidatePhone: manual.candidate_phone,
+          candidateAddress: manual.candidate_address,
+          hrContact: manual.hr_contact,
+          message: manual.message
+        },
+        emailStatus: manual.email_status
+      }],
+      offerSent: true, // Manual offers are always sent
+      offerSentDate: manual.sent_date,
+      isManual: true // Flag to identify source
+    }));
+
+    // Combine both datasets
+    const allCandidates = [...transformedSelected, ...transformedManual];
+    setCandidates(allCandidates);
+    
+    // Extract unique job titles from both sources
+    const uniqueTitles = [...new Set(allCandidates.map(item => item.jobTitle))];
+    setJobTitles(uniqueTitles);
+
+  } catch (error) {
+    console.error('Error loading candidates:', error);
+    message.error('Failed to load candidates');
+  } finally {
+    setLoading(false);
+  }
+};
   useEffect(() => {
     fetchSelectedCandidates();
   }, []);
@@ -236,12 +303,20 @@ const mobileColumns = [
     applyFilters();
   }, [searchText, jobTitleFilter, statusFilter, dateRange, candidates]);
 
-  // Send offer letter email
-// Updated sendOfferLetter function with better error handling and debugging
 const sendOfferLetter = async (offerData) => {
   setLoading(true);
   try {
+    // For manual offers, create a temporary candidate object
+    const candidateData = selectedCandidate || {
+      id: null,
+      name: offerData.candidateName,
+      email: offerData.candidateEmail,
+      phone: offerData.candidatePhone,
+      jobTitle: offerData.jobTitle
+    };
+
     console.log('Sending email with data:', offerData);
+    console.log('Candidate data:', candidateData);
     
     // Format the joining date properly
     const formattedJoiningDate = offerData.joiningDate 
@@ -250,11 +325,24 @@ const sendOfferLetter = async (offerData) => {
           : new Date(offerData.joiningDate).toLocaleDateString())
       : '';
     
-    // Prepare email template parameters
+    // Generate PDF with updated data including new fields
+   const pdfBlob = generateOfferLetterPDF(candidateData, {
+      ...offerData,
+      joiningDate: formattedJoiningDate
+    });
+    
+    // Convert blob to base64 for email attachment
+    const base64PDF = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.readAsDataURL(pdfBlob);
+    });
+    
+    // Prepare email template parameters - UPDATED to include all fields
     const emailParams = {
-      to_name: selectedCandidate.name,
-      to_email: selectedCandidate.email,
-      job_title: selectedCandidate.jobTitle,
+      to_name: candidateData.name, // Changed from selectedCandidate.name
+      to_email: candidateData.email, // Changed from selectedCandidate.email
+      job_title: offerData.jobTitle,
       company_name: offerData.companyName,
       salary_amount: offerData.salaryAmount,
       joining_date: formattedJoiningDate,
@@ -268,82 +356,89 @@ const sendOfferLetter = async (offerData) => {
 
     console.log('Email params:', emailParams);
 
-    const response = await fetch('https://cap.myaccessio.com/api/send-job-offer', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    senderEmail: "suryavenkatareddy90@gmail.com",
-    senderPassword: "vrxftrjsiekrxdnf",
-    recipientEmail: selectedCandidate.email,
-    subject: `Job Offer - ${selectedCandidate.jobTitle} Position at ${offerData.companyName}`,
-    smtpServer: "smtp.gmail.com",
-    smtpPort: 587,
-    templateData: {
-      to_name: selectedCandidate.name,
-      job_title: selectedCandidate.jobTitle,
-      company_name: offerData.companyName,
-      salary_amount: offerData.salaryAmount,
-      joining_date: formattedJoiningDate,
-      work_location: offerData.workLocation,
-      reporting_manager: offerData.reportingManager,
-      additional_benefits: offerData.additionalBenefits,
-      offer_valid_until: offerData.offerValidUntil,
-      message: offerData.message || '',
-      hr_contact: offerData.hrContact
-    }
-  })
-});
-
-const result = await response.json();
-
-    console.log('EmailJS result:', result);
-
-    if (response.ok && result.success) {
-      // Store the formatted joining date in the database
-      const newMailEntry = {
-        type: 'offer',
-        sentDate: new Date().toISOString(),
-        offerDetails: {
-          ...offerData,
-          joiningDate: formattedJoiningDate // Store as formatted string
+    const response = await fetch('http://localhost:5000/api/send-job-offer', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        senderEmail: "suryavenkatareddy90@gmail.com",
+        senderPassword: "vrxftrjsiekrxdnf",
+        recipientEmail: candidateData.email,
+        subject: `Job Offer - ${offerData.jobTitle} Position at ${offerData.companyName}`,
+        smtpServer: "smtp.gmail.com",
+        smtpPort: 587,
+        templateData: {
+          to_name: candidateData.name, // Changed from selectedCandidate.name
+          job_title: offerData.jobTitle,
+          company_name: offerData.companyName,
+          salary_amount: offerData.salaryAmount,
+          joining_date: formattedJoiningDate,
+          work_location: offerData.workLocation,
+          reporting_manager: offerData.reportingManager,
+          additional_benefits: offerData.additionalBenefits,
+          offer_valid_until: offerData.offerValidUntil,
+          message: offerData.message || '',
+          hr_contact: offerData.hrContact
         },
-        emailStatus: 'sent'
-      };
+        attachments: [{
+          filename: `Offer_Letter_${candidateData.name.replace(/\s+/g, '_')}.pdf`, // Changed from selectedCandidate.name
+          content: base64PDF,
+          contentType: 'application/pdf'
+        }]
+      })
+    });
 
-      const currentMailHistory = selectedCandidate.mailHistory || [];
-      const updatedMailHistory = [...currentMailHistory, newMailEntry];
+    const result = await response.json();
+    console.log('Email result:', result);
 
-      const { error } = await supabase
-        .from('job_applications')
-        .update({
-          mail_history: updatedMailHistory,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', selectedCandidate.id);
+  // Add this section inside sendOfferLetter function after successful email sending
+if (response.ok && result.success) {
+  // For selected candidates (existing logic)
+  if (selectedCandidate && selectedCandidate.id && !selectedCandidate.isManual) {
+    // ... existing database update logic for job_applications table
+    
+  } 
+  // NEW: For manual offers, store in manual_offers table
+  else {
+    try {
+      const { error: insertError } = await supabase
+        .from('manual_offers')
+        .insert({
+          candidate_name: candidateData.name,
+          candidate_email: candidateData.email,
+          candidate_phone: offerData.candidatePhone,
+          candidate_address: offerData.candidateAddress,
+          job_title: offerData.jobTitle,
+          company_name: offerData.companyName,
+          salary_amount: offerData.salaryAmount,
+          joining_date: formattedJoiningDate,
+          work_location: offerData.workLocation,
+          reporting_manager: offerData.reportingManager,
+          offer_valid_until: offerData.offerValidUntil,
+          hr_contact: offerData.hrContact,
+          additional_benefits: offerData.additionalBenefits,
+          message: offerData.message,
+          email_status: 'sent'
+        });
 
-      if (error) {
-        console.error('Database update error:', error);
-        throw new Error('Failed to update database: ' + error.message);
+      if (insertError) {
+        console.error('Error saving manual offer:', insertError);
+        message.warning('Email sent but failed to save record in database');
+      } else {
+        // Refresh the candidates list to show the new manual offer
+        fetchSelectedCandidates();
       }
-
-      const updatedCandidates = candidates.map(candidate =>
-        candidate.id === selectedCandidate.id
-          ? { 
-              ...candidate, 
-              mailHistory: updatedMailHistory,
-              offerSent: true,
-              offerSentDate: new Date().toISOString()
-            }
-          : candidate
-      );
-      
-      setCandidates(updatedCandidates);
-      setOfferModalVisible(false);
-      message.success('Offer letter sent successfully!');
-    } else {
-      throw new Error('EmailJS returned unexpected status: ' + result.status);
+    } catch (error) {
+      console.error('Error saving manual offer:', error);
+      message.warning('Email sent but failed to save record');
+    }
+  }
+  
+  setOfferModalVisible(false);
+  message.success(`Offer letter sent successfully to ${candidateData.name}!`);
+} else {
+      throw new Error('Email service returned error: ' + result.message);
     }
   } catch (error) {
     console.error('Error sending offer letter:', error);
@@ -353,11 +448,373 @@ const result = await response.json();
     } else if (error.message) {
       message.error('Failed to send offer letter: ' + error.message);
     } else {
-      message.error('Failed to send offer letter. Please check your EmailJS configuration.');
+      message.error('Failed to send offer letter. Please check your configuration.');
     }
   } finally {
     setLoading(false);
   }
+};
+
+
+const generateOfferLetterPDF = (candidateData, offerData) => {
+  const doc = new jsPDF();
+
+  // --- Professional Theme Configuration (Light Green Combination) ---
+  const primaryColor = '#2d5016'; // Dark Forest Green
+  const secondaryColor = '#7cb342'; // Light Green Accent
+  const textColor = '#333333';
+  const lightGrayColor = '#f8f9fa';
+  const headerFooterColor = '#6a6a6a';
+  const blackColor = '#000000'; // Added for bold black headings
+
+  // --- Page Dimensions ---
+  const leftMargin = 20;
+  const rightMargin = 20;
+  const pageWidth = 210;
+  const pageHeight = 297;
+  const contentWidth = pageWidth - leftMargin - rightMargin;
+  let yPosition = 20;
+  let pageNumber = 1;
+
+  // --- Add Poppins Font ---
+  const primaryFont = 'helvetica'; // Use helvetica as fallback for Poppins
+  
+  // --- Helper Functions ---
+  const addHeader = (companyName) => {
+    try {
+      doc.addImage(logoImage, 'PNG', leftMargin, 21, 48, 13);
+    } catch (error) {
+      doc.setFillColor(primaryColor);
+      doc.roundedRect(leftMargin, 15, 35, 15, 2, 2, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(10);
+      doc.setFont(primaryFont, 'bold');
+      doc.text('LOGO', leftMargin + 12, 24);
+    }
+
+    doc.setFontSize(19);
+    doc.setFont(primaryFont, 'bold');
+    doc.setTextColor(blackColor); // Changed to bold black
+    doc.text(companyName || 'MyAccess Private Limited', leftMargin + 55, 30);
+    
+    doc.setDrawColor(secondaryColor);
+    doc.setLineWidth(1.5);
+    doc.line(leftMargin, 40, pageWidth - rightMargin, 40);
+
+    yPosition = 55;
+  };
+
+  const addFooter = () => {
+    doc.setFontSize(9);
+    doc.setFont(primaryFont, 'normal');
+    doc.setTextColor(headerFooterColor);
+    const footerText = `MyAccess Confidential - Page ${pageNumber}`;
+    doc.text(footerText, pageWidth / 2, pageHeight - 15, { align: 'center' });
+  };
+  
+  const addNewPage = () => {
+    addFooter();
+    doc.addPage();
+    pageNumber++;
+    yPosition = 20;
+    addHeader(offerData.companyName);
+    addFooter();
+  };
+
+  const checkPageBreak = (requiredHeight) => {
+    if (yPosition + requiredHeight > pageHeight - 30) {
+      addNewPage();
+      return true;
+    }
+    return false;
+  };
+
+  const addSectionTitle = (title) => {
+    checkPageBreak(20);
+    doc.setFontSize(14);
+    doc.setFont(primaryFont, 'bold');
+    doc.setTextColor(blackColor); // Changed to bold black
+    doc.text(title, leftMargin, yPosition);
+    doc.setDrawColor(secondaryColor);
+    doc.setLineWidth(0.5);
+    doc.line(leftMargin, yPosition + 3, leftMargin + 30, yPosition + 3);
+    yPosition += 15;
+  };
+
+  const addText = (text, options = {}) => {
+    const {
+      x = leftMargin,
+      fontSize = 10,
+      fontStyle = 'normal',
+      color = textColor,
+      maxWidth = contentWidth,
+      lineSpacing = 6
+    } = options;
+
+    doc.setFontSize(fontSize);
+    doc.setFont(primaryFont, fontStyle);
+    doc.setTextColor(color);
+    
+    const lines = doc.splitTextToSize(text, maxWidth);
+    checkPageBreak(lines.length * lineSpacing);
+
+    lines.forEach((line) => {
+      doc.text(line, x, yPosition);
+      yPosition += lineSpacing;
+    });
+  };
+
+  const addOfferDetailsTable = () => {
+    checkPageBreak(80);
+    
+    const tableStartY = yPosition;
+    const rowHeight = 11;
+    const lineColor = '#E0E0E0';
+    const col1X = leftMargin + 2;
+    const col2X = leftMargin + (contentWidth / 2) + 5;
+
+    addSectionTitle('OFFER DETAILS');
+    
+    const tableData = [
+      ['Position:', offerData.jobTitle],
+      ['Annual Salary:', offerData.salaryAmount],
+      ['Start Date:', offerData.joiningDate],
+      ['Work Location:', offerData.workLocation],
+      ['Reporting Manager:', offerData.reportingManager],
+      ['Offer Valid Until:', offerData.offerValidUntil]
+    ];
+    
+    doc.setFontSize(10);
+    doc.setLineWidth(0.25);
+    doc.setDrawColor(lineColor);
+    
+    let currentY = yPosition;
+
+    tableData.forEach((row, index) => {
+      doc.setFont(primaryFont, 'bold');
+      doc.setTextColor(textColor);
+      doc.text(row[0], col1X, currentY + 8);
+      
+      doc.setFont(primaryFont, 'normal');
+      doc.setTextColor(textColor);
+      doc.text(row[1], col2X, currentY + 8);
+      
+      currentY += rowHeight;
+      
+      if (index < tableData.length) {
+          doc.line(leftMargin, currentY + 1, pageWidth - rightMargin, currentY + 1);
+      }
+    });
+    
+    yPosition = currentY + 10;
+  };
+
+  // --- Document Generation Starts ---
+  addHeader(offerData.companyName);
+  addFooter();
+
+  // Date and Candidate Details
+  yPosition += 10;
+  
+  checkPageBreak(30);
+  addText(candidateData.name, { fontSize: 11, fontStyle: 'bold' });
+  addText(offerData.candidateAddress);
+  addText(`Phone: ${offerData.candidatePhone || candidateData.phone}`);
+  addText(`Email: ${candidateData.email}`);
+  
+  const currentDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  addText(currentDate, { fontSize: 11, lineSpacing: 5 });
+  yPosition += 15;
+
+  // Offer Subject
+  checkPageBreak(20);
+  addText(`Subject: Offer of Employment - ${offerData.jobTitle}`, { fontSize: 12, fontStyle: 'bold', color: primaryColor });
+  yPosition += 10;
+
+  // Salutation
+  checkPageBreak(15);
+  addText(`Dear ${candidateData.name.split(' ')[0]},`);
+  yPosition += 10;
+
+  // Introduction Paragraph
+  checkPageBreak(30);
+  const introParagraph = `On behalf of ${offerData.companyName || 'MyAccess Pvt. Ltd.'} (the "Company"), we are delighted to offer you the position of ${offerData.jobTitle}. We were impressed with your qualifications and experience, and we are excited about the prospect of you joining our team. This letter clarifies and confirms the terms of your employment with the Company.`;
+  addText(introParagraph);
+  yPosition += 15;
+
+  // --- Detailed Sections ---
+  
+  addSectionTitle('COMPENSATION & BENEFITS');
+  const compensationText = `You will receive an annual salary of ${offerData.salaryAmount}, payable monthly in accordance with the Company's standard payroll procedures. Your position is exempt from overtime pay, and your salary will compensate you for all hours worked.You will receive your full salary in any work week that you perform work subject to limited deductions permitted by law
+as applicable to your status as a salaried exempt employee. The company reserves the right to modify compensation and benefits from time to time as deemed necessary.`;
+  addText(compensationText);
+  yPosition += 5;
+
+  if (offerData.additionalBenefits && offerData.additionalBenefits.trim()) {
+    checkPageBreak(20);
+    addText('In addition, you will be eligible for the following benefits:', { fontStyle: 'bold' });
+    yPosition += 2;
+    addText(offerData.additionalBenefits);
+    yPosition += 5;
+  }
+  
+  const esopText = `As part of your compensation, you will be granted Employee Stock Options (ESOPs). A separate letter with the detailed terms and conditions, including the vesting schedule, will be provided to you.`;
+  addText(esopText);
+  yPosition += 10;
+  
+  addNewPage();
+
+  addSectionTitle('CONDITIONS OF EMPLOYMENT');
+  const backgroundText = 'This offer is contingent upon the successful completion of a background verification. Any misrepresentation of your academic or employment details may result in the termination of this offer without notice.';
+  addText(backgroundText);
+  yPosition += 5;
+
+  const confidentialityText = `As a condition of employment, you are required to sign the Company's Confidentiality and Non-Disclosure Agreement, which will be provided to you separately.`;
+  addText(confidentialityText);
+  yPosition += 10;
+
+  addSectionTitle('JOINING FORMALITIES & DOCUMENTATION');
+  addText('To complete your joining process, please submit photocopies of the following documents on your first day. Please also bring the original documents for verification.');
+  yPosition += 10;
+  
+  checkPageBreak(120);
+  doc.setFontSize(10);
+  doc.setFont(primaryFont, 'bold');
+  
+  const colWidth = contentWidth / 2 - 5;
+  const docCol1 = leftMargin + 5;
+  const docCol2 = leftMargin + colWidth + 10;
+  let y1 = yPosition;
+  let y2 = yPosition;
+
+  const addDocItem = (text, col) => {
+    doc.setFont(primaryFont, 'normal');
+    const lines = doc.splitTextToSize(`•  ${text}`, colWidth);
+    if (col === 1) {
+      if (checkPageBreak(lines.length * 6)) y1 = yPosition;
+      lines.forEach(line => { doc.text(line, docCol1, y1); y1 += 6; });
+    } else {
+      if (checkPageBreak(lines.length * 6)) y2 = yPosition;
+      lines.forEach(line => { doc.text(line, docCol2, y2); y2 += 6; });
+    }
+  };
+
+  addDocItem('All Educational Certificates (Xth, XIIth, Degree, etc.)', 1);
+  addDocItem('PAN Card (Mandatory)', 1);
+  addDocItem('Aadhar Card / Voter ID / Driving License', 1);
+  addDocItem('Valid Passport (if available)', 1);
+  addDocItem('Recent Passport-sized Photographs (2)', 2);
+  addDocItem('Previous Employment Documents (if applicable)', 2);
+  addDocItem('Last 3 Months Salary Slips (if applicable)', 2);
+  
+  yPosition = Math.max(y1, y2) + 15;
+
+  addSectionTitle('Annexure – A');
+  
+  checkPageBreak(50);
+  addText('01. Training Period:', { fontStyle: 'bold' });
+  const trainingText = `You will be on training for a period of six months from the date of joining. The training program would consist of classroom training and on-the-job training. Your confirmation will be based on your positive contribution to the Company's objectives. Based on your performance and business requirements, the period of training can be extended for a further period of three months or part thereof. Your continued employment with the Company is subject to your meeting the qualifying criteria during and at the end of the training.`;
+  addText(trainingText);
+  yPosition += 10;
+
+  checkPageBreak(50);
+  addText('02. Service Agreement:', { fontStyle: 'bold' });
+  const agreementText = `Our offer to you as  ${offerData.jobTitle} is subject to the execution of the necessary Services Agreement. You will be required to complete the formalities of the Service Agreement at the time of joining. The service agreement details the scope, terms and conditions of your employment and the contractual obligation to be with MyAccess Pvt. Ltd., from the date of your joining. Please note, the non-execution of Service Agreement at the time of your joining may result in denial of joining in the services of the Company.`;
+  addText(agreementText);
+  yPosition += 10;
+  
+  checkPageBreak(50);
+  addText('03. Date of Joining Extension:', { fontStyle: 'bold' });
+  const extensionText = `As per the Company policy, only one extension in the Date of Joining would be granted based on medical exigencies. The extension can be done for a maximum period of one month from the initial date of joining. Please note that any request for extension must be supported with documentary evidence (Medical record and certificate). The Company will review the documents provided on a Case-to-Case basis and we may extend the Date of Joining based on business requirements. All such requests for the date of joining extension have to be made at least a week before the initial date of joining. Granting this extension is solely at the discretion of the Company.`;
+  addText(extensionText);
+  yPosition += 15;
+
+  addOfferDetailsTable();
+
+  // --- Closing Section ---
+  addSectionTitle('ACCEPTANCE OF OFFER');
+  const acceptanceText = `We are excited about the possibility of you joining our team. If you wish to accept this offer, please sign and return a copy of this letter by ${offerData.offerValidUntil}.`;
+  addText(acceptanceText);
+  yPosition += 10;
+  
+  const closingText = `We look forward to a productive and mutually beneficial working relationship. Please feel free to contact our HR department at ${offerData.hrContact} if you have any questions.`;
+  addText(closingText);
+  yPosition += 15;
+
+  addText(`Welcome to the ${(offerData.companyName || 'MYACCESS').toUpperCase()} family!`, { fontSize: 11, fontStyle: 'bold', color: secondaryColor });
+  yPosition += 10;
+
+  // --- UPDATED Signature Area ---
+  checkPageBreak(80); // Ensure enough space
+  addText('Yours sincerely,', { fontStyle: 'italic' });
+  yPosition += 5;
+
+  const sig1X = leftMargin;
+  const sig2X = leftMargin + contentWidth / 2;
+  const sigWidth = contentWidth / 2 - 10;
+  const imageY = yPosition;
+  const imageH = 20; // Height of signature image
+  const imageW = 40; // Width of signature image
+
+  // Add signature images with error handling
+  try {
+    doc.addImage(suryaSignature, 'PNG', sig1X, imageY, imageW, imageH);
+  } catch (e) {
+    console.error("Could not add Surya signature image:", e);
+  }
+
+  try {
+    doc.addImage(naveenSignature, 'PNG', sig2X, imageY, imageW, imageH);
+  } catch (e) {
+    console.error("Could not add Naveen signature image:", e);
+  }
+
+  const sigLineY = imageY + imageH + 2; // Position line just below image
+
+  doc.setDrawColor(textColor);
+  doc.setLineWidth(0.3);
+
+  // Draw signature lines
+  doc.line(sig1X, sigLineY, sig1X + sigWidth, sigLineY);
+  doc.line(sig2X, sigLineY, sig2X + sigWidth, sigLineY);
+
+  const textY = sigLineY + 5;
+  doc.setFontSize(10);
+  doc.setFont(primaryFont, 'normal');
+
+  // Manually place text below lines to ensure correct alignment
+  doc.text('Surya Tamarapalli', sig1X, textY);
+  doc.text('Founder', sig1X, textY + 5);
+
+  doc.text('Naveen Kumar Gavara', sig2X, textY);
+  doc.text('Co-founder', sig2X, textY + 5);
+  
+  // Update main yPosition to be below the signature block
+  yPosition = textY + 15;
+
+  // --- Candidate Acceptance Section ---
+  doc.setFillColor(lightGrayColor);
+  doc.roundedRect(leftMargin, yPosition, contentWidth, 40, 3, 3, 'F');
+  yPosition += 10;
+  
+  // Use the addText helper to handle word wrapping for the acceptance paragraph
+  const originalY = yPosition; // Save current Y
+  addText('I accept the offer of employment and agree to the terms and conditions outlined in this letter.', { x: leftMargin + 5, maxWidth: contentWidth - 10 });
+  yPosition = originalY + 15; // Reset Y to a predictable position after the text
+
+  const acceptSigX = leftMargin + 5;
+  const dateSigX = leftMargin + contentWidth / 2;
+  
+  doc.line(acceptSigX, yPosition, acceptSigX + sigWidth, yPosition);
+  doc.line(dateSigX, yPosition, dateSigX + sigWidth, yPosition);
+
+  yPosition += 5;
+  addText('Candidate Signature', { x: acceptSigX, maxWidth: sigWidth });
+  
+  yPosition -= 5; // Align date text with signature line
+  addText('Date', { x: dateSigX, maxWidth: sigWidth });
+
+  return doc.output('blob');
 };
 
   const getColumns = () => {
@@ -381,39 +838,39 @@ const result = await response.json();
           </div>
         ),
       },
-      {
-        title: 'Actions',
-        key: 'actions',
-        width: 100,
-        render: (_, record) => (
-          <Space direction="vertical" size="small">
-            <Button 
-              size="small" 
-              block
-              icon={<EyeOutlined />}
-              onClick={() => {
-                setSelectedCandidate(record);
-                setCandidateModalVisible(true);
-              }}
-            >
-              Details
-            </Button>
-            <Button
-              size="small"
-              block
-              type={record.offerSent ? "default" : "primary"}
-              icon={<SendOutlined />}
-              onClick={() => {
-                setSelectedCandidate(record);
-                setOfferModalVisible(true);
-              }}
-              disabled={record.offerSent}
-            >
-              {record.offerSent ? 'Sent' : 'Send'}
-            </Button>
-          </Space>
-        ),
-      }
+   {
+  title: 'Actions',
+  key: 'actions',
+  width: 100,
+  render: (_, record) => (
+    <Space direction="vertical" size="small">
+      <Button 
+        size="small" 
+        block
+        icon={<EyeOutlined />}
+        onClick={() => {
+          setSelectedCandidate(record);
+          setCandidateModalVisible(true);
+        }}
+      >
+        Details
+      </Button>
+      <Button
+        size="small"
+        block
+        type="primary"  // Always primary type
+        icon={<SendOutlined />}
+        onClick={() => {
+          setSelectedCandidate(record);
+          setOfferModalVisible(true);
+        }}
+        // Remove the disabled prop entirely
+      >
+        {record.offerSent ? 'Resend Offer' : 'Send Offer'}
+      </Button>
+    </Space>
+  ),
+}
     ];
   }
   
@@ -447,33 +904,33 @@ const result = await response.json();
           </div>
         ),
       },
-      {
-        title: 'Actions',
-        key: 'actions',
-        width: 120,
-        render: (_, record) => (
-          <Space size="small">
-            <Button 
-              size="small"
-              icon={<EyeOutlined />}
-              onClick={() => {
-                setSelectedCandidate(record);
-                setCandidateModalVisible(true);
-              }}
-            />
-            <Button
-              size="small"
-              type={record.offerSent ? "default" : "primary"}
-              icon={<SendOutlined />}
-              onClick={() => {
-                setSelectedCandidate(record);
-                setOfferModalVisible(true);
-              }}
-              disabled={record.offerSent}
-            />
-          </Space>
-        ),
-      }
+   {
+  title: 'Actions',
+  key: 'actions',
+  width: 120,
+  render: (_, record) => (
+    <Space size="small">
+      <Button 
+        size="small"
+        icon={<EyeOutlined />}
+        onClick={() => {
+          setSelectedCandidate(record);
+          setCandidateModalVisible(true);
+        }}
+      />
+      <Button
+        size="small"
+        type="primary"  // Always primary type
+        icon={<SendOutlined />}
+        onClick={() => {
+          setSelectedCandidate(record);
+          setOfferModalVisible(true);
+        }}
+        // Remove the disabled prop entirely
+      />
+    </Space>
+  ),
+}
     ];
   }
   
@@ -513,6 +970,16 @@ const result = await response.json();
       </div>
     ),
   },
+  {
+      title: 'Source',
+      key: 'source',
+      width: 80,
+      render: (_, record) => (
+        <Tag color={record.isManual ? 'orange' : 'blue'} size="small">
+          {record.isManual ? 'Manual' : 'Selected'}
+        </Tag>
+      ),
+    },
   {
     title: 'Ratings',
     key: 'ratings',
@@ -602,25 +1069,25 @@ const result = await response.json();
     ),
   },
   {
-    title: 'Send Offer',
-    key: 'sendOffer',
-    width: 100, // Reduced from 120
-    render: (_, record) => (
-      <Button
-        type={record.offerSent ? "default" : "primary"}
-        size="small"
-        icon={<SendOutlined />}
-        onClick={() => {
-          setSelectedCandidate(record);
-          setOfferModalVisible(true);
-        }}
-        disabled={record.offerSent}
-        style={{ fontSize: '11px' }}
-      >
-        {record.offerSent ? 'Sent' : 'Send'}
-      </Button>
-    ),
-  },
+  title: 'Send Offer',
+  key: 'sendOffer',
+  width: 100,
+  render: (_, record) => (
+    <Button
+      type="primary"  // Always primary type
+      size="small"
+      icon={<SendOutlined />}
+      onClick={() => {
+        setSelectedCandidate(record);
+        setOfferModalVisible(true);
+      }}
+      // Remove the disabled prop entirely
+      style={{ fontSize: '11px' }}
+    >
+      {record.offerSent ? 'Resend' : 'Send'}
+    </Button>
+  ),
+},
   {
     title: 'History',
     key: 'history',
@@ -652,15 +1119,37 @@ const result = await response.json();
   width: '100%',
   minHeight: '100vh'
 }}>
-      {/* Header */}
-      <div style={{ marginBottom: '24px' }}>
-        <Title level={2} style={{ margin: 0, color: '#1890ff' }}>
-          <TrophyOutlined /> Selected Candidates
-        </Title>
-        <Text type="secondary">
-          Manage selected candidates and send offer letters
-        </Text>
-      </div>
+    {/* Header */}
+<div style={{ 
+  marginBottom: '24px', 
+  display: 'flex', 
+  justifyContent: 'space-between', 
+  alignItems: 'flex-start',
+  flexWrap: 'wrap'
+}}>
+  <div>
+    <Title level={2} style={{ margin: 0, color: '#1890ff' }}>
+      <TrophyOutlined /> Selected Candidates
+    </Title>
+    <Text type="secondary">
+      Manage selected candidates and send offer letters
+    </Text>
+  </div>
+  <Button 
+    type="primary" 
+    icon={<SendOutlined />}
+    onClick={() => {
+      setSelectedCandidate(null); // Clear any selected candidate
+      setOfferModalVisible(true);
+    }}
+    style={{ 
+      height: '40px',
+      marginTop: screenSize.isMobile ? '12px' : '0'
+    }}
+  >
+    {screenSize.isMobile ? 'Manual Offer' : 'Send Manual Offer'}
+  </Button>
+</div>
 
       {/* Statistics Cards */}
 <Row gutter={[screenSize.isMobile ? 4 : screenSize.isTablet ? 8 : 16, 8]} style={{ marginBottom: '24px' }}>
@@ -929,119 +1418,155 @@ const result = await response.json();
         )}
       </Modal>
 
-      {/* Send Offer Letter Modal */}
-      <Modal
-        destroyOnHidden // <--- ADD THIS LINE
-        title="Send Offer Letter"
-        open={offerModalVisible}
-        onCancel={() => setOfferModalVisible(false)}
-        footer={null}
-        width={800}
-      >
-        {selectedCandidate && (
-          <Form
-            layout="vertical"
-            onFinish={sendOfferLetter}
-            initialValues={{
-              candidateName: selectedCandidate.name,
-              candidateEmail: selectedCandidate.email,
-              jobTitle: selectedCandidate.jobTitle,
-              companyName: 'MyAccess Private Limited',
-              salaryAmount: selectedCandidate.expectedSalary,
-              workLocation: 'Office/Remote/Hybrid',
-              offerValidUntil: '7 days from offer date'
-            }}
-          >
-            <Alert
-              message="Offer Letter Details"
-              description="Please fill in all the required details for the offer letter."
-              type="info"
-              showIcon
-              style={{ marginBottom: '16px' }}
-            />
+   
 
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item label="Candidate Name" name="candidateName">
-                  <Input disabled />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item label="Candidate Email" name="candidateEmail">
-                  <Input disabled />
-                </Form.Item>
-              </Col>
-            </Row>
+<Modal
+  destroyOnHidden
+  title={selectedCandidate ? "Send Offer Letter" : "Send Manual Offer Letter"}
+  open={offerModalVisible}
+  onCancel={() => setOfferModalVisible(false)}
+  footer={null}
+  width={900}
+>
+  <Form
+    layout="vertical"
+    onFinish={sendOfferLetter}
+    key={selectedCandidate?.id || 'manual'}
+    initialValues={selectedCandidate ? {
+      candidateName: selectedCandidate.name,
+      candidateEmail: selectedCandidate.email,
+      candidatePhone: selectedCandidate.phone,
+      candidateAddress: selectedCandidate.location || '',
+      jobTitle: selectedCandidate.jobTitle,
+      companyName: 'MyAccess Private Limited',
+      salaryAmount: selectedCandidate.expectedSalary,
+      workLocation: '',
+      reportingManager: '',
+      offerValidUntil: '7 days from offer date'
+    } : {
+      candidateName: '',
+      candidateEmail: '',
+      candidatePhone: '',
+      candidateAddress: '',
+      jobTitle: '',
+      companyName: 'MyAccess Private Limited',
+      salaryAmount: '',
+      workLocation: '',
+      reportingManager: '',
+      offerValidUntil: '7 days from offer date'
+    }}
+  >
+    <Alert
+      message={selectedCandidate ? "Offer Letter Details" : "Manual Offer Letter"}
+      description={selectedCandidate ? 
+        "Please fill in all the required details for the offer letter." :
+        "Enter candidate details manually to send offer letter to external candidates."
+      }
+      type="info"
+      showIcon
+      style={{ marginBottom: '16px' }}
+    />
 
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item label="Job Title" name="jobTitle" rules={[{ required: true }]}>
-                  <Input />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item label="Company Name" name="companyName" rules={[{ required: true }]}>
-                  <Input />
-                </Form.Item>
-              </Col>
-            </Row>
+    <Row gutter={16}>
+      <Col span={12}>
+        <Form.Item label="Candidate Name" name="candidateName" rules={[{ required: true }]}>
+          <Input 
+            disabled={!!selectedCandidate} 
+            placeholder="Enter candidate full name" 
+          />
+        </Form.Item>
 
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item label="Salary Amount" name="salaryAmount" rules={[{ required: true }]}>
-                  <Input prefix={<DollarOutlined />} placeholder="e.g., $75,000 per annum" />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item label="Joining Date" name="joiningDate" rules={[{ required: true }]}>
-                  <DatePicker style={{ width: '100%' }} />
-                </Form.Item>
-              </Col>
-            </Row>
+        <Form.Item label="Candidate Email" name="candidateEmail" rules={[{ required: true, type: 'email' }]}>
+          <Input 
+            disabled={!!selectedCandidate} 
+            placeholder="Enter candidate email" 
+          />
+        </Form.Item>
+      </Col>
+      <Col span={12}>
+        <Form.Item label="Candidate Phone" name="candidatePhone" rules={[{ required: true }]}>
+          <Input placeholder="Enter candidate phone number" />
+        </Form.Item>
+        <Form.Item label="Candidate Address" name="candidateAddress" rules={[{ required: true }]}>
+          <Input placeholder="Enter candidate full address" />
+        </Form.Item>
+      </Col>
+    </Row>
 
-          <Row gutter={16}>
-  <Col xs={24} sm={12} md={12} lg={12} xl={12}> {/* Made responsive */}
-    <Form.Item label="Joining Date" name="joiningDate" rules={[{ required: true }]}>
-      <DatePicker style={{ width: '100%' }} />
+    <Row gutter={16}>
+      <Col span={12}>
+        <Form.Item label="Job Title" name="jobTitle" rules={[{ required: true }]}>
+          <Input placeholder="Enter job title" />
+        </Form.Item>
+      </Col>
+      <Col span={12}>
+        <Form.Item label="Company Name" name="companyName" rules={[{ required: true }]}>
+          <Input />
+        </Form.Item>
+      </Col>
+    </Row>
+
+    <Row gutter={16}>
+      <Col span={12}>
+        <Form.Item label="Salary Amount" name="salaryAmount" rules={[{ required: true }]}>
+          <Input prefix={<DollarOutlined />} placeholder="e.g., $75,000 per annum" />
+        </Form.Item>
+      </Col>
+      <Col span={12}>
+        <Form.Item label="Joining Date" name="joiningDate" rules={[{ required: true }]}>
+          <DatePicker style={{ width: '100%' }} />
+        </Form.Item>
+      </Col>
+    </Row>
+
+    <Row gutter={16}>
+      <Col span={12}>
+        <Form.Item label="Work Location" name="workLocation" rules={[{ required: true }]}>
+          <Input 
+            placeholder="Enter work location (e.g., Hyderabad, India / Remote / New York Office)"
+            addonBefore={<EnvironmentOutlined />}
+          />
+        </Form.Item>
+      </Col>
+      <Col span={12}>
+        <Form.Item label="Reporting Manager" name="reportingManager" rules={[{ required: true }]}>
+          <Input placeholder="Enter reporting manager name" />
+        </Form.Item>
+      </Col>
+    </Row>
+
+    <Row gutter={16}>
+      <Col span={12}>
+        <Form.Item label="Offer Valid Until" name="offerValidUntil" rules={[{ required: true }]}>
+          <Input placeholder="e.g., 7 days from offer date" />
+        </Form.Item>
+      </Col>
+      <Col span={12}>
+        <Form.Item label="HR Contact" name="hrContact" rules={[{ required: true }]}>
+          <Input placeholder="HR name and contact details" />
+        </Form.Item>
+      </Col>
+    </Row>
+
+    <Form.Item label="Additional Benefits" name="additionalBenefits">
+      <TextArea 
+        rows={3} 
+        placeholder="Health insurance, provident fund, flexible hours, etc."
+      />
     </Form.Item>
-  </Col>
-  <Col xs={24} sm={12} md={12} lg={12} xl={12}> {/* Made responsive */}
-    <Form.Item label="Work Location" name="workLocation" rules={[{ required: true }]}>
-      <Select>
-        <Option value="office">Office</Option>
-        <Option value="remote">Remote</Option>
-        <Option value="hybrid">Hybrid</Option>
-        <Option value="onsite">On-site</Option>
-      </Select>
-    </Form.Item>
-  </Col>
-</Row>
 
-            <Form.Item label="Additional Benefits" name="additionalBenefits">
-              <TextArea 
-                rows={3} 
-                placeholder="Health insurance, provident fund, flexible hours, etc."
-              />
-            </Form.Item>
+    <Form.Item label="Additional Message" name="message">
+      <TextArea 
+        rows={4} 
+        placeholder="Any additional message or instructions for the candidate..."
+        defaultValue={selectedCandidate ? `Dear ${selectedCandidate.name},
 
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item label="HR Contact" name="hrContact" rules={[{ required: true }]}>
-                  <Input placeholder="HR name and contact details" />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item label="Offer Valid Until" name="offerValidUntil" rules={[{ required: true }]}>
-                  <Input placeholder="e.g., 7 days from offer date" />
-                </Form.Item>
-              </Col>
-            </Row>
+Congratulations! We are pleased to extend this offer of employment to you.
 
-            <Form.Item label="Additional Message" name="message">
-              <TextArea 
-                rows={4} 
-                placeholder="Any additional message or instructions for the candidate..."
-                defaultValue={`Dear ${selectedCandidate.name},
+We look forward to welcoming you to our team.
+
+Best regards,
+HR Team` : `Dear Candidate,
 
 Congratulations! We are pleased to extend this offer of employment to you.
 
@@ -1049,23 +1574,21 @@ We look forward to welcoming you to our team.
 
 Best regards,
 HR Team`}
-              />
-            </Form.Item>
+      />
+    </Form.Item>
 
-            <div style={{ textAlign: 'right' }}>
-              <Space>
-                <Button onClick={() => setOfferModalVisible(false)}>
-                  Cancel
-                </Button>
-                <Button type="primary" htmlType="submit" icon={<SendOutlined />} loading={loading}>
-                  Send Offer Letter
-                </Button>
-              </Space>
-            </div>
-          </Form>
-        )}
-      </Modal>
-
+    <div style={{ textAlign: 'right' }}>
+      <Space>
+        <Button onClick={() => setOfferModalVisible(false)}>
+          Cancel
+        </Button>
+        <Button type="primary" htmlType="submit" icon={<SendOutlined />} loading={loading}>
+          Send Offer Letter
+        </Button>
+      </Space>
+    </div>
+  </Form>
+</Modal>
       <style>{`@media (max-width: 575px) {
   .ant-table-thead > tr > th {
     padding: 8px 4px !important;
