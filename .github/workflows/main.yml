@@ -42,8 +42,6 @@ jobs:
             docker run -d \
               --name react-container2 \
               --network cap-network \
-              -p 80:80 \
-              -p 443:443 \
-              -v /etc/nginx/sites-available/cap.myaccessio.com:/etc/nginx/conf.d/default.conf \
-              -v /etc/letsencrypt:/etc/letsencrypt:ro \
+              -p 85:80 \
+              -p 445:443 \
               myaccess2021/cap:latest
