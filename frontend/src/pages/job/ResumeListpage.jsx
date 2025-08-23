@@ -9,7 +9,7 @@ const { TextArea } = Input;
 const { Step } = Steps;
 import { supabase} from '../../supabase/config';
 import ErrorPage from '../../error/ErrorPage';
-
+const baseUrl = import.meta.env.VITE_API_BASE_URL;
 const fetchShortlistedCandidates = async (jobId) => {
   try {
     const { data, error } = await supabase
@@ -313,7 +313,7 @@ HR Team</p>`
 }
 };
 
-const response = await fetch('https://cap.myaccessio.com/api/send-interview-invitation', {
+const response = await fetch(`${baseUrl}send-interview-invitation`, {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',

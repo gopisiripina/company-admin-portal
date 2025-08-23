@@ -50,7 +50,7 @@ const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 import ErrorPage from '../../error/ErrorPage';
 import { supabase } from '../../supabase/config';
-
+const baseUrl = import.meta.env.VITE_API_BASE_URL;
 const JobPostPage = ({ userRole }) => {
   const [hiringTypeFilter, setHiringTypeFilter] = useState('all'); // 'all', 'on-campus', 'off-campus'
 const [campusLinkModal, setCampusLinkModal] = useState(false);
@@ -87,7 +87,7 @@ const postToLinkedIn = async (jobData) => {
       jobData: jobData,
       applicationUrl: applicationUrl
     };
-    const response = await fetch('https://cap.myaccessio.com/api/post-job', {
+    const response = await fetch(`${baseUrl}post-job`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
