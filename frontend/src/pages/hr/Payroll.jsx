@@ -37,7 +37,7 @@ import { supabase } from '../../supabase/config';
 import JSZip from 'jszip';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-
+const baseUrl = import.meta.env.VITE_API_BASE_URL;
 const { Header, Content } = Layout;
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -883,7 +883,7 @@ const netPay = Number(record.net_pay) || (totalEarnings - totalDeductions);
       
       formData.append('payslip', pdfBlob, `payslip_${employeeData.employee_name}_${dayjs(employeeData.pay_period).format('YYYY-MM')}.pdf`);
       
-      const response = await fetch('http://localhost:5000/api/payslip', {
+      const response = await fetch(`${baseUrl}payslip`, {
         method: 'POST',
         body: formData
       });

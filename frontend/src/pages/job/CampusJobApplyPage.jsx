@@ -41,7 +41,7 @@ const CampusJobApplyPage = ({ userRole }) => {
   if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
     return <ErrorPage errorType="403" />;
   }
-
+  const baseUrl = import.meta.env.VITE_API_BASE_URL;
   // State variables
   const [availableExams, setAvailableExams] = useState([]);
   const [examSelectionVisible, setExamSelectionVisible] = useState(false);
@@ -331,7 +331,7 @@ const emailPromises = studentsToEmail.map(student => {
     }
   };
 
-  return fetch('https://cap.myaccessio.com/api/send-recruitment-email', {
+  return fetch(`${baseUrl}send-recruitment-email`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'

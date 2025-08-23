@@ -48,22 +48,18 @@ const { Search } = Input;
 
 // Add this function before handleSubmit
  
-
+const baseUrl = import.meta.env.VITE_API_BASE_URL;
 
 const sendWelcomeEmail = async (employeeData) => {
   try {
-    const response = await fetch('https://cap.myaccessio.com/api/send-email', {
+    const response = await fetch(`${baseUrl}send-email`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        senderEmail: "suryavenkatareddy90@gmail.com",
-        senderPassword: "vrxftrjsiekrxdnf",
         recipientEmail: employeeData.email,
         subject: "Welcome - Your Account Credentials",
-        smtpServer: "smtp.gmail.com",
-        smtpPort: 587,
         templateData: {
           company_name: "My Access",
           to_name: employeeData.name,
@@ -77,7 +73,6 @@ const sendWelcomeEmail = async (employeeData) => {
     });
 
     const result = await response.json();
-    
     if (response.ok) {
       return { success: true, message: 'Email sent successfully' };
     } else {
@@ -87,7 +82,8 @@ const sendWelcomeEmail = async (employeeData) => {
     console.error('Email API Error:', error);
     return { success: false, message: 'Network error while sending email' };
   }
-};
+}
+
 // Mobile Admin Card Component
 const MobileAdminCard = React.memo(({ admin, onEdit, onDelete}) => (
   <Card 

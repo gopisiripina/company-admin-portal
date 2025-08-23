@@ -451,15 +451,9 @@ lines.forEach(line => {
     // Add the PDF file
     formData.append('appraisal', pdfBlob, `appraisal_letter_${appraisalData.employee_name.replace(/\s+/g, '_')}_${dayjs(appraisalData.effective_date).format('YYYY-MM')}.pdf`);
     
-    // Optional: Add SMTP configuration if you want to override defaults
-    // formData.append('senderEmail', 'hr@myaccessio.com');
-    // formData.append('senderPassword', 'your_password');
-    // formData.append('smtpServer', 'smtp.hostinger.in');
-    // formData.append('smtpPort', '587');
-    
     console.log('Sending appraisal email to:', appraisalData.email_address);
     
-    const response = await fetch('http://localhost:5000/api/send-appraisal', {
+    const response = await fetch(`${baseUrl}send-appraisal`, {
       method: 'POST',
       body: formData
     });

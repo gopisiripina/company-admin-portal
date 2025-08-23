@@ -35,7 +35,7 @@ import { supabase, supabaseAdmin } from '../../supabase/config';
 import ErrorPage from '../../error/ErrorPage';
 const { Title, Text } = Typography;
 const { Search } = Input;
-
+const baseUrl = import.meta.env.VITE_API_BASE_URL;
 const generateEmployeeId = async (employeeType) => {
   try {
     // Get the latest employee ID for the specific type
@@ -82,7 +82,7 @@ const generateEmployeeId = async (employeeType) => {
 };
 const sendWelcomeEmail = async (employeeData) => {
   try {
-    const response = await fetch('http://localhost:5000/api/send-email', {
+    const response = await fetch(`${baseUrl}send-email`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

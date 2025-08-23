@@ -23,7 +23,7 @@ const { Option } = Select;
 const { RangePicker } = DatePicker;
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
-
+const baseUrl = import.meta.env.VITE_API_BASE_URL;
 // Supabase configuration
 import { supabase} from '../../supabase/config';
 
@@ -356,38 +356,35 @@ const sendOfferLetter = async (offerData) => {
 
     console.log('Email params:', emailParams);
 
-    const response = await fetch('http://localhost:5000/api/send-job-offer', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        senderEmail: "suryavenkatareddy90@gmail.com",
-        senderPassword: "vrxftrjsiekrxdnf",
-        recipientEmail: candidateData.email,
-        subject: `Job Offer - ${offerData.jobTitle} Position at ${offerData.companyName}`,
-        smtpServer: "smtp.gmail.com",
-        smtpPort: 587,
-        templateData: {
-          to_name: candidateData.name, // Changed from selectedCandidate.name
-          job_title: offerData.jobTitle,
-          company_name: offerData.companyName,
-          salary_amount: offerData.salaryAmount,
-          joining_date: formattedJoiningDate,
-          work_location: offerData.workLocation,
-          reporting_manager: offerData.reportingManager,
-          additional_benefits: offerData.additionalBenefits,
-          offer_valid_until: offerData.offerValidUntil,
-          message: offerData.message || '',
-          hr_contact: offerData.hrContact
-        },
-        attachments: [{
-          filename: `Offer_Letter_${candidateData.name.replace(/\s+/g, '_')}.pdf`, // Changed from selectedCandidate.name
-          content: base64PDF,
-          contentType: 'application/pdf'
-        }]
-      })
-    });
+    const response = await fetch(`${baseUrl}send-job-offer`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    recipientEmail: candidateData.email,
+    subject: `Job Offer - ${offerData.jobTitle} Position at ${offerData.companyName}`,
+    templateData: {
+      to_name: candidateData.name,
+      job_title: offerData.jobTitle,
+      company_name: offerData.companyName,
+      salary_amount: offerData.salaryAmount,
+      joining_date: formattedJoiningDate,
+      work_location: offerData.workLocation,
+      reporting_manager: offerData.reportingManager,
+      additional_benefits: offerData.additionalBenefits,
+      offer_valid_until: offerData.offerValidUntil,
+      message: offerData.message || '',
+      hr_contact: offerData.hrContact,
+    },
+    attachments: [{
+      filename: `Offer_Letter_${candidateData.name.replace(/\s+/g, '_')}.pdf`,
+      content: base64PDF,
+      contentType: 'application/pdf',
+    }],
+  }),
+});
+
 
     const result = await response.json();
     console.log('Email result:', result);

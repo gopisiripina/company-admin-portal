@@ -52,27 +52,29 @@ router.get('/test', (req, res) => {
 
 // SEND EMAIL ENDPOINT
 router.post('/send-email', async (req, res) => {
-    try {
-        const data = req.body;
-        console.log("Received data:", data);
+  try {
+    const data = req.body;
+    console.log("Received data:", data);
 
-        const {
-    senderEmail = process.env.SEND_EMAIL, // Default to Hostinger email
-    senderPassword = process.env.SEND_PASSWORD, // Default to Hostinger password
-    recipientEmail,
-    subject = 'Welcome - Your Account Credentials',
-    smtpServer = 'smtp.hostinger.in', // Changed default to Hostinger
-    smtpPort = 587,
-    templateData = {}
-} = data;
+    // Always use environment variables for sensitive fields!
+    const senderEmail = process.env.SEND_EMAIL;
+    const senderPassword = process.env.SEND_PASSWORD;
+    const smtpServer = process.env.SMTP_SERVER || "smtp.hostinger.in";
+    const smtpPort = process.env.SMTP_PORT || 587;
 
-        // Validate required fields (email and password now have defaults)
-        if (!recipientEmail) {
-            return res.status(400).json({
-                success: false,
-                error: "Missing required field: recipientEmail"
-            });
-        }
+    const {
+      recipientEmail,
+      subject = 'Welcome - Your Account Credentials',
+      templateData = {}
+    } = data;
+
+    // Validate required client fields
+    if (!recipientEmail) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing required field: recipientEmail"
+      });
+    }
 
         // HTML template
         let htmlTemplate = `<!DOCTYPE html>
@@ -168,39 +170,42 @@ router.post('/send-email', async (req, res) => {
 
         // Replace template variables
         Object.keys(templateData).forEach(key => {
-            const regex = new RegExp(`{{${key}}}`, 'g');
-            htmlTemplate = htmlTemplate.replace(regex, templateData[key] || '');
-        });
+      const regex = new RegExp(`{{${key}}}`, 'g');
+      htmlTemplate = htmlTemplate.replace(regex, templateData[key] || '');
+    });
 
-        // Create transporter with Hostinger settings
-        const transporter = createTransporter(senderEmail, senderPassword, smtpServer, smtpPort);
+    // Call your utility to create the transporter
+    const transporter = createTransporter(
+      senderEmail,
+      senderPassword,
+      smtpServer,
+      smtpPort
+    );
 
-        // Mail options
-        const mailOptions = {
-            from: senderEmail,
-            to: recipientEmail,
-            subject: subject,
-            html: htmlTemplate
-        };
+    const mailOptions = {
+      from: senderEmail,
+      to: recipientEmail,
+      subject,
+      html: htmlTemplate
+    };
 
-        // Send email
-        console.log("Sending email...");
-        await transporter.sendMail(mailOptions);
-        console.log("Email sent successfully!");
+    console.log("Sending email...");
+    await transporter.sendMail(mailOptions);
+    console.log("Email sent successfully!");
 
-        res.status(200).json({
-            success: true,
-            message: "Email sent successfully",
-            recipient: recipientEmail
-        });
+    res.status(200).json({
+      success: true,
+      message: "Email sent successfully",
+      recipient: recipientEmail
+    });
 
-    } catch (error) {
-        console.error("Exception occurred:", error.message);
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
-    }
+  } catch (error) {
+    console.error("Exception occurred:", error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
 });
 
 const pay_upload = multer({ storage: multer.memoryStorage() });
@@ -413,6 +418,161 @@ router.post('/payslip', pay_upload.single('payslip'), async (req, res) => {
     });
 });
 
+
+
+// 3. SEND JOB OFFER ENDPOINT
+router.post('/send-job-offer', async (req, res) => {
+    try {
+        const {
+            senderEmail = process.env.SEND_JOB_OFFER_EMAIL,
+            senderPassword = process.env.SEND_JOB_OFFER_PASSWORD,
+            recipientEmail,
+            templateData = {},
+            attachments = [],
+            smtpServer = process.env.SMTP_HOST,
+            smtpPort = process.env.SMTP_PORT
+        } = req.body;
+
+        const jobTitle = templateData.job_title || 'Job Position';
+        const companyName = templateData.company_name || 'Our Company';
+        const subject = req.body.subject || `Job Offer - ${jobTitle} Position at ${companyName}`;
+
+        if (!recipientEmail) {
+            return res.status(400).json({
+                success: false,
+                error: "Missing required field: recipientEmail"
+            });
+        }
+
+// In the /send-job-offer endpoint, replace the htmlTemplate with this updated version:
+let htmlTemplate = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Job Offer from {{company_name}}</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
+        .container { max-width: 650px; margin: auto; background-color: white; border: 1px solid #e0e0e0; border-radius: 8px; }
+        .header { padding: 30px; background-color: #f8f9fa; border-bottom: 1px solid #e0e0e0; }
+        .header h1 { margin: 0; font-size: 24px; color: #333; }
+        .header p { margin: 5px 0 0; font-size: 16px; color: #555; }
+        .content { padding: 30px; }
+        .content p { line-height: 1.6; }
+        .offer-details { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 20px; margin: 25px 0; }
+        .offer-details h4 { margin-top: 0; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+        .offer-details table { width: 100%; border-collapse: collapse; }
+        .offer-details td { padding: 8px 0; vertical-align: top; }
+        .offer-details .label { font-weight: bold; width: 150px; color: #343a40; }
+        .cta-section { background-color: #e6f7ff; border: 1px solid #91d5ff; padding: 20px; margin: 25px 0; border-radius: 6px; text-align: center; }
+        .footer { padding: 30px; text-align: left; font-size: 14px; color: #555; border-top: 1px solid #e0e0e0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <p><strong>{{company_name}}</strong></p>
+        </div>
+        <div class="content">
+            <p>Dear <strong>{{to_name}}</strong>,</p>
+            <p>Following our recent discussions, we are very pleased to formally offer you the position of <strong>{{job_title}}</strong> with {{company_name}}.</p>
+            <p>We were highly impressed with your qualifications and experience, and we believe you will be an excellent addition to our team. We are excited about the potential contributions you will bring to our organization.</p>
+            
+            <div class="offer-details">
+                <h4>Key Terms of Offer</h4>
+                <table>
+                    <tr><td class="label">Position:</td><td>{{job_title}}</td></tr>
+                    <tr><td class="label">Anticipated Start Date:</td><td>{{joining_date}}</td></tr>
+                    <tr><td class="label">Work Location:</td><td>{{work_location}}</td></tr>
+                </table>
+            </div>
+
+            <p>{{message}}</p>
+
+            <div class="cta-section">
+                <h4 style="margin-top:0;">Next Steps</h4>
+                <p>This offer is contingent upon the successful completion of any pre-employment checks and will remain open until <strong>{{offer_valid_until}}</strong>.</p>
+                <p>To accept this offer, please reply to this email confirming your acceptance. If you have any questions, please feel free to contact us directly.</p>
+            </div>
+        </div>
+        <div class="footer">
+            <p>We look forward to welcoming you to the team.</p>
+            <p>Sincerely,<br>
+            <strong>The HR Team</strong><br>
+            {{company_name}}<br>
+            {{hr_contact}}</p>
+        </div>
+    </div>
+</body>
+</html>`;
+
+        // Replace template variables
+        Object.keys(templateData).forEach(key => {
+            const regex = new RegExp(`{{${key}}}`, 'g');
+            htmlTemplate = htmlTemplate.replace(regex, templateData[key] || '');
+        });
+
+        const transporter = createTransporter(senderEmail, senderPassword, smtpServer, smtpPort);
+        
+      const mailOptions = {
+  from: senderEmail,
+  to: recipientEmail,
+  subject: subject,
+  html: htmlTemplate,
+  attachments: []
+};
+
+// Handle attachments from request body
+if (req.body.attachments && Array.isArray(req.body.attachments)) {
+  req.body.attachments.forEach(attachment => {
+    mailOptions.attachments.push({
+      filename: attachment.filename,
+      content: attachment.content,
+      contentType: attachment.contentType,
+      encoding: 'base64'
+    });
+  });
+}
+        
+     // Handle attachments (URLs or file paths) - only if it's the old array format
+if (attachments && attachments.length > 0 && typeof attachments[0] === 'string') {
+    for (const attachmentPath of attachments) {
+        if (attachmentPath.startsWith('http')) {
+            // Download from URL
+            const response = await axios.get(attachmentPath, { responseType: 'stream' });
+            const filename = path.basename(attachmentPath) || 'attachment';
+            mailOptions.attachments.push({
+                filename: filename,
+                content: response.data
+            });
+        } else {
+            // Local file
+            mailOptions.attachments.push({
+                filename: path.basename(attachmentPath),
+                path: attachmentPath
+            });
+        }
+    }
+}
+
+        console.log(`Sending job offer email using SMTP: ${smtpServer}:${smtpPort} with email: ${senderEmail}`);
+        await transporter.sendMail(mailOptions);
+
+        res.status(200).json({
+            success: true,
+            message: "Job offer email sent successfully",
+            recipient: recipientEmail,
+            subject: subject
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+
     // 2. SEND RECRUITMENT EMAIL ENDPOINT
     router.post('/send-recruitment-email', async (req, res) => {
     try {
@@ -581,62 +741,109 @@ router.post('/send-appraisal', upload.single('appraisal'), async (req, res) => {
 
     const appraisalPDF = req.file;
 
-// In the /send-job-offer endpoint, replace the htmlTemplate with this updated version:
-let htmlTemplate = `<!DOCTYPE html>
+    if (!recipientEmail) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing required field: recipientEmail"
+      });
+    }
+
+    if (!appraisalPDF) {
+      return res.status(400).json({
+        success: false,
+        error: 'No appraisal letter attached'
+      });
+    }
+
+    // Appraisal Letter HTML template
+    let htmlTemplate = `<!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
-    <title>Job Offer from {{company_name}}</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
-        .container { max-width: 650px; margin: auto; background-color: white; border: 1px solid #e0e0e0; border-radius: 8px; }
-        .header { padding: 30px; background-color: #f8f9fa; border-bottom: 1px solid #e0e0e0; }
-        .header h1 { margin: 0; font-size: 24px; color: #333; }
-        .header p { margin: 5px 0 0; font-size: 16px; color: #555; }
-        .content { padding: 30px; }
-        .content p { line-height: 1.6; }
-        .offer-details { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 20px; margin: 25px 0; }
-        .offer-details h4 { margin-top: 0; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
-        .offer-details table { width: 100%; border-collapse: collapse; }
-        .offer-details td { padding: 8px 0; vertical-align: top; }
-        .offer-details .label { font-weight: bold; width: 150px; color: #343a40; }
-        .cta-section { background-color: #e6f7ff; border: 1px solid #91d5ff; padding: 20px; margin: 25px 0; border-radius: 6px; text-align: center; }
-        .footer { padding: 30px; text-align: left; font-size: 14px; color: #555; border-top: 1px solid #e0e0e0; }
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 0; background-color: #f9f9f9; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .email-content { background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #10b981; }
+        .congratulations-banner { background-color: #10b981; color: white; padding: 10px 20px; border-radius: 8px; display: inline-block; margin-bottom: 15px; }
+        .company-name { color: #2d5a4a; margin: 0; font-size: 24px; }
+        .content { margin-bottom: 30px; }
+        .greeting { color: #2d5a4a; margin-bottom: 15px; }
+        .highlight-box { background-color: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981; }
+        .highlight-text { margin: 0; font-size: 18px; color: #2d5a4a; }
+        .call-to-action { text-align: center; margin: 30px 0; padding: 20px; background-color: #f8f9fa; border-radius: 8px; }
+        .footer { text-align: center; padding-top: 20px; border-top: 1px solid #eee; color: #888; font-size: 12px; }
+        .content-text { line-height: 1.6; color: #333; font-size: 16px; }
+        .attachment-info { margin: 0 0 15px 0; color: #666; font-size: 14px; }
+        .contact-info { margin: 0; color: #666; font-size: 12px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <p><strong>{{company_name}}</strong></p>
-        </div>
-        <div class="content">
-            <p>Dear <strong>{{to_name}}</strong>,</p>
-            <p>Following our recent discussions, we are very pleased to formally offer you the position of <strong>{{job_title}}</strong> with {{company_name}}.</p>
-            <p>We were highly impressed with your qualifications and experience, and we believe you will be an excellent addition to our team. We are excited about the potential contributions you will bring to our organization.</p>
-            
-            <div class="offer-details">
-                <h4>Key Terms of Offer</h4>
-                <table>
-                    <tr><td class="label">Position:</td><td>{{job_title}}</td></tr>
-                    <tr><td class="label">Anticipated Start Date:</td><td>{{joining_date}}</td></tr>
-                    <tr><td class="label">Work Location:</td><td>{{work_location}}</td></tr>
-                </table>
+        <div class="email-content">
+            <!-- Header -->
+            <div class="header">
+                <div class="congratulations-banner">
+                    <h2 style="margin: 0; font-size: 18px;">🎉 CONGRATULATIONS! 🎉</h2>
+                </div>
+                <h1 class="company-name">{{company_name}}</h1>
             </div>
 
-            <p>{{message}}</p>
+            <!-- Content -->
+            <div class="content">
+                <h3 class="greeting">Dear {{employee_name}},</h3>
+                
+                <p class="content-text">
+                    We are delighted to inform you that your performance appraisal has been completed for the period ending <strong>{{effective_date}}</strong>.
+                </p>
+                
+                <div class="highlight-box">
+                    <p class="highlight-text">
+                        <strong>🎯 Your dedication and hard work have earned you a salary increase of ₹{{salary_increase}}!</strong>
+                    </p>
+                </div>
+                
+                <p class="content-text">
+                    Please find your detailed appraisal letter attached to this email. This document contains all the specifics regarding your performance review and compensation updates.
+                </p>
 
-            <div class="cta-section">
-                <h4 style="margin-top:0;">Next Steps</h4>
-                <p>This offer is contingent upon the successful completion of any pre-employment checks and will remain open until <strong>{{offer_valid_until}}</strong>.</p>
-                <p>To accept this offer, please reply to this email confirming your acceptance. If you have any questions, please feel free to contact us directly.</p>
+                <h4 style="color: #2d5a4a;">📋 Appraisal Summary:</h4>
+                <ul>
+                    <li><strong>Employee Name:</strong> {{employee_name}}</li>
+                    <li><strong>Review Period:</strong> {{review_period}}</li>
+                    <li><strong>Effective Date:</strong> {{effective_date}}</li>
+                    <li><strong>Salary Increase:</strong> ₹{{salary_increase}}</li>
+                    <li><strong>Performance Rating:</strong> {{performance_rating}}</li>
+                </ul>
+
+                <h4 style="color: #2d5a4a;">💬 Manager's Note:</h4>
+                <p class="content-text">{{manager_message}}</p>
+                
+                <p class="content-text">
+                    We appreciate your continued excellence and look forward to your ongoing contributions to our organization.
+                </p>
             </div>
-        </div>
-        <div class="footer">
-            <p>We look forward to welcoming you to the team.</p>
-            <p>Sincerely,<br>
-            <strong>The HR Team</strong><br>
-            {{company_name}}<br>
-            {{hr_contact}}</p>
+
+            <!-- Call to Action -->
+            <div class="call-to-action">
+                <p class="attachment-info">
+                    <strong>📎 Your appraisal letter is attached as a PDF document</strong>
+                </p>
+                <p class="contact-info">
+                    If you have any questions, please don't hesitate to contact the HR department at {{hr_contact}}.
+                </p>
+            </div>
+
+            <!-- Footer -->
+            <div class="footer">
+                <p style="margin: 0;">
+                    Best regards,<br>
+                    <strong>Human Resources Department</strong><br>
+                    {{company_name}}
+                </p>
+                <p style="margin: 10px 0 0 0;">
+                    This is an automated email. Please do not reply to this message.
+                </p>
+            </div>
         </div>
     </div>
 </body>
@@ -648,48 +855,33 @@ let htmlTemplate = `<!DOCTYPE html>
       htmlTemplate = htmlTemplate.replace(regex, templateData[key] || '');
     });
 
-        const transporter = createTransporter(senderEmail, senderPassword, smtpServer, smtpPort);
-        
-      const mailOptions = {
-  from: senderEmail,
-  to: recipientEmail,
-  subject: subject,
-  html: htmlTemplate,
-  attachments: []
-};
+    const transporter = createTransporter(senderEmail, senderPassword, smtpServer, smtpPort);
+    
+    const mailOptions = {
+      from: `"HR Department" <${senderEmail}>`,
+      to: recipientEmail,
+      cc: senderEmail, // CC to HR
+      subject: subject,
+      html: htmlTemplate,
+      attachments: [
+        {
+          filename: `Appraisal_Letter_${(templateData.employee_name || 'Employee').replace(/\s+/g, '_')}_${(templateData.effective_date || 'Current').replace(/\s+/g, '_')}.pdf`,
+          content: appraisalPDF.buffer,
+          contentType: 'application/pdf',
+        },
+      ]
+    };
 
-// Handle attachments from request body
-if (req.body.attachments && Array.isArray(req.body.attachments)) {
-  req.body.attachments.forEach(attachment => {
-    mailOptions.attachments.push({
-      filename: attachment.filename,
-      content: attachment.content,
-      contentType: attachment.contentType,
-      encoding: 'base64'
+    console.log(`Sending appraisal email using SMTP: ${smtpServer}:${smtpPort} with email: ${senderEmail}`);
+    const info = await transporter.sendMail(mailOptions);
+    
+    res.status(200).json({
+      success: true,
+      message: `Appraisal letter sent successfully to ${recipientEmail}`,
+      recipient: recipientEmail,
+      subject: subject,
+      messageId: info.messageId
     });
-  });
-}
-        
-     // Handle attachments (URLs or file paths) - only if it's the old array format
-if (attachments && attachments.length > 0 && typeof attachments[0] === 'string') {
-    for (const attachmentPath of attachments) {
-        if (attachmentPath.startsWith('http')) {
-            // Download from URL
-            const response = await axios.get(attachmentPath, { responseType: 'stream' });
-            const filename = path.basename(attachmentPath) || 'attachment';
-            mailOptions.attachments.push({
-                filename: filename,
-                content: response.data
-            });
-        } else {
-            // Local file
-            mailOptions.attachments.push({
-                filename: path.basename(attachmentPath),
-                path: attachmentPath
-            });
-        }
-    }
-}
 
   } catch (error) {
     console.error('Error sending appraisal email:', error);
