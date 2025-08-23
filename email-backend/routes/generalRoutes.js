@@ -530,29 +530,56 @@ router.post('/payslip', pay_upload.single('payslip'), async (req, res) => {
     }
 });
 
-// 3. SEND JOB OFFER ENDPOINT
-router.post('/send-job-offer', async (req, res) => {
+
+// SEND APPRAISAL LETTER ENDPOINT
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+});
+
+// Helper function to create transporter (similar to your job offer endpoint)
+function createTransporter(email, password, smtpHost, smtpPort) {
+  return nodemailer.createTransport({
+    host: smtpHost,
+    port: parseInt(smtpPort),
+    secure: false, // true for 465, false for other ports
+    auth: {
+      user: email,
+      pass: password,
+    },
+    tls: {
+      rejectUnauthorized: false
+    }
+  });
+}
+
+router.post('/send-appraisal', upload.single('appraisal'), async (req, res) => {
+  try {
+    const {
+      senderEmail = process.env.SEND_EMAIL,
+      senderPassword = process.env.SEND_PASSWORD,
+      recipientEmail,
+      smtpServer = process.env.SMTP_HOST,
+      smtpPort = process.env.SMTP_PORT
+    } = req.body;
+
+    // Parse templateData if it's a JSON string
+    let templateData = {};
     try {
-        const {
-            senderEmail = process.env.SEND_JOB_OFFER_EMAIL,
-            senderPassword = process.env.SEND_JOB_OFFER_PASSWORD,
-            recipientEmail,
-            templateData = {},
-            attachments = [],
-            smtpServer = process.env.SMTP_HOST,
-            smtpPort = process.env.SMTP_PORT
-        } = req.body;
+      templateData = req.body.templateData ? JSON.parse(req.body.templateData) : {};
+    } catch (parseError) {
+      console.error('Error parsing templateData:', parseError);
+      templateData = req.body.templateData || {};
+    }
 
-        const jobTitle = templateData.job_title || 'Job Position';
-        const companyName = templateData.company_name || 'Our Company';
-        const subject = req.body.subject || `Job Offer - ${jobTitle} Position at ${companyName}`;
+    const employeeName = templateData.employee_name || 'Employee';
+    const companyName = templateData.company_name || 'Our Company';
+    const effectiveDate = templateData.effective_date || 'Current Period';
+    const subject = req.body.subject || `🎉 Performance Appraisal Letter - ${effectiveDate}`;
 
-        if (!recipientEmail) {
-            return res.status(400).json({
-                success: false,
-                error: "Missing required field: recipientEmail"
-            });
-        }
+    const appraisalPDF = req.file;
 
 // In the /send-job-offer endpoint, replace the htmlTemplate with this updated version:
 let htmlTemplate = `<!DOCTYPE html>
@@ -615,11 +642,11 @@ let htmlTemplate = `<!DOCTYPE html>
 </body>
 </html>`;
 
-        // Replace template variables
-        Object.keys(templateData).forEach(key => {
-            const regex = new RegExp(`{{${key}}}`, 'g');
-            htmlTemplate = htmlTemplate.replace(regex, templateData[key] || '');
-        });
+    // Replace template variables
+    Object.keys(templateData).forEach(key => {
+      const regex = new RegExp(`{{${key}}}`, 'g');
+      htmlTemplate = htmlTemplate.replace(regex, templateData[key] || '');
+    });
 
         const transporter = createTransporter(senderEmail, senderPassword, smtpServer, smtpPort);
         
@@ -664,22 +691,13 @@ if (attachments && attachments.length > 0 && typeof attachments[0] === 'string')
     }
 }
 
-        console.log(`Sending job offer email using SMTP: ${smtpServer}:${smtpPort} with email: ${senderEmail}`);
-        await transporter.sendMail(mailOptions);
-
-        res.status(200).json({
-            success: true,
-            message: "Job offer email sent successfully",
-            recipient: recipientEmail,
-            subject: subject
-        });
-
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
-    }
+  } catch (error) {
+    console.error('Error sending appraisal email:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
 });
 
 // 4. POST JOB TO LINKEDIN ENDPOINT

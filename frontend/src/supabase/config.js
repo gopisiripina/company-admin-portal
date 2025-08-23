@@ -1,11 +1,9 @@
 // src/supabase/config.js
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = 'https://dsvqjsnxdxlgufzwcaub.supabase.co'
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdnFqc254ZHhsZ3VmendjYXViIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4MjgyMjMsImV4cCI6MjA2NjQwNDIyM30.YHdiWzPvU6XBXFzcDZL7LKtgjU_dv5pVVpFRF8OkEz8'
-
-// Service role key (you need to get this from Supabase dashboard)
-const supabaseServiceRoleKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRzdnFqc254ZHhsZ3VmendjYXViIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDgyODIyMywiZXhwIjoyMDY2NDA0MjIzfQ._gqhjKgKmSVQyYsBrLTvls0EkLR9MIU99qnB8WJj5bU' // Replace with actual service role key
+const supabaseUrl = 'https://superdb.myaccessio.com/'
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzU1ODAxMDAwLCJleHAiOjE5MTM1Njc0MDB9.uMtajMVPuVUqv7-jj-suVlCzRyejrHM-rPjoaZSTwRs'
+const supabaseServiceRoleKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NTU4MDEwMDAsImV4cCI6MTkxMzU2NzQwMH0.Bjf92niNuUOcG4pA6EU2pq4lDOHeBVZk5kCABoyddTc'
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {

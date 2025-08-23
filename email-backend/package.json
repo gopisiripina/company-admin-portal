@@ -5,13 +5,13 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon server.js",
+    "dev": "cross-env ENV_SECRET_KEY=My@cCe55*2021 nodemon server.js",
     "start": "pm2 start server.js --name email-backend",
     "stop": "pm2 stop email-backend",
     "restart": "pm2 restart email-backend",
     "logs": "pm2 logs email-backend",
-    "encrypt-env": "secure-env .env -s \"$ENV_SECRET_KEY\"",
-    "decrypt-env": "secure-env -d .env.enc -s \"$ENV_SECRET_KEY\" > .env"
+    "encrypt-env": "cross-env secure-env .env -s \"$ENV_SECRET_KEY\"",
+    "decrypt-env": "cross-env secure-env -d .env.enc -s \"$ENV_SECRET_KEY\" > .env"
   },
   "keywords": [],
   "author": "",
@@ -33,5 +33,8 @@
     "secure-env": "^1.2.0",
     "uuid": "^11.1.0",
     "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "cross-env": "^10.0.0"
   }
 }

@@ -20,7 +20,7 @@ import CampusJobApplyPage from '../job/CampusJobApplyPage';
 import ExamConductPage from '../job/ExamConductPage';
 import EmailClient from '../email/EmailClient';
 import EmployeeProfileModal from '../profile/EmployeeProfileModal';
-
+import AppraisalLetterManagement from '../hr/AppraisalLetter';
 import EmployeeInformationPage from '../profile/EmployeeInformationPage';
 import DirectRecruitmentPage from '../job/DirectRecruitmentPage';
 import EmployeeAttendancePage from '../hr/EmployeeAttendancePage';
@@ -1675,6 +1675,16 @@ if (activeSection === 'payroll') {
       {renderHeader("Search employee attendance...")}
       <main className="main-content">
         <EmployeeAttendancePage userRole={userData?.role} />
+      </main>
+    </div>
+  );
+}
+  if (activeSection === 'appraisalLetter') {
+  return (
+    <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
+      {renderHeader("Search employee attendance...")}
+      <main className="main-content">
+        <AppraisalLetterManagement userRole={userData?.role} />
       </main>
     </div>
   );
