@@ -530,160 +530,206 @@ router.post('/payslip', pay_upload.single('payslip'), async (req, res) => {
     }
 });
 
-// 3. SEND JOB OFFER ENDPOINT
-router.post('/send-job-offer', async (req, res) => {
+
+// SEND APPRAISAL LETTER ENDPOINT
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+});
+
+// Helper function to create transporter (similar to your job offer endpoint)
+function createTransporter(email, password, smtpHost, smtpPort) {
+  return nodemailer.createTransport({
+    host: smtpHost,
+    port: parseInt(smtpPort),
+    secure: false, // true for 465, false for other ports
+    auth: {
+      user: email,
+      pass: password,
+    },
+    tls: {
+      rejectUnauthorized: false
+    }
+  });
+}
+
+router.post('/send-appraisal', upload.single('appraisal'), async (req, res) => {
+  try {
+    const {
+      senderEmail = process.env.SEND_EMAIL,
+      senderPassword = process.env.SEND_PASSWORD,
+      recipientEmail,
+      smtpServer = process.env.SMTP_HOST,
+      smtpPort = process.env.SMTP_PORT
+    } = req.body;
+
+    // Parse templateData if it's a JSON string
+    let templateData = {};
     try {
-        const {
-            senderEmail = process.env.SEND_JOB_OFFER_EMAIL,
-            senderPassword = process.env.SEND_JOB_OFFER_PASSWORD,
-            recipientEmail,
-            templateData = {},
-            attachments = [],
-            smtpServer = process.env.SMTP_HOST,
-            smtpPort = process.env.SMTP_PORT
-        } = req.body;
+      templateData = req.body.templateData ? JSON.parse(req.body.templateData) : {};
+    } catch (parseError) {
+      console.error('Error parsing templateData:', parseError);
+      templateData = req.body.templateData || {};
+    }
 
-        const jobTitle = templateData.job_title || 'Job Position';
-        const companyName = templateData.company_name || 'Our Company';
-        const subject = req.body.subject || `Job Offer - ${jobTitle} Position at ${companyName}`;
+    const employeeName = templateData.employee_name || 'Employee';
+    const companyName = templateData.company_name || 'Our Company';
+    const effectiveDate = templateData.effective_date || 'Current Period';
+    const subject = req.body.subject || `🎉 Performance Appraisal Letter - ${effectiveDate}`;
 
-        if (!recipientEmail) {
-            return res.status(400).json({
-                success: false,
-                error: "Missing required field: recipientEmail"
-            });
-        }
+    const appraisalPDF = req.file;
 
-        // Job Offer HTML template
-        let htmlTemplate = `<!DOCTYPE html>
+    if (!recipientEmail) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing required field: recipientEmail"
+      });
+    }
+
+    if (!appraisalPDF) {
+      return res.status(400).json({
+        success: false,
+        error: 'No appraisal letter attached'
+      });
+    }
+
+    // Appraisal Letter HTML template
+    let htmlTemplate = `<!DOCTYPE html>
 <html>
 <head>
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 40px; }
-        .header { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
-        .content { background: white; padding: 30px; border: 1px solid #dee2e6; border-radius: 8px; }
-        .footer { margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; font-size: 14px; }
-        .highlight { background: #e7f3ff; padding: 15px; border-radius: 6px; margin: 20px 0; }
-        .signature { margin-top: 30px; border-top: 1px solid #dee2e6; padding-top: 20px; }
-        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        td { padding: 10px; border-bottom: 1px solid #eee; }
-        .label { font-weight: bold; width: 150px; }
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 0; background-color: #f9f9f9; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .email-content { background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #10b981; }
+        .congratulations-banner { background-color: #10b981; color: white; padding: 10px 20px; border-radius: 8px; display: inline-block; margin-bottom: 15px; }
+        .company-name { color: #2d5a4a; margin: 0; font-size: 24px; }
+        .content { margin-bottom: 30px; }
+        .greeting { color: #2d5a4a; margin-bottom: 15px; }
+        .highlight-box { background-color: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981; }
+        .highlight-text { margin: 0; font-size: 18px; color: #2d5a4a; }
+        .call-to-action { text-align: center; margin: 30px 0; padding: 20px; background-color: #f8f9fa; border-radius: 8px; }
+        .footer { text-align: center; padding-top: 20px; border-top: 1px solid #eee; color: #888; font-size: 12px; }
+        .content-text { line-height: 1.6; color: #333; font-size: 16px; }
+        .attachment-info { margin: 0 0 15px 0; color: #666; font-size: 14px; }
+        .contact-info { margin: 0; color: #666; font-size: 12px; }
     </style>
 </head>
 <body>
-    <div class="content">
-        <div class="highlight">
-            <strong>Subject Line:</strong> Job Offer - {{job_title}} Position at {{company_name}}
-        </div>
-        <div class="template-preview">
-            <h3>🎉 Congratulations! Job Offer Letter</h3>
+    <div class="container">
+        <div class="email-content">
+            <!-- Header -->
+            <div class="header">
+                <div class="congratulations-banner">
+                    <h2 style="margin: 0; font-size: 18px;">🎉 CONGRATULATIONS! 🎉</h2>
+                </div>
+                <h1 class="company-name">{{company_name}}</h1>
+            </div>
 
-            <p>Dear <strong>{{to_name}}</strong>,</p>
+            <!-- Content -->
+            <div class="content">
+                <h3 class="greeting">Dear {{employee_name}},</h3>
+                
+                <p class="content-text">
+                    We are delighted to inform you that your performance appraisal has been completed for the period ending <strong>{{effective_date}}</strong>.
+                </p>
+                
+                <div class="highlight-box">
+                    <p class="highlight-text">
+                        <strong>🎯 Your dedication and hard work have earned you a salary increase of ₹{{salary_increase}}!</strong>
+                    </p>
+                </div>
+                
+                <p class="content-text">
+                    Please find your detailed appraisal letter attached to this email. This document contains all the specifics regarding your performance review and compensation updates.
+                </p>
 
-            <p>We are delighted to extend an offer of employment to you for the position of <strong>{{job_title}}</strong> at <strong>{{company_name}}</strong>.</p>
+                <h4 style="color: #2d5a4a;">📋 Appraisal Summary:</h4>
+                <ul>
+                    <li><strong>Employee Name:</strong> {{employee_name}}</li>
+                    <li><strong>Review Period:</strong> {{review_period}}</li>
+                    <li><strong>Effective Date:</strong> {{effective_date}}</li>
+                    <li><strong>Salary Increase:</strong> ₹{{salary_increase}}</li>
+                    <li><strong>Performance Rating:</strong> {{performance_rating}}</li>
+                </ul>
 
-            <p>After careful consideration of your qualifications, experience, and interview performance, we believe you would be a valuable addition to our team.</p>
+                <h4 style="color: #2d5a4a;">💬 Manager's Note:</h4>
+                <p class="content-text">{{manager_message}}</p>
+                
+                <p class="content-text">
+                    We appreciate your continued excellence and look forward to your ongoing contributions to our organization.
+                </p>
+            </div>
 
-            <h4>📋 Offer Details:</h4>
-            <ul>
-                <li><strong>Position:</strong> {{job_title}}</li>
-                <li><strong>Company:</strong> {{company_name}}</li>
-                <li><strong>Compensation:</strong> {{salary_amount}}</li>
-                <li><strong>Expected Joining Date:</strong> {{joining_date}}</li>
-                <li><strong>Work Location:</strong> {{work_location}}</li>
-                <li><strong>Reporting Manager:</strong> {{reporting_manager}}</li>
-            </ul>
+            <!-- Call to Action -->
+            <div class="call-to-action">
+                <p class="attachment-info">
+                    <strong>📎 Your appraisal letter is attached as a PDF document</strong>
+                </p>
+                <p class="contact-info">
+                    If you have any questions, please don't hesitate to contact the HR department at {{hr_contact}}.
+                </p>
+            </div>
 
-            <h4>🎁 Additional Benefits:</h4>
-            <p>{{additional_benefits}}</p>
-
-            <h4>⏰ Important Information:</h4>
-            <p>This offer is valid until: <strong>{{offer_valid_until}}</strong></p>
-            <p>Please confirm your acceptance by replying to this email or contacting our HR team.</p>
-
-            <h4>💬 Personal Message:</h4>
-            <p>{{message}}</p>
-
-            <p>We look forward to welcoming you to our team and are excited about the contributions you will make to our organization.</p>
-
-            <p><strong>Next Steps:</strong></p>
-            <ol>
-                <li>Review this offer carefully</li>
-                <li>Contact us if you have any questions</li>
-                <li>Confirm your acceptance</li>
-                <li>Prepare for your exciting journey with us!</li>
-            </ol>
-
-            <p>If you have any questions or need clarification about any aspect of this offer, please don't hesitate to reach out.</p>
-
-            <p><strong>HR Contact:</strong><br>
-            {{hr_contact}}</p>
-
-            <p>Congratulations once again, and we look forward to having you on board!</p>
-
-            <p>Best regards,<br>
-            <strong>{{company_name}} HR Team</strong></p>
-
-            <hr>
-            <p style="font-size: 12px; color: #666;">
-                This is an official job offer from {{company_name}}. Please keep this email for your records.
-            </p>
+            <!-- Footer -->
+            <div class="footer">
+                <p style="margin: 0;">
+                    Best regards,<br>
+                    <strong>Human Resources Department</strong><br>
+                    {{company_name}}
+                </p>
+                <p style="margin: 10px 0 0 0;">
+                    This is an automated email. Please do not reply to this message.
+                </p>
+            </div>
         </div>
     </div>
 </body>
 </html>`;
 
-        // Replace template variables
-        Object.keys(templateData).forEach(key => {
-            const regex = new RegExp(`{{${key}}}`, 'g');
-            htmlTemplate = htmlTemplate.replace(regex, templateData[key] || '');
-        });
+    // Replace template variables
+    Object.keys(templateData).forEach(key => {
+      const regex = new RegExp(`{{${key}}}`, 'g');
+      htmlTemplate = htmlTemplate.replace(regex, templateData[key] || '');
+    });
 
-        const transporter = createTransporter(senderEmail, senderPassword, smtpServer, smtpPort);
-        
-        const mailOptions = {
-            from: senderEmail,
-            to: recipientEmail,
-            subject: subject,
-            html: htmlTemplate,
-            attachments: []
-        };
+    const transporter = createTransporter(senderEmail, senderPassword, smtpServer, smtpPort);
+    
+    const mailOptions = {
+      from: `"HR Department" <${senderEmail}>`,
+      to: recipientEmail,
+      cc: senderEmail, // CC to HR
+      subject: subject,
+      html: htmlTemplate,
+      attachments: [
+        {
+          filename: `Appraisal_Letter_${(templateData.employee_name || 'Employee').replace(/\s+/g, '_')}_${(templateData.effective_date || 'Current').replace(/\s+/g, '_')}.pdf`,
+          content: appraisalPDF.buffer,
+          contentType: 'application/pdf',
+        },
+      ]
+    };
 
-        // Handle attachments (URLs or file paths)
-        for (const attachmentPath of attachments) {
-            if (attachmentPath.startsWith('http')) {
-                // Download from URL
-                const response = await axios.get(attachmentPath, { responseType: 'stream' });
-                const filename = path.basename(attachmentPath) || 'attachment';
-                mailOptions.attachments.push({
-                    filename: filename,
-                    content: response.data
-                });
-            } else {
-                // Local file
-                mailOptions.attachments.push({
-                    filename: path.basename(attachmentPath),
-                    path: attachmentPath
-                });
-            }
-        }
+    console.log(`Sending appraisal email using SMTP: ${smtpServer}:${smtpPort} with email: ${senderEmail}`);
+    const info = await transporter.sendMail(mailOptions);
+    
+    res.status(200).json({
+      success: true,
+      message: `Appraisal letter sent successfully to ${recipientEmail}`,
+      recipient: recipientEmail,
+      subject: subject,
+      messageId: info.messageId
+    });
 
-        console.log(`Sending job offer email using SMTP: ${smtpServer}:${smtpPort} with email: ${senderEmail}`);
-        await transporter.sendMail(mailOptions);
-
-        res.status(200).json({
-            success: true,
-            message: "Job offer email sent successfully",
-            recipient: recipientEmail,
-            subject: subject
-        });
-
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
-    }
+  } catch (error) {
+    console.error('Error sending appraisal email:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
 });
 
 // 4. POST JOB TO LINKEDIN ENDPOINT

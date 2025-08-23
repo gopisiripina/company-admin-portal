@@ -82,6 +82,8 @@ const AppContent = () => {
 }
    else if (path.includes('/payroll')) {
       setActiveSection('payroll');
+       }else if (path.includes('/appraisalLetter')) {
+      setActiveSection('appraisalLetter');
        }else if (path.includes('/leave-management')) {
     }else if (path.includes('/leave-management')) {
       setActiveSection('leave-management');
