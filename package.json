@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "dotenv": "^17.2.1",
-    "secure-env": "^1.2.0"
-  }
-}
