@@ -12,11 +12,17 @@ function createTransporter(senderEmail, senderPassword, smtpServer = 'smtp.hosti
     return nodemailer.createTransport({
         host: smtpServer,
         port: smtpPort,
-        secure: false, // Use STARTTLS
+        secure: false,
         auth: {
             user: senderEmail,
             pass: senderPassword
-        },
+        }, connectionTimeout: 60000,
+        greetingTimeout: 30000,
+        socketTimeout: 60000,
+        pool: true,
+        maxConnections: 1,
+        rateDelta: 20000,
+        rateLimit: 5,
         tls: {
             rejectUnauthorized: false,
             ciphers: 'SSLv3'
@@ -199,214 +205,212 @@ router.post('/send-email', async (req, res) => {
 
 const pay_upload = multer({ storage: multer.memoryStorage() });
 router.post('/payslip', pay_upload.single('payslip'), async (req, res) => {
-    try {
-        const {
-            employeeName,
-            employeeEmail,
-            companyName,
-            payPeriod,
-            senderEmail = process.env.PAYSLIP_EMAIL,
-            senderPassword = process.env.PAYSLIP_PASSWORD,
-            smtpServer = 'smtp.hostinger.in',
-            smtpPort = 587
-        } = req.body;
+    const maxRetries = 3;
+    let lastError;
 
-        console.log("Received payslip data:", req.body);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const {
+                employeeName,
+                employeeEmail,
+                companyName,
+                payPeriod,
+                senderEmail = process.env.PAYSLIP_EMAIL,
+                senderPassword = process.env.PAYSLIP_PASSWORD,
+                smtpServer = 'smtp.hostinger.in',
+                smtpPort = 587
+            } = req.body;
 
-        // Validate required fields - senderEmail and senderPassword now have defaults from env
-        if (!employeeName || !employeeEmail) {
-            return res.status(400).json({
-                success: false,
-                error: "Missing required fields: employeeName or employeeEmail"
+            console.log(`Attempt ${attempt}: Received payslip data:`, req.body);
+
+            if (!employeeName || !employeeEmail || !req.file) {
+                return res.status(400).json({
+                    success: false,
+                    error: "Missing required fields or PDF file"
+                });
+            }
+
+            const transporter = createTransporter(senderEmail, senderPassword, smtpServer, smtpPort);
+            
+            // ADD THIS EMAIL TEMPLATE HERE:
+            const emailTemplate = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Payslip - ${payPeriod}</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        line-height: 1.6;
+                        color: #333;
+                        margin: 0;
+                        padding: 0;
+                        background-color: #f4f4f4;
+                    }
+                    .email-container {
+                        max-width: 600px;
+                        margin: 20px auto;
+                        background: white;
+                        border-radius: 10px;
+                        overflow: hidden;
+                        box-shadow: 0 0 20px rgba(0,0,0,0.1);
+                    }
+                    .header {
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        padding: 30px 20px;
+                        text-align: center;
+                    }
+                    .header h1 {
+                        margin: 0;
+                        font-size: 24px;
+                    }
+                    .content {
+                        padding: 30px 20px;
+                    }
+                    .greeting {
+                        font-size: 18px;
+                        margin-bottom: 20px;
+                        color: #2c3e50;
+                    }
+                    .info-box {
+                        background: #f8f9fa;
+                        border-left: 4px solid #667eea;
+                        padding: 15px;
+                        margin: 20px 0;
+                        border-radius: 5px;
+                    }
+                    .footer {
+                        background: #2c3e50;
+                        color: white;
+                        text-align: center;
+                        padding: 20px;
+                        font-size: 14px;
+                    }
+                    .attachment-note {
+                        background: #e8f5e8;
+                        border: 1px solid #4caf50;
+                        border-radius: 5px;
+                        padding: 15px;
+                        margin: 20px 0;
+                        text-align: center;
+                    }
+                    .attachment-icon {
+                        font-size: 24px;
+                        color: #4caf50;
+                        margin-bottom: 10px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="email-container">
+                    <div class="header">
+                        <h1>💼 Payslip Notification</h1>
+                        <p style="margin: 5px 0 0 0; opacity: 0.9;">${companyName || 'My Access'}</p>
+                    </div>
+                    
+                    <div class="content">
+                        <div class="greeting">
+                            Dear ${employeeName},
+                        </div>
+                        
+                        <p>We hope this email finds you well. Your payslip for <strong>${payPeriod}</strong> is now ready and attached to this email.</p>
+                        
+                        <div class="info-box">
+                            <strong>📋 Payslip Details:</strong><br>
+                            <strong>Employee:</strong> ${employeeName}<br>
+                            <strong>Pay Period:</strong> ${payPeriod}<br>
+                            <strong>Generated Date:</strong> ${new Date().toLocaleDateString()}<br>
+                            <strong>Company:</strong> ${companyName || 'My Access'}
+                        </div>
+                        
+                        <div class="attachment-note">
+                            <div class="attachment-icon">📎</div>
+                            <strong>Your payslip is attached as a PDF file</strong><br>
+                            <small>Please download and save this document for your records</small>
+                        </div>
+                        
+                        <p>If you have any questions regarding your payslip or notice any discrepancies, please don't hesitate to contact the HR department.</p>
+                        
+                        <p style="margin-top: 30px;">
+                            Best regards,<br>
+                            <strong>HR Department</strong><br>
+                            ${companyName || 'My Access'}
+                        </p>
+                    </div>
+                    
+                    <div class="footer">
+                        <p style="margin: 0;">This is an automated email. Please do not reply to this message.</p>
+                        <p style="margin: 5px 0 0 0; opacity: 0.8;">© ${new Date().getFullYear()} ${companyName || 'My Access'}. All rights reserved.</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            `;
+
+            // Mail options (same as before)
+            const mailOptions = {
+                from: {
+                    name: companyName || 'HR Department',
+                    address: senderEmail
+                },
+                to: employeeEmail,
+                subject: `Payslip for ${payPeriod} - ${employeeName}`,
+                html: emailTemplate, // Now this is defined
+                attachments: [
+                    {
+                        filename: `Payslip_${employeeName.replace(/\s+/g, '_')}_${payPeriod.replace(/\s+/g, '_')}.pdf`,
+                        content: req.file.buffer,
+                        contentType: 'application/pdf'
+                    }
+                ]
+            };
+
+            console.log(`Attempt ${attempt}: Sending payslip email using SMTP: ${smtpServer}:${smtpPort}`);
+            const info = await transporter.sendMail(mailOptions);
+            
+            console.log(`Attempt ${attempt}: Email sent successfully:`, info.messageId);
+
+            return res.status(200).json({
+                success: true,
+                message: `Payslip sent successfully on attempt ${attempt}`,
+                messageId: info.messageId,
+                recipient: employeeEmail,
+                payPeriod: payPeriod,
+                sentFrom: senderEmail,
+                attempt: attempt
             });
+
+        } catch (error) {
+            console.error(`Attempt ${attempt} failed:`, error);
+            lastError = error;
+            
+            // If it's the last attempt, don't wait
+            if (attempt < maxRetries) {
+                console.log(`Waiting 5 seconds before retry attempt ${attempt + 1}...`);
+                await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds before retry
+            }
         }
-
-        // Check if PDF file is attached
-        if (!req.file) {
-            return res.status(400).json({
-                success: false,
-                error: "PDF file is required"
-            });
-        }
-
-        // Create transporter using the same function as send-email
-        const transporter = createTransporter(senderEmail, senderPassword, smtpServer, smtpPort);
-        
-        // Verify transporter
-        await transporter.verify();
-
-        // Email template for payslip
-        const emailTemplate = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Payslip - ${payPeriod}</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    line-height: 1.6;
-                    color: #333;
-                    margin: 0;
-                    padding: 0;
-                    background-color: #f4f4f4;
-                }
-                .email-container {
-                    max-width: 600px;
-                    margin: 20px auto;
-                    background: white;
-                    border-radius: 10px;
-                    overflow: hidden;
-                    box-shadow: 0 0 20px rgba(0,0,0,0.1);
-                }
-                .header {
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
-                    padding: 30px 20px;
-                    text-align: center;
-                }
-                .header h1 {
-                    margin: 0;
-                    font-size: 24px;
-                }
-                .content {
-                    padding: 30px 20px;
-                }
-                .greeting {
-                    font-size: 18px;
-                    margin-bottom: 20px;
-                    color: #2c3e50;
-                }
-                .info-box {
-                    background: #f8f9fa;
-                    border-left: 4px solid #667eea;
-                    padding: 15px;
-                    margin: 20px 0;
-                    border-radius: 5px;
-                }
-                .footer {
-                    background: #2c3e50;
-                    color: white;
-                    text-align: center;
-                    padding: 20px;
-                    font-size: 14px;
-                }
-                .attachment-note {
-                    background: #e8f5e8;
-                    border: 1px solid #4caf50;
-                    border-radius: 5px;
-                    padding: 15px;
-                    margin: 20px 0;
-                    text-align: center;
-                }
-                .attachment-icon {
-                    font-size: 24px;
-                    color: #4caf50;
-                    margin-bottom: 10px;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="email-container">
-                <div class="header">
-                    <h1>💼 Payslip Notification</h1>
-                    <p style="margin: 5px 0 0 0; opacity: 0.9;">${companyName || 'My Access'}</p>
-                </div>
-                
-                <div class="content">
-                    <div class="greeting">
-                        Dear ${employeeName},
-                    </div>
-                    
-                    <p>We hope this email finds you well. Your payslip for <strong>${payPeriod}</strong> is now ready and attached to this email.</p>
-                    
-                    <div class="info-box">
-                        <strong>📋 Payslip Details:</strong><br>
-                        <strong>Employee:</strong> ${employeeName}<br>
-                        <strong>Pay Period:</strong> ${payPeriod}<br>
-                        <strong>Generated Date:</strong> ${new Date().toLocaleDateString()}<br>
-                        <strong>Company:</strong> ${companyName || 'My Access'}
-                    </div>
-                    
-                    <div class="attachment-note">
-                        <div class="attachment-icon">📎</div>
-                        <strong>Your payslip is attached as a PDF file</strong><br>
-                        <small>Please download and save this document for your records</small>
-                    </div>
-                    
-                    <p>If you have any questions regarding your payslip or notice any discrepancies, please don't hesitate to contact the HR department.</p>
-                    
-                    <p style="margin-top: 30px;">
-                        Best regards,<br>
-                        <strong>HR Department</strong><br>
-                        ${companyName || 'My Access'}
-                    </p>
-                </div>
-                
-                <div class="footer">
-                    <p style="margin: 0;">This is an automated email. Please do not reply to this message.</p>
-                    <p style="margin: 5px 0 0 0; opacity: 0.8;">© ${new Date().getFullYear()} ${companyName || 'My Access'}. All rights reserved.</p>
-                </div>
-            </div>
-        </body>
-        </html>
-        `;
-
-        // Mail options
-        const mailOptions = {
-            from: {
-                name: companyName || 'HR Department',
-                address: senderEmail
-            },
-            to: employeeEmail,
-            subject: `Payslip for ${payPeriod} - ${employeeName}`,
-            html: emailTemplate,
-            attachments: [
-                {
-                    filename: `Payslip_${employeeName.replace(/\s+/g, '_')}_${payPeriod.replace(/\s+/g, '_')}.pdf`,
-                    content: req.file.buffer,
-                    contentType: 'application/pdf'
-                }
-            ]
-        };
-
-        // Send email
-        console.log(`Sending payslip email using SMTP: ${smtpServer}:${smtpPort} with email: ${senderEmail}`);
-        const info = await transporter.sendMail(mailOptions);
-        
-        console.log('Payslip email sent successfully:', info.messageId);
-
-        res.status(200).json({
-            success: true,
-            message: 'Payslip sent successfully',
-            messageId: info.messageId,
-            recipient: employeeEmail,
-            payPeriod: payPeriod,
-            sentFrom: senderEmail,
-            smtpServer: smtpServer
-        });
-
-    } catch (error) {
-        console.error('Error sending payslip email:', error);
-        
-        let errorMessage = 'Failed to send payslip email';
-        if (error.code === 'EAUTH') {
-            errorMessage = 'Email authentication failed. Please check credentials.';
-        } else if (error.code === 'ENOTFOUND') {
-            errorMessage = 'SMTP server not found. Please check server settings.';
-        } else if (error.code === 'ETIMEDOUT') {
-            errorMessage = 'Connection timeout. Please check network or try different SMTP port.';
-        } else if (error.responseCode === 550) {
-            errorMessage = 'Recipient email address rejected.';
-        }
-
-        res.status(500).json({
-            success: false,
-            error: errorMessage,
-            details: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
     }
+
+    // All attempts failed
+    console.error('All retry attempts failed:', lastError);
+    
+    let errorMessage = 'Failed to send payslip email after multiple attempts';
+    if (lastError.code === 'EMESSAGE' && lastError.response?.includes('timeout')) {
+        errorMessage = 'Email server timeout. The PDF might be too large or server is busy.';
+    } else if (lastError.code === 'EAUTH') {
+        errorMessage = 'Email authentication failed. Please check credentials.';
+    }
+
+    res.status(500).json({
+        success: false,
+        error: errorMessage,
+        attempts: maxRetries,
+        details: process.env.NODE_ENV === 'development' ? lastError.message : undefined
+    });
 });
 
     // 2. SEND RECRUITMENT EMAIL ENDPOINT
