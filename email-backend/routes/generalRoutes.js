@@ -4,7 +4,7 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
-
+require('secure-env')({ secret: process.env.ENV_SECRET_KEY });
 const router = express.Router();
 
 // Create transporter function with Hostinger defaults
