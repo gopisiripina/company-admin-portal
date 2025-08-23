@@ -2948,7 +2948,7 @@ const handleClearFilters = useCallback(() => {
 {
   title: 'Pay',
   render: (text, record) => {
-    console.log('Record payroll:', record.payroll); // You can remove this after testing
+    
     
     // Check if employee has payroll records
     if (!record.payroll || !Array.isArray(record.payroll) || record.payroll.length === 0) {

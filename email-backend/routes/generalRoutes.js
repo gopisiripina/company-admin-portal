@@ -417,6 +417,93 @@ router.post('/payslip', pay_upload.single('payslip'), async (req, res) => {
         details: process.env.NODE_ENV === 'development' ? lastError.message : undefined
     });
 });
+// SEND JOB OFFER LETTER ENDPOINT
+router.post('/send-job-offer', async (req, res) => {
+  try {
+    const {
+      senderEmail = process.env.SEND_EMAIL,
+      senderPassword = process.env.SEND_PASSWORD,
+      recipientEmail,
+      subject,
+      smtpServer = 'smtp.hostinger.in',
+      smtpPort = 587,
+      templateData = {},
+      attachments = []
+    } = req.body;
+
+    if (!recipientEmail) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing required field: recipientEmail"
+      });
+    }
+
+    // Use the existing htmlTemplate from the appraisal endpoint
+    let htmlTemplate = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Job Offer from {{company_name}}</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
+        .container { max-width: 650px; margin: auto; background-color: white; border: 1px solid #e0e0e0; border-radius: 8px; }
+        .header { padding: 30px; background-color: #f8f9fa; border-bottom: 1px solid #e0e0e0; }
+        .header h1 { margin: 0; font-size: 24px; color: #333; }
+        .header p { margin: 5px 0 0; font-size: 16px; color: #555; }
+        .content { padding: 30px; }
+        .content p { line-height: 1.6; }
+        .offer-details { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 20px; margin: 25px 0; }
+        .offer-details h4 { margin-top: 0; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+        .offer-details table { width: 100%; border-collapse: collapse; }
+        .offer-details td { padding: 8px 0; vertical-align: top; }
+        .offer-details .label { font-weight: bold; width: 150px; color: #343a40; }
+        .cta-section { background-color: #e6f7ff; border: 1px solid #91d5ff; padding: 20px; margin: 25px 0; border-radius: 6px; text-align: center; }
+        .footer { padding: 30px; text-align: left; font-size: 14px; color: #555; border-top: 1px solid #e0e0e0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <p><strong>{{company_name}}</strong></p>
+        </div>
+        <div class="content">
+            <p>Dear <strong>{{to_name}}</strong>,</p>
+            <p>Following our recent discussions, we are very pleased to formally offer you the position of <strong>{{job_title}}</strong> with {{company_name}}.</p>
+            <p>We were highly impressed with your qualifications and experience, and we believe you will be an excellent addition to our team. We are excited about the potential contributions you will bring to our organization.</p>
+            
+            <div class="offer-details">
+                <h4>Key Terms of Offer</h4>
+                <table>
+                    <tr><td class="label">Position:</td><td>{{job_title}}</td></tr>
+                    <tr><td class="label">Anticipated Start Date:</td><td>{{joining_date}}</td></tr>
+                    <tr><td class="label">Work Location:</td><td>{{work_location}}</td></tr>
+                </table>
+            </div>
+
+            <p>{{message}}</p>
+
+            <div class="cta-section">
+                <h4 style="margin-top:0;">Next Steps</h4>
+                <p>This offer is contingent upon the successful completion of any pre-employment checks and will remain open until <strong>{{offer_valid_until}}</strong>.</p>
+                <p>To accept this offer, please reply to this email confirming your acceptance. If you have any questions, please feel free to contact us directly.</p>
+            </div>
+        </div>
+        <div class="footer">
+            <p>We look forward to welcoming you to the team.</p>
+            <p>Sincerely,<br>
+            <strong>The HR Team</strong><br>
+            {{company_name}}<br>
+            {{hr_contact}}</p>
+        </div>
+    </div>
+</body>
+</html>`;
+
+    // Replace template variables
+    Object.keys(templateData).forEach(key => {
+      const regex = new RegExp(`{{${key}}}`, 'g');
+      htmlTemplate = htmlTemplate.replace(regex, templateData[key] || '');
+    });
 
 
 
@@ -572,6 +659,35 @@ if (attachments && attachments.length > 0 && typeof attachments[0] === 'string')
     }
 });
 
+    const transporter = createTransporter(senderEmail, senderPassword, smtpServer, smtpPort);
+    
+    const mailOptions = {
+      from: senderEmail,
+      to: recipientEmail,
+      subject: subject,
+      html: htmlTemplate,
+      attachments: attachments || []
+    };
+
+    console.log('Sending job offer email...');
+    const info = await transporter.sendMail(mailOptions);
+    
+    res.status(200).json({
+      success: true,
+      message: "Job offer email sent successfully",
+      messageId: info.messageId,
+      recipient: recipientEmail
+    });
+
+  } catch (error) {
+    console.error('Error sending job offer:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: error.message
+    });
+  }
+});
 
     // 2. SEND RECRUITMENT EMAIL ENDPOINT
     router.post('/send-recruitment-email', async (req, res) => {
@@ -881,6 +997,14 @@ router.post('/send-appraisal', upload.single('appraisal'), async (req, res) => {
       recipient: recipientEmail,
       subject: subject,
       messageId: info.messageId
+
+// Handle attachments from request body
+if (req.body.attachments && Array.isArray(req.body.attachments)) {
+  req.body.attachments.forEach(attachment => {
+    mailOptions.attachments.push({
+      filename: attachment.filename,
+      content: Buffer.from(attachment.content, 'base64'),
+      contentType: attachment.contentType || 'application/pdf'
     });
 
   } catch (error) {

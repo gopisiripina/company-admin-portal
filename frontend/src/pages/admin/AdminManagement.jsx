@@ -134,7 +134,7 @@ const MobileAdminCard = React.memo(({ admin, onEdit, onDelete}) => (
   src={admin.profileimage}  // Changed from admin.profileImage to admin.profileimage
   icon={!admin.profileimage && <UserOutlined />}  // Changed condition too
 >
-  {!admin.profileimage && admin.name.charAt(0).toUpperCase()}  // Changed condition
+  {!admin.profileimage && admin.name.charAt(0).toUpperCase()} 
 </Avatar>
         <div style={{ 
           flex: 1,

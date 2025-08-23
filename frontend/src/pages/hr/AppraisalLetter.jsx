@@ -740,12 +740,27 @@ lines.forEach(line => {
           rowKey="id"
           loading={loading}
           scroll={{ x: 800 }}
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} employees`,
-          }}
+       pagination={{
+  pageSize: 10,
+  showSizeChanger: true,
+  showQuickJumper: true,
+  loading:{loading},
+  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} employees`,
+  itemRender: (current, type, originalElement) => {
+    if (type === 'page') {
+      return (
+        <a style={{ 
+          color: '#000000d9', 
+          backgroundColor: 'white',
+          border: '1px solid #d9d9d9'
+        }}>
+          {current}
+        </a>
+      );
+    }
+    return originalElement;
+  }
+}}
           columns={[
             {
               title: 'Employee',
