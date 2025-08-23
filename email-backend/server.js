@@ -5,7 +5,7 @@ const Imap = require('imap');
 const http = require('http');
 const { WebSocketServer } = require('ws');
 const donenv = require('dotenv');
-
+require('secure-env')({ secret: process.env.ENV_SECRET_KEY });
 require('dotenv').config();
 // Import route modules
 const emailRoutes = require('./routes/emailRoutes');

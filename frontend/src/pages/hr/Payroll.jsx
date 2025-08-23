@@ -883,7 +883,7 @@ const netPay = Number(record.net_pay) || (totalEarnings - totalDeductions);
       
       formData.append('payslip', pdfBlob, `payslip_${employeeData.employee_name}_${dayjs(employeeData.pay_period).format('YYYY-MM')}.pdf`);
       
-      const response = await fetch('https://cap.myaccessio.com/api/payslip', {
+      const response = await fetch('http://localhost:5000/api/payslip', {
         method: 'POST',
         body: formData
       });
