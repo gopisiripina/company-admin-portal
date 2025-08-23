@@ -245,6 +245,8 @@ else if (itemId === 'on-campus-data') {
     
     }else if (itemId === 'employee-information') {
       navigate('/dashboard/employee-information', { replace: true });
+    }else if (itemId === 'appraisalLetter') {
+      navigate('/dashboard/appraisalLetter', { replace: true });
     }
     else if (itemId === 'employee-profile') {
   navigate('/dashboard/employee-profile', { replace: true });
