@@ -100,7 +100,7 @@ useEffect(() => {
         { icon: AlertTriangle, label: 'Payroll', id: 'payroll' },
         { icon: DollarSign, label: 'Leaves Approval', id: 'leave-manage' },
         { icon: DollarSign, label: 'Calender And Events', id: 'company-calender' },
-        { icon: DollarSign, label: 'appraisalLetter', id: 'appraisalLetter' },
+        { icon: DollarSign, label: 'AppraisalLetter', id: 'appraisalLetter' },
         
       ] : []),
       
