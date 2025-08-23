@@ -554,80 +554,62 @@ router.post('/send-job-offer', async (req, res) => {
             });
         }
 
-        // Job Offer HTML template
-        let htmlTemplate = `<!DOCTYPE html>
+// In the /send-job-offer endpoint, replace the htmlTemplate with this updated version:
+let htmlTemplate = `<!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <title>Job Offer from {{company_name}}</title>
     <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 40px; }
-        .header { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
-        .content { background: white; padding: 30px; border: 1px solid #dee2e6; border-radius: 8px; }
-        .footer { margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; font-size: 14px; }
-        .highlight { background: #e7f3ff; padding: 15px; border-radius: 6px; margin: 20px 0; }
-        .signature { margin-top: 30px; border-top: 1px solid #dee2e6; padding-top: 20px; }
-        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        td { padding: 10px; border-bottom: 1px solid #eee; }
-        .label { font-weight: bold; width: 150px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px; }
+        .container { max-width: 650px; margin: auto; background-color: white; border: 1px solid #e0e0e0; border-radius: 8px; }
+        .header { padding: 30px; background-color: #f8f9fa; border-bottom: 1px solid #e0e0e0; }
+        .header h1 { margin: 0; font-size: 24px; color: #333; }
+        .header p { margin: 5px 0 0; font-size: 16px; color: #555; }
+        .content { padding: 30px; }
+        .content p { line-height: 1.6; }
+        .offer-details { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; padding: 20px; margin: 25px 0; }
+        .offer-details h4 { margin-top: 0; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+        .offer-details table { width: 100%; border-collapse: collapse; }
+        .offer-details td { padding: 8px 0; vertical-align: top; }
+        .offer-details .label { font-weight: bold; width: 150px; color: #343a40; }
+        .cta-section { background-color: #e6f7ff; border: 1px solid #91d5ff; padding: 20px; margin: 25px 0; border-radius: 6px; text-align: center; }
+        .footer { padding: 30px; text-align: left; font-size: 14px; color: #555; border-top: 1px solid #e0e0e0; }
     </style>
 </head>
 <body>
-    <div class="content">
-        <div class="highlight">
-            <strong>Subject Line:</strong> Job Offer - {{job_title}} Position at {{company_name}}
+    <div class="container">
+        <div class="header">
+            <p><strong>{{company_name}}</strong></p>
         </div>
-        <div class="template-preview">
-            <h3>🎉 Congratulations! Job Offer Letter</h3>
-
+        <div class="content">
             <p>Dear <strong>{{to_name}}</strong>,</p>
+            <p>Following our recent discussions, we are very pleased to formally offer you the position of <strong>{{job_title}}</strong> with {{company_name}}.</p>
+            <p>We were highly impressed with your qualifications and experience, and we believe you will be an excellent addition to our team. We are excited about the potential contributions you will bring to our organization.</p>
+            
+            <div class="offer-details">
+                <h4>Key Terms of Offer</h4>
+                <table>
+                    <tr><td class="label">Position:</td><td>{{job_title}}</td></tr>
+                    <tr><td class="label">Anticipated Start Date:</td><td>{{joining_date}}</td></tr>
+                    <tr><td class="label">Work Location:</td><td>{{work_location}}</td></tr>
+                </table>
+            </div>
 
-            <p>We are delighted to extend an offer of employment to you for the position of <strong>{{job_title}}</strong> at <strong>{{company_name}}</strong>.</p>
-
-            <p>After careful consideration of your qualifications, experience, and interview performance, we believe you would be a valuable addition to our team.</p>
-
-            <h4>📋 Offer Details:</h4>
-            <ul>
-                <li><strong>Position:</strong> {{job_title}}</li>
-                <li><strong>Company:</strong> {{company_name}}</li>
-                <li><strong>Compensation:</strong> {{salary_amount}}</li>
-                <li><strong>Expected Joining Date:</strong> {{joining_date}}</li>
-                <li><strong>Work Location:</strong> {{work_location}}</li>
-                <li><strong>Reporting Manager:</strong> {{reporting_manager}}</li>
-            </ul>
-
-            <h4>🎁 Additional Benefits:</h4>
-            <p>{{additional_benefits}}</p>
-
-            <h4>⏰ Important Information:</h4>
-            <p>This offer is valid until: <strong>{{offer_valid_until}}</strong></p>
-            <p>Please confirm your acceptance by replying to this email or contacting our HR team.</p>
-
-            <h4>💬 Personal Message:</h4>
             <p>{{message}}</p>
 
-            <p>We look forward to welcoming you to our team and are excited about the contributions you will make to our organization.</p>
-
-            <p><strong>Next Steps:</strong></p>
-            <ol>
-                <li>Review this offer carefully</li>
-                <li>Contact us if you have any questions</li>
-                <li>Confirm your acceptance</li>
-                <li>Prepare for your exciting journey with us!</li>
-            </ol>
-
-            <p>If you have any questions or need clarification about any aspect of this offer, please don't hesitate to reach out.</p>
-
-            <p><strong>HR Contact:</strong><br>
+            <div class="cta-section">
+                <h4 style="margin-top:0;">Next Steps</h4>
+                <p>This offer is contingent upon the successful completion of any pre-employment checks and will remain open until <strong>{{offer_valid_until}}</strong>.</p>
+                <p>To accept this offer, please reply to this email confirming your acceptance. If you have any questions, please feel free to contact us directly.</p>
+            </div>
+        </div>
+        <div class="footer">
+            <p>We look forward to welcoming you to the team.</p>
+            <p>Sincerely,<br>
+            <strong>The HR Team</strong><br>
+            {{company_name}}<br>
             {{hr_contact}}</p>
-
-            <p>Congratulations once again, and we look forward to having you on board!</p>
-
-            <p>Best regards,<br>
-            <strong>{{company_name}} HR Team</strong></p>
-
-            <hr>
-            <p style="font-size: 12px; color: #666;">
-                This is an official job offer from {{company_name}}. Please keep this email for your records.
-            </p>
         </div>
     </div>
 </body>
@@ -641,32 +623,46 @@ router.post('/send-job-offer', async (req, res) => {
 
         const transporter = createTransporter(senderEmail, senderPassword, smtpServer, smtpPort);
         
-        const mailOptions = {
-            from: senderEmail,
-            to: recipientEmail,
-            subject: subject,
-            html: htmlTemplate,
-            attachments: []
-        };
+      const mailOptions = {
+  from: senderEmail,
+  to: recipientEmail,
+  subject: subject,
+  html: htmlTemplate,
+  attachments: []
+};
 
-        // Handle attachments (URLs or file paths)
-        for (const attachmentPath of attachments) {
-            if (attachmentPath.startsWith('http')) {
-                // Download from URL
-                const response = await axios.get(attachmentPath, { responseType: 'stream' });
-                const filename = path.basename(attachmentPath) || 'attachment';
-                mailOptions.attachments.push({
-                    filename: filename,
-                    content: response.data
-                });
-            } else {
-                // Local file
-                mailOptions.attachments.push({
-                    filename: path.basename(attachmentPath),
-                    path: attachmentPath
-                });
-            }
+// Handle attachments from request body
+if (req.body.attachments && Array.isArray(req.body.attachments)) {
+  req.body.attachments.forEach(attachment => {
+    mailOptions.attachments.push({
+      filename: attachment.filename,
+      content: attachment.content,
+      contentType: attachment.contentType,
+      encoding: 'base64'
+    });
+  });
+}
+        
+     // Handle attachments (URLs or file paths) - only if it's the old array format
+if (attachments && attachments.length > 0 && typeof attachments[0] === 'string') {
+    for (const attachmentPath of attachments) {
+        if (attachmentPath.startsWith('http')) {
+            // Download from URL
+            const response = await axios.get(attachmentPath, { responseType: 'stream' });
+            const filename = path.basename(attachmentPath) || 'attachment';
+            mailOptions.attachments.push({
+                filename: filename,
+                content: response.data
+            });
+        } else {
+            // Local file
+            mailOptions.attachments.push({
+                filename: path.basename(attachmentPath),
+                path: attachmentPath
+            });
         }
+    }
+}
 
         console.log(`Sending job offer email using SMTP: ${smtpServer}:${smtpPort} with email: ${senderEmail}`);
         await transporter.sendMail(mailOptions);
