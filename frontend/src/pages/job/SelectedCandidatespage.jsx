@@ -277,34 +277,45 @@ const sendOfferLetter = async (offerData) => {
       : '';
     
     // Generate PDF with updated data including new fields
-   const pdfBlob = generateOfferLetterPDF(candidateData, {
+    const pdfBlob = generateOfferLetterPDF(candidateData, {
       ...offerData,
       joiningDate: formattedJoiningDate
     });
     
-  // Convert blob to base64 for email attachment
-const base64PDF = await new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const result = reader.result;
-      const base64Data = result.split(',')[1];
-      if (!base64Data) {
-        throw new Error('Failed to extract base64 data');
-      }
-      resolve(base64Data);
-    } catch (error) {
-      reject(error);
-    }
-  };
-  reader.onerror = () => reject(new Error('FileReader failed'));
-  reader.readAsDataURL(pdfBlob);
-});
+    // Convert blob to base64 for email attachment - FIXED VERSION
+    const base64PDF = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        try {
+          const result = reader.result;
+          if (!result) {
+            throw new Error('Failed to read PDF blob');
+          }
+          // Extract base64 data (remove data:application/pdf;base64, prefix)
+          const base64Data = result.split(',')[1];
+          if (!base64Data) {
+            throw new Error('Failed to extract base64 data from PDF');
+          }
+          console.log('PDF converted to base64, length:', base64Data.length);
+          resolve(base64Data);
+        } catch (error) {
+          console.error('Error processing PDF:', error);
+          reject(error);
+        }
+      };
+      reader.onerror = (error) => {
+        console.error('FileReader error:', error);
+        reject(new Error('FileReader failed to read PDF blob'));
+      };
+      
+      // Start reading the blob as data URL
+      reader.readAsDataURL(pdfBlob);
+    });
     
-    // Prepare email template parameters - UPDATED to include all fields
+    // Prepare email template parameters
     const emailParams = {
-      to_name: candidateData.name, // Changed from selectedCandidate.name
-      to_email: candidateData.email, // Changed from selectedCandidate.email
+      to_name: candidateData.name,
+      to_email: candidateData.email,
       job_title: offerData.jobTitle,
       company_name: offerData.companyName,
       salary_amount: offerData.salaryAmount,
@@ -319,134 +330,160 @@ const base64PDF = await new Promise((resolve, reject) => {
 
     console.log('Email params:', emailParams);
 
-
+    // FIXED: Send request with proper structure
     const response = await fetch(`${baseUrl}send-job-offer`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    recipientEmail: candidateData.email,
-    subject: `Job Offer - ${offerData.jobTitle} Position at ${offerData.companyName}`,
-    templateData: {
-      to_name: candidateData.name,
-      job_title: offerData.jobTitle,
-      company_name: offerData.companyName,
-      salary_amount: offerData.salaryAmount,
-      joining_date: formattedJoiningDate,
-      work_location: offerData.workLocation,
-      reporting_manager: offerData.reportingManager,
-      additional_benefits: offerData.additionalBenefits,
-      offer_valid_until: offerData.offerValidUntil,
-      message: offerData.message || '',
-      hr_contact: offerData.hrContact,
-    },
-    attachments: [{
-      filename: `Offer_Letter_${candidateData.name.replace(/\s+/g, '_')}.pdf`,
-      content: base64PDF,
-      contentType: 'application/pdf',
-    }],
-  }),
-});
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        recipientEmail: candidateData.email,
+        subject: `Job Offer - ${offerData.jobTitle} Position at ${offerData.companyName}`,
+        templateData: emailParams,
+        attachments: [{
+          filename: `Offer_Letter_${candidateData.name.replace(/\s+/g, '_')}.pdf`,
+          content: base64PDF,
+          contentType: 'application/pdf',
+        }],
+      }),
+    });
 
-
-
-
+    // Check if response is ok before parsing JSON
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
+    }
 
     const result = await response.json();
     console.log('Email result:', result);
 
-  // Add this section inside sendOfferLetter function after successful email sending
-if (response.ok && result.success) {
-  // For selected candidates (existing logic)
-  if (selectedCandidate && selectedCandidate.id && !selectedCandidate.isManual) {
-    // ... existing database update logic for job_applications table
-    
-  } 
-  // Replace the manual offer database insert section in sendOfferLetter function
+    // Handle successful email sending
+    if (result.success) {
+      // For selected candidates (existing logic)
+      if (selectedCandidate && selectedCandidate.id && !selectedCandidate.isManual) {
+        const { error: updateError } = await supabase
+          .from('job_applications')
+          .update({
+            mail_history: [
+              ...(selectedCandidate.mailHistory || []),
+              {
+                type: 'offer',
+                sentDate: new Date().toISOString(),
+                offerDetails: {
+                  jobTitle: offerData.jobTitle,
+                  companyName: offerData.companyName,
+                  salaryAmount: offerData.salaryAmount,
+                  joiningDate: formattedJoiningDate,
+                  workLocation: offerData.workLocation,
+                  reportingManager: offerData.reportingManager,
+                  additionalBenefits: offerData.additionalBenefits,
+                  offerValidUntil: offerData.offerValidUntil,
+                  candidatePhone: offerData.candidatePhone,
+                  candidateAddress: offerData.candidateAddress,
+                  hrContact: offerData.hrContact,
+                  message: offerData.message
+                },
+                emailStatus: 'sent'
+              }
+            ]
+          })
+          .eq('id', selectedCandidate.id);
 
-// NEW: For manual offers, store in manual_offers table
-else {
-  try {
-    // Format the joining date properly for PostgreSQL
-    let formattedJoiningDateForDB = null;
-    if (offerData.joiningDate) {
-      // If it's a moment object from DatePicker, convert to JS Date first
-      const dateObj = offerData.joiningDate._isAMomentObject ? 
-        offerData.joiningDate.toDate() : 
-        new Date(offerData.joiningDate);
-      
-      // Format as YYYY-MM-DD for PostgreSQL
-      formattedJoiningDateForDB = dateObj.toISOString().split('T')[0];
-    }
-
-    // Format offer valid until date if it's a date
-    let formattedValidUntilForDB = null;
-    if (offerData.offerValidUntil && offerData.offerValidUntil !== '7 days from offer date') {
-      try {
-        const validUntilDate = new Date(offerData.offerValidUntil);
-        if (!isNaN(validUntilDate.getTime())) {
-          formattedValidUntilForDB = validUntilDate.toISOString().split('T')[0];
+        if (updateError) {
+          console.error('Error updating candidate record:', updateError);
+          message.warning('Email sent but failed to update record');
         } else {
-          formattedValidUntilForDB = offerData.offerValidUntil; // Keep as text if not a valid date
+          fetchSelectedCandidates();
         }
-      } catch (e) {
-        formattedValidUntilForDB = offerData.offerValidUntil; // Keep as text if parsing fails
+      } 
+      // For manual offers, store in manual_offers table
+      else {
+        try {
+          // Format the joining date properly for PostgreSQL
+          let formattedJoiningDateForDB = null;
+          if (offerData.joiningDate) {
+            const dateObj = offerData.joiningDate._isAMomentObject ? 
+              offerData.joiningDate.toDate() : 
+              new Date(offerData.joiningDate);
+            
+            formattedJoiningDateForDB = dateObj.toISOString().split('T')[0];
+          }
+
+          // Format offer valid until date if it's a date
+          let formattedValidUntilForDB = null;
+          if (offerData.offerValidUntil && offerData.offerValidUntil !== '7 days from offer date') {
+            try {
+              const validUntilDate = new Date(offerData.offerValidUntil);
+              if (!isNaN(validUntilDate.getTime())) {
+                formattedValidUntilForDB = validUntilDate.toISOString().split('T')[0];
+              } else {
+                formattedValidUntilForDB = offerData.offerValidUntil;
+              }
+            } catch (e) {
+              formattedValidUntilForDB = offerData.offerValidUntil;
+            }
+          } else {
+            formattedValidUntilForDB = offerData.offerValidUntil;
+          }
+
+          const { error: insertError } = await supabase
+            .from('manual_offers')
+            .insert({
+              candidate_name: candidateData.name,
+              candidate_email: candidateData.email,
+              candidate_phone: offerData.candidatePhone,
+              candidate_address: offerData.candidateAddress,
+              job_title: offerData.jobTitle,
+              company_name: offerData.companyName,
+              salary_amount: offerData.salaryAmount,
+              joining_date: formattedJoiningDateForDB,
+              work_location: offerData.workLocation,
+              reporting_manager: offerData.reportingManager,
+              offer_valid_until: formattedValidUntilForDB,
+              hr_contact: offerData.hrContact,
+              additional_benefits: offerData.additionalBenefits,
+              message: offerData.message,
+              email_status: 'sent',
+              sent_date: new Date().toISOString()
+            });
+
+          if (insertError) {
+            console.error('Error saving manual offer:', insertError);
+            message.warning('Email sent but failed to save record in database');
+          } else {
+            console.log('Manual offer saved successfully');
+            fetchSelectedCandidates();
+          }
+        } catch (error) {
+          console.error('Error saving manual offer:', error);
+          message.warning('Email sent but failed to save record');
+        }
       }
+      
+      setOfferModalVisible(false);
+      message.success(`Offer letter sent successfully to ${candidateData.name}!`);
     } else {
-      formattedValidUntilForDB = offerData.offerValidUntil; // Keep as text
-    }
-
-    const { error: insertError } = await supabase
-      .from('manual_offers')
-      .insert({
-        candidate_name: candidateData.name,
-        candidate_email: candidateData.email,
-        candidate_phone: offerData.candidatePhone,
-        candidate_address: offerData.candidateAddress,
-        job_title: offerData.jobTitle,
-        company_name: offerData.companyName,
-        salary_amount: offerData.salaryAmount,
-        joining_date: formattedJoiningDateForDB, // Use properly formatted date
-        work_location: offerData.workLocation,
-        reporting_manager: offerData.reportingManager,
-        offer_valid_until: formattedValidUntilForDB, // Use properly formatted date or text
-        hr_contact: offerData.hrContact,
-        additional_benefits: offerData.additionalBenefits,
-        message: offerData.message,
-        email_status: 'sent',
-        sent_date: new Date().toISOString() // Current timestamp in proper format
-      });
-
-    if (insertError) {
-      console.error('Error saving manual offer:', insertError);
-      message.warning('Email sent but failed to save record in database');
-    } else {
-      console.log('Manual offer saved successfully');
-      // Refresh the candidates list to show the new manual offer
-      fetchSelectedCandidates();
-    }
-  } catch (error) {
-    console.error('Error saving manual offer:', error);
-    message.warning('Email sent but failed to save record');
-  }
-}
-  
-  setOfferModalVisible(false);
-  message.success(`Offer letter sent successfully to ${candidateData.name}!`);
-} else {
-      throw new Error('Email service returned error: ' + result.message);
+      throw new Error('Email service returned error: ' + (result.message || result.error));
     }
   } catch (error) {
     console.error('Error sending offer letter:', error);
     
-    if (error.text) {
-      message.error('Failed to send email: ' + error.text);
-    } else if (error.message) {
-      message.error('Failed to send offer letter: ' + error.message);
+    // Better error handling
+    let errorMessage = 'Failed to send offer letter. ';
+    
+    if (error.message.includes('HTTP')) {
+      errorMessage += 'Server error: ' + error.message;
+    } else if (error.message.includes('Failed to read PDF')) {
+      errorMessage += 'PDF generation failed. Please try again.';
+    } else if (error.message.includes('Failed to extract base64')) {
+      errorMessage += 'PDF conversion failed. Please try again.';
+    } else if (error.message.includes('fetch')) {
+      errorMessage += 'Network error. Please check your connection.';
     } else {
-      message.error('Failed to send offer letter. Please check your configuration.');
+      errorMessage += error.message || 'Unknown error occurred.';
     }
+    
+    message.error(errorMessage);
   } finally {
     setLoading(false);
   }
@@ -741,7 +778,7 @@ if (selectedOfferType === 'internship') {
 
   const addDocItem = (text, col) => {
     doc.setFont(primaryFont, 'normal');
-    const lines = doc.splitTextToSize(`•  ${text}`, colWidth);
+    const lines = doc.splitTextToSize(`• ${text}`, colWidth);
     if (col === 1) {
       if (checkPageBreak(lines.length * 6)) y1 = yPosition;
       lines.forEach(line => { doc.text(line, docCol1, y1); y1 += 6; });
@@ -885,16 +922,9 @@ if (selectedOfferType === 'internship') {
   
   yPosition -= 5; // Align date text with signature line
   addText('Date', { x: dateSigX, maxWidth: sigWidth });
-try {
-  const pdfBlob = doc.output('blob');
-  if (!pdfBlob || pdfBlob.size === 0) {
-    throw new Error('Generated PDF is empty');
-  }
-  return pdfBlob;
-} catch (error) {
-  console.error('Error generating PDF:', error);
-  throw new Error('Failed to generate PDF: ' + error.message);
-}}
+    return doc.output('blob');
+
+}
 
   const getColumns = () => {
   if (screenSize.isMobile) {
