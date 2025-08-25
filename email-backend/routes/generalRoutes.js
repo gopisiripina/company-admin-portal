@@ -421,8 +421,8 @@ router.post('/payslip', pay_upload.single('payslip'), async (req, res) => {
 router.post('/send-job-offer', async (req, res) => {
   try {
     const {
-      senderEmail = process.env.SEND_EMAIL,
-      senderPassword = process.env.SEND_PASSWORD,
+      senderEmail = process.env.SEND_JOB_OFFER_EMAIL,
+      senderPassword = process.env.SEND_JOB_OFFER_PASSWORD,
       recipientEmail,
       subject,
       smtpServer = 'smtp.hostinger.in',
@@ -988,6 +988,17 @@ router.post('/send-appraisal', upload.single('appraisal'), async (req, res) => {
       ]
     };
 
+    // Handle additional attachments from request body if any
+    if (req.body.attachments && Array.isArray(req.body.attachments)) {
+      req.body.attachments.forEach(attachment => {
+        mailOptions.attachments.push({
+          filename: attachment.filename,
+          content: Buffer.from(attachment.content, 'base64'),
+          contentType: attachment.contentType || 'application/pdf'
+        });
+      });
+    }
+
     console.log(`Sending appraisal email using SMTP: ${smtpServer}:${smtpPort} with email: ${senderEmail}`);
     const info = await transporter.sendMail(mailOptions);
     
@@ -997,14 +1008,6 @@ router.post('/send-appraisal', upload.single('appraisal'), async (req, res) => {
       recipient: recipientEmail,
       subject: subject,
       messageId: info.messageId
-
-// Handle attachments from request body
-if (req.body.attachments && Array.isArray(req.body.attachments)) {
-  req.body.attachments.forEach(attachment => {
-    mailOptions.attachments.push({
-      filename: attachment.filename,
-      content: Buffer.from(attachment.content, 'base64'),
-      contentType: attachment.contentType || 'application/pdf'
     });
 
   } catch (error) {
@@ -1015,7 +1018,6 @@ if (req.body.attachments && Array.isArray(req.body.attachments)) {
     });
   }
 });
-
 // 4. POST JOB TO LINKEDIN ENDPOINT
 router.post('/post-job', async (req, res) => {
     try {
