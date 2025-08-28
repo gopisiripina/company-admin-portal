@@ -67,8 +67,7 @@ const AppContent = () => {
     }
      else if (path.includes('/direct-recruitement')) {
       setActiveSection('direct-recruitement');
-       }
-        else if (path.includes('/employee-information')) {
+       }else if (path.includes('/employee-information')) {
       setActiveSection('employee-information');
        }
         else if (path.includes('/company-calender')) {
@@ -247,11 +246,7 @@ else if (itemId === 'on-campus-data') {
       navigate('/dashboard/employee-information', { replace: true });
     }else if (itemId === 'appraisalLetter') {
       navigate('/dashboard/appraisalLetter', { replace: true });
-    }
-    else if (itemId === 'appraisalLetter') {
-      navigate('/dashboard/appraisalLetter', { replace: true });
-    }
-    else if (itemId === 'employee-profile') {
+    }else if (itemId === 'employee-profile') {
   navigate('/dashboard/employee-profile', { replace: true });
 }
     else if (itemId === 'employee-attendance') {
@@ -375,7 +370,6 @@ else if (itemId === 'on-campus-data') {
       <Route 
         path="/job-application/*" 
         element={
-          <AnimatedBackground>
             <div style={{ display: 'flex', height: '100vh', width: '100vw' }}>
               <Dashboard
                 sidebarOpen={false}
@@ -386,7 +380,6 @@ else if (itemId === 'on-campus-data') {
                 onSectionChange={handleSidebarItemClick}
               />
             </div>
-          </AnimatedBackground>
         } 
       />
       

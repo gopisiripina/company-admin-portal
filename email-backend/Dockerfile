@@ -11,7 +11,7 @@ RUN apk add --no-cache curl \
 
 # Copy application files
 COPY . .
-
+COPY .env.enc ./
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=5000

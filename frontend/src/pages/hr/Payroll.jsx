@@ -30,7 +30,8 @@ import {
   TeamOutlined, 
   DownloadOutlined,
   SendOutlined,
-  BankOutlined
+  BankOutlined,
+  EditOutlined 
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { supabase } from '../../supabase/config';
@@ -1770,10 +1771,10 @@ if (printWindow) {
         borderRadius: '8px',
         fontSize: '24px'
       }}>
-        {isPayrollEdited ? <EditOutlined /> : <DashboardOutlined />}
+      <DashboardOutlined />
       </div>
       <div>
-        <Text type="secondary">This Month's Payroll {isPayrollEdited && <span style={{color: '#52c41a'}}>(Edited)</span>}</Text>
+        <Text type="secondary">This Month's Payroll</Text>
         <Title level={3} style={{ margin: 0 }}>₹{thisMonthPayroll.toLocaleString()}</Title>
       </div>
     </Space>
