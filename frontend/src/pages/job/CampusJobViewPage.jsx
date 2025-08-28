@@ -6,7 +6,6 @@ import {
   Space, 
   Row, 
   Col,
-  Button,
   Alert,
   List,
   Avatar,
@@ -17,7 +16,9 @@ import {
   message,
   Tooltip,
   Breadcrumb,
-  Affix
+  Affix,
+  Upload,
+  Button 
 } from 'antd';
 import { 
   EnvironmentOutlined,
@@ -36,7 +37,8 @@ import {
   PhoneOutlined,
   MailOutlined,
   FileTextOutlined,
-  ArrowUpOutlined
+  ArrowUpOutlined,
+  UploadOutlined 
 } from '@ant-design/icons';
 import { supabase } from '../../supabase/config';
 
@@ -50,7 +52,8 @@ const CampusJobViewPage = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
-
+  const [fileList, setFileList] = useState([]);
+  const [uploading, setUploading] = useState(false);
   // Handle scroll for back to top button
   useEffect(() => {
     const handleScroll = () => {
@@ -64,23 +67,50 @@ const CampusJobViewPage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleFormSubmit = async (values) => {
-    setSubmitting(true);
-    try {
-      const { data, error } = await supabase
-        .from('campus_job_applications')
-        .insert([{
-          link_id: jobData.linkId,
-          job_id: jobData.jobId,
-          student_name: values.name,
-          email: values.email,
-          mobile: values.mobile,
-          roll_no: values.roll_no,
-          college_name: jobData.college_name,
-          resume_url: values.resume_url || '',
-        }]);
+  const handleFileUpload = async (file) => {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${Date.now()}.${fileExt}`;
+  const filePath = `oncampusresumes/${fileName}`;
 
-      if (error) {
+  const { data, error } = await supabase.storage
+    .from('oncampusresumes') // Your storage bucket name
+    .upload(filePath, file);
+
+  if (error) {
+    throw error;
+  }
+
+  const { data: { publicUrl } } = supabase.storage
+    .from('oncampusresumes')
+    .getPublicUrl(filePath);
+
+  return publicUrl;
+};
+  const handleFormSubmit = async (values) => {
+  setSubmitting(true);
+  try {
+    let resumeUrl = '';
+    
+    if (fileList.length > 0) {
+      setUploading(true);
+      resumeUrl = await handleFileUpload(fileList[0].originFileObj);
+      setUploading(false);
+    }
+
+    const { data, error } = await supabase
+      .from('campus_job_applications')
+      .insert([{
+        link_id: jobData.linkId,
+        job_id: jobData.jobId,
+        student_name: values.name,
+        email: values.email,
+        mobile: values.mobile,
+        roll_no: values.roll_no,
+        college_name: jobData.college_name,
+        resume_url: resumeUrl, // Store the storage URL
+      }]);
+
+    if (error) {
         console.error('Application error:', error);
         message.error('Submission failed. Please try again.');
       } else {
@@ -609,7 +639,7 @@ const CampusJobViewPage = () => {
         open={modalVisible}
         onCancel={() => setModalVisible(false)}
         onOk={() => form.submit()}
-        confirmLoading={submitting}
+        confirmLoading={submitting || uploading}
         okText="Submit Application"
         cancelText="Cancel"
         width="95%"
@@ -705,19 +735,25 @@ const CampusJobViewPage = () => {
 
           <Row gutter={[16, 0]}>
             <Col xs={24}>
-              <Form.Item 
-                label="Resume URL" 
-                name="resume_url"
-                help="Please provide a link to your resume (Google Drive, Dropbox, etc.)"
-              >
-                <Input 
-                  prefix={<FileTextOutlined />}
-                  size="large"
-                  placeholder="https://drive.google.com/file/d/..."
-                  style={{ borderRadius: '6px' }}
-                />
-              </Form.Item>
-            </Col>
+  <Form.Item 
+    label="Resume Upload" 
+    name="resume_file"
+    help="Please upload your resume (PDF, DOC, DOCX - Max 5MB)"
+    rules={[{ required: true, message: 'Please upload your resume' }]}
+  >
+    <Upload
+      fileList={fileList}
+      beforeUpload={() => false} // Prevent auto upload
+      onChange={({ fileList }) => setFileList(fileList)}
+      accept=".pdf,.doc,.docx"
+      maxCount={1}
+    >
+      <Button icon={<UploadOutlined />} size="large">
+        Select Resume File
+      </Button>
+    </Upload>
+  </Form.Item>
+</Col>
           </Row>
         </Form>
       </Modal>

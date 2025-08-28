@@ -1490,8 +1490,7 @@ const getCurrentStep = () => {
                           prefix={<UserOutlined style={{ color: '#0D7139' }} />}
                         />
                       </Form.Item>
-                    </Card>
-/* Performance Ratings Section - Replace the existing Card with this updated version */
+                    </Card>x
 <Card 
   type="inner" 
   title={
