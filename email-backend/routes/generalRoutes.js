@@ -557,7 +557,7 @@ router.post('/send-job-offer', async (req, res) => {
                 <table>
                     <tr><td class="label">Position:</td><td><strong>{{job_title}}</strong></td></tr>
                     {{#if salary_amount}}
-                    <tr><td class="label">Annual Salary:</td><td><strong>{{salary_amount}}</strong></td></tr>
+                    
                     {{/if}}
                     <tr><td class="label">Start Date:</td><td><strong>{{joining_date}}</strong></td></tr>
                     <tr><td class="label">Work Location:</td><td><strong>{{work_location}}</strong></td></tr>
@@ -569,7 +569,7 @@ router.post('/send-job-offer', async (req, res) => {
 
             {{#if additional_benefits}}
             <div class="offer-details">
-                <h4>🎁 Additional Benefits</h4>
+                <h4> Additional Benefits</h4>
                 <p>{{additional_benefits}}</p>
             </div>
             {{/if}}
@@ -621,7 +621,7 @@ router.post('/send-job-offer', async (req, res) => {
 
     htmlTemplate = htmlTemplate.replace(/{{#if additional_benefits}}[\s\S]*?{{\/if}}/g, 
       templateData.additional_benefits ? 
-        `<div class="offer-details"><h4>🎁 Additional Benefits</h4><p>${templateData.additional_benefits}</p></div>` : 
+        `<div class="offer-details"><h4>Additional Benefits</h4><p>${templateData.additional_benefits}</p></div>` : 
         ''
     );
 
