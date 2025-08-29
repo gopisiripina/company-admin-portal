@@ -76,6 +76,32 @@ import Analytics from './Analytics'; // Add this line - adjust path as needed
 
 dayjs.extend(relativeTime);
 
+
+// Add this function after your imports
+const uploadFileToSupabase = async (file, bucketName = 'leave-documents') => {
+  try {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    const { data, error } = await supabase.storage
+      .from(bucketName)
+      .upload(filePath, file);
+
+    if (error) throw error;
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from(bucketName)
+      .getPublicUrl(filePath);
+
+    return publicUrl;
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    throw error;
+  }
+};
+
  const getLeaveTypeConfig = (type) => {
     const configs = {
       'Permission': { color: '#1890ff', icon: <ClockCircleOutlined />, gradient: 'linear-gradient(45deg, #40a9ff 0%, #1890ff 100%)' },
@@ -557,8 +583,6 @@ useEffect(() => {
   calculateLeaveDays();
 }, [form.getFieldValue('startDate'), form.getFieldValue('endDate'), form.getFieldValue('leaveType'), form.getFieldValue('subType')]);
 
-// Handle apply leave
-// Replace the existing handleApplyLeave function with this corrected version:
 
 // Replace the existing handleApplyLeave function with this corrected version:
 const handleApplyLeave = async (values) => {
@@ -598,7 +622,16 @@ const handleApplyLeave = async (values) => {
       setLoading(false);
       return;
     }
-    
+    let medicalCertificateUrl = null;
+let attachmentUrl = null;
+
+if (values.medicalCertificate && values.medicalCertificate.length > 0) {
+  medicalCertificateUrl = await uploadFileToSupabase(values.medicalCertificate[0].originFileObj);
+}
+
+if (values.attachment && values.attachment.length > 0) {
+  attachmentUrl = await uploadFileToSupabase(values.attachment[0].originFileObj);
+}
     const newLeave = {
       user_id: currentUserId,
       employee_name: userData.name,
@@ -618,8 +651,9 @@ const handleApplyLeave = async (values) => {
       total_hours: values.leaveType === 'Permission' && values.startTime && values.endTime ? 
                   values.endTime.diff(values.startTime, 'hours', true) : 0,
       reason: values.reason,
-      medical_certificate: values.medicalCertificate?.[0]?.name || null,
-      attachment: values.attachment?.[0]?.name || null,
+      
+      medical_certificate: medicalCertificateUrl,
+attachment: attachmentUrl,
       working_days_at_application: currentUser?.workingDays || 0
     };
       
@@ -1741,11 +1775,12 @@ const completeStyles = professionalStyles + actionButtonStyles;
             getValueFromEvent={(e) => Array.isArray(e) ? e : e && e.fileList}
           >
             <Upload
-              listType="picture-card"
-              maxCount={1}
-              beforeUpload={() => false}
-              accept=".pdf,.jpg,.jpeg,.png"
-            >
+  listType="picture-card"
+  maxCount={3}
+  beforeUpload={() => false} // Keep this
+  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+  showUploadList={{ showPreviewIcon: false }} // Add this
+>
               <div>
                 <UploadOutlined />
                 <div style={{ marginTop: 8 }}>Upload</div>
@@ -1965,17 +2000,19 @@ return (
                   type="link" 
                   icon={<FileTextOutlined />}
                   style={{ padding: 0, height: 'auto' }}
+                  onClick={() => window.open(selectedLeave.medical_certificate || selectedLeave.medicalCertificate, '_blank')}
                 >
-                  {selectedLeave.medical_certificate || selectedLeave.medicalCertificate}
-                </Button>
+                Medical Certificate
+              </Button>
               )}
               {selectedLeave.attachment && (
                 <Button 
                   type="link" 
                   icon={<FileTextOutlined />}
+                  onClick={() => window.open(selectedLeave.attachment || selectedLeave.attachment, '_blank')}
                   style={{ padding: 0, height: 'auto' }}
                 >
-                  {selectedLeave.attachment}
+                  Attachment
                 </Button>
               )}
             </Space>
