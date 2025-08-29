@@ -11,7 +11,6 @@ import {
   Typography,
   Divider,
   message,
-  Steps,
   Progress,
   Tag,
   Space,
@@ -57,7 +56,7 @@ const uploadResumeToStorage = async (file, applicationId) => {
   return publicUrl;
 };
 
-const JobApplicationPage = () => {
+const JobApplicationPage = ({ userRole, jobId }) => {
   const [searchParams] = useSearchParams();
   const [jobData, setJobData] = useState(null);
   const [form] = Form.useForm();
@@ -66,31 +65,32 @@ const JobApplicationPage = () => {
   const [fileList, setFileList] = useState([]);
   const [submitted, setSubmitted] = useState(false);
 
-  // Extract job ID from URL
+  // Extract job ID from URL if not passed as prop
   const getCurrentJobId = () => {
+    if (jobId) return jobId;
     const path = window.location.pathname;
     const match = path.match(/\/job-application\/(\d+)/);
     return match ? match[1] : null;
   };
   
-  const jobId = getCurrentJobId();
+  const currentJobId = getCurrentJobId();
   
   useEffect(() => {
     fetchJobData();
-  }, [jobId]);
+  }, [currentJobId]);
 
   const fetchJobData = async () => {
     setLoading(true);
     try {
       let jobInfo = null;
 
-      // If jobId is provided in URL, try to fetch from job_postings table
-      if (jobId) {
+      // If jobId is provided, try to fetch from job_postings table
+      if (currentJobId) {
         try {
           const { data: jobPosting, error } = await supabase
             .from('job_postings')
             .select('*')
-            .eq('id', jobId)
+            .eq('id', currentJobId)
             .single();
 
           if (error) {
@@ -180,7 +180,7 @@ const JobApplicationPage = () => {
       }
 
       const applicationData = {
-        job_id: jobId ? parseInt(jobId) : null,
+        job_id: currentJobId ? parseInt(currentJobId) : null,
         job_title: jobData?.title || 'Unknown Position',
         full_name: values.fullName,
         email: values.email,
@@ -252,15 +252,24 @@ const JobApplicationPage = () => {
   if (loading && !jobData) {
     return (
       <div style={{ 
-        minHeight: '100vh', 
-        background: 'linear-gradient(135deg,rgb(156, 184, 139) 0%,rgb(237, 244, 239) 100%)',
+        minHeight: '70vh',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center'
+        justifyContent: 'center',
+        background: '#f5f5f5'
       }}>
-        <Card style={{ textAlign: 'center', borderRadius: '12px' }}>
+        <Card 
+          style={{ 
+            textAlign: 'center', 
+            borderRadius: '12px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+            padding: '40px'
+          }}
+        >
           <Spin size="large" />
-          <Title level={4} style={{ marginTop: '16px' }}>Loading Job Information...</Title>
+          <Title level={4} style={{ marginTop: '16px', color: '#666' }}>
+            Loading Job Information...
+          </Title>
         </Card>
       </div>
     );
@@ -269,21 +278,47 @@ const JobApplicationPage = () => {
   if (submitted) {
     return (
       <div style={{ 
-        minHeight: '100vh', 
-        background: 'linear-gradient(135deg, #FBFBFD 0%, #BCF49D 50%, #1F4842 100%)',
+        minHeight: '70vh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '20px'
+        padding: '20px',
+        background: '#f5f5f5'
       }}>
-        <Card style={{ maxWidth: 500, textAlign: 'center', borderRadius: '12px' }}>
-          <CheckCircleOutlined style={{ fontSize: '64px', color: '#52c41a', marginBottom: '24px' }} />
-          <Title level={2}>Application Submitted!</Title>
-          <Paragraph>
+        <Card 
+          style={{ 
+            maxWidth: 500, 
+            textAlign: 'center', 
+            borderRadius: '16px',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+            padding: '40px'
+          }}
+        >
+          <CheckCircleOutlined 
+            style={{ 
+              fontSize: '72px', 
+              color: '#52c41a', 
+              marginBottom: '24px' 
+            }} 
+          />
+          <Title level={2} style={{ color: '#1890ff', marginBottom: '16px' }}>
+            Application Submitted!
+          </Title>
+          <Paragraph style={{ fontSize: '16px', color: '#666', marginBottom: '32px' }}>
             Thank you for applying to <strong>{jobData?.title}</strong> at <strong>{jobData?.company}</strong>.
             We'll review your application and get back to you soon.
           </Paragraph>
-          <Button type="primary" size="large" onClick={() => window.location.reload()}>
+          <Button 
+            type="primary" 
+            size="large" 
+            onClick={() => window.location.reload()}
+            style={{
+              borderRadius: '8px',
+              height: '48px',
+              fontSize: '16px',
+              fontWeight: '600'
+            }}
+          >
             Apply for Another Position
           </Button>
         </Card>
@@ -294,42 +329,86 @@ const JobApplicationPage = () => {
   return (
     <div style={{ 
       minHeight: '100vh', 
-      padding: '20px 0'
+      background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+      padding: '40px 20px'
     }}>
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 20px' }}>
-        {/* Header */}
-        <Card style={{ marginBottom: '24px', borderRadius: '12px' }}>
-          <Row gutter={[24, 24]} align="middle">
-            <Col xs={24} md={16}>
-              <Title level={2} style={{ margin: 0, color: '#1890ff' }}>
-                {jobData?.title}
-              </Title>
-              <Text style={{ fontSize: '16px', color: '#666' }}>
-                {jobData?.company} • {jobData?.location}
-              </Text>
-              <div style={{ marginTop: '12px' }}>
-                <Space>
-                  <Tag color="blue">{jobData?.type}</Tag>
-                  <Tag color="green">{jobData?.salary}</Tag>
-                </Space>
-              </div>
-            </Col>
-            <Col xs={24} md={8} style={{ textAlign: 'right' }}>
+      {/* Centered Container */}
+      <div style={{ 
+        maxWidth: '1000px', 
+        margin: '0 auto',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center'
+      }}>
+        {/* Header Card */}
+        <Card 
+          style={{ 
+            marginBottom: '32px', 
+            borderRadius: '16px',
+            width: '100%',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+            border: 'none'
+          }}
+        >
+          <div style={{ textAlign: 'center', padding: '20px 0' }}>
+            <Title level={1} style={{ 
+              margin: '0 0 8px 0', 
+              color: '#1890ff',
+              fontSize: '2.5rem',
+              fontWeight: '700'
+            }}>
+              {jobData?.title}
+            </Title>
+            <Text style={{ 
+              fontSize: '18px', 
+              color: '#666',
+              display: 'block',
+              marginBottom: '16px'
+            }}>
+              {jobData?.company} • {jobData?.location}
+            </Text>
+            <Space size="middle" style={{ marginBottom: '24px' }}>
+              <Tag color="blue" style={{ fontSize: '14px', padding: '4px 12px' }}>
+                {jobData?.type}
+              </Tag>
+              <Tag color="green" style={{ fontSize: '14px', padding: '4px 12px' }}>
+                {jobData?.salary}
+              </Tag>
+            </Space>
+            
+            {/* Progress Circle */}
+            <div style={{ marginTop: '20px' }}>
               <Progress 
                 type="circle" 
                 percent={formProgress} 
-                size={80}
-                strokeColor="#1890ff"
+                size={100}
+                strokeColor={{
+                  '0%': '#108ee9',
+                  '100%': '#87d068',
+                }}
+                strokeWidth={8}
               />
-              <div style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
+              <div style={{ 
+                marginTop: '12px', 
+                fontSize: '14px', 
+                color: '#666',
+                fontWeight: '500'
+              }}>
                 Form Completion
               </div>
-            </Col>
-          </Row>
+            </div>
+          </div>
         </Card>
 
-        {/* Application Form */}
-        <Card style={{ borderRadius: '12px' }}>
+        {/* Application Form Card */}
+        <Card 
+          style={{ 
+            borderRadius: '16px',
+            width: '100%',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+            border: 'none'
+          }}
+        >
           <Form
             form={form}
             layout="vertical"
@@ -338,19 +417,29 @@ const JobApplicationPage = () => {
             size="large"
           >
             {/* Personal Information */}
-            <div>
-              <Title level={4} style={{ color: '#1890ff', marginBottom: '20px' }}>
-                <UserOutlined /> Personal Information
+            <div style={{ marginBottom: '40px' }}>
+              <Title level={3} style={{ 
+                color: '#1890ff', 
+                marginBottom: '24px',
+                textAlign: 'center',
+                fontSize: '1.5rem'
+              }}>
+                <UserOutlined style={{ marginRight: '8px' }} /> 
+                Personal Information
               </Title>
               
-              <Row gutter={[16, 16]}>
+              <Row gutter={[24, 24]}>
                 <Col xs={24} md={12}>
                   <Form.Item
                     name="fullName"
                     label="Full Name"
                     rules={[{ required: true, message: 'Please enter your full name' }]}
                   >
-                    <Input prefix={<UserOutlined />} placeholder="John Doe" />
+                    <Input 
+                      prefix={<UserOutlined style={{ color: '#1890ff' }} />} 
+                      placeholder="John Doe"
+                      style={{ borderRadius: '8px', height: '48px' }}
+                    />
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={12}>
@@ -362,19 +451,27 @@ const JobApplicationPage = () => {
                       { type: 'email', message: 'Please enter a valid email' }
                     ]}
                   >
-                    <Input prefix={<MailOutlined />} placeholder="john@example.com" />
+                    <Input 
+                      prefix={<MailOutlined style={{ color: '#1890ff' }} />} 
+                      placeholder="john@example.com"
+                      style={{ borderRadius: '8px', height: '48px' }}
+                    />
                   </Form.Item>
                 </Col>
               </Row>
 
-              <Row gutter={[16, 16]}>
+              <Row gutter={[24, 24]}>
                 <Col xs={24} md={12}>
                   <Form.Item
                     name="phone"
                     label="Phone Number"
                     rules={[{ required: true, message: 'Please enter your phone number' }]}
                   >
-                    <Input prefix={<PhoneOutlined />} placeholder="+1 (555) 123-4567" />
+                    <Input 
+                      prefix={<PhoneOutlined style={{ color: '#1890ff' }} />} 
+                      placeholder="+1 (555) 123-4567"
+                      style={{ borderRadius: '8px', height: '48px' }}
+                    />
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={12}>
@@ -382,27 +479,39 @@ const JobApplicationPage = () => {
                     name="location"
                     label="Current Location"
                   >
-                    <Input placeholder="City, State/Country" />
+                    <Input 
+                      placeholder="City, State/Country"
+                      style={{ borderRadius: '8px', height: '48px' }}
+                    />
                   </Form.Item>
                 </Col>
               </Row>
             </div>
 
-            <Divider />
+            <Divider style={{ margin: '40px 0' }} />
 
             {/* Professional Information */}
-            <div>
-              <Title level={4} style={{ color: '#1890ff', marginBottom: '20px' }}>
-                <BankOutlined /> Professional Information
+            <div style={{ marginBottom: '40px' }}>
+              <Title level={3} style={{ 
+                color: '#1890ff', 
+                marginBottom: '24px',
+                textAlign: 'center',
+                fontSize: '1.5rem'
+              }}>
+                <BankOutlined style={{ marginRight: '8px' }} /> 
+                Professional Information
               </Title>
               
-              <Row gutter={[16, 16]}>
+              <Row gutter={[24, 24]}>
                 <Col xs={24} md={12}>
                   <Form.Item
                     name="currentPosition"
                     label="Current Position"
                   >
-                    <Input placeholder="Software Engineer" />
+                    <Input 
+                      placeholder="Software Engineer"
+                      style={{ borderRadius: '8px', height: '48px' }}
+                    />
                   </Form.Item>
                 </Col>
                 <Col xs={24} md={12}>
@@ -410,19 +519,25 @@ const JobApplicationPage = () => {
                     name="currentCompany"
                     label="Current Company"
                   >
-                    <Input placeholder="ABC Tech Corp" />
+                    <Input 
+                      placeholder="ABC Tech Corp"
+                      style={{ borderRadius: '8px', height: '48px' }}
+                    />
                   </Form.Item>
                 </Col>
               </Row>
 
-              <Row gutter={[16, 16]}>
+              <Row gutter={[24, 24]}>
                 <Col xs={24} md={12}>
                   <Form.Item
                     name="experience"
                     label="Years of Experience"
                     rules={[{ required: true, message: 'Please select your experience level' }]}
                   >
-                    <Select placeholder="Select experience level">
+                    <Select 
+                      placeholder="Select experience level"
+                      style={{ height: '48px' }}
+                    >
                       <Option value="0-1">0-1 years</Option>
                       <Option value="1-3">1-3 years</Option>
                       <Option value="3-5">3-5 years</Option>
@@ -437,18 +552,25 @@ const JobApplicationPage = () => {
                     label="Expected Salary"
                     rules={[{ required: true, message: 'Please enter expected salary' }]}
                   >
-                    <Input prefix={<DollarOutlined />} placeholder="80,000 - 100,000" />
+                    <Input 
+                      prefix={<span style={{color:"#1890ff"}}>₹</span>} 
+                      placeholder="Enter the Expected Salary"
+                      style={{ borderRadius: '8px', height: '48px' }}
+                    />
                   </Form.Item>
                 </Col>
               </Row>
 
-              <Row gutter={[16, 16]}>
+              <Row gutter={[24, 24]}>
                 <Col xs={24} md={12}>
                   <Form.Item
                     name="education"
                     label="Highest Education"
                   >
-                    <Select placeholder="Select education level">
+                    <Select 
+                      placeholder="Select education level"
+                      style={{ height: '48px' }}
+                    >
                       <Option value="high-school">High School</Option>
                       <Option value="associate">Associate Degree</Option>
                       <Option value="bachelor">Bachelor's Degree</Option>
@@ -463,7 +585,10 @@ const JobApplicationPage = () => {
                     name="availability"
                     label="Availability"
                   >
-                    <Select placeholder="When can you start?">
+                    <Select 
+                      placeholder="When can you start?"
+                      style={{ height: '48px' }}
+                    >
                       <Option value="immediate">Immediately</Option>
                       <Option value="2weeks">2 weeks notice</Option>
                       <Option value="1month">1 month</Option>
@@ -479,18 +604,25 @@ const JobApplicationPage = () => {
                 label="Key Skills"
               >
                 <TextArea 
-                  rows={3} 
+                  rows={4} 
                   placeholder="React, TypeScript, Node.js, AWS, etc."
+                  style={{ borderRadius: '8px' }}
                 />
               </Form.Item>
             </div>
 
-            <Divider />
+            <Divider style={{ margin: '40px 0' }} />
 
             {/* Application Details */}
-            <div>
-              <Title level={4} style={{ color: '#1890ff', marginBottom: '20px' }}>
-                <FileTextOutlined /> Application Details
+            <div style={{ marginBottom: '40px' }}>
+              <Title level={3} style={{ 
+                color: '#1890ff', 
+                marginBottom: '24px',
+                textAlign: 'center',
+                fontSize: '1.5rem'
+              }}>
+                <FileTextOutlined style={{ marginRight: '8px' }} /> 
+                Application Details
               </Title>
               
               <Form.Item
@@ -498,21 +630,30 @@ const JobApplicationPage = () => {
                 label="Resume/CV"
               >
                 <Upload {...uploadProps}>
-                  <Button icon={<UploadOutlined />}>
+                  <Button 
+                    icon={<UploadOutlined />}
+                    size="large"
+                    style={{
+                      borderRadius: '8px',
+                      height: '48px',
+                      borderStyle: 'dashed'
+                    }}
+                  >
                     Upload Resume (PDF, DOC, DOCX)
                   </Button>
                 </Upload>
               </Form.Item>
 
-              <Row gutter={[16, 16]}>
+              <Row gutter={[24, 24]}>
                 <Col xs={24} md={12}>
                   <Form.Item
                     name="portfolioUrl"
                     label="Portfolio URL"
                   >
                     <Input 
-                      prefix={<LinkOutlined />} 
-                      placeholder="https://yourportfolio.com" 
+                      prefix={<LinkOutlined style={{ color: '#1890ff' }} />} 
+                      placeholder="https://yourportfolio.com"
+                      style={{ borderRadius: '8px', height: '48px' }}
                     />
                   </Form.Item>
                 </Col>
@@ -522,8 +663,9 @@ const JobApplicationPage = () => {
                     label="LinkedIn Profile"
                   >
                     <Input 
-                      prefix={<LinkOutlined />} 
-                      placeholder="https://linkedin.com/in/yourprofile" 
+                      prefix={<LinkOutlined style={{ color: '#1890ff' }} />} 
+                      placeholder="https://linkedin.com/in/yourprofile"
+                      style={{ borderRadius: '8px', height: '48px' }}
                     />
                   </Form.Item>
                 </Col>
@@ -536,37 +678,43 @@ const JobApplicationPage = () => {
                 <TextArea 
                   rows={6} 
                   placeholder="Tell us why you're interested in this position and what makes you a great fit..."
+                  style={{ borderRadius: '8px' }}
                 />
               </Form.Item>
             </div>
 
-            <Divider />
-
             {/* Submit Button */}
-            <Form.Item>
+            <div style={{ textAlign: 'center', marginTop: '40px' }}>
               <Button 
                 type="primary" 
                 htmlType="submit" 
                 size="large"
                 loading={loading}
                 style={{ 
-                  width: '100%', 
-                  height: '50px',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  fontWeight: '600'
+                  width: '300px', 
+                  height: '56px',
+                  borderRadius: '28px',
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  background: 'linear-gradient(135deg, #1890ff, #40a9ff)',
+                  border: 'none',
+                  boxShadow: '0 4px 12px rgba(24, 144, 255, 0.3)'
                 }}
               >
                 {loading ? 'Submitting Application...' : 'Submit Application'}
               </Button>
-            </Form.Item>
+            </div>
 
             <Alert
               message="Your Privacy Matters"
               description="All information provided will be kept confidential and used solely for recruitment purposes."
               type="info"
               showIcon
-              style={{ marginTop: '16px' }}
+              style={{ 
+                marginTop: '32px',
+                borderRadius: '8px',
+                textAlign: 'center'
+              }}
             />
           </Form>
         </Card>

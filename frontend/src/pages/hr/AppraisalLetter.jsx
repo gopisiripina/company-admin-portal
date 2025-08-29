@@ -43,7 +43,7 @@ const { Header, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
-
+const baseUrl = import.meta.env.VITE_API_BASE_URL;
 const AppraisalLetterManagement = () => {
   const [currentView, setCurrentView] = useState('dashboard');
   const [employees, setEmployees] = useState([]);

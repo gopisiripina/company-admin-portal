@@ -434,28 +434,38 @@ const handleVerifyAndCheckIn = async () => {
   formData.append('image', imageFile);
 
   try {
-    const apiResponse = await fetch('https://cap.myaccessio.com/api/verify-face/', {
-      method: 'POST',
-      body: formData,
-    });
+  const apiResponse = await fetch('https://cap.myaccessio.com/api/verify-face/', {
+    method: 'POST',
+    body: formData,
+  });
 
-    const result = await apiResponse.json();
+  const result = await apiResponse.json();
 
-    if (!apiResponse.ok) {
-      throw new Error(result.error || 'Verification failed. Please try again.');
-    }
-
-    // If verification successful, proceed with attendance marking
-    await markAttendance();
-    await fetchAttendanceData();
-  } catch (error) {
-    console.error('Verification Error:', error);
-    setVerificationError(error.message);
-    setShowRetryButton(true);
-  } finally {
-    setIsVerifying(false);
-    setIsProcessing(false);
+  if (!apiResponse.ok) {
+    throw new Error(result.error || 'Verification failed. Please try again.');
   }
+
+  // If verification successful, proceed with attendance marking
+  await markAttendance();
+  await fetchAttendanceData();
+} catch (error) {
+  console.error('Verification Error:', error);
+  
+  // Add more specific error handling
+  let errorMessage = 'Verification failed. Please try again.';
+  
+  if (error.message && error.message.includes('operand type')) {
+    errorMessage = 'Face verification service is temporarily unavailable. Please try again in a moment.';
+  } else if (error.message) {
+    errorMessage = error.message;
+  }
+  
+  setVerificationError(errorMessage);
+  setShowRetryButton(true);
+} finally {
+  setIsVerifying(false);
+  setIsProcessing(false);
+}
 };
 
 const fetchAttendanceData = async () => {
@@ -564,16 +574,25 @@ const markAttendance = async () => {
       };
       message = 'Check-in successful! Your attendance has been recorded.';
     } else if (existingRecord.check_in && !existingRecord.check_out) {
-      // Already checked in - Check Out
-      const checkInTime = new Date(`${today}T${existingRecord.check_in}`);
-      const checkOutTime = new Date(`${today}T${currentTime}`);
-      const totalHours = (checkOutTime - checkInTime) / (1000 * 60 * 60);
+  // Already checked in - Check Out
+  const checkInTime = new Date(`${today}T${existingRecord.check_in}`);
+  const checkOutTime = new Date(`${today}T${currentTime}`);
+  
+  // Add validation to ensure valid dates
+  if (isNaN(checkInTime.getTime()) || isNaN(checkOutTime.getTime())) {
+    throw new Error('Invalid time format for attendance calculation.');
+  }
+  
+  const totalHours = (checkOutTime - checkInTime) / (1000 * 60 * 60);
+  
+  // Ensure totalHours is a valid number
+  const validTotalHours = isNaN(totalHours) ? 0 : Math.max(0, totalHours);
 
-      attendanceData = {
-        ...existingRecord,
-        check_out: currentTime,
-        total_hours: totalHours.toFixed(2)
-      };
+  attendanceData = {
+    ...existingRecord,
+    check_out: currentTime,
+    total_hours: validTotalHours.toFixed(2)
+  };
       message = `Check-out successful! Total hours worked: ${totalHours.toFixed(2)} hours`;
     } else {
       // Already completed both actions
@@ -641,9 +660,9 @@ useEffect(() => {
 
 
 // Move these calculations here, after the useEffect hooks
-const presentDays = attendanceData.filter(record => record.is_present === true).length;
-const absentDays = attendanceData.filter(record => record.is_present === false).length;
-const totalDays = attendanceData.length;
+const presentDays = attendanceData.filter(record => record.is_present === true).length || 0;
+const absentDays = attendanceData.filter(record => record.is_present === false).length || 0;
+const totalDays = attendanceData.length || 0;
 const renderAttendanceCalendar = () => {
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
@@ -1454,6 +1473,7 @@ if (activeSection === 'mails') {
       </div>
     );
   }
+
   if (activeSection === 'employee-information') {
     return (
       <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
@@ -1606,15 +1626,12 @@ if (activeSection === 'payroll') {
   }
 
   if (activeSection === 'job-application') {
-    return (
-      <div className={`dashboard-main ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-        {renderHeader("Search job applications...")}
-        <main className="main-content">
-          <JobApplicationPage userRole={userData?.role} jobId={currentJobId} />
-        </main>
-      </div>
-    );
-  }
+  return (
+    <div style={{ position: 'absolute',top: 0,left: 0,right: 0,zIndex: 10}}>
+      <JobApplicationPage userRole={userData?.role} jobId={currentJobId}/>
+    </div>
+  );
+}
 
   if (activeSection === 'interview-management') {
     return (
