@@ -348,13 +348,13 @@ const handleEmployeeSelect = async (userId) => {
       .eq('id', userId)
       .single();
     
-    // Check if payroll exists for current month
-    const currentMonth = dayjs().format('YYYY-MM-DD');
+    // Get the most recent payroll record for this user (any month)
     const { data: existingPayroll } = await supabase
       .from('payroll')
-      .select('earnings, deductions')
+      .select('*')
       .eq('user_id', userId)
-      .eq('pay_period', currentMonth)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (existingPayroll) {
@@ -374,11 +374,31 @@ const handleEmployeeSelect = async (userId) => {
       }));
       setDeductions(dbDeductions);
       
-      // Set form values with existing payroll data
+      // Set ALL form values with existing payroll data
       const formValues = {
+        userId: userId,
         employeeName: selectedUser.name,
         employeeId: selectedUser.employee_id,
         emailAddress: selectedUser.email,
+        // Company details from previous record
+        companyName: existingPayroll.company_name,
+        companyAddress: existingPayroll.company_address,
+        city: existingPayroll.city,
+        country: existingPayroll.country,
+        // Additional Employee Details
+        gender: existingPayroll.gender,
+        designation: existingPayroll.designation,
+        transactionId: existingPayroll.transaction_id,
+        panNumber: existingPayroll.pan_number,
+        employeeBank: existingPayroll.employee_bank,
+        bankAccount: existingPayroll.bank_account,
+        uanNumber: existingPayroll.uan_number,
+        esiNumber: existingPayroll.esi_number,
+        // Pay details (set to current month)
+        payPeriod: dayjs(),
+        payDate: dayjs(),
+        paidDays: existingPayroll.paid_days,
+        lopDays: existingPayroll.lop_days,
       };
       
       // Add earnings to form values
@@ -1951,36 +1971,10 @@ if (printWindow) {
                     <Button 
                       size="small"
                       icon={<PlusOutlined />}
-                      onClick={() => {
-                        const latestPayroll = employees
-                          .filter(emp => emp.user_id === record.id)
-                          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
-                        
-                        const formValues = {
-                          userId: record.id,
-                          employeeName: record.name,
-                          employeeId: record.employee_id,
-                          emailAddress: record.email,
-                          payPeriod: dayjs(),
-                          payDate: dayjs(),
-                        };
-                        
-                        if (latestPayroll) {
-                          formValues.companyName = latestPayroll.company_name;
-                          formValues.companyAddress = latestPayroll.company_address;
-                          formValues.city = latestPayroll.city;
-                          formValues.country = latestPayroll.country;
-                          formValues.paidDays = latestPayroll.paid_days;
-                          formValues.lopDays = latestPayroll.lop_days;
-                          formValues.basic = latestPayroll.basic;
-                          formValues.hra = latestPayroll.hra;
-                          formValues.incomeTax = latestPayroll.income_tax;
-                          formValues.pf = latestPayroll.pf;
-                        }
-                        
-                        form.setFieldsValue(formValues);
-                        setCurrentView('addEmployee');
-                      }}
+                      onClick={async () => {
+  await handleEmployeeSelect(record.id);
+  setCurrentView('addEmployee');
+}}
                       type="primary"
                     >
                       Run Payroll
