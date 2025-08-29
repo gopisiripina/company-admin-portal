@@ -24,7 +24,6 @@ import {
   FilePdfOutlined, 
   MailOutlined, 
   UserOutlined,
-  EditOutlined,
   UploadOutlined,
   ArrowLeftOutlined,
   DashboardOutlined, 
