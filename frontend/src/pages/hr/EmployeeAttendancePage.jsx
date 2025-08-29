@@ -94,7 +94,6 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
   const [monthlyData, setMonthlyData] = useState({});
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
-
   useEffect(() => {
   const getCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -457,34 +456,56 @@ const handleUpdateTimes = (employee) => {
     is_present: true
   };
 });
-const shouldMarkOthersAbsent = window.confirm(
-      'Do you want to mark remaining employees as absent?'
-    );
-    
-    let allRecords = attendanceRecords;
-    
-    if (shouldMarkOthersAbsent) {
-      const absentEmployees = filteredEmployees.filter(emp => 
-        !selectedEmployees.includes(emp.id)
-      );
-      
-      const absentRecords = absentEmployees.map(employee => ({
-        user_id: employee.id,
-        date: dateKey,
-        check_in: null,
-        check_out: null,
-        total_hours: 0,
-        is_present: false
-      }));
-      
-      allRecords = [...attendanceRecords, ...absentRecords];
-    }
 
+// Automatically mark unselected employees as absent
+const absentEmployees = filteredEmployees.filter(emp => 
+  !selectedEmployees.includes(emp.id)
+);
+
+const absentRecords = absentEmployees.map(employee => ({
+  user_id: employee.id,
+  date: dateKey,
+  check_in: null,
+  check_out: null,
+  total_hours: 0,
+  is_present: false
+}));
+
+const allRecords = [...attendanceRecords, ...absentRecords];
+
+const { error } = await supabase
+  .from('attendance')
+  .upsert(allRecords, { 
+    onConflict: 'user_id,date' 
+  });
+
+    if (error) throw error;
+
+    // Refresh attendance data
+    await fetchAttendanceData(
+      selectedDate.startOf('month').format('YYYY-MM-DD'),
+      selectedDate.endOf('month').format('YYYY-MM-DD')
+    );
+
+    setTimeModalVisible(false);
+    setSelectedEmployees([]);
+    setCheckInTime(null);
+    setCheckOutTime(null);
+    
+    message.success(`Attendance updated for ${selectedEmployees.length} employee(s)`);
+  } catch (error) {
+    console.error('Error marking attendance:', error);
+    message.error('Failed to mark attendance');
+  } finally {
+    setLoading(false);
+  }
+};
+
+const submitAttendanceRecords = async (records) => {
+  try {
     const { error } = await supabase
       .from('attendance')
-      .upsert(attendanceRecords, { 
-        onConflict: 'user_id,date' 
-      });
+      .upsert(records, { onConflict: 'user_id,date' });
 
     if (error) throw error;
 
@@ -1194,6 +1215,8 @@ const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 
             </Button>,
           ]}
         >
+
+          
           <div style={{ padding: '16px 0' }}>
             <Row gutter={[16, 16]}>
               <Col xs={24} sm={12}>

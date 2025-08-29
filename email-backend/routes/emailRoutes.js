@@ -3,7 +3,6 @@ const Imap = require('imap');
 const { simpleParser } = require('mailparser');
 const nodemailer = require('nodemailer');
 const multer = require('multer');
-require('secure-env')({ secret: process.env.ENV_SECRET_KEY });
 const router = express.Router();
 const upload = multer().array('attachments');
 

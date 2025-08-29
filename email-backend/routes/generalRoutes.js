@@ -4,7 +4,7 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
-require('secure-env')({ secret: process.env.ENV_SECRET_KEY });
+
 const router = express.Router();
 
 // Create transporter function with Hostinger defaults
@@ -1188,57 +1188,157 @@ router.post('/send-interview-invitation', async (req, res) => {
             senderEmail = process.env.SEND_INTERVIEW_INVITATION_EMAIL,
             senderPassword = process.env.SEND_INTERVIEW_INVITATION_PASSWORD,
             recipientEmail,
+            interviewerEmail,
             subject,
             smtpServer = process.env.SMTP_HOST,
             smtpPort = process.env.SMTP_PORT,
             templateData = {}
         } = req.body;
 
-        if (!senderEmail || !senderPassword || !recipientEmail) {
+        if (!senderEmail || !senderPassword || !recipientEmail || !interviewerEmail) {
             return res.status(400).json({
                 success: false,
-                error: "Missing required fields"
+                error: "Missing required fields: senderEmail, senderPassword, recipientEmail, or interviewerEmail"
             });
         }
 
         const candidateName = templateData.candidate_name || 'Candidate';
+        const jobTitle = templateData.job_title || 'Position';
+        
+        // Extract interview details from templateData or req.body
+        const interviewDetails = {
+            date: templateData.interview_date || req.body.interview_date,
+            time: templateData.interview_time || req.body.interview_time,
+            platform: templateData.interview_platform || req.body.interview_platform,
+            meetingLink: templateData.interview_link || req.body.interview_link,
+            type: templateData.interview_type || req.body.interview_type
+        };
+        
         const messageBody = templateData.message_body || 'We would like to invite you for an interview.';
-        const emailSubject = subject || `Interview Invitation - ${candidateName}`;
+        const candidateEmailSubject = subject || `Interview Invitation - ${jobTitle}`;
 
-        const htmlContent = `
+        // Create transporter
+        const transporter = createTransporter(senderEmail, senderPassword, smtpServer, smtpPort);
+
+        // Email content for candidate
+        const candidateHtmlContent = `
             <html>
-            <body>
-                <h3>Interview Invitation</h3>
-                <p>${messageBody}</p>
-                <br>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #2c5aa0; border-bottom: 2px solid #2c5aa0; padding-bottom: 10px;">
+                        Interview Invitation
+                    </h2>
+                    ${messageBody}
+                    <div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #2c5aa0;">
+                        <h3 style="margin-top: 0; color: #2c5aa0;">Interview Details:</h3>
+                        <p><strong>Position:</strong> ${jobTitle}</p>
+                        <p><strong>Date:</strong> ${interviewDetails.date || 'To be confirmed'}</p>
+                        <p><strong>Time:</strong> ${interviewDetails.time || 'To be confirmed'}</p>
+                        <p><strong>Platform:</strong> ${interviewDetails.platform || 'To be confirmed'}</p>
+                        ${interviewDetails.meetingLink ? `<p><strong>Meeting Link:</strong> <a href="${interviewDetails.meetingLink}" style="color: #2c5aa0;">${interviewDetails.meetingLink}</a></p>` : ''}
+                    </div>
+                    <p>Please confirm your availability and join the meeting on time.</p>
+                    <p style="margin-top: 30px;">
+                        Best regards,<br>
+                        <strong>HR Team</strong>
+                    </p>
+                </div>
             </body>
             </html>
         `;
 
-        const transporter = createTransporter(senderEmail, senderPassword, smtpServer, smtpPort);
-        
-        await transporter.sendMail({
+        // Email content for interviewer
+        const interviewerEmailSubject = `Interview Scheduled - ${candidateName} for ${jobTitle}`;
+        const interviewerHtmlContent = `
+            <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #2c5aa0; border-bottom: 2px solid #2c5aa0; padding-bottom: 10px;">
+                        Interview Scheduled - Action Required
+                    </h2>
+                    <p>Dear Interviewer,</p>
+                    <p>An interview has been scheduled with a candidate for the <strong>${jobTitle}</strong> position. Please find the details below:</p>
+                    
+                    <div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #2c5aa0;">
+                        <h3 style="margin-top: 0; color: #2c5aa0;">Interview Details:</h3>
+                        <p><strong>Candidate Name:</strong> ${candidateName}</p>
+                        <p><strong>Position:</strong> ${jobTitle}</p>
+                        <p><strong>Interview Type:</strong> ${interviewDetails.type || 'Standard Interview'}</p>
+                        <p><strong>Date:</strong> ${interviewDetails.date}</p>
+                        <p><strong>Time:</strong> ${interviewDetails.time}</p>
+                        <p><strong>Platform:</strong> ${interviewDetails.platform}</p>
+                        <p><strong>Meeting Link:</strong> <a href="${interviewDetails.meetingLink}" style="color: #2c5aa0;">${interviewDetails.meetingLink}</a></p>
+                    </div>
+
+                    <div style="margin: 20px 0; padding: 15px; background-color: #fff3cd; border-left: 4px solid #ffc107;">
+                        <h3 style="margin-top: 0; color: #856404;">Candidate Information:</h3>
+                        ${templateData.candidate_phone ? `<p><strong>Phone:</strong> ${templateData.candidate_phone}</p>` : ''}
+                        ${templateData.candidate_experience ? `<p><strong>Experience:</strong> ${templateData.candidate_experience}</p>` : ''}
+                        ${templateData.candidate_skills ? `<p><strong>Skills:</strong> ${templateData.candidate_skills}</p>` : ''}
+                        ${templateData.candidate_location ? `<p><strong>Location:</strong> ${templateData.candidate_location}</p>` : ''}
+                    </div>
+
+                    <p><strong>Action Required:</strong> Please block your calendar for the scheduled time and prepare for the interview.</p>
+                    
+                    <p>If you need to reschedule or have any questions, please contact HR immediately.</p>
+                    
+                    <p style="margin-top: 30px;">
+                        Best regards,<br>
+                        <strong>HR Team</strong>
+                    </p>
+                </div>
+            </body>
+            </html>
+        `;
+
+        // Send email to candidate
+        const candidateEmailResult = await transporter.sendMail({
             from: senderEmail,
             to: recipientEmail,
-            subject: emailSubject,
-            html: htmlContent
+            subject: candidateEmailSubject,
+            html: candidateHtmlContent
+        });
+
+        // Send email to interviewer
+        const interviewerEmailResult = await transporter.sendMail({
+            from: senderEmail,
+            to: interviewerEmail,
+            subject: interviewerEmailSubject,
+            html: interviewerHtmlContent
         });
 
         res.status(200).json({
             success: true,
-            message: "Interview invitation sent successfully",
-            recipient: recipientEmail,
-            subject: emailSubject,
-            candidate_name: candidateName
+            message: "Interview invitations sent successfully to both candidate and interviewer",
+            candidate_recipient: recipientEmail,
+            interviewer_recipient: interviewerEmail,
+            candidate_subject: candidateEmailSubject,
+            interviewer_subject: interviewerEmailSubject,
+            candidate_name: candidateName,
+            job_title: jobTitle,
+            candidate_message_id: candidateEmailResult.messageId,
+            interviewer_message_id: interviewerEmailResult.messageId,
+            emails_sent: 2
         });
 
     } catch (error) {
-        res.status(200).json({
+        console.error('Error sending interview invitations:', error);
+        
+        // Check if error occurred during candidate email or interviewer email
+        let errorDetails = {
             success: false,
-            error: error.message
-        });
+            error: error.message,
+            candidate_email_sent: false,
+            interviewer_email_sent: false
+        };
+
+        // You might want to add more specific error handling here
+        // For example, if candidate email succeeds but interviewer fails
+        
+        res.status(500).json(errorDetails);
     }
 });
+
 
 // 6. SEND EMAIL WITH ATTACHMENT ENDPOINT
 router.post('/send-email-with-attachment', multerStorage.array('attachments'), async (req, res) => {

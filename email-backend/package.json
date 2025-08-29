@@ -5,13 +5,11 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "cross-env ENV_SECRET_KEY=My@cCe55*2021 nodemon server.js",
+     "dev": "npx nodemon server.js",
     "start": "pm2 start server.js --name email-backend",
     "stop": "pm2 stop email-backend",
     "restart": "pm2 restart email-backend",
-    "logs": "pm2 logs email-backend",
-    "encrypt-env": "cross-env secure-env .env -s \"$ENV_SECRET_KEY\"",
-    "decrypt-env": "cross-env secure-env -d .env.enc -s \"$ENV_SECRET_KEY\" > .env"
+    "logs": "pm2 logs email-backend"
   },
   "keywords": [],
   "author": "",

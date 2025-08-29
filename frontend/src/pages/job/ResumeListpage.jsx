@@ -289,11 +289,22 @@ const sendInterviewMail = async (values) => {
     // Send email using your email service
 const emailPayload = {
   recipientEmail: selectedResume.email,
+  interviewerEmail: values.interviewerEmail,
   subject: `Interview Invitation - ${selectedResume.jobTitle} Position`,
   smtpServer: "smtp.hostinger.in",
   smtpPort: 587,
   templateData: {
   candidate_name: selectedResume.name,
+  job_title: selectedResume.jobTitle,
+  interview_date: values.interviewDate.format('YYYY-MM-DD'),
+  interview_time: values.interviewTime.format('HH:mm'),
+  interview_platform: values.platform,
+  interview_link: values.meetingLink,
+  interview_type: values.interviewType,
+  candidate_phone: selectedResume.phone,
+  candidate_experience: selectedResume.experience + ' years',
+  candidate_skills: selectedResume.skills.join(', '),
+  candidate_location: selectedResume.location,
   message_body: `<p>Dear ${selectedResume.name},</p>
   
 <p>We are pleased to invite you for a <strong>${values.interviewType}</strong> interview for the <strong>${selectedResume.jobTitle}</strong> position.</p>
@@ -969,6 +980,9 @@ const getProgressSteps = (resume) => {
           <Form.Item label="To Email" name="email">
             <Input disabled />
           </Form.Item>
+          <Form.Item label="Interviewer Email" name="interviewerEmail" rules={[{ required: true, type: 'email' }]}>
+          <Input placeholder="interviewer@company.com" />
+        </Form.Item>
         </Col>
         <Col span={12}>
           <Form.Item label="Interview Type" name="interviewType" rules={[{ required: true }]}>
