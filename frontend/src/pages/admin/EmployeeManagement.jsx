@@ -2774,11 +2774,33 @@ const handleClearFilters = useCallback(() => {
     setShowFormModal(true);
   }, []);
 
-  const handleDelete = useCallback(async (employeeId) => {
+const handleDelete = useCallback(async (employeeId) => {
   try {
     setLoading(true);
     
-    // First, delete all attendance records for this employee
+    // Delete leave applications first
+    const { error: leaveError } = await supabaseAdmin
+      .from('leave_applications')
+      .delete()
+      .eq('user_id', employeeId);
+
+    if (leaveError) {
+      console.error('Delete leave applications error:', leaveError);
+      throw leaveError;
+    }
+
+    // Delete payroll records
+    const { error: payrollError } = await supabaseAdmin
+      .from('payroll')
+      .delete()
+      .eq('user_id', employeeId);
+
+    if (payrollError) {
+      console.error('Delete payroll error:', payrollError);
+      throw payrollError;
+    }
+    
+    // Delete attendance records
     const { error: attendanceError } = await supabaseAdmin
       .from('attendance')
       .delete()
@@ -2789,7 +2811,7 @@ const handleClearFilters = useCallback(() => {
       throw attendanceError;
     }
 
-    // Then delete the employee
+    // Finally delete the employee
     const { error } = await supabaseAdmin
       .from('users')
       .delete()
