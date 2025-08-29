@@ -2466,6 +2466,8 @@ const updateData = {
   );
 });
 
+const ENCRYPTION_KEY = 'My@cCe55!2021';
+
 // Main Employee Management Component
 const EmployeeManagement = ({ userRole }) => {
   const [employees, setEmployees] = useState([]);

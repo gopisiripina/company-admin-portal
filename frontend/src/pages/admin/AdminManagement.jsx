@@ -316,7 +316,7 @@ const AdminFormModal = React.memo(({ isOpen, onClose, editingAdmin, onSuccess })
     } else {
       // Create new admin
       const password = generatePassword();
-const ENCRYPTION_KEY = 'My@cCe55!2021'; // Same key as in authService.jsx
+const ENCRYPTION_KEY = 'My@cCe55!2021';
 const encryptedPassword = CryptoJS.AES.encrypt(password, ENCRYPTION_KEY).toString();
 const generatedAdminId = await generateAdminId();
 

@@ -49,30 +49,60 @@ const { useBreakpoint } = Grid;
 
 const EmployeeInformationPage = () => {
   const [employees, setEmployees] = React.useState([]);
+  const [employeeDocuments, setEmployeeDocuments] = React.useState({});
   const [filteredEmployees, setFilteredEmployees] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [employeeTypeFilter, setEmployeeTypeFilter] = React.useState('all');
   const [selectedEmployee, setSelectedEmployee] = React.useState(null);
   const [modalVisible, setModalVisible] = React.useState(false);
-
+  const [documentsLoading, setDocumentsLoading] = React.useState(false);
   const screens = useBreakpoint();
 
+  
   React.useEffect(() => {
-    const fetchEmployees = async () => {
-      setLoading(true);
-      const { data, error } = await supabase.from('users').select('*');
-      if (error) {
-        console.error('Error fetching employees:', error);
-      } else {
-        setEmployees(data);
-        setFilteredEmployees(data);
-      }
-      setLoading(false);
-    };
+  const fetchEmployees = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from('users').select('*');
+    if (error) {
+      console.error('Error fetching employees:', error);
+    } else {
+      setEmployees(data);
+      setFilteredEmployees(data);
+      // Add this to parse documents:
+      const docsMap = {};
+      data.forEach(employee => {
+        if (employee.documents) {
+          try {
+            docsMap[employee.id] = JSON.parse(employee.documents);
+          } catch (e) {
+            docsMap[employee.id] = [];
+          }
+        }
+      });
+      setEmployeeDocuments(docsMap);
+    }
+    setLoading(false);
+  };
 
     fetchEmployees();
   }, []);
+
+
+const handleViewDocument = async (employeeId, fileName) => {
+  try {
+    const { data, error } = await supabase.storage
+      .from('employee-documents')
+      .download(`${employeeId}/${fileName}`);
+    
+    if (error) throw error;
+    
+    const url = URL.createObjectURL(data);
+    window.open(url, '_blank');
+  } catch (error) {
+    console.error('Error downloading document:', error);
+  }
+};
 
   React.useEffect(() => {
     let filteredData = employees;
@@ -122,10 +152,37 @@ const EmployeeInformationPage = () => {
     }).format(amount);
   };
 
-  const handleViewProfile = (employee) => {
-    setSelectedEmployee(employee);
-    setModalVisible(true);
-  };
+  const handleViewProfile = async (employee) => {
+  setSelectedEmployee(employee);
+  setModalVisible(true);
+  
+  // Fetch documents when opening profile
+  setDocumentsLoading(true);
+  const docs = await fetchEmployeeDocuments(employee.employee_id);
+  setEmployeeDocuments(docs);
+  setDocumentsLoading(false);
+};
+  const fetchEmployeeDocuments = async (employeeId) => {
+  try {
+    const { data, error } = await supabase.storage
+      .from('employee-documents')
+      .list(employeeId, {
+        limit: 100,
+        offset: 0
+      });
+    
+    if (error) {
+      console.error('Error fetching documents:', error);
+      return [];
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error:', error);
+    return [];
+  }
+};
+
 
   const socialLinks = (employee) => (
     <div style={{ marginTop: '16px', textAlign: 'center' }}>
@@ -269,7 +326,10 @@ const EmployeeInformationPage = () => {
     return (
       <Modal
         open={modalVisible}
-        onCancel={() => setModalVisible(false)}
+        onCancel={() => {
+    setModalVisible(false);
+    setEmployeeDocuments([]); // Reset documents when closing
+  }}
         width={screens.xs ? '95%' : screens.md ? 800 : 950}
         footer={null}
         closable={false} // We will use a custom close button
@@ -407,6 +467,46 @@ const EmployeeInformationPage = () => {
               ))}
             </div>
           )}
+
+          {/* Documents Section */}
+<div style={styles.contentCard}>
+  <h3 style={styles.cardTitle}>Documents</h3>
+  {documentsLoading ? (
+    <div style={{ textAlign: 'center', padding: '20px' }}>
+      <BookOutlined spin style={{ fontSize: '24px', color: theme.primary }} />
+      <p style={{ marginTop: '8px', color: theme.textSecondary }}>Loading documents...</p>
+    </div>
+  ) : employeeDocuments.length > 0 ? (
+    <List
+      dataSource={employeeDocuments}
+      renderItem={doc => (
+        <List.Item
+          actions={[
+            <Button 
+              type="link" 
+              onClick={() => handleViewDocument(selectedEmployee.employee_id, doc.name)}
+              style={{ color: theme.primary }}
+            >
+              View PDF
+            </Button>
+          ]}
+        >
+          <List.Item.Meta
+            avatar={<BookOutlined style={{ color: theme.primary }} />}
+            title={doc.name}
+            description={`Size: ${(doc.metadata?.size ? (doc.metadata.size / 1024).toFixed(2) + ' KB' : 'Unknown')} • Modified: ${formatDate(doc.updated_at)}`}
+          />
+        </List.Item>
+      )}
+    />
+  ) : (
+    <Empty
+      image={Empty.PRESENTED_IMAGE_SIMPLE}
+      description="No documents found"
+      style={{ padding: '20px 0' }}
+    />
+  )}
+</div>
         </div>
       </Modal>
     );
