@@ -662,9 +662,65 @@ useEffect(() => {
     setShowFormModal(true);
   }, []);
 
-  const handleDelete = useCallback(async (hrId) => {
-    try {
-      setLoading(true);
+const handleDelete = useCallback(async (hrId) => {
+  try {
+    setLoading(true);
+    
+    // First, check if HR has any attendance records
+    const { data: attendanceData, error: attendanceCheckError } = await supabaseAdmin
+      .from('attendance')
+      .select('id')
+      .eq('user_id', hrId)
+      .limit(1);
+
+    if (attendanceCheckError) {
+      console.error('Attendance check error:', attendanceCheckError);
+      throw attendanceCheckError;
+    }
+
+    // If HR has attendance records, show confirmation dialog
+    if (attendanceData && attendanceData.length > 0) {
+      Modal.confirm({
+        title: 'Delete HR with Attendance Records',
+        content: 'This HR has attendance records. Deleting will also remove all associated attendance data. Do you want to proceed?',
+        okText: 'Yes, Delete All',
+        okType: 'danger',
+        cancelText: 'Cancel',
+        onOk: async () => {
+          try {
+            // Delete attendance records first
+            const { error: deleteAttendanceError } = await supabaseAdmin
+              .from('attendance')
+              .delete()
+              .eq('user_id', hrId);
+
+            if (deleteAttendanceError) {
+              console.error('Delete attendance error:', deleteAttendanceError);
+              throw deleteAttendanceError;
+            }
+
+            // Then delete the HR
+            const { error: deleteUserError } = await supabaseAdmin
+              .from('users')
+              .delete()
+              .eq('id', hrId)
+              .eq('role', 'hr');
+
+            if (deleteUserError) {
+              console.error('Delete HR error:', deleteUserError);
+              throw deleteUserError;
+            }
+            
+            message.success('HR and all associated records deleted successfully');
+            await refreshData();
+          } catch (error) {
+            console.error('Error in cascade delete:', error);
+            message.error('Error deleting HR: ' + (error.message || 'Unknown error'));
+          }
+        }
+      });
+    } else {
+      // No attendance records, safe to delete directly
       const { error } = await supabaseAdmin
         .from('users')
         .delete()
@@ -678,14 +734,21 @@ useEffect(() => {
       
       message.success('HR deleted successfully');
       await refreshData();
-    } catch (error) {
-      console.error('Error deleting HR:', error);
-      message.error('Error deleting HR: ' + (error.message || 'Unknown error'));
-    } finally {
-      setLoading(false);
     }
-  }, [refreshData]);
-
+    
+  } catch (error) {
+    console.error('Error deleting HR:', error);
+    
+    // Handle specific foreign key constraint error
+    if (error.code === '23503' || error.message.includes('foreign key constraint')) {
+      message.error('Cannot delete HR: This HR has associated records. Please remove related attendance records first or contact administrator.');
+    } else {
+      message.error('Error deleting HR: ' + (error.message || 'Unknown error'));
+    }
+  } finally {
+    setLoading(false);
+  }
+}, [refreshData]);
   const handleFormClose = useCallback(() => {
     setShowFormModal(false);
     setEditingHR(null);
