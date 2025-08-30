@@ -35,11 +35,12 @@ import {
   SettingOutlined,
   PlusOutlined,
   EditOutlined,
-  DeleteOutlined
+  DeleteOutlined,
+  SyncOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { supabase } from '../../supabase/config';
-
+import axios from 'axios';
 const { Header, Content } = Layout;
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -53,35 +54,172 @@ export default function CalendarManagement() {
   const [eventForm] = Form.useForm();
   const [disasterForm] = Form.useForm();
   const [selectedTab, setSelectedTab] = useState('overview');
-  
+  const [userRole, setUserRole] = useState('admin');
+  const [disasters, setDisasters] = useState([]);
+  const [selectedYear, setSelectedYear] = useState(dayjs().year());
+const [permissions, setPermissions] = useState({
+  canManageHolidays: true,  // Set to true initially for testing
+  canManageWorkingDays: true,
+  canViewAll: true
+});
+const [workingDaysConfig, setWorkingDaysConfig] = useState({
+  monday: true,
+  tuesday: true, 
+  wednesday: true,
+  thursday: true,
+  friday: true,
+  saturday: false,
+  sunday: false
+});
   // Database state
   const [holidays, setHolidays] = useState([]);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingHoliday, setEditingHoliday] = useState(null);
   const [editingEvent, setEditingEvent] = useState(null);
+useEffect(() => {
+  setPermissions({
+    canManageHolidays: userRole !== 'employee',
+    canManageWorkingDays: userRole !== 'employee',
+    canViewAll: true
+  });
+}, [userRole]);
 
+
+const fetchDisasters = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('company_calendar')
+      .select('*')
+      .eq('day_type', 'disaster')
+      .order('date', { ascending: false });
+    
+    if (error) throw error;
+    setDisasters(data || []);
+  } catch (error) {
+    console.error('Error fetching disasters:', error);
+    message.error('Failed to fetch disaster events');
+  }
+};
+
+const createDisaster = async (values) => {
+  try {
+    setLoading(true);
+    const disasterData = {
+      date: values.startDate.format('YYYY-MM-DD'),
+      day_type: 'disaster',
+      holiday_name: values.eventName,
+      reason: JSON.stringify({
+        description: values.impactDescription,
+        disasterType: values.disasterType,
+        severityLevel: values.severityLevel,
+        affectedAreas: values.affectedAreas,
+        responsePlan: values.responsePlan,
+        assignedTeam: values.assignedTeam,
+        emergencyContact: values.emergencyContact,
+        estimatedCost: values.estimatedCost,
+        actualCost: values.actualCost,
+        recoveryTimeline: values.recoveryTimeline,
+        status: values.status,
+        lessonsLearned: values.lessonsLearned,
+        endDate: values.endDate ? values.endDate.format('YYYY-MM-DD') : null
+      }),
+      created_by: 'current_user'
+    };
+
+    const { error } = await supabase
+      .from('company_calendar')
+      .insert([disasterData]);
+
+    if (error) throw error;
+    
+    message.success('Disaster event created successfully');
+    await fetchDisasters();
+    setDisasterModalVisible(false);
+    disasterForm.resetFields();
+  } catch (error) {
+    console.error('Error creating disaster:', error);
+    message.error('Failed to create disaster event');
+  } finally {
+    setLoading(false);
+  }
+};
+  const syncGovernmentHolidays = async (year = selectedYear) => {
+  try {
+    setLoading(true);
+    
+    const proxyUrl = 'https://api.allorigins.win/get?url=';
+    const targetUrl = encodeURIComponent(`https://api.11holidays.com/v1/holidays?country=IN&year=${year}`);
+    
+    const response = await axios({
+      method: 'GET',
+      url: proxyUrl + targetUrl,
+      timeout: 15000
+    });
+    
+    const indianHolidays = JSON.parse(response.data.contents);
+    
+    if (!Array.isArray(indianHolidays)) {
+      throw new Error('Invalid API response format');
+    }
+
+    let successCount = 0;
+    for (const holiday of indianHolidays) {
+      try {
+        const { data: existing } = await supabase
+          .from('company_calendar')
+          .select('id')
+          .eq('date', holiday.date)
+          .eq('day_type', 'holiday')
+          .single();
+
+        if (!existing) {
+          const { error } = await supabase.from('company_calendar').insert({
+            date: holiday.date,
+            day_type: 'holiday',
+            holiday_name: holiday.name || holiday.localName,
+            reason: holiday.localName ? `${holiday.localName} - Government of India` : `${holiday.name} - Government of India`,
+            is_mandatory: true,
+            created_by: 'system'
+          });
+          
+          if (!error) successCount++;
+        }
+      } catch (insertError) {
+        console.error('Error inserting holiday:', insertError);
+      }
+    }
+    
+    message.success(`${successCount} government holidays synced for ${year}`);
+    await fetchHolidays();
+  } catch (error) {
+    console.error('Error syncing holidays:', error);
+    message.error(`Failed to sync government holidays for ${year}: ${error.message}`);
+  } finally {
+    setLoading(false);
+  }
+};
   const menuItems = [
-    {
-      key: 'overview',
-      icon: <BarChartOutlined />,
-      label: 'Overview',
-    },
-    {
-      key: 'holidays',
-      icon: <CalendarOutlined />,
-      label: 'Holidays',
-    },
-    {
-      key: 'working-days',
-      icon: <ClockCircleOutlined />,
-      label: 'Working Days',
-    },
-    {
-      key: 'events',
-      icon: <CalendarOutlined />,
-      label: 'Events',
-    },
+  {
+    key: 'overview',
+    icon: <BarChartOutlined />,
+    label: 'Overview',
+  },
+  ...(permissions.canManageHolidays ? [{
+    key: 'holidays',
+    icon: <CalendarOutlined />,
+    label: 'Holidays',
+  }] : []),
+  ...(permissions.canManageWorkingDays ? [{
+    key: 'working-days',
+    icon: <ClockCircleOutlined />,
+    label: 'Working Days',
+  }] : []),
+  {
+    key: 'events',
+    icon: <CalendarOutlined />,
+    label: 'Events',
+  },
     {
       key: 'emergency',
       icon: <ExclamationCircleOutlined />,
@@ -94,21 +232,30 @@ export default function CalendarManagement() {
     },
   ];
 
+  
+
   // Database operations
   const fetchHolidays = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('holidays')
-        .select('*')
-        .order('start_date', { ascending: true });
-      
-      if (error) throw error;
-      setHolidays(data || []);
-    } catch (error) {
-      console.error('Error fetching holidays:', error);
-      message.error('Failed to fetch holidays');
+  try {
+    console.log('Fetching holidays...');
+    const { data, error } = await supabase
+      .from('company_calendar')
+      .select('*')
+      .eq('day_type', 'holiday')
+      .order('date', { ascending: true });
+    
+    if (error) {
+      console.error('Supabase error:', error);
+      throw error;
     }
-  };
+    
+    console.log('Holidays fetched:', data);
+    setHolidays(data || []);
+  } catch (error) {
+    console.error('Error fetching holidays:', error);
+    message.error('Failed to fetch holidays');
+  }
+};
 
   const fetchEvents = async () => {
     try {
@@ -129,18 +276,18 @@ export default function CalendarManagement() {
     try {
       setLoading(true);
       const holidayData = {
-        holiday_name: values.holidayName,
-        start_date: values.startDate.format('YYYY-MM-DD'),
-        end_date: values.endDate ? values.endDate.format('YYYY-MM-DD') : null,
-        type: values.type,
-        description: values.description || null,
-        recurring: values.recurring || false
-      };
+  date: values.startDate.format('YYYY-MM-DD'),
+  day_type: 'holiday',
+  holiday_name: values.holidayName,
+  reason: values.description || null,
+  is_mandatory: values.type === 'National' ? true : false,
+  created_by: 'current_user' // Get from auth context
+};
 
-      const { data, error } = await supabase
-        .from('holidays')
-        .insert([holidayData])
-        .select();
+const { data, error } = await supabase
+  .from('company_calendar')
+  .insert([holidayData])
+  .select();
 
       if (error) throw error;
       
@@ -157,54 +304,52 @@ export default function CalendarManagement() {
   };
 
   const updateHoliday = async (values) => {
-    try {
-      setLoading(true);
-      const holidayData = {
-        holiday_name: values.holidayName,
-        start_date: values.startDate.format('YYYY-MM-DD'),
-        end_date: values.endDate ? values.endDate.format('YYYY-MM-DD') : null,
-        type: values.type,
-        description: values.description || null,
-        recurring: values.recurring || false
-      };
+  try {
+    setLoading(true);
+    const holidayData = {
+      date: values.startDate.format('YYYY-MM-DD'),
+      holiday_name: values.holidayName,
+      reason: values.description || null,
+      is_mandatory: values.type === 'National' ? true : false
+    };
 
-      const { data, error } = await supabase
-        .from('holidays')
-        .update(holidayData)
-        .eq('id', editingHoliday.id)
-        .select();
+    const { data, error } = await supabase
+      .from('company_calendar')
+      .update(holidayData)
+      .eq('id', editingHoliday.id)
+      .select();
 
-      if (error) throw error;
-      
-      message.success('Holiday updated successfully');
-      await fetchHolidays();
-      setHolidayModalVisible(false);
-      holidayForm.resetFields();
-      setEditingHoliday(null);
-    } catch (error) {
-      console.error('Error updating holiday:', error);
-      message.error('Failed to update holiday');
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (error) throw error;
+    
+    message.success('Holiday updated successfully');
+    await fetchHolidays();
+    setHolidayModalVisible(false);
+    holidayForm.resetFields();
+    setEditingHoliday(null);
+  } catch (error) {
+    console.error('Error updating holiday:', error);
+    message.error('Failed to update holiday');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const deleteHoliday = async (id) => {
-    try {
-      const { error } = await supabase
-        .from('holidays')
-        .delete()
-        .eq('id', id);
+  try {
+    const { error } = await supabase
+      .from('company_calendar')
+      .delete()
+      .eq('id', id);
 
-      if (error) throw error;
-      
-      message.success('Holiday deleted successfully');
-      await fetchHolidays();
-    } catch (error) {
-      console.error('Error deleting holiday:', error);
-      message.error('Failed to delete holiday');
-    }
-  };
+    if (error) throw error;
+    
+    message.success('Holiday deleted successfully');
+    await fetchHolidays();
+  } catch (error) {
+    console.error('Error deleting holiday:', error);
+    message.error('Failed to delete holiday');
+  }
+};
 
   const createEvent = async (values) => {
     try {
@@ -300,35 +445,87 @@ export default function CalendarManagement() {
   };
 
   // Load data on component mount
-  useEffect(() => {
-    fetchHolidays();
-    fetchEvents();
-  }, []);
+  // Remove the first useEffect and keep this one
+useEffect(() => {
+  const initializeData = async () => {
+    await fetchHolidays();
+    await fetchEvents();
+    await fetchWorkingDaysConfig();
+    await fetchDisasters();
+    // Auto-sync government holidays if none exist
+    if (permissions.canManageHolidays) {
+      try {
+        const { data } = await supabase
+          .from('company_calendar')
+          .select('id')
+          .eq('created_by', 'system')
+          .limit(1);
+        
+        if (!data || data.length === 0) {
+          await syncGovernmentHolidays();
+        }
+      } catch (error) {
+        console.error('Error checking existing holidays:', error);
+      }
+    }
+  };
+  
+  initializeData();
+}, [permissions.canManageHolidays]);
 
   // Calculate statistics
   const currentMonth = dayjs().format('YYYY-MM');
   const currentMonthHolidays = holidays.filter(holiday => 
-    dayjs(holiday.start_date).format('YYYY-MM') === currentMonth
-  );
+  dayjs(holiday.date).format('YYYY-MM') === currentMonth  // Correct field
+);
   const currentMonthEvents = events.filter(event => 
     dayjs(event.start_date).format('YYYY-MM') === currentMonth
   );
-
+useEffect(() => {
+  fetchHolidays();
+  fetchEvents();
+  
+  // Auto-sync government holidays if none exist
+  const autoSyncHolidays = async () => {
+    const { data } = await supabase
+      .from('company_calendar')
+      .select('id')
+      .eq('created_by', 'system')
+      .limit(1);
+    
+    if (!data || data.length === 0) {
+      await syncGovernmentHolidays();
+    }
+  };
+  
+  if (permissions.canManageHolidays) {
+    autoSyncHolidays();
+  }
+}, [permissions]);
 const getListData = (value) => {
-    const valueDateStr = value.format('YYYY-MM-DD');
-    let listData = [];
+  const valueDateStr = value.format('YYYY-MM-DD');
+  let listData = [];
 
-    // Check for holidays
-    holidays.forEach(holiday => {
-      const startDateStr = dayjs(holiday.start_date).format('YYYY-MM-DD');
-      const endDateStr = holiday.end_date ? dayjs(holiday.end_date).format('YYYY-MM-DD') : startDateStr;
+  // Check company_calendar for holidays
+  holidays.forEach(holiday => {
+    if (holiday.date === valueDateStr) {
+      let badgeType = 'error'; // Default for holidays
       
-      // Simple string comparison for dates
-      if (valueDateStr >= startDateStr && valueDateStr <= endDateStr) {
-        listData.push({ type: 'error', content: 'Holiday' });
+      // Map holiday types from API
+      if (holiday.is_mandatory) {
+        badgeType = 'error'; // National/Public holidays - red
+      } else if (holiday.created_by === 'system') {
+        badgeType = 'warning'; // Restricted holidays - orange
+      } else {
+        badgeType = 'processing'; // Company holidays - blue
       }
-    });
-
+      
+      listData.push({ 
+        type: badgeType, 
+        content: holiday.is_mandatory ? 'National Holiday' : 'Holiday'
+      });
+    }
+  });
     // Check for events
     events.forEach(event => {
       const startDateStr = dayjs(event.start_date).format('YYYY-MM-DD');
@@ -341,9 +538,13 @@ const getListData = (value) => {
     });
 
     // Check for weekends
-    if (value.day() === 0 || value.day() === 6) {
-      listData.push({ type: 'warning', content: 'Weekend/Non-working Day' });
-    }
+    const dayOfWeek = value.day(); // 0=Sunday, 1=Monday, etc.
+const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const dayName = dayNames[dayOfWeek];
+
+if (!workingDaysConfig[dayName]) {
+  listData.push({ type: 'warning', content: 'Non-working Day' });
+}
 
     return listData;
   };
@@ -365,6 +566,15 @@ const getListData = (value) => {
     setSelectedDate(newValue);
   };
 
+const checkAPIConnection = async () => {
+  try {
+    const response = await fetch('https://api.11holidays.com/v1/holidays?country=IN&year=2025');
+    return response.ok;
+  } catch (error) {
+    return false;
+  }
+};
+
 const getSelectedDateEvents = () => {
   const currentSelectedDate = dayjs.isDayjs(selectedDate) ? selectedDate : dayjs(selectedDate);
   const selectedDateStr = currentSelectedDate.format('YYYY-MM-DD');
@@ -372,19 +582,17 @@ const getSelectedDateEvents = () => {
 
   // Get holidays for selected date
   holidays.forEach(holiday => {
-    const startDateStr = dayjs(holiday.start_date).format('YYYY-MM-DD');
-    const endDateStr = holiday.end_date ? dayjs(holiday.end_date).format('YYYY-MM-DD') : startDateStr;
-    
-    if (selectedDateStr >= startDateStr && selectedDateStr <= endDateStr) {
-      dateEvents.push({
-        type: 'holiday',
-        title: holiday.holiday_name,
-        description: holiday.description,
-        time: null,
-        holidayType: holiday.type
-      });
-    }
-  });
+  if (selectedDateStr === holiday.date) {
+    dateEvents.push({
+      type: 'holiday',
+      title: holiday.holiday_name,
+      description: holiday.reason,
+      time: null,
+      holidayType: holiday.is_mandatory ? 'National' : 
+                   holiday.created_by === 'system' ? 'Restricted' : 'Company'
+    });
+  }
+});
 
   // Get events for selected date
   events.forEach(event => {
@@ -407,17 +615,15 @@ const getSelectedDateEvents = () => {
   return dateEvents;
 };
   const handleEditHoliday = (holiday) => {
-    setEditingHoliday(holiday);
-    holidayForm.setFieldsValue({
-      holidayName: holiday.holiday_name,
-      startDate: dayjs(holiday.start_date),
-      endDate: holiday.end_date ? dayjs(holiday.end_date) : null,
-      type: holiday.type,
-      description: holiday.description,
-      recurring: holiday.recurring
-    });
-    setHolidayModalVisible(true);
-  };
+  setEditingHoliday(holiday);
+  holidayForm.setFieldsValue({
+    holidayName: holiday.holiday_name,
+    startDate: dayjs(holiday.date),  // Changed from start_date to date
+    description: holiday.reason,     // Changed from description to reason
+    type: holiday.is_mandatory ? 'National' : 'Company'
+  });
+  setHolidayModalVisible(true);
+};
 
   const handleEditEvent = (event) => {
     setEditingEvent(event);
@@ -437,6 +643,87 @@ const getSelectedDateEvents = () => {
     });
     setEventModalVisible(true);
   };
+
+  const fetchWorkingDaysConfig = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('company_calendar')
+      .select('*')
+      .eq('day_type', 'working_day_config')
+      .single();
+    
+    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+      throw error;
+    }
+    
+    if (data && data.reason) {
+      // Parse the JSON stored in reason field
+      const config = JSON.parse(data.reason);
+      setWorkingDaysConfig(config);
+    } else {
+      // Create default config if none exists
+      const defaultConfig = {
+        monday: true,
+        tuesday: true,
+        wednesday: true,
+        thursday: true,
+        friday: true,
+        saturday: false,
+        sunday: false
+      };
+      setWorkingDaysConfig(defaultConfig);
+      await saveWorkingDaysConfig(defaultConfig);
+    }
+  } catch (error) {
+    console.error('Error fetching working days config:', error);
+    message.error('Failed to fetch working days configuration');
+  }
+};
+
+const saveWorkingDaysConfig = async (config) => {
+  try {
+    setLoading(true);
+    
+    // Check if config record exists
+    const { data: existing } = await supabase
+      .from('company_calendar')
+      .select('id')
+      .eq('day_type', 'working_day_config')
+      .single();
+    
+    const configData = {
+      date: '1970-01-01', // Dummy date for config record
+      day_type: 'working_day_config',
+      holiday_name: 'Working Days Configuration',
+      reason: JSON.stringify(config), // Store config as JSON in reason field
+      created_by: 'current_user'
+    };
+    
+    if (existing) {
+      // Update existing config
+      const { error } = await supabase
+        .from('company_calendar')
+        .update(configData)
+        .eq('id', existing.id);
+      
+      if (error) throw error;
+    } else {
+      // Insert new config
+      const { error } = await supabase
+        .from('company_calendar')
+        .insert([configData]);
+      
+      if (error) throw error;
+    }
+    
+    message.success('Working days configuration saved successfully');
+  } catch (error) {
+    console.error('Error saving working days config:', error);
+    message.error('Failed to save working days configuration');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleHolidaySubmit = async () => {
     try {
@@ -464,12 +751,12 @@ const getSelectedDateEvents = () => {
     }
   };
 
- const upcomingEvents = [
+const upcomingEvents = [
   ...holidays.map(holiday => ({
     ...holiday,
     itemType: 'holiday',
     displayTitle: holiday.holiday_name,
-    displayDate: holiday.start_date
+    displayDate: holiday.date  // Changed from start_date to date
   })),
   ...events.map(event => ({
     ...event,
@@ -813,18 +1100,17 @@ const getSelectedDateEvents = () => {
           )}
         </Text>
         {item.itemType === 'holiday' && (
-          <Tag 
-            color={
-              item.type === 'National' ? 'red' :
-              item.type === 'Regional' ? 'orange' :
-              item.type === 'Company' ? 'blue' :
-              item.type === 'Religious' ? 'purple' : 'default'
-            }
-            style={{ marginLeft: 8 }}
-          >
-            {item.type} Holiday
-          </Tag>
-        )}
+  <Tag 
+    color={
+      item.is_mandatory ? 'red' :
+      item.created_by === 'system' ? 'gold' : 'blue'
+    }
+    style={{ marginLeft: 8 }}
+  >
+    {item.is_mandatory ? 'National' : 
+     item.created_by === 'system' ? 'Restricted' : 'Company'} Holiday
+  </Tag>
+)}
         {item.itemType === 'event' && (
           <Tag color="green" style={{ marginLeft: 8 }}>
             {item.event_type}
@@ -846,19 +1132,41 @@ const getSelectedDateEvents = () => {
         {selectedTab === 'holidays' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Title level={4}>Holidays Management</Title>
-              <Button 
-                type="primary" 
-                icon={<PlusOutlined />}
-                onClick={() => {
-                  setEditingHoliday(null);
-                  holidayForm.resetFields();
-                  setHolidayModalVisible(true);
-                }}
-              >
-                Add Holiday
-              </Button>
-            </div>
+  <Title level={4}>Holidays Management</Title>
+  <Space>
+  <Select 
+    value={selectedYear}
+    onChange={setSelectedYear}
+    style={{ width: 100 }}
+  >
+    {Array.from({length: 10}, (_, i) => {
+      const year = dayjs().year() + i - 2;
+      return <Option key={year} value={year}>{year}</Option>;
+    })}
+  </Select>
+  <Button 
+    icon={<SyncOutlined spin={loading} />}
+    onClick={() => syncGovernmentHolidays(selectedYear)}
+    loading={loading}
+    disabled={!permissions.canManageHolidays}
+  >
+    Sync Indian Holidays {selectedYear}
+  </Button>
+  {permissions.canManageHolidays && (
+    <Button 
+      type="primary" 
+      icon={<PlusOutlined />}
+      onClick={() => {
+        setEditingHoliday(null);
+        holidayForm.resetFields();
+        setHolidayModalVisible(true);
+      }}
+    >
+      Add Holiday
+    </Button>
+  )}
+</Space>
+</div>
             <Alert
               message="Holiday Management"
               description="Add, edit, or remove holiday dates for your organization."
@@ -892,25 +1200,30 @@ const getSelectedDateEvents = () => {
                       ]}
                     >
                       <List.Item.Meta
-                        title={holiday.holiday_name}
-                        description={
-                          <div>
-                            <Text type="secondary">
-                              {dayjs(holiday.start_date).format('MMM DD, YYYY')}
-                              {holiday.end_date && ` - ${dayjs(holiday.end_date).format('MMM DD, YYYY')}`}
-                            </Text>
-                            <div>
-                              <Tag color="blue">{holiday.type}</Tag>
-                              {holiday.recurring && <Tag color="green">Recurring</Tag>}
-                            </div>
-                            {holiday.description && (
-                              <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
-                                {holiday.description}
-                              </Text>
-                            )}
-                          </div>
-                        }
-                      />
+  title={holiday.holiday_name}
+  description={
+    <div>
+      <Text type="secondary">
+        {dayjs(holiday.date).format('MMM DD, YYYY')}
+      </Text>
+      <div>
+        <Tag color={
+  holiday.is_mandatory ? 'red' :           // Public/National holidays
+  holiday.created_by === 'system' ? 'gold' : // Restricted holidays from API
+  'blue'                                   // Company holidays
+}>
+  {holiday.is_mandatory ? 'National' : 
+   holiday.created_by === 'system' ? 'Restricted' : 'Company'}
+</Tag>
+      </div>
+      {holiday.reason && (
+        <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
+          {holiday.reason}
+        </Text>
+      )}
+    </div>
+  }
+/>
                     </List.Item>
                   )}
                 />
@@ -920,7 +1233,13 @@ const getSelectedDateEvents = () => {
                 </div>
               )}
             </Card>
-
+            <Alert
+  message="Note"
+  description="Government holidays are automatically synced. You can add company-specific holidays here."
+  type="info"
+  showIcon
+  style={{ marginBottom: 16 }}
+/>
             {/* Add/Edit Holiday Modal */}
             <Modal
               title={editingHoliday ? "Edit Holiday" : "Add New Holiday"}
@@ -1027,9 +1346,13 @@ const getSelectedDateEvents = () => {
                 <Title level={4}>Working Days Configuration</Title>
                 <Text type="secondary">Configure your organization's working schedule</Text>
               </div>
-              <Button type="primary">
-                Save Configuration
-              </Button>
+              <Button 
+  type="primary"
+  onClick={() => saveWorkingDaysConfig(workingDaysConfig)}
+  loading={loading}
+>
+  Save Configuration
+</Button>
             </div>
 
             <Card title="Working Days" style={{ marginBottom: 24 }}>
@@ -1045,9 +1368,15 @@ const getSelectedDateEvents = () => {
                         <Text strong>{day}</Text>
                       </div>
                       <Switch 
-                        defaultChecked={index < 5} 
-                        size="small"
-                      />
+  checked={workingDaysConfig[day.toLowerCase()]} 
+  onChange={(checked) => {
+    setWorkingDaysConfig(prev => ({
+      ...prev,
+      [day.toLowerCase()]: checked
+    }));
+  }}
+  size="small"
+/>
                     </Card>
                   </Col>
                 ))}
@@ -1164,30 +1493,30 @@ const getSelectedDateEvents = () => {
                   renderItem={(event) => (
                     <List.Item
                       actions={[
-                        <Button 
-                          type="text" 
-                          icon={<EditOutlined />}
-                          onClick={() => handleEditEvent(event)}
-                        >
-                          Edit
-                        </Button>,
-                        <Button 
-                          type="text" 
-                          icon={<DeleteOutlined />}
-                          danger
-                          onClick={() => {
-                            Modal.confirm({
-                              title: 'Delete Event',
-                              content: 'Are you sure you want to delete this event?',
-                              okText: 'Delete',
-                              okType: 'danger',
-                              onOk: () => deleteEvent(event.id)
-                            });
-                          }}
-                        >
-                          Delete
-                        </Button>
-                      ]}
+  <Button 
+    type="text" 
+    icon={<EditOutlined />}
+    onClick={() => handleEditEvent(event)}
+  >
+    Edit
+  </Button>,
+  <Button 
+    type="text" 
+    icon={<DeleteOutlined />}
+    danger
+    onClick={() => {
+      Modal.confirm({
+        title: 'Delete Event',
+        content: 'Are you sure you want to delete this event?',
+        okText: 'Delete',
+        okType: 'danger',
+        onOk: () => deleteEvent(event.id)
+      });
+    }}
+  >
+    Delete
+  </Button>
+]}
                     >
                       <List.Item.Meta
                         title={event.event_title}
@@ -1437,11 +1766,48 @@ const getSelectedDateEvents = () => {
               <Text type="secondary" style={{ marginBottom: 16, display: 'block' }}>
                 Track emergency situations, disasters, and recovery efforts
               </Text>
-              <div style={{ textAlign: 'center', padding: '40px 0' }}>
-                <Text type="secondary">No disaster events</Text>
-                <br />
-                <Text type="secondary">Hopefully you won't need to create any disaster events.</Text>
+              {disasters.length > 0 ? (
+  <List
+    dataSource={disasters}
+    renderItem={(disaster) => {
+      const disasterInfo = disaster.reason ? JSON.parse(disaster.reason) : {};
+      return (
+        <List.Item>
+          <List.Item.Meta
+            title={disaster.holiday_name}
+            description={
+              <div>
+                <Text type="secondary">
+                  {dayjs(disaster.date).format('MMM DD, YYYY')}
+                </Text>
+                <div style={{ marginTop: 4 }}>
+                  <Tag color="red">{disasterInfo.disasterType}</Tag>
+                  <Tag color={
+                    disasterInfo.severityLevel === 'Critical' ? 'red' :
+                    disasterInfo.severityLevel === 'High' ? 'orange' :
+                    disasterInfo.severityLevel === 'Medium' ? 'yellow' : 'blue'
+                  }>
+                    {disasterInfo.severityLevel}
+                  </Tag>
+                  <Tag>{disasterInfo.status}</Tag>
+                </div>
+                {disasterInfo.description && (
+                  <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
+                    {disasterInfo.description}
+                  </Text>
+                )}
               </div>
+            }
+          />
+        </List.Item>
+      );
+    }}
+  />
+) : (
+  <div style={{ textAlign: 'center', padding: '40px 0' }}>
+    <Text type="secondary">No disaster events</Text>
+  </div>
+)}
             </Card>
 
             {/* Add Disaster Event Modal */}
@@ -1459,11 +1825,19 @@ const getSelectedDateEvents = () => {
                 }}>
                   Cancel
                 </Button>,
-                <Button key="create" type="primary" onClick={() => {
-                  console.log('Disaster event form submitted');
-                  setDisasterModalVisible(false);
-                  disasterForm.resetFields();
-                }}>
+                <Button 
+  key="create" 
+  type="primary" 
+  loading={loading}
+  onClick={async () => {
+    try {
+      const values = await disasterForm.validateFields();
+      await createDisaster(values);
+    } catch (error) {
+      console.error('Form validation error:', error);
+    }
+  }}
+>
                   Create
                 </Button>
               ]}
