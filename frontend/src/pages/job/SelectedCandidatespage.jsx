@@ -516,7 +516,7 @@ const generateOfferLetterPDF = (candidateData, offerData) => {
   // --- Helper Functions ---
   const addHeader = (companyName) => {
     try {
-      doc.addImage(logoImage, 'PNG', leftMargin, 21, 48, 13);
+      doc.addImage(logoImage, 'PNG', leftMargin, 21, 48, 13,undefined, 'FAST');
     } catch (error) {
       doc.setFillColor(primaryColor);
       doc.roundedRect(leftMargin, 15, 35, 15, 2, 2, 'F');
@@ -922,7 +922,13 @@ if (selectedOfferType === 'internship') {
   
   yPosition -= 5; // Align date text with signature line
   addText('Date', { x: dateSigX, maxWidth: sigWidth });
-    return doc.output('blob');
+    doc.setProperties({
+  title: 'Job Offer Letter',
+  creator: 'MyAccess'
+});
+
+return doc.output('blob', { compress: true });
+
 
 }
 
