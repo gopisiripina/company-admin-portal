@@ -181,7 +181,7 @@ const handleExcelExport = async () => {
           name,
           employee_id,
           email,
-          role,
+          department,
           pay
         )
       `)
@@ -202,7 +202,7 @@ const handleExcelExport = async () => {
         'Employee ID': record.employee_id || record.users?.employee_id,
         'Name': record.employee_name || record.users?.name,
         'Email': record.email_address || record.users?.email,
-        'Role': record.users?.role,
+        'Department': record.users?.department,
         'Salary': netPay
       };
     }) || [];

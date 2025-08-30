@@ -2120,7 +2120,7 @@ const uploadProps = {
                         {employeeData.emergencyContact.name}
                       </Text>
                       <Text type="secondary" style={{ fontSize: '13px' }}>
-                        {employeeData.emergencyContact.relationship} â€¢ {employeeData.emergencyContact.phone}
+                        {employeeData.emergencyContact.relationship} {employeeData.emergencyContact.phone}
                       </Text>
                     </div>
                   </div>
