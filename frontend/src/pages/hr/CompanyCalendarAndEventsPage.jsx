@@ -32,7 +32,6 @@ import {
   ClockCircleOutlined,
   FireOutlined,
   ExclamationCircleOutlined,
-  SettingOutlined,
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
@@ -224,12 +223,7 @@ const createDisaster = async (values) => {
       key: 'emergency',
       icon: <ExclamationCircleOutlined />,
       label: 'Emergency',
-    },
-    {
-      key: 'settings',
-      icon: <SettingOutlined />,
-      label: 'Settings',
-    },
+    }
   ];
 
   
@@ -2022,22 +2016,6 @@ const upcomingEvents = [
                 </Form.Item>
               </Form>
             </Modal>
-          </div>
-        )}
-
-        {selectedTab === 'settings' && (
-          <div>
-            <Title level={4}>Calendar Settings</Title>
-            <Alert
-              message="System Configuration"
-              description="Configure timezone, work schedules, and system preferences."
-              type="info"
-              showIcon
-              style={{ marginBottom: 24 }}
-            />
-            <Card>
-              <Text type="secondary">Settings functionality will be implemented here.</Text>
-            </Card>
           </div>
         )}
       </Content>
