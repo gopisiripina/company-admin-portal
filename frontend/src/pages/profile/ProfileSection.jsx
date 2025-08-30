@@ -397,7 +397,7 @@ const ProfileSection = ({ userData, onLogout, onProfileClick }) => {
             {userData?.name || userData?.displayName || 'User'}
           </span>
           <span style={styles.profileRole}>
-            {userData?.role || userData?.userType || 'User'}
+            {userData?.department || userData?.userType || 'User'}
           </span>
           <span style={styles.employeeId}>
             {userData?.employeeId || 'N/A'}
