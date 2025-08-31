@@ -44,7 +44,7 @@ const { Header, Content } = Layout;
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-export default function CalendarManagement() {
+export default function CalendarManagement( userRole = 'employee', currentUserId ) {
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const [holidayModalVisible, setHolidayModalVisible] = useState(false);
   const [eventModalVisible, setEventModalVisible] = useState(false);
@@ -53,14 +53,11 @@ export default function CalendarManagement() {
   const [eventForm] = Form.useForm();
   const [disasterForm] = Form.useForm();
   const [selectedTab, setSelectedTab] = useState('overview');
-  const [userRole, setUserRole] = useState('admin');
   const [disasters, setDisasters] = useState([]);
+  const [currentViewDate, setCurrentViewDate] = useState(dayjs());
   const [selectedYear, setSelectedYear] = useState(dayjs().year());
-const [permissions, setPermissions] = useState({
-  canManageHolidays: true,  // Set to true initially for testing
-  canManageWorkingDays: true,
-  canViewAll: true
-});
+const [permissions, setPermissions] = useState({});
+const [editingDisaster, setEditingDisaster] = useState(null);
 const [workingDaysConfig, setWorkingDaysConfig] = useState({
   monday: true,
   tuesday: true, 
@@ -76,14 +73,27 @@ const [workingDaysConfig, setWorkingDaysConfig] = useState({
   const [loading, setLoading] = useState(false);
   const [editingHoliday, setEditingHoliday] = useState(null);
   const [editingEvent, setEditingEvent] = useState(null);
-useEffect(() => {
-  setPermissions({
-    canManageHolidays: userRole !== 'employee',
-    canManageWorkingDays: userRole !== 'employee',
-    canViewAll: true
-  });
-}, [userRole]);
 
+  
+useEffect(() => {
+  const actualUserRole = typeof userRole === 'object' ? userRole.userRole : userRole;
+  if (!actualUserRole) return;
+  const isPrivilegedRole = actualUserRole === 'superadmin' || actualUserRole === 'admin' || actualUserRole === 'hr';
+  const newPermissions = {
+    canManageHolidays: isPrivilegedRole,
+    canManageWorkingDays: isPrivilegedRole,
+    canManageEvents: isPrivilegedRole,
+    canAddEmergency: isPrivilegedRole,
+    canEditEmergency: isPrivilegedRole,
+    canViewAll: true,
+    canViewHolidays: true,
+    canViewWorkingDays: true,
+    canViewEvents: true
+  };
+  
+  console.log('Setting permissions for role:', userRole, 'isPrivileged:', isPrivilegedRole, newPermissions);
+  setPermissions(newPermissions);
+}, [userRole]);
 
 const fetchDisasters = async () => {
   try {
@@ -123,7 +133,7 @@ const createDisaster = async (values) => {
         lessonsLearned: values.lessonsLearned,
         endDate: values.endDate ? values.endDate.format('YYYY-MM-DD') : null
       }),
-      created_by: 'current_user'
+      created_by:currentUserId || 'unknown_user'
     };
 
     const { error } = await supabase
@@ -204,29 +214,110 @@ const createDisaster = async (values) => {
     icon: <BarChartOutlined />,
     label: 'Overview',
   },
-  ...(permissions.canManageHolidays ? [{
+  {
     key: 'holidays',
     icon: <CalendarOutlined />,
     label: 'Holidays',
-  }] : []),
-  ...(permissions.canManageWorkingDays ? [{
+  },
+  {
     key: 'working-days',
     icon: <ClockCircleOutlined />,
     label: 'Working Days',
-  }] : []),
+  },
   {
     key: 'events',
     icon: <CalendarOutlined />,
     label: 'Events',
   },
-    {
-      key: 'emergency',
-      icon: <ExclamationCircleOutlined />,
-      label: 'Emergency',
-    }
-  ];
+  {
+    key: 'emergency',
+    icon: <ExclamationCircleOutlined />,
+    label: 'Emergency',
+  }
+];
 
-  
+const updateDisaster = async (values) => {
+  try {
+    setLoading(true);
+    const disasterData = {
+      date: values.startDate.format('YYYY-MM-DD'),
+      holiday_name: values.eventName,
+      reason: JSON.stringify({
+        description: values.impactDescription,
+        disasterType: values.disasterType,
+        severityLevel: values.severityLevel,
+        affectedAreas: values.affectedAreas,
+        responsePlan: values.responsePlan,
+        assignedTeam: values.assignedTeam,
+        emergencyContact: values.emergencyContact,
+        estimatedCost: values.estimatedCost,
+        actualCost: values.actualCost,
+        recoveryTimeline: values.recoveryTimeline,
+        status: values.status,
+        lessonsLearned: values.lessonsLearned,
+        endDate: values.endDate ? values.endDate.format('YYYY-MM-DD') : null
+      })
+    };
+
+    const { error } = await supabase
+      .from('company_calendar')
+      .update(disasterData)
+      .eq('id', editingDisaster.id);
+
+    if (error) throw error;
+    
+    message.success('Disaster event updated successfully');
+    await fetchDisasters();
+    setDisasterModalVisible(false);
+    disasterForm.resetFields();
+    setEditingDisaster(null);
+  } catch (error) {
+    console.error('Error updating disaster:', error);
+    message.error('Failed to update disaster event');
+  } finally {
+    setLoading(false);
+  }
+};
+
+const deleteDisaster = async (id) => {
+  try {
+    const { error } = await supabase
+      .from('company_calendar')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    
+    message.success('Disaster event deleted successfully');
+    await fetchDisasters();
+  } catch (error) {
+    console.error('Error deleting disaster:', error);
+    message.error('Failed to delete disaster event');
+  }
+};
+
+  const handleEditDisaster = (disaster) => {
+  const disasterInfo = disaster.reason ? JSON.parse(disaster.reason) : {};
+  setEditingDisaster(disaster);
+  disasterForm.setFieldsValue({
+    eventName: disaster.holiday_name,
+    startDate: dayjs(disaster.date),
+    endDate: disasterInfo.endDate ? dayjs(disasterInfo.endDate) : null,
+    disasterType: disasterInfo.disasterType,
+    severityLevel: disasterInfo.severityLevel,
+    affectedAreas: disasterInfo.affectedAreas,
+    impactDescription: disasterInfo.description,
+    responsePlan: disasterInfo.responsePlan,
+    assignedTeam: disasterInfo.assignedTeam,
+    emergencyContact: disasterInfo.emergencyContact,
+    estimatedCost: disasterInfo.estimatedCost,
+    actualCost: disasterInfo.actualCost,
+    recoveryTimeline: disasterInfo.recoveryTimeline,
+    status: disasterInfo.status,
+    lessonsLearned: disasterInfo.lessonsLearned
+  });
+  setDisasterModalVisible(true);
+};
 
   // Database operations
   const fetchHolidays = async () => {
@@ -267,6 +358,10 @@ const createDisaster = async (values) => {
   };
 
   const createHoliday = async (values) => {
+    if (!permissions.canManageHolidays) {
+    message.error('You do not have permission to manage holidays');
+    return;
+  }
     try {
       setLoading(true);
       const holidayData = {
@@ -275,8 +370,11 @@ const createDisaster = async (values) => {
   holiday_name: values.holidayName,
   reason: values.description || null,
   is_mandatory: values.type === 'National' ? true : false,
-  created_by: 'current_user' // Get from auth context
+  holiday_type: values.type, // Add this line to store the actual type
+  created_by: currentUserId
 };
+
+
 
 const { data, error } = await supabase
   .from('company_calendar')
@@ -298,13 +396,18 @@ const { data, error } = await supabase
   };
 
   const updateHoliday = async (values) => {
+    if (!permissions.canManageHolidays) {
+    message.error('You do not have permission to manage holidays');
+    return;
+  }
   try {
     setLoading(true);
     const holidayData = {
       date: values.startDate.format('YYYY-MM-DD'),
       holiday_name: values.holidayName,
       reason: values.description || null,
-      is_mandatory: values.type === 'National' ? true : false
+      is_mandatory: values.type === 'National' ? true : false,
+      holiday_type: values.type
     };
 
     const { data, error } = await supabase
@@ -346,6 +449,10 @@ const { data, error } = await supabase
 };
 
   const createEvent = async (values) => {
+    if (!permissions.canManageEvents) {
+    message.error('You do not have permission to manage events');
+    return;
+  }
     try {
       setLoading(true);
       const eventData = {
@@ -383,6 +490,10 @@ const { data, error } = await supabase
   };
 
   const updateEvent = async (values) => {
+    if (!permissions.canManageEvents) {
+    message.error('You do not have permission to manage events');
+    return;
+  }
     try {
       setLoading(true);
       const eventData = {
@@ -465,16 +576,39 @@ useEffect(() => {
   };
   
   initializeData();
-}, [permissions.canManageHolidays]);
+}, [permissions.canManageHolidays,userRole]);
 
-  // Calculate statistics
-  const currentMonth = dayjs().format('YYYY-MM');
-  const currentMonthHolidays = holidays.filter(holiday => 
-  dayjs(holiday.date).format('YYYY-MM') === currentMonth  // Correct field
+ // Calculate statistics for the current view month
+const currentMonth = currentViewDate.format('YYYY-MM');
+const currentMonthHolidays = holidays.filter(holiday => 
+  dayjs(holiday.date).format('YYYY-MM') === currentMonth
 );
-  const currentMonthEvents = events.filter(event => 
-    dayjs(event.start_date).format('YYYY-MM') === currentMonth
-  );
+const currentMonthEvents = events.filter(event => 
+  dayjs(event.start_date).format('YYYY-MM') === currentMonth
+);
+
+// Calculate working days for the specific month
+const daysInCurrentMonth = currentViewDate.daysInMonth();
+const startOfMonth = currentViewDate.startOf('month');
+let workingDaysCount = 0;
+let weekendDaysCount = 0;
+
+for (let i = 0; i < daysInCurrentMonth; i++) {
+  const currentDay = startOfMonth.add(i, 'day');
+  const dayOfWeek = currentDay.day();
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const dayName = dayNames[dayOfWeek];
+  
+  if (workingDaysConfig[dayName]) {
+    workingDaysCount++;
+  } else {
+    weekendDaysCount++;
+  }
+}
+
+// Subtract holidays from working days
+const actualWorkingDays = workingDaysCount - currentMonthHolidays.length;
+
 useEffect(() => {
   fetchHolidays();
   fetchEvents();
@@ -544,18 +678,78 @@ if (!workingDaysConfig[dayName]) {
   };
 
   const dateCellRender = (value) => {
-    const listData = getListData(value);
-    return (
-      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-        {listData.map((item, index) => (
-          <li key={index}>
-            <Badge status={item.type} text="" />
-          </li>
-        ))}
-      </ul>
-    );
-  };
+  const listData = getListData(value);
+  
+  const hasHoliday = listData.some(item => item.content.includes('Holiday'));
+  const hasEvent = listData.some(item => item.content === 'Event/Meeting');
+  const isNonWorking = listData.some(item => item.content === 'Non-working Day');
+  
+  // Apply CSS classes for styling
+  setTimeout(() => {
+    const cellElement = document.querySelector(`[title="${value.format('YYYY-MM-DD')}"]`)?.closest('.ant-picker-cell');
+    if (cellElement) {
+      // Remove existing classes
+      cellElement.classList.remove('holiday-day', 'event-day', 'holiday-event-day', 'non-working-day');
+      
+      // Add appropriate class
+      if (hasHoliday && hasEvent) {
+        cellElement.classList.add('holiday-event-day');
+      } else if (hasHoliday) {
+        cellElement.classList.add('holiday-day');
+      } else if (hasEvent) {
+        cellElement.classList.add('event-day');
+      } else if (isNonWorking) {
+        cellElement.classList.add('non-working-day');
+      }
+    }
+  }, 0);
+  
+  return null;
+};
 
+// Add this useEffect after the existing ones
+useEffect(() => {
+  // Add CSS for calendar day styling
+  const style = document.createElement('style');
+  style.textContent = `
+    .ant-picker-cell {
+      position: relative;
+    }
+    
+    .ant-picker-cell.holiday-day .ant-picker-cell-inner {
+      background-color: #ff4d4f !important;
+      color: white !important;
+    }
+    
+    .ant-picker-cell.event-day .ant-picker-cell-inner {
+      background-color: #52c41a !important;
+      color: white !important;
+    }
+    
+    .ant-picker-cell.holiday-event-day .ant-picker-cell-inner {
+      background: linear-gradient(45deg, #ff4d4f 50%, #52c41a 50%) !important;
+      color: white !important;
+    }
+    
+    .ant-picker-cell.non-working-day .ant-picker-cell-inner {
+      background-color: #faad14 !important;
+      color: white !important;
+    }
+  `;
+  document.head.appendChild(style);
+  
+  return () => document.head.removeChild(style);
+}, []);
+
+const calendarCellStyle = {
+  '.ant-picker-cell-inner': {
+    position: 'relative',
+    zIndex: 1
+  },
+  '.ant-picker-cell': {
+    position: 'relative'
+  }
+};
   const onSelect = (newValue) => {
     setSelectedDate(newValue);
   };
@@ -582,8 +776,8 @@ const getSelectedDateEvents = () => {
       title: holiday.holiday_name,
       description: holiday.reason,
       time: null,
-      holidayType: holiday.is_mandatory ? 'National' : 
-                   holiday.created_by === 'system' ? 'Restricted' : 'Company'
+      holidayType: holiday.holiday_type || (holiday.is_mandatory ? 'National' : 'Company')
+
     });
   }
 });
@@ -768,6 +962,8 @@ const upcomingEvents = [
 
   return (
     <Layout style={{ minHeight: '100vh', background: '#f5f5f5' }}>
+
+    
       <Header style={{ 
         background: '#fff', 
         padding: '0 24px',
@@ -802,83 +998,84 @@ const upcomingEvents = [
         {selectedTab === 'overview' && (
           <div>
             <div style={{ marginBottom: 24 }}>
-              <Title level={4} style={{ marginBottom: 8, display: 'flex', alignItems: 'center' }}>
-                <BarChartOutlined style={{ marginRight: 8 }} />
-                {dayjs().format('MMMM YYYY')} Summary
-              </Title>
-              <Text type="secondary">
-                Overview of working days, holidays, events and working hours for this month
-              </Text>
-            </div>
+  <Title level={4} style={{ marginBottom: 8, display: 'flex', alignItems: 'center' }}>
+  <BarChartOutlined style={{ marginRight: 8 }} />
+  {currentViewDate.format('MMMM YYYY')} Summary
+</Title>
+  <Text type="secondary">
+    Overview of working days, holidays, events and working hours for this month
+  </Text>
+</div>
 
             <Row gutter={[16, 16]} style={{ marginBottom: 32 }}>
-              <Col span={4}>
-                <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f6ffed', border: '1px solid #b7eb8f' }}>
-                  <Statistic
-                    title="Total Days"
-                    value={dayjs().daysInMonth()}
-                    valueStyle={{ color: '#52c41a', fontSize: '24px', fontWeight: 'bold' }}
-                  />
-                </Card>
-              </Col>
-              <Col span={4}>
-                <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f6ffed', border: '1px solid #b7eb8f' }}>
-                  <Statistic
-                    title="Working Days"
-                    value={Math.floor(dayjs().daysInMonth() * 5/7) - currentMonthHolidays.length}
-                    valueStyle={{ color: '#52c41a', fontSize: '24px', fontWeight: 'bold' }}
-                  />
-                </Card>
-              </Col>
-              <Col span={4}>
-                <Card size="small" style={{ textAlign: 'center', backgroundColor: '#fff7e6', border: '1px solid #ffd591' }}>
-                  <Statistic
-                    title="Weekends/Offs"
-                    value={Math.ceil(dayjs().daysInMonth() * 2/7)}
-                    valueStyle={{ color: '#fa8c16', fontSize: '24px', fontWeight: 'bold' }}
-                  />
-                </Card>
-              </Col>
-              <Col span={4}>
-                <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f0f5ff', border: '1px solid #91d5ff' }}>
-                  <Statistic
-                    title="Holidays"
-                    value={currentMonthHolidays.length}
-                    valueStyle={{ color: '#1890ff', fontSize: '24px', fontWeight: 'bold' }}
-                  />
-                </Card>
-              </Col>
-              <Col span={4}>
-                <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f9f0ff', border: '1px solid #d3adf7' }}>
-                  <Statistic
-                    title="Events"
-                    value={currentMonthEvents.length}
-                    valueStyle={{ color: '#722ed1', fontSize: '24px', fontWeight: 'bold' }}
-                  />
-                </Card>
-              </Col>
-              <Col span={4}>
-                <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f6ffed', border: '1px solid #b7eb8f' }}>
-                  <Statistic
-                    title="Daily Hours"
-                    value="8h 0m"
-                    valueStyle={{ color: '#52c41a', fontSize: '20px', fontWeight: 'bold' }}
-                  />
-                </Card>
-              </Col>
-            </Row>
+  <Col span={4}>
+    <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f6ffed', border: '1px solid #b7eb8f' }}>
+      <Statistic
+        title="Total Days"
+        value={daysInCurrentMonth}
+        valueStyle={{ color: '#52c41a', fontSize: '24px', fontWeight: 'bold' }}
+      />
+    </Card>
+  </Col>
+  <Col span={4}>
+    <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f6ffed', border: '1px solid #b7eb8f' }}>
+      <Statistic
+        title="Working Days"
+        value={actualWorkingDays}
+        valueStyle={{ color: '#52c41a', fontSize: '24px', fontWeight: 'bold' }}
+      />
+    </Card>
+  </Col>
+  <Col span={4}>
+    <Card size="small" style={{ textAlign: 'center', backgroundColor: '#fff7e6', border: '1px solid #ffd591' }}>
+      <Statistic
+        title="Weekends/Offs"
+        value={weekendDaysCount}
+        valueStyle={{ color: '#fa8c16', fontSize: '24px', fontWeight: 'bold' }}
+      />
+    </Card>
+  </Col>
+  <Col span={4}>
+    <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f0f5ff', border: '1px solid #91d5ff' }}>
+      <Statistic
+        title="Holidays"
+        value={currentMonthHolidays.length}
+        valueStyle={{ color: '#1890ff', fontSize: '24px', fontWeight: 'bold' }}
+      />
+    </Card>
+  </Col>
+  <Col span={4}>
+    <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f9f0ff', border: '1px solid #d3adf7' }}>
+      <Statistic
+        title="Events"
+        value={currentMonthEvents.length}
+        valueStyle={{ color: '#722ed1', fontSize: '24px', fontWeight: 'bold' }}
+      />
+    </Card>
+  </Col>
+  <Col span={4}>
+    <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f6ffed', border: '1px solid #b7eb8f' }}>
+      <Statistic
+        title="Daily Hours"
+        value="8h 0m"
+        valueStyle={{ color: '#52c41a', fontSize: '20px', fontWeight: 'bold' }}
+      />
+    </Card>
+  </Col>
+</Row>
 
-            <Row gutter={16} style={{ marginBottom: 32 }}>
-              <Col span={4}>
-                <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f6ffed', border: '1px solid #b7eb8f' }}>
-                  <Statistic
-                    title="Monthly Hours"
-                    value={`${(Math.floor(dayjs().daysInMonth() * 5/7) - currentMonthHolidays.length) * 8}h 0m`}
-                    valueStyle={{ color: '#52c41a', fontSize: '20px', fontWeight: 'bold' }}
-                  />
-                </Card>
-              </Col>
-            </Row>
+<Row gutter={16} style={{ marginBottom: 32 }}>
+  <Col span={4}>
+    <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f6ffed', border: '1px solid #b7eb8f' }}>
+      <Statistic
+        title="Monthly Hours"
+        value={`${actualWorkingDays * 8}h 0m`}
+        valueStyle={{ color: '#52c41a', fontSize: '20px', fontWeight: 'bold' }}
+      />
+    </Card>
+  </Col>
+</Row>
+
 
             <Row style={{ marginBottom: 24 }}>
               <Col span={8}>
@@ -904,14 +1101,37 @@ const upcomingEvents = [
             <Row gutter={24}>
               <Col span={16}>
                 <Card 
-                  title="Calendar View" 
-                  size="small"
-                  extra={
-                    <Space>
-                      <Text type="secondary">Click on a date to view events</Text>
-                    </Space>
-                  }
-                >
+  title={
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <span>Calendar View</span>
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <Button 
+          type="text" 
+          onClick={() => setCurrentViewDate(prev => prev.subtract(1, 'month'))}
+          style={{ marginRight: 8 }}
+        >
+          &lt;
+        </Button>
+        <Text strong style={{ minWidth: '120px', textAlign: 'center' }}>
+          {currentViewDate.format('MMMM YYYY')}
+        </Text>
+        <Button 
+          type="text" 
+          onClick={() => setCurrentViewDate(prev => prev.add(1, 'month'))}
+          style={{ marginLeft: 8 }}
+        >
+          &gt;
+        </Button>
+      </div>
+    </div>
+  }
+  size="small"
+  extra={
+    <Space>
+      <Text type="secondary">Click on a date to view events</Text>
+    </Space>
+  }
+>
                   <div style={{ marginBottom: 16 }}>
                     <Space>
                       <Badge status="default" text="Today" />
@@ -921,76 +1141,13 @@ const upcomingEvents = [
                     </Space>
                   </div>
                   <Calendar
-                    fullscreen={false}
-                    dateCellRender={dateCellRender}
-                    onSelect={onSelect}
-                    value={selectedDate}
-                    headerRender={({ value, type, onChange, onTypeChange }) => {
-                      const start = 0;
-                      const end = 12;
-                      const monthOptions = [];
-                      
-                      let current = value.clone();
-                      const localeData = value.localeData();
-                      const months = [];
-                      for (let i = 0; i < 12; i++) {
-                        current = current.month(i);
-                        months.push(localeData.monthsShort(current));
-                      }
-                      
-                      for (let i = start; i < end; i++) {
-                        monthOptions.push(
-                          <Option key={i} value={i}>
-                            {months[i]}
-                          </Option>,
-                        );
-                      }
-                      
-                      const year = value.year();
-                      const month = value.month();
-                      const options = [];
-                      for (let i = year - 10; i < year + 10; i += 1) {
-                        options.push(
-                          <Option key={i} value={i}>
-                            {i}
-                          </Option>,
-                        );
-                      }
-                      
-                      return (
-                        <div style={{ padding: 8 }}>
-                          <Row gutter={8}>
-                            <Col>
-                              <Select
-                                size="small"
-                                dropdownMatchSelectWidth={false}
-                                value={month}
-                                onChange={(newMonth) => {
-                                  const now = value.clone().month(newMonth);
-                                  onChange(now);
-                                }}
-                              >
-                                {monthOptions}
-                              </Select>
-                            </Col>
-                            <Col>
-                              <Select
-                                size="small"
-                                dropdownMatchSelectWidth={false}
-                                value={year}
-                                onChange={(newYear) => {
-                                  const now = value.clone().year(newYear);
-                                  onChange(now);
-                                }}
-                              >
-                                {options}
-                              </Select>
-                            </Col>
-                          </Row>
-                        </div>
-                      );
-                    }}
-                  />
+  fullscreen={false}
+  dateCellRender={dateCellRender}
+  onSelect={onSelect}
+  value={currentViewDate}
+  onChange={(date) => setCurrentViewDate(date)}
+/>
+
                 </Card>
               </Col>
               
@@ -1022,7 +1179,8 @@ const upcomingEvents = [
                 size="small"
                 style={{ marginLeft: 8 }}
               >
-                {item.holidayType}
+                {item.holiday_type || (item.is_mandatory ? 'National' : 
+ item.created_by === 'system' ? 'Restricted' : 'Company')} Holiday
               </Tag>
             )}
             {item.type === 'event' && (
@@ -1128,7 +1286,7 @@ const upcomingEvents = [
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
   <Title level={4}>Holidays Management</Title>
   <Space>
-  <Select 
+  {permissions.canManageHolidays && (<Select 
     value={selectedYear}
     onChange={setSelectedYear}
     style={{ width: 100 }}
@@ -1137,15 +1295,16 @@ const upcomingEvents = [
       const year = dayjs().year() + i - 2;
       return <Option key={year} value={year}>{year}</Option>;
     })}
-  </Select>
+  </Select>)}
+  {permissions.canManageHolidays && (
   <Button 
     icon={<SyncOutlined spin={loading} />}
     onClick={() => syncGovernmentHolidays(selectedYear)}
     loading={loading}
-    disabled={!permissions.canManageHolidays}
   >
     Sync Indian Holidays {selectedYear}
   </Button>
+)}
   {permissions.canManageHolidays && (
     <Button 
       type="primary" 
@@ -1171,28 +1330,35 @@ const upcomingEvents = [
             <Card>
               {holidays.length > 0 ? (
                 <List
-                  dataSource={holidays}
-                  renderItem={(holiday) => (
-                    <List.Item
-                      actions={[
-                        <Button 
-                          type="text" 
-                          icon={<DeleteOutlined />}
-                          danger
-                          onClick={() => {
-                            Modal.confirm({
-                              title: 'Delete Holiday',
-                              content: 'Are you sure you want to delete this holiday?',
-                              okText: 'Delete',
-                              okType: 'danger',
-                              onOk: () => deleteHoliday(holiday.id)
-                            });
-                          }}
-                        >
-                          Delete
-                        </Button>
-                      ]}
-                    >
+  dataSource={holidays}
+  renderItem={(holiday) => (
+    <List.Item
+  actions={permissions.canManageHolidays ? [
+  <Button 
+    type="text" 
+    icon={<EditOutlined />}
+    onClick={() => handleEditHoliday(holiday)}
+  >
+    Edit
+  </Button>,
+  <Button 
+    type="text" 
+    icon={<DeleteOutlined />}
+    danger
+    onClick={() => {
+      Modal.confirm({
+        title: 'Delete Holiday',
+        content: 'Are you sure you want to delete this holiday?',
+        okText: 'Delete',
+        okType: 'danger',
+        onOk: () => deleteHoliday(holiday.id)
+      });
+    }}
+  >
+    Delete
+  </Button>
+] : []}
+>
                       <List.Item.Meta
   title={holiday.holiday_name}
   description={
@@ -1202,12 +1368,12 @@ const upcomingEvents = [
       </Text>
       <div>
         <Tag color={
-  holiday.is_mandatory ? 'red' :           // Public/National holidays
-  holiday.created_by === 'system' ? 'gold' : // Restricted holidays from API
-  'blue'                                   // Company holidays
+  holiday.holiday_type === 'National' ? 'red' :
+  holiday.holiday_type === 'Regional' ? 'orange' :
+  holiday.holiday_type === 'Religious' ? 'purple' :
+  holiday.holiday_type === 'Company' ? 'blue' : 'gold'
 }>
-  {holiday.is_mandatory ? 'National' : 
-   holiday.created_by === 'system' ? 'Restricted' : 'Company'}
+  {holiday.holiday_type || (holiday.is_mandatory ? 'National' : 'Company')}
 </Tag>
       </div>
       {holiday.reason && (
@@ -1236,35 +1402,35 @@ const upcomingEvents = [
 />
             {/* Add/Edit Holiday Modal */}
             <Modal
-              title={editingHoliday ? "Edit Holiday" : "Add New Holiday"}
-              open={holidayModalVisible}
-              onCancel={() => {
-                setHolidayModalVisible(false);
-                holidayForm.resetFields();
-                setEditingHoliday(null);
-              }}
-              footer={[
-                <Button key="cancel" onClick={() => {
-                  setHolidayModalVisible(false);
-                  holidayForm.resetFields();
-                  setEditingHoliday(null);
-                }}>
-                  Cancel
-                </Button>,
-                <Button 
-                  key="create" 
-                  type="primary" 
-                  loading={loading}
-                  onClick={handleHolidaySubmit}
-                >
-                  {editingHoliday ? 'Update' : 'Create'}
-                </Button>
-              ]}
-              width={600}
-            >
-              <Text type="secondary" style={{ marginBottom: 24, display: 'block' }}>
-                {editingHoliday ? 'Update holiday entry' : 'Create a new holiday entry'}
-              </Text>
+  title={editingHoliday ? "Edit Holiday Type" : "Add New Holiday"}
+  open={holidayModalVisible}
+  onCancel={() => {
+    setHolidayModalVisible(false);
+    holidayForm.resetFields();
+    setEditingHoliday(null);
+  }}
+  footer={[
+    <Button key="cancel" onClick={() => {
+      setHolidayModalVisible(false);
+      holidayForm.resetFields();
+      setEditingHoliday(null);
+    }}>
+      Cancel
+    </Button>,
+    <Button 
+      key="create" 
+      type="primary" 
+      loading={loading}
+      onClick={handleHolidaySubmit}
+    >
+      {editingHoliday ? 'Update Type' : 'Create'}
+    </Button>
+  ]}
+  width={600}
+>
+  <Text type="secondary" style={{ marginBottom: 24, display: 'block' }}>
+    {editingHoliday ? 'Update holiday type (National holidays can be changed to Regional/Company)' : 'Create a new holiday entry'}
+  </Text>
               
               <Form
                 form={holidayForm}
@@ -1340,13 +1506,11 @@ const upcomingEvents = [
                 <Title level={4}>Working Days Configuration</Title>
                 <Text type="secondary">Configure your organization's working schedule</Text>
               </div>
-              <Button 
-  type="primary"
-  onClick={() => saveWorkingDaysConfig(workingDaysConfig)}
-  loading={loading}
->
-  Save Configuration
-</Button>
+              {permissions.canManageWorkingDays && (
+  <Button type="primary" onClick={() => saveWorkingDaysConfig(workingDaysConfig)}>
+    Save Configuration
+  </Button>
+)}
             </div>
 
             <Card title="Working Days" style={{ marginBottom: 24 }}>
@@ -1370,6 +1534,7 @@ const upcomingEvents = [
     }));
   }}
   size="small"
+  disabled={!permissions.canManageWorkingDays}
 />
                     </Card>
                   </Col>
@@ -1391,6 +1556,7 @@ const upcomingEvents = [
                         defaultValue={dayjs('09:00', 'HH:mm')} 
                         format="HH:mm" 
                         style={{ width: '100%' }}
+                        disabled={!permissions.canManageWorkingDays}
                       />
                     </Form.Item>
                     <Form.Item label="End Time">
@@ -1428,7 +1594,7 @@ const upcomingEvents = [
               
               <Form layout="vertical">
                 <Form.Item label="Timezone">
-                  <Select defaultValue="UTC" style={{ width: 200 }}>
+                  <Select defaultValue="UTC" style={{ width: 200 }} disabled={!permissions.canManageWorkingDays}>
                     <Option value="UTC">UTC</Option>
                     <Option value="EST">Eastern Time</Option>
                     <Option value="PST">Pacific Time</Option>
@@ -1461,17 +1627,19 @@ const upcomingEvents = [
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <Title level={4}>Events Management</Title>
-              <Button 
-                type="primary" 
-                icon={<PlusOutlined />}
-                onClick={() => {
-                  setEditingEvent(null);
-                  eventForm.resetFields();
-                  setEventModalVisible(true);
-                }}
-              >
-                Add Event
-              </Button>
+              {permissions.canManageEvents && (
+  <Button 
+    type="primary" 
+    icon={<PlusOutlined />}
+    onClick={() => {
+      setEditingEvent(null);
+      eventForm.resetFields();
+      setEventModalVisible(true);
+    }}
+  >
+    Add Event
+  </Button>
+)}
             </div>
             <Alert
               message="Event Management"
@@ -1486,7 +1654,7 @@ const upcomingEvents = [
                   dataSource={events}
                   renderItem={(event) => (
                     <List.Item
-                      actions={[
+                      actions={permissions.canManageEvents ? [
   <Button 
     type="text" 
     icon={<EditOutlined />}
@@ -1510,7 +1678,7 @@ const upcomingEvents = [
   >
     Delete
   </Button>
-]}
+] : []}
                     >
                       <List.Item.Meta
                         title={event.event_title}
@@ -1766,7 +1934,32 @@ const upcomingEvents = [
     renderItem={(disaster) => {
       const disasterInfo = disaster.reason ? JSON.parse(disaster.reason) : {};
       return (
-        <List.Item>
+        <List.Item actions={[
+  <Button 
+    type="text" 
+    icon={<EditOutlined />}
+    onClick={() => handleEditDisaster(disaster)}
+  >
+    Edit
+  </Button>,
+  <Button 
+    type="text" 
+    icon={<DeleteOutlined />}
+    danger
+    onClick={() => {
+      Modal.confirm({
+        title: 'Delete Disaster Event',
+        content: 'Are you sure you want to delete this disaster event?',
+        okText: 'Delete',
+        okType: 'danger',
+        onOk: () => deleteDisaster(disaster.id)
+      });
+    }}
+  >
+    Delete
+  </Button>
+]}
+>
           <List.Item.Meta
             title={disaster.holiday_name}
             description={
@@ -1794,6 +1987,7 @@ const upcomingEvents = [
             }
           />
         </List.Item>
+        
       );
     }}
   />
@@ -1824,13 +2018,17 @@ const upcomingEvents = [
   type="primary" 
   loading={loading}
   onClick={async () => {
-    try {
-      const values = await disasterForm.validateFields();
+  try {
+    const values = await disasterForm.validateFields();
+    if (editingDisaster) {
+      await updateDisaster(values);
+    } else {
       await createDisaster(values);
-    } catch (error) {
-      console.error('Form validation error:', error);
     }
-  }}
+  } catch (error) {
+    console.error('Form validation error:', error);
+  }
+}}
 >
                   Create
                 </Button>
