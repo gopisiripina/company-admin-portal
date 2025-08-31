@@ -45,6 +45,9 @@ const { Option } = Select;
 const { TextArea } = Input;
 const baseUrl = import.meta.env.VITE_API_BASE_URL;
 const AppraisalLetterManagement = () => {
+  const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState(5);
+const [totalEmployees, setTotalEmployees] = useState(0);
   const [currentView, setCurrentView] = useState('dashboard');
   const [employees, setEmployees] = useState([]);
   const [form] = Form.useForm();
@@ -606,21 +609,28 @@ lines.forEach(line => {
   };
 
   const getMergedAppraisalData = () => {
-    return users.map(user => {
-      const latestAppraisal = appraisals
-        .filter(app => app.user_id === user.id)
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
-      
-      return {
-        ...user,
-        latest_appraisal: latestAppraisal,
-        has_appraisal: !!latestAppraisal,
-        last_appraisal_date: latestAppraisal?.effective_date || null,
-        salary_increase: latestAppraisal ? 
-          latestAppraisal.new_salary - latestAppraisal.current_salary : 0
-      };
-    });
-  };
+  const allData = users.map(user => {
+    const latestAppraisal = appraisals
+      .filter(app => app.user_id === user.id)
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+    
+    return {
+      ...user,
+      latest_appraisal: latestAppraisal,
+      has_appraisal: !!latestAppraisal,
+      last_appraisal_date: latestAppraisal?.effective_date || null,
+      salary_increase: latestAppraisal ? 
+        latestAppraisal.new_salary - latestAppraisal.current_salary : 0
+    };
+  });
+  
+  // Update total count
+  if (allData.length !== totalEmployees) {
+    setTotalEmployees(allData.length);
+  }
+  
+  return allData;
+};
 
   const renderDashboard = () => (
     <div style={{ background: '#f7fafc', minHeight: '100vh', padding: '24px' }}>
@@ -741,18 +751,30 @@ lines.forEach(line => {
           loading={loading}
           scroll={{ x: 800 }}
        pagination={{
-  pageSize: 10,
+  current: currentPage,
+  pageSize: pageSize,
+  total: totalEmployees,
   showSizeChanger: true,
   showQuickJumper: true,
-  loading:{loading},
   showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} employees`,
+  pageSizeOptions: ['5', '10', '20', '50'],
+  onChange: (page, size) => {
+    setCurrentPage(page);
+    setPageSize(size);
+  },
+  onShowSizeChange: (current, size) => {
+    setCurrentPage(1);
+    setPageSize(size);
+  },
   itemRender: (current, type, originalElement) => {
     if (type === 'page') {
       return (
-        <a style={{ 
-          color: '#000000d9', 
-          backgroundColor: 'white',
-          border: '1px solid #d9d9d9'
+        <a style={{
+          color: current === currentPage ? '#0D7139' : '#666',
+          backgroundColor: current === currentPage ? '#f6ffed' : 'white',
+          border: `1px solid ${current === currentPage ? '#0D7139' : '#d9d9d9'}`,
+          borderRadius: '6px',
+          fontWeight: current === currentPage ? 600 : 400
         }}>
           {current}
         </a>
