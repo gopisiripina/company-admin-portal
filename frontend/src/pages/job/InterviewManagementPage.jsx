@@ -63,7 +63,8 @@ const InterviewManagement = ({ userRole }) => {
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [interviewTypeFilter, setInterviewTypeFilter] = useState('all');
-  
+  const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState(5);
   // Modal states
   const [actionModalVisible, setActionModalVisible] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
@@ -112,27 +113,27 @@ const InterviewManagement = ({ userRole }) => {
     loadCandidates();
   }, [jobId]);
 
-  // Apply filters
   useEffect(() => {
-    let filtered = [...candidates];
+  let filtered = [...candidates];
 
-    if (searchText) {
-      filtered = filtered.filter(candidate =>
-        candidate.name.toLowerCase().includes(searchText.toLowerCase()) ||
-        candidate.email.toLowerCase().includes(searchText.toLowerCase())
-      );
-    }
+  if (searchText) {
+    filtered = filtered.filter(candidate =>
+      candidate.name.toLowerCase().includes(searchText.toLowerCase()) ||
+      candidate.email.toLowerCase().includes(searchText.toLowerCase())
+    );
+  }
 
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(candidate => candidate.status === statusFilter);
-    }
+  if (statusFilter !== 'all') {
+    filtered = filtered.filter(candidate => candidate.status === statusFilter);
+  }
 
-    if (interviewTypeFilter !== 'all') {
-      filtered = filtered.filter(candidate => candidate.interviewType === interviewTypeFilter);
-    }
+  if (interviewTypeFilter !== 'all') {
+    filtered = filtered.filter(candidate => candidate.interviewType === interviewTypeFilter);
+  }
 
-    setFilteredCandidates(filtered);
-  }, [searchText, statusFilter, interviewTypeFilter, candidates]);
+  setFilteredCandidates(filtered);
+  setCurrentPage(1); // Add this line to reset pagination
+}, [searchText, statusFilter, interviewTypeFilter, candidates]);
 
   const handleInterviewAction = (candidate) => {
     setSelectedCandidate(candidate);
@@ -510,12 +511,38 @@ const columns = [
         rowKey="id"
         loading={loading}
         pagination={{
-          pageSize: 10,
-          showSizeChanger: true,
-          showQuickJumper: true,
-          showTotal: (total, range) =>
-            `${range[0]}-${range[1]} of ${total} candidates`,
-        }}
+  current: currentPage,
+  pageSize: pageSize,
+  total: filteredCandidates.length,
+  showSizeChanger: true,
+  showQuickJumper: true,
+  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} candidates`,
+  pageSizeOptions: ['5', '10', '20', '50'],
+  onChange: (page, size) => {
+    setCurrentPage(page);
+    setPageSize(size);
+  },
+  onShowSizeChange: (current, size) => {
+    setCurrentPage(1);
+    setPageSize(size);
+  },
+  itemRender: (current, type, originalElement) => {
+    if (type === 'page') {
+      return (
+        <a style={{
+          color: current === currentPage ? '#0D7139' : '#666',
+          backgroundColor: current === currentPage ? '#f6ffed' : 'white',
+          border: `1px solid ${current === currentPage ? '#0D7139' : '#d9d9d9'}`,
+          borderRadius: '6px',
+          fontWeight: current === currentPage ? 600 : 400
+        }}>
+          {current}
+        </a>
+      );
+    }
+    return originalElement;
+  }
+}}
         scroll={{ x: 'max-content' }} // Reduced from 1200
         size="small"
         style={{ width: '100%' }}

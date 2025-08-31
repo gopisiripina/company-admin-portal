@@ -60,6 +60,9 @@ const [generatedLink, setGeneratedLink] = useState('');
   const [previewVisible, setPreviewVisible] = useState(false);
   const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [posting, setPosting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState(5);
+const [totalJobs, setTotalJobs] = useState(0);
   const [postingPlatforms, setPostingPlatforms] = useState({
     linkedin: false,
     company: false,
@@ -168,9 +171,11 @@ const fetchJobDescriptions = async () => {
     }));
 
     setJobDescriptions(jobsWithStatus);
+    setTotalJobs(jobsWithStatus.length); // Add this line
   }
 };
 useEffect(() => {
+  setCurrentPage(1);
   fetchJobDescriptions();
 }, [hiringTypeFilter]);
 
@@ -804,7 +809,39 @@ const handlePostJob = async () => {
   columns={jobColumns}
   dataSource={jobDescriptions}
   rowKey="id"
-  pagination={{ pageSize: 5 }}
+  pagination={{
+    current: currentPage,
+    pageSize: pageSize,
+    total: totalJobs,
+    showSizeChanger: true,
+    showQuickJumper: true,
+    showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} jobs`,
+    pageSizeOptions: ['5', '10', '20', '50'],
+    onChange: (page, size) => {
+      setCurrentPage(page);
+      setPageSize(size);
+    },
+    onShowSizeChange: (current, size) => {
+      setCurrentPage(1);
+      setPageSize(size);
+    },
+    itemRender: (current, type, originalElement) => {
+      if (type === 'page') {
+        return (
+          <a style={{
+            color: current === currentPage ? '#0D7139' : '#666',
+            backgroundColor: current === currentPage ? '#f6ffed' : 'white',
+            border: `1px solid ${current === currentPage ? '#0D7139' : '#d9d9d9'}`,
+            borderRadius: '6px',
+            fontWeight: current === currentPage ? 600 : 400
+          }}>
+            {current}
+          </a>
+        );
+      }
+      return originalElement;
+    }
+  }}
   size="middle"
   scroll={{ x: 800 }}
   style={{
@@ -815,7 +852,6 @@ const handlePostJob = async () => {
     type: 'radio',
     selectedRowKeys: selectedJob ? [selectedJob.id] : [],
     onSelect: (record) => handleJobSelect(record),
-    
   }}
 />
             </Card>

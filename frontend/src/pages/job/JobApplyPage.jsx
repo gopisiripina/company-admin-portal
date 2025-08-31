@@ -28,7 +28,9 @@ const JobApplyPage = ({ userRole }) => {
   const [dateRange, setDateRange] = useState(null);
   const [resumeModalVisible, setResumeModalVisible] = useState(false);
   const [selectedApplicant, setSelectedApplicant] = useState(null);
-  
+  const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState(5);
+const [totalApplicants, setTotalApplicants] = useState(0);
   // Fetch all unique job postings from applications
   const fetchJobPostings = async () => {
     setJobsLoading(true);
@@ -64,16 +66,30 @@ const JobApplyPage = ({ userRole }) => {
   };
 
   // Fetch applicants for selected job - FIXED VERSION
-  const fetchApplicants = async (jobId) => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('job_applications')
-        .select('*')
-        .eq('job_id', jobId)
-        .order('applied_at', { ascending: false });
+  const fetchApplicants = async (jobId, page = 1, pageSize = 10) => {
+  setLoading(true);
+  try {
+    // Calculate offset for pagination
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
 
-      if (error) throw error;
+    // Get total count first
+    const { count, error: countError } = await supabase
+      .from('job_applications')
+      .select('*', { count: 'exact', head: true })
+      .eq('job_id', jobId);
+
+    if (countError) throw countError;
+
+    // Fetch paginated data
+    const { data, error } = await supabase
+      .from('job_applications')
+      .select('*')
+      .eq('job_id', jobId)
+      .order('applied_at', { ascending: false })
+      .range(from, to);
+
+    if (error) throw error;
 
       // Transform data with proper status handling
       const transformedApplicants = data.map(app => ({
@@ -98,18 +114,15 @@ const JobApplyPage = ({ userRole }) => {
         coverLetter: app.cover_letter,
         avatar: null
       }));
-
-      
-
       setApplicants(transformedApplicants);
-      setFilteredApplicants(transformedApplicants);
-    } catch (error) {
-      console.error('Error fetching applicants:', error);
-      message.error('Failed to load applicants');
-    } finally {
-      setLoading(false);
-    }
-  };
+    setTotalApplicants(count); // Add this state variable
+    setFilteredApplicants(transformedApplicants);
+  } catch (error) {
+    // ... error handling
+  } finally {
+    setLoading(false);
+  }
+};
 
   // REPLACE the handleStatusChange function with this:
   const handleStatusChange = async (applicantId, newStatus) => {
@@ -209,14 +222,16 @@ const JobApplyPage = ({ userRole }) => {
   };
 
   const handleJobSelect = (jobId) => {
-    setSelectedJob(jobId);
-    if (jobId) {
-      fetchApplicants(jobId);
-    } else {
-      setApplicants([]);
-      setFilteredApplicants([]);
-    }
-  };
+  setSelectedJob(jobId);
+  setCurrentPage(1); // Reset to first page
+  if (jobId) {
+    fetchApplicants(jobId, 1, pageSize);
+  } else {
+    setApplicants([]);
+    setFilteredApplicants([]);
+    setTotalApplicants(0);
+  }
+};
 
   // Separate function to apply filters to given data
   const applyFiltersToData = (dataToFilter) => {
@@ -664,12 +679,41 @@ const JobApplyPage = ({ userRole }) => {
   rowKey="id"
   loading={loading}
   pagination={{
-    pageSize: 10,
-    showSizeChanger: true,
-    showQuickJumper: true,
-    showTotal: (total, range) =>
-      `${range[0]}-${range[1]} of ${total} applications`,
-  }}
+  current: currentPage,
+  pageSize: pageSize,
+  total: totalApplicants, // Use the total count from database
+  showSizeChanger: true,
+  showQuickJumper: true,
+  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} applications`,
+  pageSizeOptions: ['5', '10', '20', '50'],
+  onChange: (page, size) => {
+    setCurrentPage(page);
+    setPageSize(size);
+    fetchApplicants(selectedJob, page, size);
+  },
+  onShowSizeChange: (current, size) => {
+    setCurrentPage(1);
+    setPageSize(size);
+    fetchApplicants(selectedJob, 1, size);
+  },
+  itemRender: (current, type, originalElement) => {
+  if (type === 'page') {
+    return (
+      <a style={{
+        color: current === currentPage ? '#0D7139' : '#666',
+        backgroundColor: current === currentPage ? '#f6ffed' : 'white',
+        border: `1px solid ${current === currentPage ? '#0D7139' : '#d9d9d9'}`,
+        borderRadius: '6px',
+        fontWeight: current === currentPage ? 600 : 400
+      }}>
+        {current}
+      </a>
+    );
+  }
+  return originalElement;
+}
+}}
+
   scroll={{ x: 'max-content' }} // Change this from { x: 800 }
   size="small"
 />
