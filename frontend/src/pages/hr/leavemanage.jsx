@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Card,
   Button,
@@ -65,16 +65,19 @@ import {
   SunOutlined,
   MoonOutlined,
   ThunderboltOutlined,
-  EnvironmentOutlined
+  EnvironmentOutlined,
+  ReloadOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import isBetween from 'dayjs/plugin/isBetween'; // <-- ADD THIS LINE
 import { supabase } from '../../supabase/config';
 import useSWR, { mutate } from 'swr';
 import Analytics from './Analytics'; // Add this line - adjust path as needed
 
 
 dayjs.extend(relativeTime);
+dayjs.extend(isBetween); // <-- AND ADD THIS LINE
 
 
 // Add this function after your imports
@@ -223,8 +226,6 @@ const fetchLeaveApplications = async (userId = null) => {
 
 const fetchLeaveBalances = async (userId) => {
   try {
-    await supabase.rpc('reset_monthly_limits');
-
     const { data, error } = await supabase
       .from('leave_balances')
       .select(`
@@ -239,52 +240,34 @@ const fetchLeaveBalances = async (userId) => {
 
     if (error && error.code !== 'PGRST116') throw error;
 
-    // If no balance record exists, create one
-    if (!data) {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('name, employee_id')
-        .eq('id', userId)
-        .single();
-
-      const newBalance = {
-        user_id: userId,
-        employee_name: userData?.name || 'Unknown',
-        permission_total: 2,
-        permission_remaining: 2,
-        casual_total: 12,
-        casual_remaining: 12,
-        earned_total: 0,
-        earned_remaining: 0,
-        medical_total: 12,
-        medical_remaining: 12,
-        maternity_total: 84,
-        maternity_remaining: 84,
-        compensatory_total: 0,
-        compensatory_remaining: 0,
-        excuses_total: 1,
-        excuses_remaining: 1
-      };
-
-     const { data: newData, error: insertError } = await supabase
-        .from('leave_balances')
-        .insert([newBalance])
-        .select(`
-          *,
-          users!user_id (
-            name,
-            employee_id
-          )
-        `)
-        .single();
-
-      if (insertError) throw insertError;
-      return newData;
+    // Check if it's a new year and add 12 new casual leaves
+    if (data) {
+      const currentYear = new Date().getFullYear();
+      const lastUpdatedYear = new Date(data.last_updated || data.created_at).getFullYear();
+      
+      if (currentYear > lastUpdatedYear) {
+        // Add 12 new casual leaves to existing remaining balance
+        const newCasualTotal = data.casual_remaining + 12;
+        const newCasualRemaining = data.casual_remaining + 12;
+        
+        const { error: updateError } = await supabase
+          .from('leave_balances')
+          .update({
+            casual_total: newCasualTotal,
+            casual_remaining: newCasualRemaining,
+            last_updated: new Date().toISOString()
+          })
+          .eq('user_id', userId);
+          
+        if (updateError) throw updateError;
+        
+        // Fetch updated data
+        return await fetchLeaveBalances(userId);
+      }
     }
 
     return data;
   } catch (error) {
-
     return null;
   }
 };
@@ -361,12 +344,118 @@ const calculateLeaveBalances = async (userId, currentUser) => {
     }
   };
 };
+// In leavemanage.jsx
 
+// 1. ADD THIS NEW COMPONENT before the main LeaveManagementPage component
+const LeaveHistoryDrawer = ({ visible, onClose, leaveData, currentUser }) => {
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [typeFilter, setTypeFilter] = useState('All');
+
+  const filteredHistory = useMemo(() => {
+    return leaveData.filter(leave => {
+      const statusMatch = statusFilter === 'All' || leave.status === statusFilter;
+      const typeMatch = typeFilter === 'All' || leave.leave_type === typeFilter;
+      return statusMatch && typeMatch;
+    });
+  }, [leaveData, statusFilter, typeFilter]);
+
+  const leaveTypes = useMemo(() => [...new Set(leaveData.map(l => l.leave_type))], [leaveData]);
+
+  return (
+    <Drawer
+      title={
+        <Space>
+          <HistoryOutlined />
+          <span>{currentUser?.name}'s Leave History</span>
+        </Space>
+      }
+      placement="right"
+      onClose={onClose}
+      open={visible}
+      width={window.innerWidth > 768 ? 500 : '90%'}
+      destroyOnClose
+    >
+      {/* Filter Controls */}
+      <Card style={{ marginBottom: '16px', background: '#fafafa' }} size="small">
+        <Row gutter={[16, 16]}>
+          <Col xs={24} sm={12}>
+            <Select
+              value={statusFilter}
+              onChange={setStatusFilter}
+              style={{ width: '100%' }}
+              placeholder="Filter by Status"
+            >
+              <Option value="All">All Statuses</Option>
+              <Option value="Approved">Approved</Option>
+              <Option value="Pending">Pending</Option>
+              <Option value="Rejected">Rejected</Option>
+            </Select>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Select
+              value={typeFilter}
+              onChange={setTypeFilter}
+              style={{ width: '100%' }}
+              placeholder="Filter by Leave Type"
+            >
+              <Option value="All">All Leave Types</Option>
+              {leaveTypes.map(type => (
+                <Option key={type} value={type}>{type}</Option>
+              ))}
+            </Select>
+          </Col>
+        </Row>
+      </Card>
+
+      {/* Leave List */}
+      {filteredHistory.length > 0 ? (
+        <div style={{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto', paddingRight: '8px' }}>
+          <Timeline>
+            {filteredHistory.map(leave => {
+              const config = getLeaveTypeConfig(leave.leave_type);
+              return (
+                <Timeline.Item key={leave.id} dot={config.icon} color={config.color}>
+                  <div style={{ marginBottom: '12px' }}>
+                    <p style={{ margin: 0, fontWeight: 'bold' }}>
+                      {leave.leave_type}
+                      <Tag color={
+                        leave.status === 'Approved' ? 'success' :
+                        leave.status === 'Rejected' ? 'error' : 'warning'
+                      } style={{ marginLeft: '8px' }}>
+                        {leave.status}
+                      </Tag>
+                    </p>
+                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                      {dayjs(leave.start_date).format('MMM DD, YYYY')} - {dayjs(leave.end_date).format('MMM DD, YYYY')}
+                    </Text>
+                     <Paragraph ellipsis={{ rows: 2, expandable: true, symbol: 'more' }} style={{ fontSize: '13px', marginTop: '4px', color: '#666' }}>
+                      Reason: {leave.reason}
+                    </Paragraph>
+                  </div>
+                </Timeline.Item>
+              );
+            })}
+          </Timeline>
+        </div>
+      ) : (
+        <Empty description="No leave history found." />
+      )}
+    </Drawer>
+  );
+};
 
 const LeaveManagementPage = ({ userRole = 'hr', currentUserId = '1' }) => {
 const [employees, setEmployees] = useState([]);
   const [leaveData, setLeaveData] = useState([]);
 const [leaveBalanceRaw, setLeaveBalanceRaw] = useState(null);
+// Add these new states near the top of LeaveManagementPage
+
+const [dataLoaded, setDataLoaded] = useState(false);
+
+
+
+// Add these to your existing state declarations
+
 
 
   const [filteredLeaves, setFilteredLeaves] = useState([]);
@@ -448,44 +537,30 @@ useEffect(() => {
   }, []);
 
   // Filter leaves based on current filters
-// Filter leaves based on current filters
 useEffect(() => {
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const leaves = await fetchLeaveApplications(userRole === 'employee' ? currentUserId : null);
-      const balances = await calculateLeaveBalances(currentUserId, currentUser);
-      
-setLeaveData(leaves); // ✅ Updates the state directly
-      setLeaveBalances(balances);
-      
-      // Apply filters to the loaded data
-      let filtered = leaves;
-      
-      if (filterStatus !== 'All') {
-        filtered = filtered.filter(leave => leave.status === filterStatus);
+  // Only load data ONCE when component mounts and user is available
+  if (!dataLoaded && currentUser?.id) {
+    const loadInitialData = async () => {
+      setLoading(true);
+      try {
+        const leaves = await fetchLeaveApplications(userRole === 'employee' ? currentUserId : null);
+        const balances = await calculateLeaveBalances(currentUserId, currentUser);
+        
+        setLeaveData(leaves);
+        setLeaveBalances(balances);
+        setDataLoaded(true); // Mark data as loaded
+        
+      } catch (error) {
+        console.error('Error loading initial data:', error);
+      } finally {
+        setLoading(false);
+        setIsLoaded(true);
       }
-      
-      if (filterType !== 'All') {
-        filtered = filtered.filter(leave => leave.leave_type === filterType);
-      }
-      
-      if (filterEmployee !== 'All') {
-        filtered = filtered.filter(leave => leave.employee_id === filterEmployee);
-      }
-      
-      setFilteredLeaves(filtered);
-      
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
-      setIsLoaded(true);
-    }
-  };
-  
-  loadData();
-}, [userRole, currentUserId, currentUser, filterStatus, filterType, filterEmployee]); // Add filter dependencies  // Get current user data
+    };
+    
+    loadInitialData();
+  }
+}, [currentUser?.id]);
  
  // Apply filters when filter values change
 useEffect(() => {
@@ -530,7 +605,8 @@ useEffect(() => {
   };
 
 
-// Add this validation at the start of handleApplyLeave function
+
+
 
 // Add this function to calculate days in real-time
 const calculateLeaveDays = () => {
@@ -915,6 +991,8 @@ const EmployeeDashboard = () => (
         </Col>
       </Row>
     </Card>
+    {/* Add this after the Recent Leave Applications card */}
+
       {/* Leave Balance Cards */}
            <Row gutter={[12, 12]} style={{ marginBottom: '24px' }}>
         {Object.entries(leaveBalances).map(([key, balance]) => {
@@ -1523,7 +1601,7 @@ const completeStyles = professionalStyles + actionButtonStyles;
   const ApplyLeaveForm = () => {
     const [selectedLeaveType, setSelectedLeaveType] = useState('');
     const availableLeaveTypes = getAvailableLeaveTypes();
-
+const isMedicalDisabled = !leaveBalances.medicalLeave || leaveBalances.medicalLeave.remaining <= 0;
     const isPermissionDisabled = leaveBalances.permission?.remaining <= 0;
     const isCasualDisabled = leaveBalances.casualLeave?.remaining <= 0 || leaveBalances.casualLeave?.monthlyUsed >= 1;
     // UPDATED: More robust check for earned and compensatory leave
@@ -1575,12 +1653,12 @@ const completeStyles = professionalStyles + actionButtonStyles;
                     Earned Leave ({leaveBalances.earnedLeave?.remaining || 0} remaining)
                   </Space>
                 </Option>
-                <Option value="Medical Leave">
-                  <Space>
-                    <MedicineBoxOutlined style={{ color: '#ff4d4f' }} />
-                    Medical Leave ({leaveBalances.medicalLeave?.remaining} remaining)
-                  </Space>
-                </Option>
+                <Option value="Medical Leave" disabled={isMedicalDisabled}>
+  <Space>
+    <MedicineBoxOutlined style={{ color: '#ff4d4f' }} />
+    Medical Leave ({leaveBalances.medicalLeave?.remaining} remaining)
+  </Space>
+</Option>
                 <Option value="Maternity Leave">
                   {/* ... (no changes) ... */}
                 </Option>
@@ -1744,14 +1822,7 @@ const completeStyles = professionalStyles + actionButtonStyles;
           )}
         </Row>
 
- {selectedLeaveType === 'Medical Leave' && leaveBalances.medicalLeave?.remaining <= 0 && (
-          <Alert
-            message={`You have exhausted your available medical leaves. This application will be considered as an extra leave and is subject to HR approval.`}
-            type="warning"
-            showIcon
-            style={{ marginBottom: '16px' }}
-          />
-        )}
+
         <Form.Item
           name="reason"
           label="Reason for Leave"
@@ -1769,7 +1840,7 @@ const completeStyles = professionalStyles + actionButtonStyles;
           <Form.Item
             name="medicalCertificate"
             label="Medical Certificate"
-            rules={[{ required: true, message: 'Please upload medical certificate' }]}
+            rules={[{ required: false, message: 'Please upload medical certificate' }]}
             // ADDED: Props to correctly handle file list with AntD Form
             valuePropName="fileList"
             getValueFromEvent={(e) => Array.isArray(e) ? e : e && e.fileList}
@@ -2024,89 +2095,10 @@ return (
 };
 
   // Leave History Drawer
-  const LeaveHistoryDrawer = () => (
-    <Drawer
-      title={
-        <Space>
-          <HistoryOutlined />
-          <span>Leave History</span>
-        </Space>
-      }
-      width={800}
-      open={leaveHistoryDrawer}
-      onClose={() => setLeaveHistoryDrawer(false)}
-      extra={
-        <Space>
-          <Button
-  icon={<DownloadOutlined />}
-  onClick={() => setExportModalVisible(true)}
->
-  Export Report
-</Button>
-        </Space>
-      }
-    >
-      <div style={{ marginBottom: '16px' }}>
-        <Row gutter={[16, 16]}>
-          <Col xs={24} sm={8}>
-            <Select
-              placeholder="Filter by Status"
-              value={filterStatus}
-              onChange={setFilterStatus}
-              style={{ width: '100%' }}
-              allowClear
-            >
-              <Option value="All">All Status</Option>
-              <Option value="Pending">Pending</Option>
-              <Option value="Approved">Approved</Option>
-              <Option value="Rejected">Rejected</Option>
-            </Select>
-          </Col>
-          <Col xs={24} sm={8}>
-            <Select
-              placeholder="Filter by Type"
-              value={filterType}
-              onChange={setFilterType}
-              style={{ width: '100%' }}
-              allowClear
-            >
-              <Option value="All">All Types</Option>
-              <Option value="Permission">Permission</Option>
-              <Option value="Casual Leave">Casual Leave</Option>
-              <Option value="Earned Leave">Earned Leave</Option>
-              <Option value="Medical Leave">Medical Leave</Option>
-              <Option value="Maternity Leave">Maternity Leave</Option>
-              <Option value="Compensatory Leave">Compensatory Leave</Option>
-              <Option value="On Duty">On Duty</Option>
-              <Option value="Excuses">Excuses</Option>
-              <Option value="Overtime">Overtime</Option>
-            </Select>
-          </Col>
-          <Col xs={24} sm={8}>
-            <RangePicker 
-              style={{ width: '100%' }}
-              placeholder={['Start Date', 'End Date']}
-            />
-          </Col>
-        </Row>
-      </div>
+// ✅ Place this entire component BEFORE the main LeaveManagementPage component
+// Replace your existing LeaveHistoryDrawer component with this fixed version
+// Replace the existing LeaveHistoryDrawer component with this fixed version:
 
-      <Table
-        columns={getTableColumns()}
-        dataSource={filteredLeaves}
-        rowKey="id"
-        pagination={{
-          pageSize: 10,
-          showSizeChanger: true,
-          showQuickJumper: true,
-          showTotal: (total, range) => 
-            `${range[0]}-${range[1]} of ${total} items`,
-        }}
-        scroll={{ x: 800 }}
-        size="small"
-      />
-    </Drawer>
-  );
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
@@ -2122,7 +2114,10 @@ useEffect(() => {
     window.removeEventListener('resize', handleResize);
   };
 }, [])
-  useEffect(() => {
+useEffect(() => {
+  // Only set up realtime after initial data is loaded
+  if (!dataLoaded) return;
+  
   // LEAVE APPLICATIONS
   const leaveSub = supabase
     .channel('realtime-leave-applications')
@@ -2133,11 +2128,9 @@ useEffect(() => {
     }, async (payload) => {
       console.log('Leave applications updated:', payload);
       
-      // ✅ Refresh leave data
       const updatedLeaves = await fetchLeaveApplications(userRole === 'employee' ? currentUserId : null);
       setLeaveData(updatedLeaves);
       
-      // ✅ If it's an approval/rejection, also refresh balances
       if (payload.eventType === 'UPDATE' && 
           (payload.new?.status === 'Approved' || payload.new?.status === 'Rejected')) {
         const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
@@ -2146,7 +2139,6 @@ useEffect(() => {
     })
     .subscribe();
 
-  // LEAVE BALANCES
   const balanceSub = supabase
     .channel('realtime-leave-balances')
     .on('postgres_changes', {
@@ -2156,7 +2148,6 @@ useEffect(() => {
     }, async (payload) => {
       console.log('Leave balances updated:', payload);
       
-      // ✅ Refresh balances immediately
       const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
       setLeaveBalances(updatedBalances);
     })
@@ -2166,8 +2157,26 @@ useEffect(() => {
     supabase.removeChannel(leaveSub);
     supabase.removeChannel(balanceSub);
   };
-}, [currentUserId, userRole, currentUser]);
+}, [dataLoaded, currentUserId, userRole, currentUser]);
+// Add this useEffect hook inside LeaveManagementPage
+useEffect(() => {
+    const fetchEmployees = async () => {
+        if (userRole !== 'employee') {
+            const { data, error } = await supabase
+                .from('users')
+                .select('id, name')
+                .order('name', { ascending: true });
+            
+            if (error) {
+                console.error("Error fetching employees:", error);
+            } else {
+                setEmployees(data || []);
+            }
+        }
+    };
 
+    fetchEmployees();
+}, [userRole]);
   // HR/Admin Dashboard Component
   const HRDashboard = () => (
   <div style={animationStyles.container}>
@@ -2255,27 +2264,7 @@ useEffect(() => {
         <Col xs={24} md={10} lg={8}>
           <Space direction="vertical" style={{ width: '100%' }} size={12}>
             <Row gutter={8} justify="end">
-              <Col>
-                <Tooltip title="Advanced Filtering Options">
-                  <Button
-                    icon={<FilterOutlined />}
-                    onClick={() => setLeaveHistoryDrawer(true)}
-                    style={{
-                      height: '44px',
-                      borderRadius: '12px',
-                      border: '1px solid #e1e5e9',
-                      background: 'white',
-                      color: '#6b7280',
-                      fontWeight: 500,
-                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-                      transition: 'all 0.3s ease'
-                    }}
-                    className="professional-btn"
-                  >
-                    Advanced Filters
-                  </Button>
-                </Tooltip>
-              </Col>
+              
               <Col>
                 <Tooltip title="Export Leave Reports">
                   <Button
@@ -2584,62 +2573,86 @@ useEffect(() => {
           
           <Col xs={24} sm={12} md={10}>
             <Row gutter={[12, 12]} justify="end">
-              <Col xs={24} sm={12} md={8}>
-                <Select
-                  placeholder="Status"
-                  value={filterStatus}
-                  onChange={setFilterStatus}
-                  style={{ width: '100%' }}
-                  size="large"
-                  suffixIcon={<FilterOutlined style={{ color: '#9ca3af' }} />}
-                  className="professional-select"
-                >
-                  <Option value="All">All Status</Option>
-                  <Option value="Pending">
-                    <Space>
-                      <div style={{ width: '8px', height: '8px', background: '#faad14', borderRadius: '50%' }} />
-                      Pending
-                    </Space>
-                  </Option>
-                  <Option value="Approved">
-                    <Space>
-                      <div style={{ width: '8px', height: '8px', background: '#52c41a', borderRadius: '50%' }} />
-                      Approved
-                    </Space>
-                  </Option>
-                  <Option value="Rejected">
-                    <Space>
-                      <div style={{ width: '8px', height: '8px', background: '#ff4d4f', borderRadius: '50%' }} />
-                      Rejected
-                    </Space>
-                  </Option>
-                </Select>
-              </Col>
-              
-              <Col xs={24} sm={12} md={8}>
-                <Select
-                  placeholder="Employee"
-                  value={filterEmployee}
-                  onChange={setFilterEmployee}
-                  style={{ width: '100%' }}
-                  size="large"
-                  suffixIcon={<UserOutlined style={{ color: '#9ca3af' }} />}
-                  className="professional-select"
-                >
-                  <Option value="All">All Employees</Option>
-                  {employees.map(emp => (
-                    <Option key={emp.id} value={emp.id}>
-                      <Space>
-                        <Avatar size="small" style={{ backgroundColor: '#0D7139' }}>
-                          {emp.name.charAt(0)}
-                        </Avatar>
-                        {emp.name}
-                      </Space>
-                    </Option>
-                  ))}
-                </Select>
-              </Col>
-            </Row>
+  <Col xs={24} sm={12} md={6}>
+    <Select
+      placeholder="Status"
+      value={filterStatus}
+      onChange={setFilterStatus}
+      style={{ width: '100%' }}
+      size="large"
+      suffixIcon={<FilterOutlined style={{ color: '#9ca3af' }} />}
+      className="professional-select"
+    >
+      <Option value="All">All Status</Option>
+      <Option value="Pending">
+        <Space>
+          <div style={{ width: '8px', height: '8px', background: '#faad14', borderRadius: '50%' }} />
+          Pending
+        </Space>
+      </Option>
+      <Option value="Approved">
+        <Space>
+          <div style={{ width: '8px', height: '8px', background: '#52c41a', borderRadius: '50%' }} />
+          Approved
+        </Space>
+      </Option>
+      <Option value="Rejected">
+        <Space>
+          <div style={{ width: '8px', height: '8px', background: '#ff4d4f', borderRadius: '50%' }} />
+          Rejected
+        </Space>
+      </Option>
+    </Select>
+  </Col>
+  
+  {/* NEW DATE RANGE PICKER */}
+  <Col xs={24} sm={12} md={6}>
+    <RangePicker
+      style={{ width: '100%' }}
+      size="large"
+      placeholder={['Start Date', 'End Date']}
+      onChange={(dates) => {
+        // Add date filtering logic here
+        if (dates && dates.length === 2) {
+          // Filter leaves by date range
+          const filtered = leaveData.filter(leave => {
+            const leaveDate = dayjs(leave.start_date);
+            return leaveDate.isBetween(dates[0], dates[1], 'day', '[]');
+          });
+          setFilteredLeaves(filtered);
+        } else {
+          // Reset to show all leaves when date range is cleared
+          setFilteredLeaves(leaveData);
+        }
+      }}
+      className="professional-select"
+    />
+  </Col>
+  
+  <Col xs={24} sm={12} md={6}>
+    <Select
+      placeholder="Employee"
+      value={filterEmployee}
+      onChange={setFilterEmployee}
+      style={{ width: '100%' }}
+      size="large"
+      suffixIcon={<UserOutlined style={{ color: '#9ca3af' }} />}
+      className="professional-select"
+    >
+      <Option value="All">All Employees</Option>
+      {employees.map(emp => (
+        <Option key={emp.id} value={emp.id}>
+          <Space>
+            <Avatar size="small" style={{ backgroundColor: '#0D7139' }}>
+              {emp.name.charAt(0)}
+            </Avatar>
+            {emp.name}
+          </Space>
+        </Option>
+      ))}
+    </Select>
+  </Col>
+</Row>
           </Col>
         </Row>
       </div>
@@ -2818,11 +2831,12 @@ useEffect(() => {
 }
 `}</style>
 
-      <Tabs 
-        activeKey={activeTab} 
-        onChange={setActiveTab}
-        style={{ marginBottom: '24px' }}
-        items={[
+       <Tabs 
+  activeKey={activeTab} 
+  onChange={setActiveTab}
+  style={{ marginBottom: '24px' }}
+  destroyOnHidden={false} // ✅ This prevents tab content from being destroyed/recreated
+  items={[
           userRole === 'employee' ? {
             key: 'dashboard',
             label: (
@@ -2842,24 +2856,24 @@ useEffect(() => {
             ),
             children: <HRDashboard />
           },
-          userRole !== 'employee' &&
           
+          userRole !== 'employee' &&
      {
-  key: 'analytics',
-  label: (
-    <Space>
-      <BankOutlined />
-      <span>Analytics</span>
-    </Space>
-  ),
-  children: (
-    <Analytics 
-      currentUserId={currentUserId}
-      userRole={userRole}
-      leaveData={leaveData}
-    />
-  )
-}
+      key: 'analytics',
+      label: (
+        <Space>
+          <BankOutlined />
+          <span>Analytics</span>
+        </Space>
+      ),
+      children: (
+        <Analytics 
+          currentUserId={currentUserId}
+          userRole={userRole}
+          leaveData={leaveData}
+        />
+      )
+    }
         ].filter(Boolean)}
       />
 
@@ -2903,7 +2917,18 @@ useEffect(() => {
       <LeaveDetailsModal />
 
       {/* Leave History Drawer */}
-      <LeaveHistoryDrawer />
+    {/* Remove this entire component usage */}
+      <LeaveHistoryDrawer
+        visible={leaveHistoryDrawer}
+        onClose={() => setLeaveHistoryDrawer(false)}
+        leaveData={leaveData} 
+        currentUser={currentUser}
+      />      
+       <ExportReportModal 
+  visible={exportModalVisible}
+  onCancel={() => setExportModalVisible(false)}
+  leaveData={filteredLeaves}
+/>
     </div>
   );
 };
@@ -3018,6 +3043,8 @@ const professionalStyles = `
   }
 `;
 // 2. Add Export Modal Component (add this before the LeaveManagementPage component)
+// In leavemanage.jsx, place this before the `const LeaveManagementPage = ...` line.
+
 const ExportReportModal = ({ visible, onCancel, leaveData }) => {
   const [exportForm] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -3026,44 +3053,43 @@ const ExportReportModal = ({ visible, onCancel, leaveData }) => {
     setLoading(true);
     try {
       const { month, year } = values;
-      const startDate = dayjs(`${year}-${month + 1}-01`);
-      const endDate = startDate.endOf('month');
-      
+      const startDate = dayjs().year(year).month(month).startOf('month');
+      const endDate = dayjs().year(year).month(month).endOf('month');
+
       // Filter leaves for the selected month/year
       const filteredLeaves = leaveData.filter(leave => {
-        const leaveDate = dayjs(leave.start_date || leave.startDate);
-        return leaveDate.isAfter(startDate.subtract(1, 'day')) && 
-               leaveDate.isBefore(endDate.add(1, 'day'));
+        const leaveDate = dayjs(leave.start_date);
+        return leaveDate.isBetween(startDate, endDate, 'day', '[]');
       });
 
-      // Prepare data for export
-      const exportData = filteredLeaves.map(leave => ({
-        'Employee Name': leave.users?.name || leave.employee_name || leave.employeeName,
-        'Employee ID': leave.users?.employee_id || leave.employee_code || leave.employeeCode,
-        'Department': leave.department,
-        'Leave Type': leave.leave_type || leave.leaveType,
-        'Sub Type': leave.sub_type || leave.subType || '-',
-        'Start Date': dayjs(leave.start_date || leave.startDate).format('DD/MM/YYYY'),
-        'End Date': dayjs(leave.end_date || leave.endDate).format('DD/MM/YYYY'),
-        'Total Days': leave.total_days || leave.totalDays || 0,
-        'Total Hours': leave.total_hours || leave.totalHours || 0,
-        'Status': leave.status,
-        'Applied Date': dayjs(leave.created_at || leave.appliedDate).format('DD/MM/YYYY'),
-        'Approved By': leave.approved_by || leave.approvedBy || '-',
-        'Reason': leave.reason || '-'
-      }));
-
-      // Create CSV content
-      if (exportData.length === 0) {
+      if (filteredLeaves.length === 0) {
         message.warning('No leave data found for the selected month/year');
+        setLoading(false);
         return;
       }
 
+      // Prepare data for export
+      const exportData = filteredLeaves.map(leave => ({
+        'Employee Name': leave.users?.name || leave.employee_name,
+        'Employee ID': leave.users?.employee_id || leave.employee_code,
+        'Department': leave.department,
+        'Leave Type': leave.leave_type,
+        'Sub Type': leave.sub_type || '-',
+        'Start Date': dayjs(leave.start_date).format('DD/MM/YYYY'),
+        'End Date': dayjs(leave.end_date).format('DD/MM/YYYY'),
+        'Total Days': leave.total_days || 0,
+        'Status': leave.status,
+        'Applied Date': dayjs(leave.created_at).format('DD/MM/YYYY'),
+        'Approved By': leave.approved_by || '-',
+        'Reason': leave.reason?.replace(/,/g, ';') || '-' // Sanitize commas for CSV
+      }));
+
+      // Create CSV content
       const headers = Object.keys(exportData[0]);
       const csvContent = [
         headers.join(','),
-        ...exportData.map(row => 
-          headers.map(header => `"${row[header] || ''}"`).join(',')
+        ...exportData.map(row =>
+          headers.map(header => `"${row[header]}"`).join(',')
         )
       ].join('\n');
 
@@ -3073,15 +3099,13 @@ const ExportReportModal = ({ visible, onCancel, leaveData }) => {
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
       link.setAttribute('download', `leave_report_${startDate.format('MMM_YYYY')}.csv`);
-      link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
-      message.success(`Leave report for ${startDate.format('MMMM YYYY')} downloaded successfully!`);
+      message.success(`Report for ${startDate.format('MMMM YYYY')} downloaded.`);
       onCancel();
-      exportForm.resetFields();
-      
+
     } catch (error) {
       console.error('Export error:', error);
       message.error('Failed to export report');
@@ -3099,302 +3123,52 @@ const ExportReportModal = ({ visible, onCancel, leaveData }) => {
         </Space>
       }
       open={visible}
-      onCancel={() => {
-        onCancel();
-        exportForm.resetFields();
-      }}
+      onCancel={onCancel}
       footer={[
-        <Button key="cancel" onClick={onCancel}>
-          Cancel
-        </Button>,
-        <Button 
-          key="export" 
-          type="primary" 
+        <Button key="cancel" onClick={onCancel}>Cancel</Button>,
+        <Button
+          key="export"
+          type="primary"
           onClick={() => exportForm.submit()}
           loading={loading}
-          style={{
-            background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
-            border: 'none'
-          }}
+          icon={<DownloadOutlined />}
+          style={{ background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)', border: 'none' }}
         >
-          <DownloadOutlined /> Export Report
+          Export
         </Button>
       ]}
       width={400}
+      destroyOnClose
     >
       <Form
         form={exportForm}
         layout="vertical"
         onFinish={handleExport}
-        initialValues={{
-          month: dayjs().month(),
-          year: dayjs().year()
-        }}
+        initialValues={{ month: dayjs().month(), year: dayjs().year() }}
       >
-        <Form.Item
-          name="month"
-          label="Select Month"
-          rules={[{ required: true, message: 'Please select month' }]}
-        >
-          <Select size="large" placeholder="Choose month">
+        <Form.Item name="month" label="Select Month" rules={[{ required: true }]}>
+          <Select placeholder="Choose month">
             {Array.from({ length: 12 }, (_, i) => (
-              <Option key={i} value={i}>
-                {dayjs().month(i).format('MMMM')}
-              </Option>
+              <Option key={i} value={i}>{dayjs().month(i).format('MMMM')}</Option>
             ))}
           </Select>
         </Form.Item>
-
-        <Form.Item
-          name="year"
-          label="Select Year"
-          rules={[{ required: true, message: 'Please select year' }]}
-        >
-          <Select size="large" placeholder="Choose year">
+        <Form.Item name="year" label="Select Year" rules={[{ required: true }]}>
+          <Select placeholder="Choose year">
             {Array.from({ length: 5 }, (_, i) => {
-              const year = dayjs().year() - 2 + i;
-              return (
-                <Option key={year} value={year}>
-                  {year}
-                </Option>
-              );
+              const year = dayjs().year() - i;
+              return <Option key={year} value={year}>{year}</Option>;
             })}
           </Select>
         </Form.Item>
-
         <Alert
-          message="Export Format"
-          description="The report will be downloaded as a CSV file containing all leave applications for the selected month and year."
+          message="The report will be downloaded as a CSV file for the selected period."
           type="info"
           showIcon
-          style={{ marginTop: '16px' }}
         />
       </Form>
     </Modal>
   );
 };
 
-// Leave Analytics Component  
-const LeaveAnalytics = ({ exportModalVisible, setExportModalVisible, filteredLeaves }) => {
-  const [leaveData, setLeaveData] = useState([]);
-  const [loading, setLoading] = useState(false);
-
-  // Fetch real leave data for analytics
-  useEffect(() => {
-    const fetchAnalyticsData = async () => {
-      setLoading(true);
-      try {
-        const data = await fetchLeaveApplications();
-        setLeaveData(data);
-      } catch (error) {
-        console.error('Error fetching analytics data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAnalyticsData();
-  }, []);
-
-  if (loading) {
-    return (
-      <div style={{ textAlign: 'center', padding: '50px' }}>
-        <Spin size="large" />
-        <div style={{ marginTop: '16px' }}>Loading analytics...</div>
-      </div>
-    );
-  }
-
-  if (leaveData.length === 0) {
-    return (
-      <Empty 
-        description="No leave data available for analytics"
-        style={{ padding: '50px' }}
-      />
-    );
-  }
-
-  // Calculate analytics data using real data
-  const leaveTypeStats = leaveData.reduce((acc, leave) => {
-    const leaveType = leave.leave_type || leave.leaveType;
-    acc[leaveType] = (acc[leaveType] || 0) + 1;
-    return acc;
-  }, {});
-
-  const departmentStats = leaveData.reduce((acc, leave) => {
-    acc[leave.department] = (acc[leave.department] || 0) + 1;
-    return acc;
-  }, {});
-
-  const monthlyStats = leaveData.reduce((acc, leave) => {
-    const month = dayjs(leave.start_date || leave.startDate).format('MMM YYYY');
-    acc[month] = (acc[month] || 0) + 1;
-    return acc;
-  }, {});
-
-  const statusStats = leaveData.reduce((acc, leave) => {
-    acc[leave.status] = (acc[leave.status] || 0) + 1;
-    return acc;
-  }, {});
-
-  return (
-    <div>
-      <Row gutter={[24, 24]}>
-        {/* Leave Type Distribution */}
-        <Col xs={24} lg={12}>
-          <Card 
-            title="Leave Type Distribution" 
-            style={{ 
-              borderRadius: '12px',
-              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)'
-            }}
-          >
-            <div style={{ height: '300px' }}>
-              {Object.entries(leaveTypeStats).map(([type, count]) => {
-                const config = getLeaveTypeConfig(type);
-                const percentage = (count / leaveData.length) * 100;
-                
-                return (
-                  <div key={type} style={{ marginBottom: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                      <Space>
-                        <div style={{ color: config.color }}>{config.icon}</div>
-                        <Text>{type}</Text>
-                      </Space>
-                      <Text strong>{count}</Text>
-                    </div>
-                   <Progress 
-  percent={percentage}
-  strokeColor={config.color}
-  showInfo={false}
-  size="small"
-/>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-        </Col>
-
-        {/* Department Wise Statistics */}
-        <Col xs={24} lg={12}>
-          <Card 
-            title="Department Wise Leaves" 
-            style={{ 
-              borderRadius: '12px',
-              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)'
-            }}
-          >
-            <div style={{ height: '300px' }}>
-              {Object.entries(departmentStats).map(([dept, count]) => {
-                const percentage = (count / leaveData.length) * 100;
-                const colors = ['#0D7139', '#52c41a', '#1890ff', '#722ed1', '#fa8c16'];
-                const color = colors[Object.keys(departmentStats).indexOf(dept) % colors.length];
-                
-                return (
-               // Inside the LeaveAnalytics component...
-
-<div key={dept} style={{ marginBottom: '16px' }}>
-  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-    <Text>{dept}</Text>
-    <Text strong>{count}</Text>
-  </div>
-  <Progress 
-    percent={percentage}
-    strokeColor={color}
-    showInfo={false}
-    size="small" // The prop has been updated here
-  />
-</div>
-                );
-              })}
-            </div>
-          </Card>
-        </Col>
-
-        {/* Status Overview */}
-        <Col xs={24} md={12}>
-          <Card 
-            title="Status Overview" 
-            style={{ 
-              borderRadius: '12px',
-              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)'
-            }}
-          >
-            <Space direction="vertical" style={{ width: '100%' }}>
-              {Object.entries(statusStats).map(([status, count]) => {
-                const color = status === 'Approved' ? '#52c41a' : 
-                             status === 'Rejected' ? '#ff4d4f' : '#faad14';
-                const icon = status === 'Approved' ? <CheckCircleOutlined /> : 
-                            status === 'Rejected' ? <CloseCircleOutlined /> : <ClockCircleOutlined />;
-                
-                return (
-                  <div key={status} style={{ 
-                    padding: '12px',
-                    background: `${color}10`,
-                    borderRadius: '8px',
-                    border: `1px solid ${color}20`
-                  }}>
-                    <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-                      <Space>
-                        <div style={{ color }}>{icon}</div>
-                        <Text>{status}</Text>
-                      </Space>
-                      <Text strong style={{ color, fontSize: '18px' }}>
-                        {count}
-                      </Text>
-                    </Space>
-                  </div>
-                );
-              })}
-            </Space>
-          </Card>
-        </Col>
-
-        {/* Monthly Trends */}
-        <Col xs={24} md={12}>
-          <Card 
-            title="Monthly Leave Trends" 
-            style={{ 
-              borderRadius: '12px',
-              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)'
-            }}
-          >
-            <Row gutter={[16, 16]}>
-              {Object.entries(monthlyStats).slice(-6).map(([month, count]) => (
-                <Col xs={12} sm={8} md={6} key={month}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ 
-                      width: '60px', 
-                      height: '60px', 
-                      borderRadius: '50%', 
-                      background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      margin: '0 auto 8px auto',
-                      color: 'white',
-                      fontSize: '18px',
-                      fontWeight: 'bold'
-                    }}>
-                      {count}
-                    </div>
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                      {month}
-                    </Text>
-                  </div>
-                </Col>
-              ))}
-            </Row>
-          </Card>
-        </Col>
-      </Row>
-      <ExportReportModal 
-  visible={exportModalVisible}
-  onCancel={() => setExportModalVisible(false)}
-  leaveData={filteredLeaves}
-/>
-    </div>
-  );
-};
 export default LeaveManagementPage;
