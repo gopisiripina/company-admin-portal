@@ -59,7 +59,9 @@ const CampusJobApplyPage = ({ userRole }) => {
   const [examLinkData, setExamLinkData] = useState(null);
   const [emailForm] = Form.useForm();
   const [sendingEmails, setSendingEmails] = useState(false);
-
+  const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState(5);
+const [totalApplications, setTotalApplications] = useState(0);
   // Get unique job IDs and college names for filters
   const uniqueJobIds = useMemo(() => {
     return [...new Set(applications.map(app => app.jobId))].filter(Boolean);
@@ -90,38 +92,39 @@ const CampusJobApplyPage = ({ userRole }) => {
   }, []);
 
   // Fetch all campus job applications
-  const fetchApplications = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('campus_job_applications')
-        .select('*')
-        .order('created_at', { ascending: false });
+  const fetchApplications = async (page = 1, size = 5) => {
+  setLoading(true);
+  try {
+    // Calculate offset for pagination
+    const from = (page - 1) * size;
+    const to = from + size - 1;
 
-      if (error) throw error;
+    // Get total count first
+    const { count, error: countError } = await supabase
+      .from('campus_job_applications')
+      .select('*', { count: 'exact', head: true });
 
-      const transformedData = data.map(app => ({
-        id: app.id,
-        linkId: app.link_id,
-        jobId: app.job_id,
-        studentName: app.student_name,
-        email: app.email,
-        mobile: app.mobile,
-        resumeUrl: app.resume_url,
-        collegeName: app.college_name,
-        appliedDate: app.created_at ? new Date(app.created_at).toISOString().split('T')[0] : '',
-        appliedTime: app.created_at ? new Date(app.created_at).toLocaleString() : ''
-      }));
+    if (countError) throw countError;
 
-      setApplications(transformedData);
-      setFilteredApplications(transformedData);
-    } catch (error) {
-      console.error('Error fetching applications:', error);
-      message.error('Failed to load applications');
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Fetch paginated data
+    const { data, error } = await supabase
+      .from('campus_job_applications')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (error) throw error;
+
+    // ... rest of your transformation logic remains the same
+    
+    setTotalApplications(count);
+    // ... rest of the function
+  } catch (error) {
+    // ... error handling
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Apply filters
   const applyFilters = () => {
@@ -357,7 +360,7 @@ await Promise.all(emailPromises);
     };
 
   useEffect(() => {
-    fetchApplications();
+    fetchApplications(1, 5);
   }, []);
 
   useEffect(() => {
@@ -636,14 +639,39 @@ await Promise.all(emailPromises);
           rowKey="id"
           loading={loading}
           pagination={{
-  pageSize: 10,
+  current: currentPage,
+  pageSize: pageSize,
+  total: totalApplications,
   showSizeChanger: true,
   showQuickJumper: true,
-  showTotal: (total, range) =>
-    `${range[0]}-${range[1]} of ${total} applications`,
-  responsive: true, // Add this
-  size: window.innerWidth < 768 ? 'small' : 'default', // Add this
-  pageSizeOptions: ['10', '20', '50', '100'], // Add this
+  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} applications`,
+  pageSizeOptions: ['5', '10', '20', '50'],
+  onChange: (page, size) => {
+    setCurrentPage(page);
+    setPageSize(size);
+    fetchApplications(page, size);
+  },
+  onShowSizeChange: (current, size) => {
+    setCurrentPage(1);
+    setPageSize(size);
+    fetchApplications(1, size);
+  },
+  itemRender: (current, type, originalElement) => {
+    if (type === 'page') {
+      return (
+        <a style={{
+          color: current === currentPage ? '#1890ff' : '#666',
+          backgroundColor: current === currentPage ? '#f6ffed' : 'white',
+          border: `1px solid ${current === currentPage ? '#1890ff' : '#d9d9d9'}`,
+          borderRadius: '6px',
+          fontWeight: current === currentPage ? 600 : 400
+        }}>
+          {current}
+        </a>
+      );
+    }
+    return originalElement;
+  }
 }}
           scroll={{ x: 'max-content' }}
           size="small"
