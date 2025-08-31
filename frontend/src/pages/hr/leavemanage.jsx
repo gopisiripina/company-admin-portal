@@ -878,11 +878,12 @@ const handleLeaveAction = async (leaveId, action, reason = null) => {
     if (fetchError) throw fetchError;
 
     const updates = {
-      status: action === 'approve' ? 'Approved' : 'Rejected',
-      approved_by: action === 'approve' ? (currentUser?.name || 'Admin') : null,
-      approved_date: action === 'approve' ? new Date().toISOString().split('T')[0] : null,
-      rejection_reason: action === 'reject' ? reason : null,
-    };
+  status: action === 'approve' ? 'Approved' : 'Rejected',
+  approved_by: action === 'approve' ? (currentUser?.name || 'Admin') : null,
+  rejected_by: action === 'reject' ? (currentUser?.name || 'Admin') : null, // Add this line
+  approved_date: action === 'approve' ? new Date().toISOString().split('T')[0] : null,
+  rejection_reason: action === 'reject' ? reason : null,
+};
     
     const { error } = await supabase
       .from('leave_applications')
@@ -1392,6 +1393,13 @@ const getTableColumns = () => {
               <div style={{ marginTop: '4px' }}>
                 <Text type="secondary" style={{ fontSize: '9px' }}>
                   by {record.approved_by}
+                </Text>
+              </div>
+            )}
+            {!isMobile && record.status === 'Rejected' && record.rejected_by && (
+              <div style={{ marginTop: '4px' }}>
+                <Text type="secondary" style={{ fontSize: '9px' }}>
+                  by {record.rejected_by}
                 </Text>
               </div>
             )}
@@ -2054,10 +2062,10 @@ return (
               </Text>
             </div>
           )}
-          {selectedLeave.status === 'Rejected' && (selectedLeave.rejection_reason || selectedLeave.rejectionReason) && (
+          {selectedLeave.status === 'Rejected' && (selectedLeave.rejected_by || selectedLeave.rejected_by) && (
             <div style={{ marginTop: '4px' }}>
-              <Text type="danger" style={{ fontSize: '12px' }}>
-                Rejected: {selectedLeave.rejection_reason || selectedLeave.rejectionReason}
+              <Text type="secondary" style={{ fontSize: '12px' }}>
+                Rejected by {selectedLeave.rejected_by || selectedLeave.rejected_by} on {dayjs(selectedLeave.approved_date || selectedLeave.approvedDate).format('DD MMM YYYY')}
               </Text>
             </div>
           )}
