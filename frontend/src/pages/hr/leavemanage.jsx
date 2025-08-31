@@ -474,14 +474,17 @@ const [casualSubType, setCasualSubType] = useState('');
   // Form and filter states
   const [form] = Form.useForm();
   const [filterStatus, setFilterStatus] = useState('All');
-  const [filterType, setFilterType] = useState('All');
   const [filterEmployee, setFilterEmployee] = useState('All');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [calculatedDays, setCalculatedDays] = useState(0);
 const [balanceWarning, setBalanceWarning] = useState('');
 
   const [currentUser, setCurrentUser] = useState(null);
-
+const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState(5);
+const [totalEmployees, setTotalEmployees] = useState(0);
+const [searchText, setSearchText] = useState('');
+const [filterType, setFilterType] = useState('All');
 
 useEffect(() => {
   const fetchCurrentUser = async () => {
@@ -2167,24 +2170,48 @@ useEffect(() => {
   };
 }, [dataLoaded, currentUserId, userRole, currentUser]);
 // Add this useEffect hook inside LeaveManagementPage
-useEffect(() => {
-    const fetchEmployees = async () => {
-        if (userRole !== 'employee') {
-            const { data, error } = await supabase
-                .from('users')
-                .select('id, name')
-                .order('name', { ascending: true });
-            
-            if (error) {
-                console.error("Error fetching employees:", error);
-            } else {
-                setEmployees(data || []);
-            }
-        }
-    };
 
-    fetchEmployees();
-}, [userRole]);
+
+const fetchEmployees = async (page = 1, size = 5, search = '', filter = 'All') => {
+  if (userRole === 'employee') return;
+  
+  setLoading(true);
+  try {
+    let query = supabase
+      .from('users')
+      .select('*', { count: 'exact' });
+    
+    // Apply search filter
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,employee_id.ilike.%${search}%`);
+    }
+    
+    // Apply type filter
+    if (filter !== 'All') {
+      query = query.eq('employee_type', filter);
+    }
+    
+    // Apply pagination
+    const from = (page - 1) * size;
+    const to = from + size - 1;
+    query = query.range(from, to).order('name', { ascending: true });
+    
+    const { data, error, count } = await query;
+    
+    if (error) throw error;
+    
+    setEmployees(data || []);
+    setTotalEmployees(count || 0);
+  } catch (error) {
+    console.error("Error fetching employees:", error);
+    message.error('Failed to fetch employees');
+  } finally {
+    setLoading(false);
+  }
+};
+useEffect(() => {
+  fetchEmployees(currentPage, pageSize, searchText, filterType);
+}, [userRole, currentPage, pageSize, searchText, filterType]);
   // HR/Admin Dashboard Component
   const HRDashboard = () => (
   <div style={animationStyles.container}>
@@ -2673,16 +2700,43 @@ useEffect(() => {
           rowKey="id"
           loading={loading}
           pagination={filteredLeaves.length > 0 ? {
-            pageSize: 15,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) => (
-              <Text style={{ color: '#6b7280', fontWeight: 500 }}>
-                Showing {range[0]}-{range[1]} of {total} applications
-              </Text>
-            ),
-            simple: isMobile,
-          } : false}
+  current: currentPage,
+  pageSize: pageSize,
+  total: filteredLeaves.length, // Change this from totalEmployees to filteredLeaves.length
+  showSizeChanger: true,
+  showQuickJumper: true,
+  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} applications`, // Change "employees" to "applications"
+  pageSizeOptions: ['5', '10', '20', '50'],
+  onChange: (page, size) => {
+    setCurrentPage(page);
+    if (size !== pageSize) {
+      setPageSize(size);
+      setCurrentPage(1);
+    }
+  },
+  onShowSizeChange: (current, size) => {
+    setCurrentPage(1);
+    setPageSize(size);
+  },
+  itemRender: (current, type, originalElement) => {
+    if (type === 'page') {
+      return (
+        <a style={{
+          color: current === currentPage ? '#0D7139' : '#d9d9d9',
+          backgroundColor:current === currentPage ? "#ffffffff" : '#faf8f8ff' ,
+          border: `1px solid ${current === currentPage ? '#0D7139' : '#d9d9d9'}`,
+          borderRadius: '6px',
+          fontWeight: current === currentPage ? 600 : 400,
+          padding: '0px 7px',
+          textDecoration: 'none'
+        }}>
+          {current}
+        </a>
+      );
+    }
+    return originalElement;
+  }
+} : false}
           scroll={filteredLeaves.length > 0 ? {
             x: 'max-content',
             scrollToFirstRowOnChange: true
@@ -2736,61 +2790,7 @@ useEffect(() => {
       minHeight: '100vh'
     }}>
       <style>{`
-  .pending-row {
-    background-color: #fff7e6 !important;
-  }
-  .ant-table-tbody > tr:hover.pending-row > td {
-    background-color: #ffefd3 !important;
-  }
   
-  /* Pagination white styling */
-  .ant-pagination .ant-pagination-item {
-    background-color: white !important;
-    border-color: #d9d9d9 !important;
-  }
-  
-  .ant-pagination .ant-pagination-item a {
-    color: #666 !important;
-  }
-  
-  .ant-pagination .ant-pagination-item:hover {
-    border-color: #0D7139 !important;
-  }
-  
-  .ant-pagination .ant-pagination-item:hover a {
-    color: #0D7139 !important;
-  }
-  
-  .ant-pagination .ant-pagination-item-active {
-    background-color: #0D7139 !important;
-    border-color: #0D7139 !important;
-  }
-  
-  .ant-pagination .ant-pagination-item-active a {
-    color: white !important;
-  }
-  
-  .ant-pagination .ant-pagination-prev,
-  .ant-pagination .ant-pagination-next {
-    background-color: white !important;
-    border-color: #d9d9d9 !important;
-  }
-  
-  .ant-pagination .ant-pagination-prev:hover,
-  .ant-pagination .ant-pagination-next:hover {
-    border-color: #0D7139 !important;
-    color: #0D7139 !important;
-  }
-  
-  .ant-pagination .ant-pagination-jump-prev,
-  .ant-pagination .ant-pagination-jump-next {
-    color: #666 !important;
-  }
-  
-  .ant-pagination .ant-pagination-jump-prev:hover,
-  .ant-pagination .ant-pagination-jump-next:hover {
-    color: #0D7139 !important;
-  }
     /* Add this to your existing style block */
 
 /* Prevent horizontal scrollbar on empty tables */
@@ -3023,18 +3023,7 @@ const professionalStyles = `
     padding: 16px 16px !important;
   }
 
-  /* Enhanced Pagination */
-  .ant-pagination .ant-pagination-item {
-    border-radius: 8px !important;
-    border: 1px solid #e9ecef !important;
-    font-weight: 500 !important;
-  }
-
-  .ant-pagination .ant-pagination-item-active {
-    background: linear-gradient(135deg, #0D7139 0%, #52c41a 100%) !important;
-    border-color: #0D7139 !important;
-  }
-
+  
   /* Responsive Improvements */
   @media (max-width: 768px) {
     .ant-card-body {
