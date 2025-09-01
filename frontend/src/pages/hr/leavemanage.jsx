@@ -526,11 +526,15 @@ const LeaveManagementPage = ({ userRole = 'hr', currentUserId = '1' }) => {
   // Form and filter states
   const [form] = Form.useForm();
   const [filterStatus, setFilterStatus] = useState('All');
+  const [filterType, setFilterType] = useState('All');
   const [filterEmployee, setFilterEmployee] = useState('All');
-  const [activeTab, setActiveTab] = useState('dashboard');
+    const [activeTab, setActiveTab] = useState('dashboard');
   const [calculatedDays, setCalculatedDays] = useState(0);
-const [balanceWarning, setBalanceWarning] = useState('');
+  const [balanceWarning, setBalanceWarning] = useState('');
 
+  // ADD THESE LINES FOR PAGINATION
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [currentUser, setCurrentUser] = useState(null);
 
 
@@ -773,7 +777,75 @@ const HRMedicalLeaveModal = ({ visible, onCancel, employees, onAllocate, loading
   );
 };
 
+const handleAllocateMedicalLeave = async (values) => {
+    setLoading(true);
+    try {
+      const { employeeId, extraDays, reason, medicalCertificate } = values;
 
+      // 1. Upload the certificate
+      if (!medicalCertificate || medicalCertificate.length === 0) {
+        message.error('Medical certificate is required.');
+        setLoading(false);
+        return;
+      }
+      const certificateUrl = await uploadFileToSupabase(medicalCertificate[0].originFileObj);
+
+      // 2. Get the user's current leave balance
+      const { data: currentBalance, error: fetchError } = await supabase
+        .from('leave_balances')
+        .select('medical_extra_granted, medical_remaining')
+        .eq('user_id', employeeId)
+        .single();
+
+      if (fetchError) {
+        // If no record exists, initialize it first
+        await initializeUserLeaveBalance(employeeId);
+        // Then retry fetching
+        const { data: newBalance, error: newFetchError } = await supabase
+            .from('leave_balances')
+            .select('medical_extra_granted, medical_remaining')
+            .eq('user_id', employeeId)
+            .single();
+        if (newFetchError) throw newFetchError;
+        Object.assign(currentBalance, newBalance);
+      }
+      
+      // 3. Calculate new totals
+      const newExtraGranted = (currentBalance?.medical_extra_granted || 0) + extraDays;
+      const newRemaining = (currentBalance?.medical_remaining || 0) + extraDays;
+
+      // 4. Update the leave_balances table
+      const { error: updateError } = await supabase
+        .from('leave_balances')
+        .update({
+          medical_extra_granted: newExtraGranted,
+          medical_remaining: newRemaining,
+          // Optional: You could add a log of this specific allocation
+          // allocation_history: supabase.sql`allocation_history || ${JSON.stringify({ date: new Date(), days: extraDays, reason, certificateUrl })}::jsonb`
+        })
+        .eq('user_id', employeeId);
+
+      if (updateError) throw updateError;
+      
+      message.success(`${extraDays} additional medical leave days allocated successfully!`);
+      
+      // 5. Close modal and reset form
+      setMedicalLeaveModal(false);
+      medicalForm.resetFields();
+      
+      // 6. Refresh data for the current view
+      if (userRole === 'employee' && currentUserId === employeeId) {
+        const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
+        setLeaveBalances(updatedBalances);
+      }
+
+    } catch (error) {
+      console.error('Error allocating medical leave:', error);
+      message.error('Failed to allocate medical leave. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 // Helper to count only working days (exclude weekends + holidays)
 const countDeductibleDays = async (startDate, endDate) => {
   const holidays = await fetchCompanyCalendar(); // red days
