@@ -364,21 +364,28 @@ const deleteDisaster = async (id) => {
   }
     try {
       setLoading(true);
-      const holidayData = {
-  date: values.startDate.format('YYYY-MM-DD'),
-  day_type: 'holiday',
-  holiday_name: values.holidayName,
-  reason: values.description || null,
-  is_mandatory: values.type === 'National' ? true : false,
-  holiday_type: values.type, // Add this line to store the actual type
-  created_by: currentUserId
-};
+      const startDate = values.startDate;
+const endDate = values.endDate || values.startDate;
+const holidayRecords = [];
 
-
+// Generate records for each date in the range
+let currentDate = startDate;
+while (currentDate.isSameOrBefore(endDate, 'day')) {
+  holidayRecords.push({
+    date: currentDate.format('YYYY-MM-DD'),
+    day_type: 'holiday',
+    holiday_name: values.holidayName,
+    reason: values.description || null,
+    is_mandatory: values.type === 'National' ? true : false,
+    holiday_type: values.type,
+    created_by: currentUserId
+  });
+  currentDate = currentDate.add(1, 'day');
+}
 
 const { data, error } = await supabase
   .from('company_calendar')
-  .insert([holidayData])
+  .insert(holidayRecords)
   .select();
 
       if (error) throw error;
@@ -396,29 +403,55 @@ const { data, error } = await supabase
   };
 
   const updateHoliday = async (values) => {
-    if (!permissions.canManageHolidays) {
+  if (!permissions.canManageHolidays) {
     message.error('You do not have permission to manage holidays');
     return;
   }
+  
   try {
     setLoading(true);
-    const holidayData = {
-      date: values.startDate.format('YYYY-MM-DD'),
-      holiday_name: values.holidayName,
-      reason: values.description || null,
-      is_mandatory: values.type === 'National' ? true : false,
-      holiday_type: values.type
-    };
+    
+    // First, we need to handle the complexity of updating a holiday that might span multiple dates
+    // The approach is to delete the old holiday record(s) and create new ones
+    
+    // Delete the existing holiday record
+    const { error: deleteError } = await supabase
+      .from('company_calendar')
+      .delete()
+      .eq('id', editingHoliday.id);
 
+    if (deleteError) throw deleteError;
+
+    // Now create new records for the date range
+    const startDate = values.startDate;
+    const endDate = values.endDate || values.startDate;
+    const holidayRecords = [];
+
+    // Generate records for each date in the range
+    let currentDate = startDate;
+    while (currentDate.isSameOrBefore(endDate, 'day')) {
+      holidayRecords.push({
+        date: currentDate.format('YYYY-MM-DD'),
+        day_type: 'holiday',
+        holiday_name: values.holidayName,
+        reason: values.description || null,
+        is_mandatory: values.type === 'National' ? true : false,
+        holiday_type: values.type,
+        created_by: currentUserId || editingHoliday.created_by // Preserve original creator if currentUserId is not available
+      });
+      currentDate = currentDate.add(1, 'day');
+    }
+
+    // Insert the new holiday records
     const { data, error } = await supabase
       .from('company_calendar')
-      .update(holidayData)
-      .eq('id', editingHoliday.id)
+      .insert(holidayRecords)
       .select();
 
     if (error) throw error;
     
-    message.success('Holiday updated successfully');
+    const dayCount = holidayRecords.length;
+    message.success(`Holiday updated successfully${dayCount > 1 ? ` for ${dayCount} days` : ''}`);
     await fetchHolidays();
     setHolidayModalVisible(false);
     holidayForm.resetFields();
@@ -430,7 +463,6 @@ const { data, error } = await supabase
     setLoading(false);
   }
 };
-
   const deleteHoliday = async (id) => {
   try {
     const { error } = await supabase
@@ -1482,12 +1514,6 @@ const upcomingEvents = [
                   />
                 </Form.Item>
 
-                <Form.Item
-                  name="recurring"
-                  valuePropName="checked"
-                >
-                  <Switch /> <Text style={{ marginLeft: 8 }}>Recurring Holiday</Text>
-                </Form.Item>
               </Form>
             </Modal>
           </div>

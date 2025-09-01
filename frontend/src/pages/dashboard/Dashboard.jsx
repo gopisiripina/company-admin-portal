@@ -663,9 +663,156 @@ useEffect(() => {
 const presentDays = attendanceData.filter(record => record.is_present === true).length || 0;
 const absentDays = attendanceData.filter(record => record.is_present === false).length || 0;
 const totalDays = attendanceData.length || 0;
+
+// Add these state variables at the top of your component
+const [holidays, setHolidays] = useState([]);
+const [workingDaysConfig, setWorkingDaysConfig] = useState({
+  monday: true,
+  tuesday: true,
+  wednesday: true,
+  thursday: true,
+  friday: true,
+  saturday: false,
+  sunday: false
+});
+
+// Add this function to fetch holidays
+const fetchHolidays = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('company_calendar')
+      .select('*')
+      .eq('day_type', 'holiday')
+      .order('date', { ascending: true });
+    
+    if (error) throw error;
+    setHolidays(data || []);
+  } catch (error) {
+    console.error('Error fetching holidays:', error);
+  }
+};
+
+// Add this function to fetch working days config
+const fetchWorkingDaysConfig = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('company_calendar')
+      .select('*')
+      .eq('day_type', 'working_day_config')
+      .single();
+    
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+    
+    if (data && data.reason) {
+      const config = JSON.parse(data.reason);
+      setWorkingDaysConfig(config);
+    }
+  } catch (error) {
+    console.error('Error fetching working days config:', error);
+  }
+};
+
+// Call these functions in useEffect
+useEffect(() => {
+  fetchHolidays();
+  fetchWorkingDaysConfig();
+}, []);
+
+// Function to check if a day is a working day
+const isWorkingDay = (date) => {
+  const dayOfWeek = date.getDay(); // 0=Sunday, 1=Monday, etc.
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const dayName = dayNames[dayOfWeek];
+  return workingDaysConfig[dayName];
+};
+
+// Function to check if a day is a holiday
+const isHoliday = (dateStr) => {
+  return holidays.some(holiday => holiday.date === dateStr);
+};
+
+// Function to determine attendance status
+const getAttendanceStatus = (dateStr, attendanceInfo, currentDate) => {
+  const targetDate = new Date(dateStr);
+  const isToday = currentDate.toDateString() === targetDate.toDateString();
+  const isPastDate = targetDate < currentDate && !isToday;
+  const isWorkDay = isWorkingDay(targetDate);
+  const isHol = isHoliday(dateStr);
+  
+  // If it's a holiday, mark as holiday
+  // If it's a holiday, check if there's attendance data first
+if (isHol) {
+  // If employee worked on holiday, prioritize attendance status
+  if (attendanceInfo) {
+    if (attendanceInfo.hasCheckedIn && !attendanceInfo.hasCheckedOut) {
+      return {
+        dayClass: 'checked-in', // Orange color #f97316
+        tooltipText: `Holiday Work - Checked In at ${attendanceInfo.checkIn} (${holidays.find(h => h.date === dateStr)?.holiday_name || 'Holiday'})`
+      };
+    } else if (attendanceInfo.hasCheckedIn && attendanceInfo.hasCheckedOut) {
+      return {
+        dayClass: 'present', // Green color #22c55e
+        tooltipText: `Holiday Work - Check in: ${attendanceInfo.checkIn}, Check out: ${attendanceInfo.checkOut} (${holidays.find(h => h.date === dateStr)?.holiday_name || 'Holiday'})`
+      };
+    }
+  }
+  // Default holiday appearance when no attendance
+  return {
+    dayClass: 'holiday',
+    tooltipText: `Holiday: ${holidays.find(h => h.date === dateStr)?.holiday_name || 'Holiday'}`
+  };
+}
+  
+  // If it's not a working day (weekend), mark accordingly
+  if (!isWorkDay) {
+    return {
+      dayClass: 'non-working',
+      tooltipText: 'Non-working day'
+    };
+  }
+  
+  // If there's attendance info
+  if (attendanceInfo) {
+    if (attendanceInfo.hasCheckedIn && !attendanceInfo.hasCheckedOut) {
+      return {
+        dayClass: 'checked-in',
+        tooltipText: `Checked In at ${attendanceInfo.checkIn} - Not checked out yet`
+      };
+    } else if (attendanceInfo.hasCheckedIn && attendanceInfo.hasCheckedOut) {
+      return {
+        dayClass: 'present',
+        tooltipText: `Present - Check in: ${attendanceInfo.checkIn}, Check out: ${attendanceInfo.checkOut}`
+      };
+    } else if (attendanceInfo.isPresent === false) {
+      return {
+        dayClass: 'absent',
+        tooltipText: `Absent on ${dateStr}`
+      };
+    }
+  }
+  
+  // For past working days without attendance data, mark as absent
+  if (isPastDate && isWorkDay) {
+    return {
+      dayClass: 'absent',
+      tooltipText: `Absent on ${dateStr} - No attendance recorded`
+    };
+  }
+  
+  // For future dates or today without data
+  return {
+    dayClass: 'no-data',
+    tooltipText: `No data for ${dateStr}`
+  };
+};
+
+// Enhanced renderAttendanceCalendar function
 const renderAttendanceCalendar = () => {
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
+  const currentDate = new Date();
   
   const firstDayOfMonth = new Date(year, month, 1);
   const lastDayOfMonth = new Date(year, month + 1, 0);
@@ -675,32 +822,26 @@ const renderAttendanceCalendar = () => {
   // Create attendance lookup map
   const attendanceMap = {};
   
- 
-  
   attendanceData.forEach(record => {
-  // Handle different date formats
-  let dateKey;
-  if (record.date) {
-    // Ensure date is in YYYY-MM-DD format
-    if (typeof record.date === 'string') {
-      dateKey = record.date.split('T')[0]; // Remove time part if exists
-    } else {
-      dateKey = new Date(record.date).toISOString().split('T')[0];
+    let dateKey;
+    if (record.date) {
+      if (typeof record.date === 'string') {
+        dateKey = record.date.split('T')[0];
+      } else {
+        dateKey = new Date(record.date).toISOString().split('T')[0];
+      }
+      
+      attendanceMap[dateKey] = {
+        isPresent: record.is_present,
+        checkIn: record.check_in,
+        checkOut: record.check_out,
+        totalHours: record.total_hours,
+        hasCheckedIn: !!record.check_in,
+        hasCheckedOut: !!record.check_out,
+        isCurrentlyCheckedIn: !!record.check_in && !record.check_out
+      };
     }
-    
-    attendanceMap[dateKey] = {
-      isPresent: record.is_present,
-      checkIn: record.check_in,
-      checkOut: record.check_out,
-      totalHours: record.total_hours,
-      // Add these fields to track current status
-      hasCheckedIn: !!record.check_in,
-      hasCheckedOut: !!record.check_out,
-      isCurrentlyCheckedIn: !!record.check_in && !record.check_out
-    };
-    
-  }
-});
+  });
 
   const calendarDays = [];
   
@@ -711,82 +852,71 @@ const renderAttendanceCalendar = () => {
   
   // Add days of current month
   for (let day = 1; day <= daysInMonth; day++) {
-  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  const attendanceInfo = attendanceMap[dateStr];
-  const isToday = new Date().toDateString() === new Date(year, month, day).toDateString();
-  
-  let dayClass = 'no-data';
-  let tooltipText = `No data for ${dateStr}`;
-  
-  if (attendanceInfo) {
-    // MODIFICATION START
-    // This logic differentiates between a "checked-in" state and a completed "present" state.
-    if (attendanceInfo.hasCheckedIn && !attendanceInfo.hasCheckedOut) {
-      dayClass = 'checked-in'; // A new class for the checked-in but not-out state.
-      tooltipText = `Checked In at ${attendanceInfo.checkIn} - Not checked out yet`;
-    } else if (attendanceInfo.hasCheckedIn && attendanceInfo.hasCheckedOut) {
-      dayClass = 'present'; // The user has completed check-in and check-out.
-      tooltipText = `Present - Check in: ${attendanceInfo.checkIn}, Check out: ${attendanceInfo.checkOut}`;
-    } else if (attendanceInfo.isPresent === false) {
-      dayClass = 'absent';
-      tooltipText = `Absent on ${dateStr}`;
-    }
-    // MODIFICATION END
-  }
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const attendanceInfo = attendanceMap[dateStr];
+    const isToday = currentDate.toDateString() === new Date(year, month, day).toDateString();
+    
+    const { dayClass, tooltipText } = getAttendanceStatus(dateStr, attendanceInfo, currentDate);
     
     calendarDays.push(
-  <div 
-    key={day}
-    className={`calendar-day ${dayClass} ${isToday ? 'today' : ''}`}
-    title={tooltipText} // This basic title will be overridden by the more detailed onMouseEnter tooltip.
-    onMouseEnter={(e) => {
-      // This logic creates a more detailed tooltip on hover.
-      const attendanceInfo = attendanceMap[dateStr];
-      if (attendanceInfo) {
-        const tooltip = document.createElement('div');
-        tooltip.className = 'calendar-tooltip';
-        
-        let tooltipContent = ``;
-        
-        if (attendanceInfo.checkIn) {
-          tooltipContent += `<div class="tooltip-time check-in">Check In: ${attendanceInfo.checkIn}</div>`;
-        }
-        
-        if (attendanceInfo.checkOut) {
-          tooltipContent += `<div class="tooltip-time check-out">Check Out: ${attendanceInfo.checkOut}</div>`;
-        } else if (attendanceInfo.checkIn && !attendanceInfo.checkOut) {
-          // Explicitly show that the user is still checked in.
-          tooltipContent += `<div class="tooltip-time pending">⏳ Not checked out yet</div>`;
-        }
-        
-        tooltip.innerHTML = tooltipContent;
-        document.body.appendChild(tooltip);
-        
-        const rect = e.target.getBoundingClientRect();
-        tooltip.style.left = rect.left + 'px';
-        tooltip.style.top = (rect.top - tooltip.offsetHeight - 10) + 'px';
-      } else {
-        const tooltip = document.createElement('div');
-        tooltip.className = 'calendar-tooltip';
-        tooltip.innerHTML = `
-          <div class="tooltip-date">${dateStr}</div>
-          <div class="tooltip-no-data">No attendance data</div>
-        `;
-        document.body.appendChild(tooltip);
-        
-        const rect = e.target.getBoundingClientRect();
-        tooltip.style.left = rect.left + 'px';
-        tooltip.style.top = (rect.top - tooltip.offsetHeight - 10) + 'px';
-      }
-    }}
-    onMouseLeave={() => {
-      const tooltip = document.querySelector('.calendar-tooltip');
-      if (tooltip) tooltip.remove();
-    }}
-  >
-    {day}
-  </div>
-);
+      <div 
+        key={day}
+        className={`calendar-day ${dayClass} ${isToday ? 'today' : ''}`}
+        title={tooltipText}
+        onMouseEnter={(e) => {
+          const tooltip = document.createElement('div');
+          tooltip.className = 'calendar-tooltip';
+          
+          let tooltipContent = `<div class="tooltip-date">${dateStr}</div>`;
+          
+          // Check if it's a holiday
+          const holiday = holidays.find(h => h.date === dateStr);
+          if (holiday) {
+            tooltipContent += `<div class="tooltip-holiday">${holiday.holiday_name}</div>`;
+          }
+          
+          // Check if it's a working day
+          const targetDate = new Date(dateStr);
+          if (!isWorkingDay(targetDate)) {
+            tooltipContent += `<div class="tooltip-non-working">📅 Non-working day</div>`;
+          }
+          
+          // Add attendance info
+          if (attendanceInfo) {
+            if (attendanceInfo.checkIn) {
+              tooltipContent += `<div class="tooltip-time check-in">📍 Check In: ${attendanceInfo.checkIn}</div>`;
+            }
+            
+            if (attendanceInfo.checkOut) {
+              tooltipContent += `<div class="tooltip-time check-out">📍 Check Out: ${attendanceInfo.checkOut}</div>`;
+            } else if (attendanceInfo.checkIn && !attendanceInfo.checkOut) {
+              tooltipContent += `<div class="tooltip-time pending">⏳ Still checked in</div>`;
+            }
+            
+            if (attendanceInfo.totalHours) {
+              tooltipContent += `<div class="tooltip-hours">⏱️ Total: ${attendanceInfo.totalHours}</div>`;
+            }
+          } else if (dayClass === 'absent') {
+            tooltipContent += `<div class="tooltip-absent">❌ Absent</div>`;
+          } else if (dayClass === 'no-data') {
+            tooltipContent += `<div class="tooltip-no-data">ℹ️ No attendance data</div>`;
+          }
+          
+          tooltip.innerHTML = tooltipContent;
+          document.body.appendChild(tooltip);
+          
+          const rect = e.target.getBoundingClientRect();
+          tooltip.style.left = rect.left + 'px';
+          tooltip.style.top = (rect.top - tooltip.offsetHeight - 10) + 'px';
+        }}
+        onMouseLeave={() => {
+          const tooltip = document.querySelector('.calendar-tooltip');
+          if (tooltip) tooltip.remove();
+        }}
+      >
+        {day}
+      </div>
+    );
   }
 
   const monthNames = [
@@ -794,223 +924,280 @@ const renderAttendanceCalendar = () => {
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
 
-  // Calculate attendance summary
-  // const presentDays = attendanceData.filter(record => record.is_present === true).length;
-  // const absentDays = attendanceData.filter(record => record.is_present === false).length;
-  // const totalDays = attendanceData.length;
-
-    return (
-  <Card 
-    size="small"
-    style={{ 
-      height: '100%',
-      border: 'none',
-      boxShadow: 'none',
-      background: 'transparent'
-    }}
-   styles={{ body: { padding: '12px', height: '100%',
-      display: 'flex',
-      flexDirection: 'column' } }}
-  >
-    {/* Calendar Header */}
-    <Flex justify="space-between" align="center" style={{ marginBottom: '15px' }}>
-      <Button 
-        type="text" 
-        icon={<LeftOutlined />}
-        size="small"
-        onClick={() => setCurrentMonth(new Date(year, month - 1, 1))}
-        style={{
-          border: '1px solid #e2e8f0',
-          borderRadius: '4px',
-          color: '#64748b',
-          fontSize: '14px'
-        }}
-      />
-      <Title 
-        level={5} 
-        style={{ 
-          margin: 0, 
-          fontWeight: 600, 
-          color: '#1e293b',
-          fontSize: '16px'
-        }}
-      >
-        {monthNames[month]} {year}
-      </Title>
-      <Button 
-        type="text" 
-        icon={<RightOutlined />}
-        size="small"
-        onClick={() => setCurrentMonth(new Date(year, month + 1, 1))}
-        style={{
-          border: '1px solid #e2e8f0',
-          borderRadius: '4px',
-          color: '#64748b',
-          fontSize: '14px'
-        }}
-      />
-    </Flex>
+  // Calculate attendance summary (exclude holidays and non-working days from calculations)
+  const workingDaysInMonth = [];
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const targetDate = new Date(year, month, day);
     
-    {/* Attendance Summary */}
+    if (isWorkingDay(targetDate) && !isHoliday(dateStr)) {
+      workingDaysInMonth.push(dateStr);
+    }
+  }
+  
+  
+  const totalWorkingDays = workingDaysInMonth.length;
+
+  return (
     <Card 
       size="small"
-      style={{
-        backgroundColor: '#f8fafc',
-        border: '1px solid #e2e8f0',
-        borderRadius: '8px',
-        marginBottom: '15px'
+      style={{ 
+        height: '100%',
+        border: 'none',
+        boxShadow: 'none',
+        background: 'transparent'
       }}
-      styles={{ body: { padding: '10px' } }}
+      styles={{ body: { padding: '12px', height: '100%',
+        display: 'flex',
+        flexDirection: 'column' } }}
     >
-      <Row gutter={[16, 8]} justify="space-around">
-        <Col span={8}>
-          <Flex vertical align="center" gap={4}>
+      {/* Calendar Header */}
+      <Flex justify="space-between" align="center" style={{ marginBottom: '15px' }}>
+        <Button 
+          type="text" 
+          icon={<LeftOutlined />}
+          size="small"
+          onClick={() => setCurrentMonth(new Date(year, month - 1, 1))}
+          style={{
+            border: '1px solid #e2e8f0',
+            borderRadius: '4px',
+            color: '#64748b',
+            fontSize: '14px'
+          }}
+        />
+        <Title 
+          level={5} 
+          style={{ 
+            margin: 0, 
+            fontWeight: 600, 
+            color: '#1e293b',
+            fontSize: '16px'
+          }}
+        >
+          {monthNames[month]} {year}
+        </Title>
+        <Button 
+          type="text" 
+          icon={<RightOutlined />}
+          size="small"
+          onClick={() => setCurrentMonth(new Date(year, month + 1, 1))}
+          style={{
+            border: '1px solid #e2e8f0',
+            borderRadius: '4px',
+            color: '#64748b',
+            fontSize: '14px'
+          }}
+        />
+      </Flex>
+      
+      {/* Attendance Summary */}
+      <Card 
+        size="small"
+        style={{
+          backgroundColor: '#f8fafc',
+          border: '1px solid #e2e8f0',
+          borderRadius: '8px',
+          marginBottom: '15px'
+        }}
+        styles={{ body: { padding: '10px' } }}
+      >
+        <Row gutter={[16, 8]} justify="space-around">
+          <Col span={6}>
+            <Flex vertical align="center" gap={4}>
+              <Text 
+                style={{ 
+                  fontSize: '12px', 
+                  color: '#64748b', 
+                  fontWeight: '500' 
+                }}
+              >
+                Present:
+              </Text>
+              <Text 
+                style={{ 
+                  fontSize: '16px', 
+                  fontWeight: '700', 
+                  color: '#22c55e' 
+                }}
+              >
+                {presentDays}
+              </Text>
+            </Flex>
+          </Col>
+          <Col span={6}>
+            <Flex vertical align="center" gap={4}>
+              <Text 
+                style={{ 
+                  fontSize: '12px', 
+                  color: '#64748b', 
+                  fontWeight: '500' 
+                }}
+              >
+                Absent:
+              </Text>
+              <Text 
+                style={{ 
+                  fontSize: '16px', 
+                  fontWeight: '700', 
+                  color: '#ef4444' 
+                }}
+              >
+                {absentDays}
+              </Text>
+            </Flex>
+          </Col>
+          <Col span={6}>
+            <Flex vertical align="center" gap={4}>
+              <Text 
+                style={{ 
+                  fontSize: '12px', 
+                  color: '#64748b', 
+                  fontWeight: '500' 
+                }}
+              >
+                Working Days:
+              </Text>
+              <Text 
+                style={{ 
+                  fontSize: '16px', 
+                  fontWeight: '700', 
+                  color: '#1e293b' 
+                }}
+              >
+                {totalWorkingDays}
+              </Text>
+            </Flex>
+          </Col>
+          <Col span={6}>
+            <Flex vertical align="center" gap={4}>
+              <Text 
+                style={{ 
+                  fontSize: '12px', 
+                  color: '#64748b', 
+                  fontWeight: '500' 
+                }}
+              >
+                Holidays:
+              </Text>
+              <Text 
+                style={{ 
+                  fontSize: '16px', 
+                  fontWeight: '700', 
+                  color: '#8b5cf6' 
+                }}
+              >
+                {holidays.filter(h => {
+                  const holidayMonth = new Date(h.date).getMonth();
+                  const holidayYear = new Date(h.date).getFullYear();
+                  return holidayMonth === month && holidayYear === year;
+                }).length}
+              </Text>
+            </Flex>
+          </Col>
+        </Row>
+      </Card>
+      
+      {/* Calendar Weekdays */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(7, 1fr)',
+        gap: '0px',
+        marginBottom: '8px',
+        marginRight:"10px"
+      }}>
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+          <div key={day} style={{ textAlign: 'center' }}>
             <Text 
               style={{ 
                 fontSize: '12px', 
-                color: '#64748b', 
-                fontWeight: '500' 
+                fontWeight: '600', 
+                color: '#64748b',
+                padding: '8px 3px'
               }}
             >
-              Present:
+              {day}
             </Text>
-            <Text 
-              style={{ 
-                fontSize: '16px', 
-                fontWeight: '700', 
-                color: '#22c55e' 
-              }}
-            >
-              {presentDays}
-            </Text>
-          </Flex>
-        </Col>
-        <Col span={8}>
-          <Flex vertical align="center" gap={4}>
-            <Text 
-              style={{ 
-                fontSize: '12px', 
-                color: '#64748b', 
-                fontWeight: '500' 
-              }}
-            >
-              Absent:
-            </Text>
-            <Text 
-              style={{ 
-                fontSize: '16px', 
-                fontWeight: '700', 
-                color: '#ef4444' 
-              }}
-            >
-              {absentDays}
-            </Text>
-          </Flex>
-        </Col>
-        <Col span={8}>
-          <Flex vertical align="center" gap={4}>
-            <Text 
-              style={{ 
-                fontSize: '12px', 
-                color: '#64748b', 
-                fontWeight: '500' 
-              }}
-            >
-              Total:
-            </Text>
-            <Text 
-              style={{ 
-                fontSize: '16px', 
-                fontWeight: '700', 
-                color: '#1e293b' 
-              }}
-            >
-              {totalDays}
-            </Text>
-          </Flex>
-        </Col>
-      </Row>
+          </div>
+        ))}
+      </div>
+      
+      {/* Calendar Grid */}
+      <div style={{ flex: 1, marginBottom: '15px' }}>
+        <Row 
+          gutter={[4, 4]} 
+          style={{ 
+            flex: 1, 
+            marginBottom: '15px',
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(7, 1fr)',
+            gap: '4px',
+            alignItems: 'start'
+          }}
+        >
+          {calendarDays}
+        </Row>
+      </div>
+      
+      {/* Calendar Legend */}
+      <Flex justify="center" gap={12} style={{ fontSize: '12px', flexWrap: 'wrap' }}>
+        <Flex align="center" gap={5}>
+          <Badge 
+            color="#22c55e" 
+            style={{ 
+              width: '12px', 
+              height: '12px', 
+              borderRadius: '50%' 
+            }} 
+          />
+          <Text style={{ fontSize: '12px' }}>Present</Text>
+        </Flex>
+        <Flex align="center" gap={5}>
+          <Badge 
+            color="#f97316" 
+            style={{ 
+              width: '12px', 
+              height: '12px', 
+              borderRadius: '50%' 
+            }} 
+          />
+          <Text style={{ fontSize: '12px' }}>Checked In</Text>
+        </Flex>
+        <Flex align="center" gap={5}>
+          <Badge 
+            color="#ef4444" 
+            style={{ 
+              width: '12px', 
+              height: '12px', 
+              borderRadius: '50%' 
+            }} 
+          />
+          <Text style={{ fontSize: '12px' }}>Absent</Text>
+        </Flex>
+        <Flex align="center" gap={5}>
+          <Badge 
+            color="#8b5cf6" 
+            style={{ 
+              width: '12px', 
+              height: '12px', 
+              borderRadius: '50%' 
+            }} 
+          />
+          <Text style={{ fontSize: '12px' }}>Holiday</Text>
+        </Flex>
+        <Flex align="center" gap={5}>
+          <Badge 
+            color="#94a3b8" 
+            style={{ 
+              width: '12px', 
+              height: '12px', 
+              borderRadius: '50%' 
+            }} 
+          />
+          <Text style={{ fontSize: '12px' }}>Non-Working</Text>
+        </Flex>
+      </Flex>
     </Card>
-    
-    {/* Calendar Weekdays */}
-    <div style={{ 
-  display: 'grid', 
-  gridTemplateColumns: 'repeat(7, 1fr)',
-  gap: '0px',
-  marginBottom: '8px',
-  marginRight:"10px"
-}}>
-  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-    <div key={day} style={{ textAlign: 'center' }}>
-      <Text 
-        style={{ 
-          fontSize: '12px', 
-          fontWeight: '600', 
-          color: '#64748b',
-          padding: '8px 3px'
-        }}
-      >
-        {day}
-      </Text>
-    </div>
-  ))}
-</div>
-    
-    {/* Calendar Grid */}
-    <div style={{ flex: 1, marginBottom: '15px' }}>
-      <Row 
-        gutter={[4, 4]} 
-        style={{ 
-          flex: 1, 
-  marginBottom: '15px',
-  display: 'grid', 
-  gridTemplateColumns: 'repeat(7, 1fr)',
-  gap: '4px',
-  alignItems: 'start'
-        }}
-      >
-        {calendarDays}
-      </Row>
-    </div>
-    
-    {/* Calendar Legend */}
-    <Flex justify="center" gap={15} style={{ fontSize: '12px' }}>
-      <Flex align="center" gap={5}>
-        <Badge 
-          color="#22c55e" 
-          style={{ 
-            width: '12px', 
-            height: '12px', 
-            borderRadius: '50%' 
-          }} 
-        />
-        <Text style={{ fontSize: '12px' }}>Present</Text>
-      </Flex>
-      <Flex align="center" gap={5}>
-        <Badge 
-          color="#ef4444" 
-          style={{ 
-            width: '12px', 
-            height: '12px', 
-            borderRadius: '50%' 
-          }} 
-        />
-        <Text style={{ fontSize: '12px' }}>Absent</Text>
-      </Flex>
-      <Flex align="center" gap={5}>
-        <Badge 
-          color="#94a3b8" 
-          style={{ 
-            width: '12px', 
-            height: '12px', 
-            borderRadius: '50%' 
-          }} 
-        />
-        <Text style={{ fontSize: '12px' }}>No Data</Text>
-      </Flex>
-    </Flex>
-  </Card>
-);
+  );
 };
 
 const handleEmailFolderChange = (folder) => {
@@ -1809,28 +1996,7 @@ if (activeSection === 'payroll') {
       </div>
     </Col>
     
-    <Col xs={6} sm={6} md={6} lg={6}>
-      <div style={{ textAlign: 'center' }}>
-        <Statistic 
-          value={totalDays} 
-          valueStyle={{ 
-            color: '#1e293b', 
-            fontSize: '16px', 
-            fontWeight: '700',
-            lineHeight: 1.2
-          }}
-          suffix=""
-        />
-        <div style={{ 
-          fontSize: '12px', 
-          color: '#64748b', 
-          fontWeight: '500',
-          marginTop: '4px'
-        }}>
-          Total
-        </div>
-      </div>
-    </Col>
+    
     
     <Col xs={6} sm={6} md={6} lg={6}>
       <div style={{ textAlign: 'center' }}>
@@ -1881,7 +2047,7 @@ if (activeSection === 'payroll') {
         footer={null}
         width={600}
         centered
-      >
+       >
         {renderAttendanceCalendar()}
       </Modal>
 
