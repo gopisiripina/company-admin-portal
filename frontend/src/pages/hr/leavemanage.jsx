@@ -12,6 +12,7 @@ import {
   Typography,
   Space,
   Tag,
+  InputNumber,
   Statistic,
   Select,
   Input,
@@ -74,10 +75,13 @@ import isBetween from 'dayjs/plugin/isBetween'; // <-- ADD THIS LINE
 import { supabase } from '../../supabase/config';
 import useSWR, { mutate } from 'swr';
 import Analytics from './Analytics'; // Add this line - adjust path as needed
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+
 
 
 dayjs.extend(relativeTime);
 dayjs.extend(isBetween); // <-- AND ADD THIS LINE
+dayjs.extend(isSameOrBefore);
 
 
 // Add this function after your imports
@@ -192,25 +196,75 @@ const fetchCompensatoryOffDays = async (userId, holidays) => {
   }
 };
 // Generate dummy leave data
+// In leavemanage.jsx
+
+// Update the fetchLeaveApplications function (around line 109)
+// Replace the existing fetchLeaveApplications function with this corrected version:
 const fetchLeaveApplications = async (userId = null) => {
   try {
-    let query = supabase
-      .from('leave_applications')
-      .select(`
-        *,
-        users!user_id (
-          id,
-          name,
-          employee_id,
-          email,
-          employee_type,
-          start_date
-        )
-      `)
-      .order('created_at', { ascending: false });
+    let query;
 
     if (userId) {
-      query = query.eq('user_id', userId);
+      // This query remains the same for individual employees viewing their own leaves
+      query = supabase
+        .from('leave_applications')
+        .select(`
+          *,
+          users!user_id (
+            id,
+            name,
+            employee_id,
+            email,
+            employee_type,
+            start_date
+          )
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+    } else {
+      // FIXED: Changed the query structure to use inner join with proper filter
+      query = supabase
+        .from('leave_applications')
+        .select(`
+          *,
+          users!inner (
+            id,
+            name,
+            employee_id,
+            email,
+            employee_type,
+            start_date
+          )
+        `)
+        .filter('users.employee_id', 'like', 'MYAEMP%')
+        .order('created_at', { ascending: false });
+
+      // If you need both MYAEMP and MYAINT, use this alternative approach:
+      // First get all leave applications with user data
+      const { data: allLeaves, error: fetchError } = await supabase
+        .from('leave_applications')
+        .select(`
+          *,
+          users!inner (
+            id,
+            name,
+            employee_id,
+            email,
+            employee_type,
+            start_date
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (fetchError) throw fetchError;
+
+      // Then filter in JavaScript for multiple patterns
+      const filteredLeaves = allLeaves.filter(leave => 
+        leave.users?.employee_id?.startsWith('MYAEMP') || 
+        leave.users?.employee_id?.startsWith('MYAINT')
+      );
+
+      return filteredLeaves || [];
     }
 
     const { data, error } = await query;
@@ -218,11 +272,11 @@ const fetchLeaveApplications = async (userId = null) => {
     if (error) throw error;
     return data || [];
   } catch (error) {
+    console.error('Error fetching leave applications:', error);
     message.error('Failed to fetch leave applications');
     return [];
   }
 };
-
 
 const fetchLeaveBalances = async (userId) => {
   try {
@@ -273,15 +327,12 @@ const fetchLeaveBalances = async (userId) => {
 };
 
 // Calculate leave balances
-// Calculate leave balances
 const calculateLeaveBalances = async (userId, currentUser) => {
   const balanceData = await fetchLeaveBalances(userId);
   const holidays = await fetchCompanyCalendar();
   const workingDays = await fetchWorkingDays(userId, holidays);
   const compensatoryDays = await fetchCompensatoryOffDays(userId, holidays);
   
-
-
   const earnedFromWorkingDays = Math.floor(workingDays / 20);
 
   if (!balanceData) {
@@ -289,19 +340,23 @@ const calculateLeaveBalances = async (userId, currentUser) => {
       permission: { total: 2, used: 0, remaining: 2, monthlyLimit: 2 },
       casualLeave: { total: 12, used: 0, remaining: 12, monthlyLimit: 1 },
       earnedLeave: { total: 0, used: 0, remaining: 0 },
-      medicalLeave: { total: 12, used: 0, remaining: 12 },
+      medicalLeave: { 
+        total: 12, 
+        used: 0, 
+        remaining: 12,
+        extraGranted: 0,
+        extraUsed: 0,
+        totalAvailable: 12
+      },
       maternityLeave: { total: 84, used: 0, remaining: 84 },
       compensatoryLeave: { total: 0, used: 0, remaining: 0 },
       excuses: { total: 1, used: 0, remaining: 1, monthlyLimit: 1 }
     };
   }
 
-  // Update earned leave and compensatory leave totals
-  balanceData.earned_total = earnedFromWorkingDays;
-  balanceData.earned_remaining = earnedFromWorkingDays - (balanceData.earned_used || 0);
-
-  balanceData.compensatory_total = compensatoryDays;
-  balanceData.compensatory_remaining = compensatoryDays - (balanceData.compensatory_used || 0);
+  // Calculate total medical leave available (base 12 + extra granted by HR)
+  const totalMedicalAvailable = 12 + (balanceData.medical_extra_granted || 0);
+  const totalMedicalUsed = (balanceData.medical_used || 0) + (balanceData.medical_extra_used || 0);
 
   return {
     permission: {
@@ -310,21 +365,24 @@ const calculateLeaveBalances = async (userId, currentUser) => {
       remaining: balanceData.permission_remaining,
       monthlyLimit: 2
     },
-  casualLeave: {
-  total: balanceData.casual_total,
-  used: balanceData.casual_used,
-  remaining: balanceData.casual_remaining,
-  // Remove monthlyLimit and monthlyUsed completely
-},
+    casualLeave: {
+      total: balanceData.casual_total,
+      used: balanceData.casual_used,
+      remaining: balanceData.casual_remaining,
+    },
     earnedLeave: {
-      total: balanceData.earned_total,
+      total: earnedFromWorkingDays,
       used: balanceData.earned_used,
-      remaining: balanceData.earned_remaining
+      remaining: earnedFromWorkingDays - (balanceData.earned_used || 0)
     },
     medicalLeave: {
-      total: balanceData.medical_total,
-      used: balanceData.medical_used,
-      remaining: balanceData.medical_remaining
+      total: 12,
+      used: balanceData.medical_used || 0,
+      remaining: Math.max(0, totalMedicalAvailable - totalMedicalUsed),
+      extraGranted: balanceData.medical_extra_granted || 0,
+      extraUsed: balanceData.medical_extra_used || 0,
+      totalAvailable: totalMedicalAvailable,
+      totalUsed: totalMedicalUsed
     },
     maternityLeave: {
       total: balanceData.maternity_total,
@@ -445,24 +503,18 @@ const LeaveHistoryDrawer = ({ visible, onClose, leaveData, currentUser }) => {
 };
 
 const LeaveManagementPage = ({ userRole = 'hr', currentUserId = '1' }) => {
-const [employees, setEmployees] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [leaveData, setLeaveData] = useState([]);
-const [leaveBalanceRaw, setLeaveBalanceRaw] = useState(null);
-// Add these new states near the top of LeaveManagementPage
-
-const [dataLoaded, setDataLoaded] = useState(false);
-
-
-
-// Add these to your existing state declarations
-
-
-
+  const [leaveBalanceRaw, setLeaveBalanceRaw] = useState(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [medicalLeaveModal, setMedicalLeaveModal] = useState(false);
+  const [selectedEmployeeForMedical, setSelectedEmployeeForMedical] = useState(null);
+  const [medicalForm] = Form.useForm();
   const [filteredLeaves, setFilteredLeaves] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false); // <--- setLoading is defined here
   const [isLoaded, setIsLoaded] = useState(false);
   const [leaveBalances, setLeaveBalances] = useState({});
-const [casualSubType, setCasualSubType] = useState('');
+  const [casualSubType, setCasualSubType] = useState('');
 
   // Modal states
   const [applyLeaveModal, setApplyLeaveModal] = useState(false);
@@ -481,7 +533,67 @@ const [casualSubType, setCasualSubType] = useState('');
 const [balanceWarning, setBalanceWarning] = useState('');
 
   const [currentUser, setCurrentUser] = useState(null);
+const handleAllocateMedicalLeave = async (values) => {
+    setLoading(true); // <-- NOW IT CAN ACCESS setLoading
+    try {
+      let certificateUrl = null;
+      
+      if (values.medicalCertificate && values.medicalCertificate.length > 0) {
+        certificateUrl = await uploadFileToSupabase(values.medicalCertificate[0].originFileObj);
+      }
+  
+      // Get current balance to add to it
+      const { data: currentBalance } = await supabase
+        .from('leave_balances')
+        .select('medical_extra_granted')
+        .eq('user_id', values.employeeId)
+        .single();
 
+      const newTotalGranted = (currentBalance?.medical_extra_granted || 0) + values.extraDays;
+
+      // Update employee's medical leave balance
+      const { error: updateError } = await supabase
+        .from('leave_balances')
+        .update({
+          medical_extra_granted: newTotalGranted,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', values.employeeId);
+  
+      if (updateError) throw updateError;
+  
+      // Log the HR action
+      const { error: logError } = await supabase
+        .from('hr_medical_leave_grants')
+        .insert([{
+          employee_id: values.employeeId,
+          granted_by: currentUser?.id, // Use current user's ID
+          days_granted: values.extraDays,
+          reason: values.reason,
+          medical_certificate: certificateUrl,
+          granted_date: new Date().toISOString()
+        }]);
+  
+      if (logError) console.warn('Failed to log HR action:', logError);
+  
+      // Refresh balances for the specific employee
+      const updatedBalances = await calculateLeaveBalances(values.employeeId, null); 
+      setLeaveBalances(prevBalances => ({...prevBalances, ...updatedBalances}));
+
+      const leaves = await fetchLeaveApplications(null);
+      setLeaveData(leaves);
+
+      setMedicalLeaveModal(false);
+      medicalForm.resetFields();
+      message.success(`Successfully allocated ${values.extraDays} additional medical leave days.`);
+  
+    } catch (error) {
+      console.error('Error allocating medical leave:', error);
+      message.error('Failed to allocate medical leave');
+    } finally {
+      setLoading(false);
+    }
+  };
 
 useEffect(() => {
   const fetchCurrentUser = async () => {
@@ -543,12 +655,16 @@ useEffect(() => {
     const loadInitialData = async () => {
       setLoading(true);
       try {
+        // FIRST: Initialize balance if it doesn't exist
+        await initializeUserLeaveBalance(currentUserId);
+        
+        // THEN: Load data
         const leaves = await fetchLeaveApplications(userRole === 'employee' ? currentUserId : null);
         const balances = await calculateLeaveBalances(currentUserId, currentUser);
         
         setLeaveData(leaves);
         setLeaveBalances(balances);
-        setDataLoaded(true); // Mark data as loaded
+        setDataLoaded(true);
         
       } catch (error) {
         console.error('Error loading initial data:', error);
@@ -560,10 +676,9 @@ useEffect(() => {
     
     loadInitialData();
   }
-}, [currentUser?.id]);
+}, [currentUser?.id, currentUserId]); // Added currentUserId to dependencies
  
- // Apply filters when filter values change
-useEffect(() => {
+ useEffect(() => {
   let filtered = leaveData;
   
   if (filterStatus !== 'All') {
@@ -575,7 +690,8 @@ useEffect(() => {
   }
   
   if (filterEmployee !== 'All') {
-    filtered = filtered.filter(leave => leave.employee_id === filterEmployee);
+    // UPDATED: Corrected the filter to use user_id
+    filtered = filtered.filter(leave => leave.user_id === filterEmployee);
   }
   
   setFilteredLeaves(filtered);
@@ -603,44 +719,186 @@ useEffect(() => {
       transition: 'all 0.9s cubic-bezier(0.4, 0, 0.2, 1) 0.3s',
     },
   };
+// Add this component before LeaveManagementPage
+const HRMedicalLeaveModal = ({ visible, onCancel, employees, onAllocate, loading }) => {
+  const [form] = Form.useForm();
+  
+  return (
+    <Modal
+      title={
+        <Space>
+          <MedicineBoxOutlined style={{ color: '#ff4d4f' }} />
+          <span>Allocate Additional Medical Leave</span>
+        </Space>
+      }
+      open={visible}
+      onCancel={onCancel}
+      footer={[
+        <Button key="cancel" onClick={onCancel}>Cancel</Button>,
+        <Button 
+          key="allocate" 
+          type="primary" 
+          onClick={() => form.submit()}
+          loading={loading}
+          style={{ background: '#ff4d4f', borderColor: '#ff4d4f' }}
+        >
+          Allocate Leave
+        </Button>
+      ]}
+      width={600}
+      destroyOnClose
+    >
+      <Form form={form} layout="vertical" onFinish={onAllocate}>
+        <Form.Item
+          name="employeeId"
+          label="Select Employee"
+          rules={[{ required: true, message: 'Please select an employee' }]}
+        >
+          <Select 
+            placeholder="Choose employee"
+            showSearch
+            filterOption={(input, option) =>
+              option.children.toLowerCase().includes(input.toLowerCase())
+            }
+          >
+            {employees.map(emp => (
+              <Option key={emp.id} value={emp.id}>
+                <Space>
+                  <Avatar size="small" style={{ backgroundColor: '#ff4d4f' }}>
+                    {emp.name.charAt(0)}
+                  </Avatar>
+                  {emp.name} ({emp.employee_id})
+                </Space>
+              </Option>
+            ))}
+          </Select>
+        </Form.Item>
+
+        <Form.Item
+          name="extraDays"
+          label="Additional Medical Leave Days"
+          rules={[
+            { required: true, message: 'Please enter number of days' },
+            { type: 'number', min: 1, max: 30, message: 'Days must be between 1-30' }
+          ]}
+        >
+          <InputNumber
+            style={{ width: '100%' }}
+            placeholder="Enter number of additional days"
+            min={1}
+            max={30}
+          />
+        </Form.Item>
+
+        <Form.Item
+          name="medicalCertificate"
+          label="Medical Certificate (Required)"
+          rules={[{ required: true, message: 'Medical certificate is required' }]}
+          valuePropName="fileList"
+          getValueFromEvent={(e) => Array.isArray(e) ? e : e && e.fileList}
+        >
+          <Upload
+            listType="picture-card"
+            maxCount={1}
+            beforeUpload={() => false}
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+          >
+            <div>
+              <UploadOutlined />
+              <div style={{ marginTop: 8 }}>Upload Certificate</div>
+            </div>
+          </Upload>
+        </Form.Item>
+
+        <Form.Item
+          name="reason"
+          label="HR Comments/Reason"
+          rules={[{ required: true, message: 'Please provide reason for allocation' }]}
+        >
+          <TextArea
+            rows={3}
+            placeholder="Reason for granting additional medical leave..."
+            maxLength={300}
+            showCount
+          />
+        </Form.Item>
+
+        <Alert
+          message="This will add extra medical leave days to the selected employee's balance."
+          type="warning"
+          showIcon
+          style={{ marginTop: '16px' }}
+        />
+      </Form>
+    </Modal>
+  );
+};
 
 
+// Helper to count only working days (exclude weekends + holidays)
+const countDeductibleDays = async (startDate, endDate) => {
+  const holidays = await fetchCompanyCalendar(); // red days
+
+  const { data: configData } = await supabase
+    .from('company_calendar')
+    .select('*')
+    .eq('day_type', 'working_day_config')
+    .single();
+
+  const workingDaysConfig = configData?.reason ? JSON.parse(configData.reason) : {
+    monday: true, tuesday: true, wednesday: true,
+    thursday: true, friday: true, saturday: false, sunday: false
+  };
+
+  let days = 0;
+  let current = dayjs(startDate);
+
+  while (current.isSameOrBefore(endDate, 'day')) {
+    const dayOfWeek = current.day(); // 0=Sun ... 6=Sat
+    const dayName = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][dayOfWeek];
+    const isHoliday = holidays.has(current.format('YYYY-MM-DD'));
+    const isWeekend = !workingDaysConfig[dayName];
+
+    if (!isHoliday && !isWeekend) {
+      days++;
+    }
+    current = current.add(1, 'day');
+  }
+  return days;
+};
 
 
-
-// Add this function to calculate days in real-time
-const calculateLeaveDays = () => {
+const calculateLeaveDays = async () => {
   const startDate = form.getFieldValue('startDate');
   const endDate = form.getFieldValue('endDate');
   const leaveType = form.getFieldValue('leaveType');
   const subType = form.getFieldValue('subType');
-  
+
   if (!startDate || !leaveType) return;
-  
+
   let days = 0;
-  
   if (leaveType === 'Permission') {
-    days = 0; // Permissions don't count as days
+    days = 0;
   } else if (leaveType === 'Casual Leave' && subType === 'HDL') {
-    days = 0.5; // Half day
-  } else if (endDate) {
-    days = endDate.diff(startDate, 'days') + 1;
+    days = 0.5;
+  } else if (leaveType === 'Casual Leave' || leaveType === 'Medical Leave') {
+    days = await countDeductibleDays(startDate, endDate || startDate);
   } else {
-    days = 1; // Single day
+    days = endDate ? endDate.diff(startDate, 'days') + 1 : 1;
   }
-  
+
   setCalculatedDays(days);
-  
-  // Check balance and set warnings
+
   const currentBalance = getCurrentBalance(leaveType);
-  if (days > currentBalance && leaveType !== 'Medical Leave' && leaveType !== 'On Duty' && leaveType !== 'Overtime') {
-    setBalanceWarning(`❌ You are requesting ${days} days but only have ${currentBalance} days available`);
-  } else if (days > 0) {
-    setBalanceWarning(`✅ Total Days: ${days} days - This will deduct ${days} days from your ${leaveType} balance`);
-  } else {
-    setBalanceWarning('');
-  }
+  if (days > currentBalance && leaveType !== 'On Duty' && leaveType !== 'Overtime') {
+  setBalanceWarning(`⚠️ You are requesting ${days} days but only have ${currentBalance} day${currentBalance === 1 ? '' : 's'} available for ${leaveType}`);
+} else if (days > 0) {
+  setBalanceWarning(`✅ Total Days: ${days} days - This will deduct ${days} days from your ${leaveType} balance`);
+} else {
+  setBalanceWarning('');
+}
 };
+
 
 // Helper function to get current balance
 const getCurrentBalance = (leaveType) => {
@@ -671,20 +929,26 @@ const handleApplyLeave = async (values) => {
     const subType = values.subType;
 
     // Calculate total days
-    const totalDays = leaveType === 'Permission' ? 0 : 
-                     (leaveType === 'Casual Leave' && subType === 'HDL') ? 0.5 :
-                     (endDate ? endDate.diff(startDate, 'days') + 1 : 1);
+    let totalDays = 0;
+if (leaveType === 'Casual Leave' || leaveType === 'Medical Leave') {
+  totalDays = await countDeductibleDays(startDate, endDate || startDate);
+} else if (leaveType === 'Casual Leave' && subType === 'HDL') {
+  totalDays = 0.5;
+} else if (leaveType === 'Permission') {
+  totalDays = 0;
+} else {
+  totalDays = endDate ? endDate.diff(startDate, 'days') + 1 : 1;
+}
 
-    // Validate balance before submission
-    const currentBalance = getCurrentBalance(leaveType);
-    if (totalDays > currentBalance && 
-        leaveType !== 'Medical Leave' && 
-        leaveType !== 'On Duty' && 
-        leaveType !== 'Overtime') {
-      message.error(`Insufficient balance! You have only ${currentBalance} days available for ${leaveType}`);
-      setLoading(false);
-      return;
-    }
+// Validate balance before submission
+const currentBalance = getCurrentBalance(leaveType);
+if (totalDays > currentBalance && 
+    leaveType !== 'On Duty' && 
+    leaveType !== 'Overtime') {
+  message.error(`Insufficient balance! You have only ${currentBalance} day${currentBalance === 1 ? '' : 's'} available for ${leaveType}`);
+  setLoading(false);
+  return;
+}
 
     // Get current user data
     const { data: userData } = await supabase
@@ -779,61 +1043,77 @@ attachment: attachmentUrl,
     style={{ marginBottom: '16px' }}
   />
 )}
-const updateLeaveBalance = async (userId, leaveType, daysApplied) => {
+const updateLeaveBalance = async (userId, leaveType, days) => {
   try {
-    const currentBalances = await fetchLeaveBalances(userId);
-    if (!currentBalances) {
-      console.error("Could not find leave balances for the user to update.");
+    // First ensure user has a balance record
+    await initializeUserLeaveBalance(userId);
+    
+    const { data: currentBalances, error: fetchError } = await supabase
+      .from('leave_balances')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching leave balances:', fetchError.message);
       return;
     }
 
-    const updates = {};
-    const days = Number(daysApplied) || 0;
-      
+    const updates = { updated_at: new Date().toISOString() };
+        
     switch (leaveType) {
       case 'Permission':
         updates.permission_used = (currentBalances.permission_used || 0) + 1;
-        updates.permission_remaining = (currentBalances.permission_remaining || 2) - 1;
+        updates.permission_remaining = Math.max(0, (currentBalances.permission_remaining || 2) - 1);
         break;
-     case 'Casual Leave':
-  const casualDays = daysApplied === 0.5 ? 0.5 : Math.ceil(daysApplied);
-  updates.casual_used = (currentBalances.casual_used || 0) + casualDays;
-  updates.casual_remaining = (currentBalances.casual_remaining || 12) - casualDays;
-  // Remove this line: updates.casual_monthly_used = (currentBalances.casual_monthly_used || 0) + 1;
-  break;
-      case 'Earned Leave': // Logic updated to use daysApplied
+        
+      case 'Casual Leave':
+        updates.casual_used = (currentBalances.casual_used || 0) + days;
+        updates.casual_remaining = Math.max(0, (currentBalances.casual_remaining || 12) - days);
+        break;
+        
+      case 'Earned Leave':
         updates.earned_used = (currentBalances.earned_used || 0) + days;
-        updates.earned_remaining = (currentBalances.earned_remaining || 0) - days;
+        updates.earned_remaining = Math.max(0, (currentBalances.earned_remaining || 0) - days);
         break;
+        
       case 'Medical Leave':
         updates.medical_used = (currentBalances.medical_used || 0) + days;
-        updates.medical_remaining = (currentBalances.medical_remaining || 12) - days;
+        updates.medical_remaining = Math.max(0, (currentBalances.medical_remaining || 12) - days);
         break;
-      case 'Maternity Leave': // ADDED
+
+      case 'Maternity Leave':
         updates.maternity_used = (currentBalances.maternity_used || 0) + days;
-        updates.maternity_remaining = (currentBalances.maternity_remaining || 84) - days;
+        updates.maternity_remaining = Math.max(0, (currentBalances.maternity_remaining || 84) - days);
         break;
-      case 'Compensatory Leave': // ADDED
+        
+      case 'Compensatory Leave':
         updates.compensatory_used = (currentBalances.compensatory_used || 0) + days;
-        updates.compensatory_remaining = (currentBalances.compensatory_remaining || 0) - days;
+        updates.compensatory_remaining = Math.max(0, (currentBalances.compensatory_remaining || 0) - days);
         break;
+        
       case 'Excuses':
         updates.excuses_used = (currentBalances.excuses_used || 0) + 1;
-        updates.excuses_remaining = (currentBalances.excuses_remaining || 1) - 1;
+        updates.excuses_remaining = Math.max(0, (currentBalances.excuses_remaining || 1) - 1);
         break;
-    }
       
-    if (Object.keys(updates).length > 0) {
-      const { error } = await supabase
-        .from('leave_balances')
-        .update(updates)
-        .eq('user_id', userId);
-        
-      if (error) throw error;
+      default:
+        return; // No balance update needed for On Duty, Overtime, etc.
     }
+
+    const { error: updateError } = await supabase
+      .from('leave_balances')
+      .update(updates)
+      .eq('user_id', userId);
+
+    if (updateError) {
+      console.error('Error updating leave balances:', updateError.message);
+    } else {
+      console.log('Leave balance updated successfully for user:', userId);
+    }
+
   } catch (error) {
-    console.error('Error updating leave balance:', error);
-    message.error(`Failed to update leave balance for ${leaveType}.`);
+    console.error('Error in updateLeaveBalance:', error);
   }
 };
 // 7. Add function to get available leave types:
@@ -847,8 +1127,10 @@ if (leaveBalances.casualLeave?.remaining > 0) available.push('Casual Leave');   
     if (leaveBalances.compensatoryLeave?.remaining > 0) available.push('Compensatory Leave');
     if (leaveBalances.excuses?.remaining > 0) available.push('Excuses');
     
-    // UPDATED: Medical leave is always available to apply for.
-    available.push('Medical Leave');
+    if ((leaveBalances.medicalLeave?.remaining || 0) > 0) {
+  available.push('Medical Leave');
+}
+
     
     // These are always available (no balance limits)
     available.push('On Duty', 'Overtime');
@@ -863,7 +1145,70 @@ if (leaveBalances.casualLeave?.remaining > 0) available.push('Casual Leave');   
 
 // Update the handleLeaveAction function:
 // In LeaveManagementPage.jsx
+const initializeUserLeaveBalance = async (userId) => {
+  try {
+    // Check if balance record already exists
+    const { data: existingBalance } = await supabase
+      .from('leave_balances')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
 
+    if (existingBalance) {
+      return; // Balance already exists
+    }
+
+    // Get user info
+    const { data: userData } = await supabase
+      .from('users')
+      .select('name')
+      .eq('id', userId)
+      .single();
+
+    if (!userData) {
+      console.error('User not found:', userId);
+      return;
+    }
+
+    // Create initial balance record
+    const { error } = await supabase
+      .from('leave_balances')
+      .insert([{
+        user_id: userId,
+        employee_name: userData.name,
+        permission_total: 2,
+        permission_used: 0,
+        permission_remaining: 2,
+        casual_total: 12,
+        casual_used: 0,
+        casual_remaining: 12,
+        earned_total: 0,
+        earned_used: 0,
+        earned_remaining: 0,
+        medical_total: 12,
+        medical_used: 0,
+        medical_remaining: 12,
+        maternity_total: 84,
+        maternity_used: 0,
+        maternity_remaining: 84,
+        compensatory_total: 0,
+        compensatory_used: 0,
+        compensatory_remaining: 0,
+        excuses_total: 1,
+        excuses_used: 0,
+        excuses_remaining: 1
+      }]);
+
+    if (error) {
+      console.error('Error initializing leave balance:', error);
+    } else {
+      console.log('Leave balance initialized for user:', userId);
+    }
+
+  } catch (error) {
+    console.error('Error in initializeUserLeaveBalance:', error);
+  }
+};
 // Update the handleLeaveAction function:
 const handleLeaveAction = async (leaveId, action, reason = null) => {
   setLoading(true);
@@ -1037,21 +1382,29 @@ const config = getLeaveTypeConfig(leaveTypeNames[key]);
             }}>
               {leaveTypeNames[key]}
             </Title>
-            <div style={{ marginBottom: '8px' }}>
-              <Text style={{ 
-                fontSize: 'clamp(16px, 4vw, 20px)', 
-                fontWeight: 'bold', 
-                color: config.color 
-              }}>
-                {balance.remaining}
-              </Text>
-              <Text type="secondary" style={{ 
-                fontSize: 'clamp(10px, 2vw, 12px)', 
-                marginLeft: '2px' 
-              }}>
-                / {balance.total}
-              </Text>
-            </div>
+          <div style={{ marginBottom: '8px' }}>
+  <Text style={{ 
+    fontSize: 'clamp(16px, 4vw, 20px)', 
+    fontWeight: 'bold', 
+    color: config.color 
+  }}>
+    {balance.remaining}
+  </Text>
+  <Text type="secondary" style={{ 
+    fontSize: 'clamp(10px, 2vw, 12px)', 
+    marginLeft: '2px' 
+  }}>
+    / {key === 'medicalLeave' ? balance.totalAvailable || balance.total : balance.total}
+  </Text>
+</div>
+{/* Add this new block right after the above div */}
+{key === 'medicalLeave' && balance.extraGranted > 0 && (
+  <div style={{ marginTop: '4px' }}>
+    <Text style={{ fontSize: '9px', color: '#ff4d4f' }}>
+      +{balance.extraGranted} HR granted
+    </Text>
+  </div>
+)}
             <Progress 
               percent={percentage}
               strokeColor={config.color}
@@ -2167,12 +2520,14 @@ useEffect(() => {
   };
 }, [dataLoaded, currentUserId, userRole, currentUser]);
 // Add this useEffect hook inside LeaveManagementPage
+// Update the useEffect hook that fetches employees (around line 775)
 useEffect(() => {
     const fetchEmployees = async () => {
         if (userRole !== 'employee') {
             const { data, error } = await supabase
                 .from('users')
-                .select('id, name')
+                .select('id, name, employee_id')
+                .or('employee_id.ilike.MYAEMP%,employee_id.ilike.MYAINT%') // <-- Updated this line
                 .order('name', { ascending: true });
             
             if (error) {
@@ -2294,6 +2649,25 @@ useEffect(() => {
                   </Button>
                 </Tooltip>
               </Col>
+<Col>
+  <Tooltip title="Allocate Additional Medical Leave">
+    <Button
+      icon={<MedicineBoxOutlined />}
+      onClick={() => setMedicalLeaveModal(true)} // <-- THIS IS THE FIX
+      style={{
+        height: '44px',
+        borderRadius: '12px',
+        background: 'linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%)',
+        border: 'none',
+        color: 'white',
+        fontWeight: 600,
+        boxShadow: '0 4px 16px rgba(255, 77, 79, 0.24)',
+      }}
+    >
+      Medical Leave
+    </Button>
+  </Tooltip>
+</Col>
             </Row>
           </Space>
         </Col>
@@ -2937,6 +3311,16 @@ useEffect(() => {
   onCancel={() => setExportModalVisible(false)}
   leaveData={filteredLeaves}
 />
+    <HRMedicalLeaveModal
+        visible={medicalLeaveModal}
+        onCancel={() => {
+          setMedicalLeaveModal(false);
+          medicalForm.resetFields();
+        }}
+        employees={employees}
+        onAllocate={handleAllocateMedicalLeave}
+        loading={loading}
+      />
     </div>
   );
 };

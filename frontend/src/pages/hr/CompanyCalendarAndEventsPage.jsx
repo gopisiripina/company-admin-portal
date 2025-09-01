@@ -1320,13 +1320,7 @@ const upcomingEvents = [
   )}
 </Space>
 </div>
-            <Alert
-              message="Holiday Management"
-              description="Add, edit, or remove holiday dates for your organization."
-              type="info"
-              showIcon
-              style={{ marginBottom: 24 }}
-            />
+           
             <Card>
               {holidays.length > 0 ? (
                 <List
@@ -1395,7 +1389,7 @@ const upcomingEvents = [
             </Card>
             <Alert
   message="Note"
-  description="Government holidays are automatically synced. You can add company-specific holidays here."
+  description="Government holidays are automatically synced."
   type="info"
   showIcon
   style={{ marginBottom: 16 }}
