@@ -453,11 +453,12 @@ const uploadValidation = (file) => {
     education: userData?.education || 'Master of Computer Science',
     certifications: userData?.certifications || ['No Certifications Provided'],
     languages: userData?.languages || ['No Languages Provided'],
-    emergencyContact: userData?.emergencyContact || {
-      name: 'Jone jackson',
-      relationship: 'Spouse',
-      phone: '+91 95554567890'
-    },
+   emergencyContact: {
+  name: userData?.emergency_contact?.name || 'N/A',
+  relationship: userData?.emergency_contact?.relationship || 'N/A',
+  phone: userData?.emergency_contact?.phone || 'N/A'
+},
+
     socialLinks: userData?.socialLinks || {
       linkedin: userData?.linkedin_url || 'https://www.linkedin.com/in/',
       github: userData?.github_url || 'https://github.com/',
@@ -597,7 +598,10 @@ const uploadValidation = (file) => {
     personalForm.setFieldsValue({
       workPhone: employeeData.workPhone,
       address: employeeData.address,
-      birthDate: employeeData.birthDate ? dayjs(employeeData.birthDate) : null
+      birthDate: employeeData.birthDate ? dayjs(employeeData.birthDate) : null,
+      emergencyName: employeeData.emergencyContact?.name,
+  emergencyRelationship: employeeData.emergencyContact?.relationship,
+  emergencyPhone: employeeData.emergencyContact?.phone
     });
   }, [employeeData, form, personalForm]);
 
@@ -695,11 +699,18 @@ const uploadValidation = (file) => {
     try {
       const values = await personalForm.validateFields();
       
-      const updateData = {
-        work_phone: values.workPhone,
-        address: values.address,
-        birth_date: values.birthDate ? values.birthDate.format('YYYY-MM-DD') : null
-      };
+const updateData = {
+  work_phone: values.workPhone,
+  address: values.address,
+  birth_date: values.birthDate ? values.birthDate.format('YYYY-MM-DD') : null,
+  emergency_contact: {
+    name: values.emergencyName,
+    relationship: values.emergencyRelationship,
+    phone: values.emergencyPhone
+  }
+};
+
+
       
       const { data, error } = await supabase
         .from('users')
@@ -3058,6 +3069,18 @@ const uploadProps = {
           <Form.Item name="birthDate" label="Birth Date">
             <DatePicker style={{ width: '100%' }} />
           </Form.Item>
+          <Form.Item name="emergencyName" label="Emergency Contact Name">
+  <Input placeholder="Enter name" />
+</Form.Item>
+
+<Form.Item name="emergencyRelationship" label="Relationship">
+  <Input placeholder="Enter relationship" />
+</Form.Item>
+
+<Form.Item name="emergencyPhone" label="Emergency Contact Phone">
+  <Input placeholder="Enter phone number" />
+</Form.Item>
+
         </Form>
       </Modal>
     </div>
