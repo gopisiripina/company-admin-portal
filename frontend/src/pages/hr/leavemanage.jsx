@@ -1313,152 +1313,171 @@ const handleLeaveAction = async (leaveId, action, reason = null) => {
 
   // Employee Dashboard Component
 const EmployeeDashboard = () => (
-  <div style={animationStyles.container}>
-    {/* Mobile-Responsive Header */}
-    <Card style={{ 
-      marginBottom: '24px',
-      background: 'rgba(255, 255, 255, 0.95)',
-      backdropFilter: 'blur(10px)',
-      border: 'none',
-      borderRadius: '16px',
-      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-      ...animationStyles.headerCard
-    }}>
-      <Row align="middle" justify="space-between" gutter={[16, 16]}>
-        <Col xs={24} sm={16} md={18}>
-          <Space size="large" direction="vertical" style={{ width: '100%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <Avatar 
-                size={{ xs: 48, sm: 64 }} 
-                icon={<UserOutlined />} 
-                style={{ backgroundColor: '#0D7139', flexShrink: 0 }}
-              />
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <Title 
-                  level={2} 
-                  style={{ 
-                    margin: 0, 
-                    color: '#0D7139',
-                    fontSize: 'clamp(18px, 4vw, 24px)' // Responsive font size
-                  }}
-                >
-                  Leave Dashboard
-                </Title>
-                <Text type="secondary" style={{ 
-                  fontSize: 'clamp(12px, 3vw, 14px)',
-                  display: 'block'
-                }}>
-                  {currentUser?.position} • {currentUser?.department}
-                </Text>
+  <Spin spinning={loading} tip="Fetching your leave data..." size="large">
+    <div style={animationStyles.container}>
+      {/* Mobile-Responsive Header */}
+      <Card style={{ 
+        marginBottom: '24px',
+        background: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(10px)',
+        border: 'none',
+        borderRadius: '16px',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+        ...animationStyles.headerCard
+      }}>
+        <Row align="middle" justify="space-between" gutter={[16, 16]}>
+          <Col xs={24} sm={16} md={18}>
+            <Space size="large" direction="vertical" style={{ width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <Avatar 
+                  size={{ xs: 48, sm: 64 }} 
+                  icon={<UserOutlined />} 
+                  style={{ backgroundColor: '#0D7139', flexShrink: 0 }}
+                />
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <Title 
+                    level={2} 
+                    style={{ 
+                      margin: 0, 
+                      color: '#0D7139',
+                      fontSize: 'clamp(18px, 4vw, 24px)' // Responsive font size
+                    }}
+                  >
+                    Leave Dashboard
+                  </Title>
+                  <Text type="secondary" style={{ 
+                    fontSize: 'clamp(12px, 3vw, 14px)',
+                    display: 'block'
+                  }}>
+                    {currentUser?.position} • {currentUser?.department}
+                  </Text>
+                </div>
               </div>
-            </div>
-          </Space>
-        </Col>
-        <Col xs={24} sm={8} md={6}>
-          <Button
-            type="primary"
-            size="large"
-            icon={<PlusOutlined />}
-            onClick={() => setApplyLeaveModal(true)}
-            block // Make button full width on mobile
-            style={{
-              background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
-              border: 'none',
-              borderRadius: '8px',
-              height: '50px'
-            }}
-          >
-            Apply Leave
-          </Button>
-        </Col>
-      </Row>
-    </Card>
-    {/* Add this after the Recent Leave Applications card */}
+            </Space>
+          </Col>
+          <Col xs={24} sm={8} md={6}>
+            <Button
+              type="primary"
+              size="large"
+              icon={<PlusOutlined />}
+              onClick={() => setApplyLeaveModal(true)}
+              block // Make button full width on mobile
+              style={{
+                background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
+                border: 'none',
+                borderRadius: '8px',
+                height: '50px'
+              }}
+            >
+              Apply Leave
+            </Button>
+          </Col>
+        </Row>
+      </Card>
 
       {/* Leave Balance Cards */}
-           <Row gutter={[12, 12]} style={{ marginBottom: '24px' }}>
-        {Object.entries(leaveBalances).map(([key, balance]) => {
-          const leaveTypeNames = {
-            permission: 'Permission',
-            casualLeave: 'Casual Leave',
-            earnedLeave: 'Earned Leave',
-            medicalLeave: 'Medical Leave',
-            maternityLeave: 'Maternity Leave',
-            compensatoryLeave: 'Compensatory Leave',
-            excuses: 'Excuses'
-          };
+      <Row gutter={[12, 12]} style={{ marginBottom: '24px' }}>
+        {loading ? (
+          // Skeleton Loading State
+          Array.from({ length: 7 }).map((_, index) => (
+            <Col xs={12} sm={8} md={6} lg={4} xl={4} key={index}>
+              <Card 
+                style={{ 
+                  borderRadius: '12px',
+                  border: '1px solid #f0f0f0',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+                }}
+                styles={{ body: { padding: '12px' } }}
+              >
+                <div style={{ textAlign: 'center', height: '135px' }}>
+                  <Spin />
+                </div>
+              </Card>
+            </Col>
+          ))
+        ) : (
+          // Actual Data
+          Object.entries(leaveBalances).map(([key, balance]) => {
+            const leaveTypeNames = {
+              permission: 'Permission',
+              casualLeave: 'Casual Leave',
+              earnedLeave: 'Earned Leave',
+              medicalLeave: 'Medical Leave',
+              maternityLeave: 'Maternity Leave',
+              compensatoryLeave: 'Compensatory Leave',
+              excuses: 'Excuses'
+            };
 
-const config = getLeaveTypeConfig(leaveTypeNames[key]);
-          const percentage = balance.total > 0 ? (balance.remaining / balance.total) * 100 : 0;
-    return (
-      <Col xs={12} sm={8} md={6} lg={4} xl={4} key={key}> {/* Updated responsive breakpoints */}
-      <Card 
-  style={{ 
-    borderRadius: '12px',
-    background: '#ffffff', 
-    border: '1px solid #f0f0f0',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
-    ...animationStyles.statsCard 
-  }}
-  styles={{ body: { padding: '12px' } }} // Changed from bodyStyle
->
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ 
-              fontSize: 'clamp(18px, 4vw, 24px)', // Responsive icon size
-              color: config.color, 
-              marginBottom: '6px' 
-            }}>
-              {config.icon}
-            </div>
-            <Title level={5} style={{ 
-              margin: '0 0 6px 0', 
-              color: config.color,
-              fontSize: 'clamp(11px, 2.5vw, 14px)', // Responsive title
-              lineHeight: '1.2'
-            }}>
-              {leaveTypeNames[key]}
-            </Title>
-          <div style={{ marginBottom: '8px' }}>
-  <Text style={{ 
-    fontSize: 'clamp(16px, 4vw, 20px)', 
-    fontWeight: 'bold', 
-    color: config.color 
-  }}>
-    {balance.remaining}
-  </Text>
-  <Text type="secondary" style={{ 
-    fontSize: 'clamp(10px, 2vw, 12px)', 
-    marginLeft: '2px' 
-  }}>
-    / {key === 'medicalLeave' ? balance.totalAvailable || balance.total : balance.total}
-  </Text>
-</div>
-{/* Add this new block right after the above div */}
-{key === 'medicalLeave' && balance.extraGranted > 0 && (
-  <div style={{ marginTop: '4px' }}>
-    <Text style={{ fontSize: '9px', color: '#ff4d4f' }}>
-      +{balance.extraGranted} HR granted
-    </Text>
-  </div>
-)}
-            <Progress 
-              percent={percentage}
-              strokeColor={config.color}
-              showInfo={false}
-              size="small"
-            />
-            <div style={{ marginTop: '6px' }}>
-              <Text type="secondary" style={{ fontSize: 'clamp(9px, 2vw, 11px)' }}>
-  Used: {balance.used}
-</Text>
-            </div>
-          </div>
-        </Card>
-      </Col>
-    );
-  })}
-</Row>
-
+            const config = getLeaveTypeConfig(leaveTypeNames[key]);
+            const percentage = balance.total > 0 ? (balance.remaining / balance.total) * 100 : 0;
+            return (
+              <Col xs={12} sm={8} md={6} lg={4} xl={4} key={key}>
+                <Card 
+                  style={{ 
+                    borderRadius: '12px',
+                    background: '#ffffff', 
+                    border: '1px solid #f0f0f0',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+                    ...animationStyles.statsCard 
+                  }}
+                  styles={{ body: { padding: '12px' } }}
+                >
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ 
+                      fontSize: 'clamp(18px, 4vw, 24px)',
+                      color: config.color, 
+                      marginBottom: '6px' 
+                    }}>
+                      {config.icon}
+                    </div>
+                    <Title level={5} style={{ 
+                      margin: '0 0 6px 0', 
+                      color: config.color,
+                      fontSize: 'clamp(11px, 2.5vw, 14px)',
+                      lineHeight: '1.2'
+                    }}>
+                      {leaveTypeNames[key]}
+                    </Title>
+                    <div style={{ marginBottom: '8px' }}>
+                      <Text style={{ 
+                        fontSize: 'clamp(16px, 4vw, 20px)', 
+                        fontWeight: 'bold', 
+                        color: config.color 
+                      }}>
+                        {balance.remaining}
+                      </Text>
+                      <Text type="secondary" style={{ 
+                        fontSize: 'clamp(10px, 2vw, 12px)', 
+                        marginLeft: '2px' 
+                      }}>
+                        / {key === 'medicalLeave' ? balance.totalAvailable || balance.total : balance.total}
+                      </Text>
+                    </div>
+                    {key === 'medicalLeave' && balance.extraGranted > 0 && (
+                      <div style={{ marginTop: '4px' }}>
+                        <Text style={{ fontSize: '9px', color: '#ff4d4f' }}>
+                          +{balance.extraGranted} HR granted
+                        </Text>
+                      </div>
+                    )}
+                    <Progress 
+                      percent={percentage}
+                      strokeColor={config.color}
+                      showInfo={false}
+                      size="small"
+                    />
+                    <div style={{ marginTop: '6px' }}>
+                      <Text type="secondary" style={{ fontSize: 'clamp(9px, 2vw, 11px)' }}>
+                        Used: {balance.used}
+                      </Text>
+                    </div>
+                  </div>
+                </Card>
+              </Col>
+            );
+          })
+        )}
+      </Row>
 
       {/* Recent Leave Applications */}
       <Card style={{ 
@@ -1483,68 +1502,73 @@ const config = getLeaveTypeConfig(leaveTypeNames[key]);
           </Button>
         </div>
         
-        <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-          {/* UPDATED: Converted Timeline.Item to use the 'items' prop */}
-          <Timeline
-            items={filteredLeaves.slice(0, 5).map(leave => {
-              const config = getLeaveTypeConfig(leave.leaveType);
-              return {
-                key: leave.id,
-                dot: <div style={{ 
-                  width: '12px', 
-                  height: '12px', 
-                  borderRadius: '50%', 
-                  background: config.gradient,
-                  border: '2px solid white', 
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)' 
-                }} />,
-                children: (
-                  <Card 
-                    size="small" 
-                    style={{ 
-                      marginBottom: '8px',
-                      borderRadius: '8px',
-                      border: `1px solid ${config.color}20`,
-                      background: `linear-gradient(135deg, ${config.color}08 0%, ${config.color}03 100%)`
-                    }}
-                    styles={{ body: { padding: '12px' } }}
-                  >
-                    <Row align="middle" justify="space-between">
-                      <Col flex="auto">
-                        <Space>
-                          {config.icon}
-                          <div>
-                            <Text strong style={{ color: config.color }}>
-                              {leave.leaveType}
-                              {leave.subType && ` (${leave.subType})`}
-                            </Text>
-                            <br />
-                            <Text type="secondary" style={{ fontSize: '12px' }}>
-                              {dayjs(leave.startDate).format('MMM DD')} - {dayjs(leave.endDate).format('MMM DD, YYYY')}
-                              {leave.totalHours > 0 && ` • ${leave.totalHours}h`}
-                              {leave.totalDays > 0 && ` • ${leave.totalDays} day${leave.totalDays > 1 ? 's' : ''}`}
-                            </Text>
-                          </div>
-                        </Space>
-                      </Col>
-                      <Col>
-                        <Tag 
-                          color={leave.status === 'Approved' ? 'success' : 
-                                leave.status === 'Rejected' ? 'error' : 'warning'}
-                        >
-                          {leave.status}
-                        </Tag>
-                      </Col>
-                    </Row>
-                  </Card>
-                )
-              };
-            })}
-          />
+        <div style={{ minHeight: '200px', maxHeight: '400px', overflowY: 'auto' }}>
+          {/* Timeline or Empty State */}
+          {!loading && filteredLeaves.length === 0 ? (
+            <Empty description="No recent applications found." />
+          ) : (
+            <Timeline
+              items={filteredLeaves.slice(0, 5).map(leave => {
+                const config = getLeaveTypeConfig(leave.leaveType);
+                return {
+                  key: leave.id,
+                  dot: <div style={{ 
+                    width: '12px', 
+                    height: '12px', 
+                    borderRadius: '50%', 
+                    background: config.gradient,
+                    border: '2px solid white', 
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)' 
+                  }} />,
+                  children: (
+                    <Card 
+                      size="small" 
+                      style={{ 
+                        marginBottom: '8px',
+                        borderRadius: '8px',
+                        border: `1px solid ${config.color}20`,
+                        background: `linear-gradient(135deg, ${config.color}08 0%, ${config.color}03 100%)`
+                      }}
+                      styles={{ body: { padding: '12px' } }}
+                    >
+                      <Row align="middle" justify="space-between">
+                        <Col flex="auto">
+                          <Space>
+                            {config.icon}
+                            <div>
+                              <Text strong style={{ color: config.color }}>
+                                {leave.leaveType}
+                                {leave.subType && ` (${leave.subType})`}
+                              </Text>
+                              <br />
+                              <Text type="secondary" style={{ fontSize: '12px' }}>
+                                {dayjs(leave.startDate).format('MMM DD')} - {dayjs(leave.endDate).format('MMM DD, YYYY')}
+                                {leave.totalHours > 0 && ` • ${leave.totalHours}h`}
+                                {leave.totalDays > 0 && ` • ${leave.totalDays} day${leave.totalDays > 1 ? 's' : ''}`}
+                              </Text>
+                            </div>
+                          </Space>
+                        </Col>
+                        <Col>
+                          <Tag 
+                            color={leave.status === 'Approved' ? 'success' : 
+                                  leave.status === 'Rejected' ? 'error' : 'warning'}
+                          >
+                            {leave.status}
+                          </Tag>
+                        </Col>
+                      </Row>
+                    </Card>
+                  )
+                };
+              })}
+            />
+          )}
         </div>
       </Card>
     </div>
-  );
+  </Spin>
+);
 
   // HR/Admin Table Columns
 const getTableColumns = () => {
