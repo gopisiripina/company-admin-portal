@@ -168,7 +168,7 @@ const fetchWorkingDays = async (userId, holidays) => {
 
     if (error) throw error;
 
-    // Filter out holidays from the present days
+    // Filter out holidays from the present days to get only working days
     const workingDays = data.filter(attendance => !holidays.has(attendance.date));
     return workingDays.length;
   } catch (error) {
@@ -176,7 +176,6 @@ const fetchWorkingDays = async (userId, holidays) => {
     return 0;
   }
 };
-
 const fetchCompensatoryOffDays = async (userId, holidays) => {
   try {
     const { data, error } = await supabase
@@ -187,10 +186,11 @@ const fetchCompensatoryOffDays = async (userId, holidays) => {
 
     if (error) throw error;
 
-    // Filter for days worked on a holiday
+    // Filter for days worked ON a holiday
     const compensatoryDays = data.filter(attendance => holidays.has(attendance.date));
     return compensatoryDays.length;
-  } catch (error) {
+  } catch (error)
+   {
     console.error('Error fetching compensatory off days:', error);
     return 0;
   }
@@ -326,20 +326,28 @@ const fetchLeaveBalances = async (userId) => {
   }
 };
 
-// Calculate leave balances
-const calculateLeaveBalances = async (userId, currentUser) => {
-  const balanceData = await fetchLeaveBalances(userId);
-  const holidays = await fetchCompanyCalendar();
-  const workingDays = await fetchWorkingDays(userId, holidays);
-  const compensatoryDays = await fetchCompensatoryOffDays(userId, holidays);
-  
-  const earnedFromWorkingDays = Math.floor(workingDays / 20);
+// Replace the existing calculateLeaveBalances function with this corrected one
 
+const calculateLeaveBalances = async (userId, currentUser) => {
+  // 1. Fetch all necessary data first.
+  const balanceData = await fetchLeaveBalances(userId);
+  const holidays = await fetchCompanyCalendar(); // Define holidays FIRST.
+  const totalWorkingDaysPresent = await fetchWorkingDays(userId, holidays); // Now this works.
+  const totalCompensatoryDaysEarned = await fetchCompensatoryOffDays(userId, holidays); // This also works.
+
+  // 2. Calculate the total leaves earned based on your rules.
+  const totalEarnedLeave = Math.floor(totalWorkingDaysPresent / 20);
+
+  // 3. Handle the case for a new user with no existing balance record.
   if (!balanceData) {
     return {
       permission: { total: 2, used: 0, remaining: 2, monthlyLimit: 2 },
       casualLeave: { total: 12, used: 0, remaining: 12, monthlyLimit: 1 },
-      earnedLeave: { total: 0, used: 0, remaining: 0 },
+      earnedLeave: { 
+        total: totalEarnedLeave, 
+        used: 0, 
+        remaining: totalEarnedLeave 
+      },
       medicalLeave: { 
         total: 12, 
         used: 0, 
@@ -349,12 +357,16 @@ const calculateLeaveBalances = async (userId, currentUser) => {
         totalAvailable: 12
       },
       maternityLeave: { total: 84, used: 0, remaining: 84 },
-      compensatoryLeave: { total: 0, used: 0, remaining: 0 },
+      compensatoryLeave: { 
+        total: totalCompensatoryDaysEarned, 
+        used: 0, 
+        remaining: totalCompensatoryDaysEarned 
+      },
       excuses: { total: 1, used: 0, remaining: 1, monthlyLimit: 1 }
     };
   }
 
-  // Calculate total medical leave available (base 12 + extra granted by HR)
+  // 4. If a user has an existing record, calculate their current balances.
   const totalMedicalAvailable = 12 + (balanceData.medical_extra_granted || 0);
   const totalMedicalUsed = (balanceData.medical_used || 0) + (balanceData.medical_extra_used || 0);
 
@@ -371,9 +383,9 @@ const calculateLeaveBalances = async (userId, currentUser) => {
       remaining: balanceData.casual_remaining,
     },
     earnedLeave: {
-      total: earnedFromWorkingDays,
-      used: balanceData.earned_used,
-      remaining: earnedFromWorkingDays - (balanceData.earned_used || 0)
+      total: totalEarnedLeave,
+      used: balanceData.earned_used || 0,
+      remaining: totalEarnedLeave - (balanceData.earned_used || 0)
     },
     medicalLeave: {
       total: 12,
@@ -390,9 +402,9 @@ const calculateLeaveBalances = async (userId, currentUser) => {
       remaining: balanceData.maternity_remaining
     },
     compensatoryLeave: {
-      total: balanceData.compensatory_total,
-      used: balanceData.compensatory_used,
-      remaining: balanceData.compensatory_remaining
+      total: totalCompensatoryDaysEarned,
+      used: balanceData.compensatory_used || 0,
+      remaining: totalCompensatoryDaysEarned - (balanceData.compensatory_used || 0)
     },
     excuses: {
       total: balanceData.excuses_total,
@@ -879,6 +891,10 @@ const countDeductibleDays = async (startDate, endDate) => {
 };
 
 
+// In leavemanage.jsx, replace the existing calculateLeaveDays function
+
+// In leavemanage.jsx, replace the existing calculateLeaveDays function
+
 const calculateLeaveDays = async () => {
   const startDate = form.getFieldValue('startDate');
   const endDate = form.getFieldValue('endDate');
@@ -888,29 +904,41 @@ const calculateLeaveDays = async () => {
   if (!startDate || !leaveType) return;
 
   let days = 0;
+  
   if (leaveType === 'Permission') {
     days = 0;
   } else if (leaveType === 'Casual Leave' && subType === 'HDL') {
     days = 0.5;
   } else if (leaveType === 'Casual Leave' || leaveType === 'Medical Leave') {
+    // Correctly counts only working days
     days = await countDeductibleDays(startDate, endDate || startDate);
+  } else if (leaveType === 'Earned Leave' || leaveType === 'Compensatory Leave') {
+    // --- FIX IS HERE ---
+    // Count ALL calendar days (inclusive of start and end dates)
+    const start = dayjs(startDate);
+    const end = dayjs(endDate || startDate);
+    // The '+ 1' is crucial to include the last day in the count.
+    // e.g., Sep 1 to Sep 2 is a 1-day difference, so 1 + 1 = 2 days.
+    days = end.diff(start, 'days') + 1;
   } else {
-    days = endDate ? endDate.diff(startDate, 'days') + 1 : 1;
+    // For other leave types, ensure inclusive counting as well
+    const start = dayjs(startDate);
+    const end = dayjs(endDate || startDate);
+    days = end.diff(start, 'days') + 1;
   }
 
   setCalculatedDays(days);
 
   const currentBalance = getCurrentBalance(leaveType);
   if (days > currentBalance && leaveType !== 'On Duty' && leaveType !== 'Overtime') {
-  setBalanceWarning(`⚠️ You are requesting ${days} days but only have ${currentBalance} day${currentBalance === 1 ? '' : 's'} available for ${leaveType}`);
-} else if (days > 0) {
-  setBalanceWarning(`✅ Total Days: ${days} days - This will deduct ${days} days from your ${leaveType} balance`);
-} else {
-  setBalanceWarning('');
+  setBalanceWarning(`❌ You don’t have ${days} ${leaveType} day(s). Only ${currentBalance} available.`);
 }
+ else if (days > 0) {
+    setBalanceWarning(`✅ Total Days: ${days} days - This will deduct ${days} days from your ${leaveType} balance`);
+  } else {
+    setBalanceWarning('');
+  }
 };
-
-
 // Helper function to get current balance
 const getCurrentBalance = (leaveType) => {
   switch (leaveType) {
@@ -929,39 +957,52 @@ useEffect(() => {
 }, [form.getFieldValue('startDate'), form.getFieldValue('endDate'), form.getFieldValue('leaveType'), form.getFieldValue('subType')]);
 
 
-// Replace the existing handleApplyLeave function with this corrected version:
+// In leavemanage.jsx, replace the existing handleApplyLeave function
+
+// In leavemanage.jsx, replace the existing handleApplyLeave function
+
 const handleApplyLeave = async (values) => {
   setLoading(true);
   try {
-    // Calculate leave details from form values
+    // --- Step 1: Calculate leave details from form ---
     const startDate = values.startDate;
     const endDate = values.endDate;
     const leaveType = values.leaveType;
     const subType = values.subType;
 
-    // Calculate total days
+    // --- Step 2: Recalculate total days with the correct inclusive logic ---
     let totalDays = 0;
-if (leaveType === 'Casual Leave' || leaveType === 'Medical Leave') {
-  totalDays = await countDeductibleDays(startDate, endDate || startDate);
-} else if (leaveType === 'Casual Leave' && subType === 'HDL') {
-  totalDays = 0.5;
-} else if (leaveType === 'Permission') {
-  totalDays = 0;
-} else {
-  totalDays = endDate ? endDate.diff(startDate, 'days') + 1 : 1;
-}
+    
+    if (leaveType === 'Permission') {
+      totalDays = 0;
+    } else if (leaveType === 'Casual Leave' && subType === 'HDL') {
+      totalDays = 0.5;
+    } else if (leaveType === 'Casual Leave' || leaveType === 'Medical Leave') {
+      totalDays = await countDeductibleDays(startDate, endDate || startDate);
+    } else if (leaveType === 'Earned Leave' || leaveType === 'Compensatory Leave') {
+      // Correctly counts ALL calendar days (e.g., Jan 1 to Jan 2 is 2 days)
+      const start = dayjs(startDate);
+      const end = dayjs(endDate || startDate);
+      totalDays = end.diff(start, 'days') + 1;
+    } else {
+      // Fallback for other leave types, ensuring inclusive counting
+      const start = dayjs(startDate);
+      const end = dayjs(endDate || startDate);
+      totalDays = end.diff(start, 'days') + 1;
+    }
 
-// Validate balance before submission
-const currentBalance = getCurrentBalance(leaveType);
-if (totalDays > currentBalance && 
-    leaveType !== 'On Duty' && 
-    leaveType !== 'Overtime') {
-  message.error(`Insufficient balance! You have only ${currentBalance} day${currentBalance === 1 ? '' : 's'} available for ${leaveType}`);
+    // --- Step 3: CRITICAL - Validate balance before proceeding ---
+    const currentBalance = getCurrentBalance(leaveType);
+    const isValidationRequired = !['On Duty', 'Overtime'].includes(leaveType);
+
+    if (isValidationRequired && totalDays > currentBalance) {
+  message.error(`❌ You don’t have ${totalDays} ${leaveType} day(s). Only ${currentBalance} available.`);
   setLoading(false);
-  return;
+  return; // stop submission
 }
 
-    // Get current user data
+
+    // --- Step 4: If validation passes, proceed with submitting the leave ---
     const { data: userData } = await supabase
       .from('users')
       .select('*')
@@ -973,16 +1014,18 @@ if (totalDays > currentBalance &&
       setLoading(false);
       return;
     }
+
     let medicalCertificateUrl = null;
-let attachmentUrl = null;
+    let attachmentUrl = null;
 
-if (values.medicalCertificate && values.medicalCertificate.length > 0) {
-  medicalCertificateUrl = await uploadFileToSupabase(values.medicalCertificate[0].originFileObj);
-}
+    if (values.medicalCertificate && values.medicalCertificate.length > 0) {
+      medicalCertificateUrl = await uploadFileToSupabase(values.medicalCertificate[0].originFileObj);
+    }
 
-if (values.attachment && values.attachment.length > 0) {
-  attachmentUrl = await uploadFileToSupabase(values.attachment[0].originFileObj);
-}
+    if (values.attachment && values.attachment.length > 0) {
+      attachmentUrl = await uploadFileToSupabase(values.attachment[0].originFileObj);
+    }
+
     const newLeave = {
       user_id: currentUserId,
       employee_name: userData.name,
@@ -1002,39 +1045,30 @@ if (values.attachment && values.attachment.length > 0) {
       total_hours: values.leaveType === 'Permission' && values.startTime && values.endTime ? 
                   values.endTime.diff(values.startTime, 'hours', true) : 0,
       reason: values.reason,
-      
       medical_certificate: medicalCertificateUrl,
-attachment: attachmentUrl,
+      attachment: attachmentUrl,
       working_days_at_application: currentUser?.workingDays || 0
     };
       
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('leave_applications')
       .insert([newLeave])
-      .select(`
-        *,
-        users!user_id (
-          name,
-          employee_id,
-          email
-        )
-      `)
+      .select()
       .single();
     
     if (error) throw error;
     
-    // ✅ FORCE IMMEDIATE UI UPDATE - Don't wait for realtime
+    // Refresh data and close modal on success
     const updatedLeaves = await fetchLeaveApplications(userRole === 'employee' ? currentUserId : null);
     setLeaveData(updatedLeaves);
     
-    // ✅ FORCE IMMEDIATE BALANCE REFRESH (even though no deduction yet)
     const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
     setLeaveBalances(updatedBalances);
     
     setApplyLeaveModal(false);
     form.resetFields();
-    setBalanceWarning(''); // Clear any warnings
-    setCalculatedDays(0); // Reset calculated days
+    setBalanceWarning('');
+    setCalculatedDays(0);
     message.success('Leave application submitted successfully!');
 
   } catch (error) {
