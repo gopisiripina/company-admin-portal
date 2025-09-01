@@ -350,10 +350,6 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
 
   // Submit attendance
   const handleSubmitAttendance = async () => {
-    if (!selectedDate.isSame(dayjs(), 'day')) {
-      message.error('You can only mark attendance for today');
-      return;
-    }
     
     if (!checkInTime) {
       message.error('Please select check-in time');
@@ -841,7 +837,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                 onClick={() => handleViewAttendance(record)}
               />
             </Tooltip>
-            {attendance?.present && isToday && (
+            {attendance?.present && (
               <Tooltip title="Update Times">
                 <Button
                   type="text"
@@ -851,7 +847,6 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                 />
               </Tooltip>
             )}
-            {isToday && (
               <Tooltip title="Mark Absent">
                 <Button
                   type="text"
@@ -861,13 +856,11 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                   style={{ color: '#ff4d4f' }}
                 />
               </Tooltip>
-            )}
-            {isToday && (
+            
               <Checkbox
                 checked={selectedEmployees.includes(record.id)}
                 onChange={(e) => handleEmployeeSelect(record.id, e.target.checked)}
               />
-            )}
           </Space>
         );
       },
@@ -1042,7 +1035,6 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                       type="default"
                       size="large"
                       onClick={handleMarkAbsent}
-                      disabled={!selectedDate.isSame(dayjs(), 'day')}
                       style={{  
                         background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
                         border: 'none',
@@ -1060,7 +1052,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                       type="primary"
                       size="large"
                       onClick={handleMarkAttendance}
-                      disabled={selectedEmployees.length === 0 || !selectedDate.isSame(dayjs(), 'day')}
+                      disabled={selectedEmployees.length === 0}
                       style={{
                         background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
                         border: 'none',
