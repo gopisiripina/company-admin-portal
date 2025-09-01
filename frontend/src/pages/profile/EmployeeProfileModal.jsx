@@ -68,7 +68,6 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { supabase, supabaseAdmin } from '../../supabase/config';
-
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
 const { Option } = Select;
