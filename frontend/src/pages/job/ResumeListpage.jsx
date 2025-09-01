@@ -496,38 +496,49 @@ const getProgressSteps = (resume) => {
     ),
   },
   {
-    title: 'Mail Type',
-    key: 'mailType',
-    width: 100, // Reduced from 120
-    render: (_, record) => (
-      <div>
-        {record.mailHistory && record.mailHistory.length > 0 ? (
-          <div>
-            {record.mailHistory.map((mail, index) => ( // Show only latest mail
-              <div key={index} style={{ marginBottom: '2px' }}>
-                <Tag 
-                  color={mail.type === 'technical' ? 'blue' : mail.type === 'hr' ? 'green' : 'orange'}
-                  style={{ fontSize: '9px', marginBottom: '1px' }}
-                >
-                  {mail.type.toUpperCase()}
-                </Tag>
-                <div style={{ fontSize: '8px', color: '#666' }}>
-                  {new Date(mail.sentDate).toLocaleDateString('en-US', { 
-                    month: 'short', day: 'numeric' ,year: 'numeric'
-                  })}
-                </div>
-              </div>
-            ))}
-            <Text type="secondary" style={{ fontSize: '9px' }}>
-              {record.mailHistory.length} mail{record.mailHistory.length > 1 ? 's' : ''}
-            </Text>
+  title: 'Mail Type',
+  key: 'mailType',
+  width: 100,
+  render: (_, record) => {
+    if (record.mailHistory && record.mailHistory.length > 0) {
+      // Get last mail entry
+      const latestMail = record.mailHistory[record.mailHistory.length - 1];
+
+      return (
+        <div>
+          <Tag
+            color={
+              latestMail.type === 'technical'
+                ? 'blue'
+                : latestMail.type === 'hr'
+                ? 'green'
+                : 'orange'
+            }
+            style={{ fontSize: '9px', marginBottom: '1px' }}
+          >
+            {latestMail.type.toUpperCase()}
+          </Tag>
+          <div style={{ fontSize: '8px', color: '#666' }}>
+            {new Date(latestMail.sentDate).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            })}
           </div>
-        ) : (
-          <Text type="secondary" style={{ fontSize: '10px' }}>No mails sent</Text>
-        )}
-      </div>
-    ),
+          <Text type="secondary" style={{ fontSize: '9px' }}>
+            Latest Mail
+          </Text>
+        </div>
+      );
+    } else {
+      return (
+        <Text type="secondary" style={{ fontSize: '10px' }}>
+          No mails sent
+        </Text>
+      );
+    }
   },
+},
   {
     title: 'Resume',
     key: 'resume',

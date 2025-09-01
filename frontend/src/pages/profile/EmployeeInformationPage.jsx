@@ -58,7 +58,8 @@ const EmployeeInformationPage = () => {
   const [modalVisible, setModalVisible] = React.useState(false);
   const [documentsLoading, setDocumentsLoading] = React.useState(false);
   const screens = useBreakpoint();
-
+  const [payrollData, setPayrollData] = useState([]);
+   const [salarySlip, setSalarySlip] = useState(null);
   
   React.useEffect(() => {
   const fetchEmployees = async () => {
@@ -155,12 +156,50 @@ const handleViewDocument = async (employeeId, fileName) => {
   const handleViewProfile = async (employee) => {
   setSelectedEmployee(employee);
   setModalVisible(true);
-  
-  // Fetch documents when opening profile
+
+  // Fetch documents...
   setDocumentsLoading(true);
   const docs = await fetchEmployeeDocuments(employee.employee_id);
   setEmployeeDocuments(docs);
   setDocumentsLoading(false);
+
+  // ✅ Fetch payroll (salary)
+  try {
+    const { data, error } = await supabase
+      .from('payroll')
+      .select('final_payslips, pay_period')
+      .eq('employee_id', employee.employee_id)
+      .order('pay_period', { ascending: false })
+      .limit(2); // current + previous month
+
+    if (error) throw error;
+
+    let slip = null;
+
+    // Get current month
+    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const prevMonth = new Date(new Date().setMonth(new Date().getMonth() - 1))
+      .toISOString()
+      .slice(0, 7);
+
+    for (let row of data) {
+      if (row.final_payslips && Array.isArray(row.final_payslips)) {
+        const foundCurrent = row.final_payslips.find((s) => s.month === currentMonth);
+        const foundPrev = row.final_payslips.find((s) => s.month === prevMonth);
+        if (foundCurrent) {
+          slip = foundCurrent;
+          break;
+        } else if (!slip && foundPrev) {
+          slip = foundPrev;
+        }
+      }
+    }
+
+    setSalarySlip(slip);
+  } catch (err) {
+    console.error("Error fetching payroll:", err);
+    setSalarySlip(null);
+  }
 };
   const fetchEmployeeDocuments = async (employeeId) => {
   try {
@@ -350,6 +389,7 @@ const handleViewDocument = async (employeeId, fileName) => {
                 {selectedEmployee.email}
               </Text>
             </div>
+            
             <div style={styles.contactItem}>
               <PhoneOutlined style={styles.sidebarIcon} />
               <span>{selectedEmployee.mobile || 'N/A'}</span>
@@ -360,7 +400,24 @@ const handleViewDocument = async (employeeId, fileName) => {
                 <span>{selectedEmployee.address}</span>
               </div>
             )}
+            <div>
+              <Text>
+                <div >
+                    {salarySlip ? (
+                      <p>
+                      Salary: ₹{salarySlip.amount}
+                      </p>
+                    ) : (
+                      <p>No salary</p>
+                    )}
+                  </div>
+                </Text>
+            </div>
           </div>
+
+
+
+
 
           {/* Social Links */}
           {(selectedEmployee.linkedin_url || selectedEmployee.github_url || selectedEmployee.twitter_url) && (

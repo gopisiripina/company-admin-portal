@@ -903,12 +903,6 @@ const [totalApplicants, setTotalApplicants] = useState(0);
                 >
                   Reject
                 </Button>
-                <Button 
-                  icon={<MailOutlined />}
-                  onClick={() => window.open(`mailto:${selectedApplicant.email}`)}
-                >
-                  Send Email
-                </Button>
               </Space>
             </div>
           </div>
