@@ -648,9 +648,9 @@ useEffect(() => {
 }, [refreshData]);
 
   // Event handlers
-  const handleTableChange = useCallback((paginationInfo) => {
-    applyFiltersAndPagination(allHRs, searchQuery, paginationInfo.current, paginationInfo.pageSize,statusFilter);
-  }, [allHRs, searchQuery, applyFiltersAndPagination]);
+  // const handleTableChange = useCallback((paginationInfo) => {
+  //   applyFiltersAndPagination(allHRs, searchQuery, paginationInfo.current, paginationInfo.pageSize,statusFilter);
+  // }, [allHRs, searchQuery, applyFiltersAndPagination]);
 
   const handleSearch = useCallback((value) => {
     setSearchQuery(value);
@@ -1063,27 +1063,53 @@ const handleDelete = useCallback(async (hrId) => {
 )}
               
               {/* Mobile Pagination */}
-              <div style={{ textAlign: 'center', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #f0f0f0' }}>
-                <Space>
-                  <Button 
-  size="small"
-  disabled={pagination.current === 1}
-  onClick={() => handleTableChange({ current: pagination.current - 1, pageSize: pagination.pageSize })}
->
-  Previous
-</Button>
-                  <Text style={{ fontSize: '12px' }}>
-                    Page {pagination.current} of {Math.ceil(pagination.total / pagination.pageSize)}
-                  </Text>
-                  <Button 
-  size="small"
-  disabled={pagination.current >= Math.ceil(pagination.total / pagination.pageSize)}
-  onClick={() => handleTableChange({ current: pagination.current + 1, pageSize: pagination.pageSize })}
->
-  Next
-</Button>
-                </Space>
-              </div>
+<div style={{ 
+  textAlign: 'center', 
+  marginTop: '16px', 
+  paddingTop: '16px', 
+  borderTop: '1px solid #f0f0f0' 
+}}>
+  <Space>
+    <Button 
+      size="small"
+      disabled={pagination.current === 1}
+      onClick={() => applyFiltersAndPagination(allHRs, searchQuery, pagination.current - 1, pagination.pageSize, statusFilter)}
+      style={{
+        borderColor: '#0D7139',
+        color: '#0D7139'
+      }}
+    >
+      Previous
+    </Button>
+    <Text style={{ 
+      fontSize: '12px',
+      padding: '4px 12px',
+      backgroundColor: '#f6ffed',
+      border: '1px solid #0D7139',
+      borderRadius: '6px',
+      color: '#0D7139',
+      fontWeight: 600
+    }}>
+      {pagination.current} / {Math.ceil(pagination.total / pagination.pageSize)}
+    </Text>
+    <Button 
+      size="small"
+      disabled={pagination.current >= Math.ceil(pagination.total / pagination.pageSize)}
+      onClick={() => applyFiltersAndPagination(allHRs, searchQuery, pagination.current + 1, pagination.pageSize, statusFilter)}
+      style={{
+        borderColor: '#0D7139',
+        color: '#0D7139'
+      }}
+    >
+      Next
+    </Button>
+  </Space>
+  <div style={{ marginTop: '8px' }}>
+    <Text type="secondary" style={{ fontSize: '11px' }}>
+      Showing {((pagination.current - 1) * pagination.pageSize) + 1}-{Math.min(pagination.current * pagination.pageSize, pagination.total)} of {pagination.total} admins
+    </Text>
+  </div>
+</div>
             </Card>
           ) : (
             /* Desktop Table */
@@ -1095,28 +1121,42 @@ const handleDelete = useCallback(async (hrId) => {
   loading={loading}
   locale={{ emptyText: 'No HRs found' }}
   pagination={{
-    ...pagination,
-    showSizeChanger: true,
-    showQuickJumper: true,
-    showTotal: (total, range) =>
-      `${range[0]}-${range[1]} of ${total} HRs`,
-    pageSizeOptions: ['10', '20', '50', '100'],
-       itemRender: (current, type, originalElement) => {
+  current: pagination.current,
+  pageSize: pagination.pageSize,
+  total: pagination.total,
+  showSizeChanger: true,
+  showQuickJumper: true,
+  showTotal: (total, range) =>
+    `${range[0]}-${range[1]} of ${total} admins`,
+  pageSizeOptions: ['5', '10', '20', '50'],
+  onChange: (page, size) => {
+    applyFiltersAndPagination(allHRs, searchQuery, page, size, statusFilter);
+  },
+  onShowSizeChange: (current, size) => {
+    applyFiltersAndPagination(allHRs, searchQuery, 1, size, statusFilter);
+  },
+  itemRender: (current, type, originalElement) => {
     if (type === 'page') {
       return (
-        <a style={{ 
-          color: '#000000d9', 
-          backgroundColor: 'white',
-          border: '1px solid #d9d9d9'
+        <a style={{
+          color: current === pagination.current ? '#0D7139' : '#666',
+          backgroundColor: current === pagination.current ? '#f6ffed' : 'white',
+          border: `1px solid ${current === pagination.current ? '#0D7139' : '#d9d9d9'}`,
+          borderRadius: '6px',
+          fontWeight: current === pagination.current ? 600 : 400,
+          padding: '0px 8px',
+          textDecoration: 'none'
         }}>
           {current}
         </a>
       );
     }
     return originalElement;
-  }   
-  }}
-  onChange={handleTableChange}
+  }
+}}
+  onChange={(paginationInfo) => {
+  applyFiltersAndPagination(allHRs, searchQuery, paginationInfo.current, paginationInfo.pageSize, statusFilter);
+}}
   scroll={{ x: 800 }}
   size="middle"
 />

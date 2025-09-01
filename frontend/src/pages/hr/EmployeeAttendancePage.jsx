@@ -94,6 +94,11 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
   const [monthlyData, setMonthlyData] = useState({});
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState(5);
+const [totalEmployeeCount, setTotalEmployeeCount] = useState(0);
+const [totalEmployees, setTotalEmployees] = useState(0);
+
   useEffect(() => {
   const getCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -109,16 +114,44 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
   getCurrentUser();
 }, []);
 
-  const fetchEmployees = async () => {
+  const fetchEmployees = async (page = 1, size = 5, search = '', type = 'All') => {
   try {
-    const { data, error } = await supabase
-  .from('users')
-  .select('*')
-  .in('employee_type', ['full-time', 'internship', 'temporary'])
-  .not('role', 'in', '(superadmin,admin)')
+    setLoading(true);
+    
+    // Start building the query for both count and data
+    let baseQuery = supabase
+      .from('users')
+      .select('*', { count: 'exact' })
+      .in('employee_type', ['full-time', 'internship', 'temporary'])
+      .not('role', 'in', '(superadmin,admin)');
+    
+    // Add search filter if search text exists
+    if (search) {
+      baseQuery = baseQuery.or(`name.ilike.%${search}%,employee_id.ilike.%${search}%,department.ilike.%${search}%`);
+    }
+    
+    // Add type filter if not "All"
+    if (type !== 'All') {
+      const typeMapping = {
+        'Full-time': 'full-time',
+        'Intern': 'internship', 
+        'Temporary': 'temporary'
+      };
+      baseQuery = baseQuery.eq('employee_type', typeMapping[type]);
+    }
+    
+    // Apply pagination - this fetches only the records for current page
+    const { data, count, error } = await baseQuery.range((page - 1) * size, page * size - 1);
+    
     if (error) throw error;
     
-    // console.log('Fetched employees:', data); // Add this to debug
+    // Set both counts with the filtered count
+    setTotalEmployeeCount(count || 0);
+    setTotalEmployees(count || 0);
+    
+    if (error) throw error;
+    
+    setTotalEmployees(count || 0);
     
     const transformedData = data.map(user => ({
       id: user.id,
@@ -138,6 +171,8 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
   } catch (error) {
     console.error('Error fetching employees:', error);
     message.error('Failed to load employees');
+  } finally {
+    setLoading(false);
   }
 };
 
@@ -221,6 +256,8 @@ const fetchAttendanceData = async (startDate, endDate) => {
       .gte('date', startDate)
       .lte('date', endDate);
     
+    console.log('Raw attendance data from DB:', data); // Add this debug log
+    
     if (error) throw error;
     
     // Transform to match existing structure
@@ -238,6 +275,7 @@ const fetchAttendanceData = async (startDate, endDate) => {
       };
     });
     
+    console.log('Transformed attendance data:', transformedData); // Add this debug log
     setAttendanceData(transformedData);
   } catch (error) {
     console.error('Error fetching attendance:', error);
@@ -245,15 +283,27 @@ const fetchAttendanceData = async (startDate, endDate) => {
   }
 };
 
+const handleSearch = (value) => {
+  setSearchText(value);
+  setCurrentPage(1);
+  fetchEmployees(1, pageSize, value, filterType);
+};
+
+const handleFilterChange = (value) => {
+  setFilterType(value);
+  setCurrentPage(1);
+  fetchEmployees(1, pageSize, searchText, value);
+};
+
 // ADD THE useEffect HOOKS HERE - after the function definitions but before the existing useEffect
   useEffect(() => {
-    fetchEmployees();
+    fetchEmployees(currentPage, pageSize, searchText, filterType);
     
     // Fetch attendance data for current month
     const startDate = dayjs().startOf('month').format('YYYY-MM-DD');
     const endDate = dayjs().endOf('month').format('YYYY-MM-DD');
     fetchAttendanceData(startDate, endDate);
-  }, []);
+  }, [currentPage, pageSize,searchText, filterType]);
 
   // Add effect for date changes
   useEffect(() => {
@@ -291,14 +341,7 @@ const fetchAttendanceData = async (startDate, endDate) => {
   }, [attendanceData]);
 
   // Filter employees based on type and search
-  const filteredEmployees = employeesData.filter(employee => {
-  const matchesType = filterType === 'All' || employee.type === filterType;
-  const matchesSearch = employee.name.toLowerCase().includes(searchText.toLowerCase()) ||
-                       employee.employeeId.toLowerCase().includes(searchText.toLowerCase()) ||
-                       employee.department.toLowerCase().includes(searchText.toLowerCase());
-  // Remove the isNotAdminRole check since we already filtered at database level
-  return matchesType && matchesSearch;
-});
+  const filteredEmployees = employeesData;
 
   // Handle checkbox selection
   const handleEmployeeSelect = (employeeId, checked) => {
@@ -569,24 +612,33 @@ const handleAutoMarkAbsent = async () => {
 };
 
 
-  // Get attendance stats for selected date
-  const getAttendanceStats = (date) => {
-    const dateKey = date.format('YYYY-MM-DD');
-    const dayData = attendanceData[dateKey] || {};
-    
-    let present = 0, absent = 0, total = 0;
-    
-    filteredEmployees.forEach(employee => {
-      total++;
-      if (dayData[employee.id]?.present) {
-        present++;
-      } else {
-        absent++;
-      }
-    });
+// Remove the getTotalAttendanceStats function and useEffect
+// Instead, calculate stats directly from attendanceData and employeesData
 
-    return { present, absent, total };
+const calculateTotalStats = () => {
+  const dateKey = selectedDate.format('YYYY-MM-DD');
+  const dayData = attendanceData[dateKey] || {};
+  
+  // Use totalEmployeeCount state variable, not totalEmployees
+  const totalEmpCount = totalEmployeeCount || 0;
+  let presentCount = 0;
+  
+  // Count present employees from attendance data
+  Object.values(dayData).forEach(record => {
+    if (record.present) {
+      presentCount++;
+    }
+  });
+  
+  const absentCount = totalEmpCount - presentCount;
+  
+  return {
+    present: presentCount,
+    absent: absentCount,
+    total: totalEmpCount
   };
+};
+const totalStats = calculateTotalStats();
 
   // Table columns for employee list
   const columns = [
@@ -904,8 +956,18 @@ const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 
     );
   }
 
-  // HR/Admin view
-  const stats = getAttendanceStats(selectedDate);
+useEffect(() => {
+  const fetchTotalStats = async () => {
+    console.log('useEffect triggered for date:', selectedDate.format('YYYY-MM-DD')); // Debug log
+    const stats = await getTotalAttendanceStats(selectedDate);
+    console.log('Setting total stats:', stats); // Debug log
+    setTotalStats(stats);
+  };
+  
+  if (selectedDate) { // Add this check
+    fetchTotalStats();
+  }
+}, [selectedDate, employeesData]); // Add employeesData as dependency
 
   return (
     
@@ -977,12 +1039,12 @@ const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 
                         <Card style={{ borderRadius: '12px', ...animationStyles.statsCard }}>
                           <Statistic
                             title="Present"
-                            value={stats.present}
+                            value={totalStats.present}
                             valueStyle={{ color: '#0D7139' }}
                             prefix={<CheckCircleOutlined />}
                           />
                           <Progress 
-                            percent={stats.total > 0 ? (stats.present / stats.total) * 100 : 0}
+                            percent={totalStats.total > 0 ? (totalStats.present / totalStats.total) * 100 : 0}
                             strokeColor="#0D7139"
                             showInfo={false}
                             size="small"
@@ -993,12 +1055,12 @@ const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 
                       <Card style={{ borderRadius: '12px', ...animationStyles.statsCard }}>
                         <Statistic
                           title="Absent"
-                          value={stats.absent}
+                          value={totalStats.absent}
                           valueStyle={{ color: '#ff4d4f' }}
                           prefix={<CloseCircleOutlined />}
                         />
                         <Progress 
-                          percent={stats.total > 0 ? (stats.absent / stats.total) * 100 : 0}
+                          percent={totalStats.total > 0 ? (totalStats.absent / totalStats.total) * 100 : 0}
                           strokeColor="#ff4d4f"
                           showInfo={false}
                           size="small"
@@ -1010,12 +1072,12 @@ const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 
                       <Card style={{ borderRadius: '12px', ...animationStyles.statsCard }}>
                         <Statistic
                           title="Total"
-                          value={stats.total}
+                          value={totalStats.total}
                           valueStyle={{ color: '#0D7139' }}
                           prefix={<TeamOutlined />}
                         />
                         <Text type="secondary" style={{ fontSize: '12px' }}>
-                          Attendance Rate: {stats.total > 0 ? ((stats.present / stats.total) * 100).toFixed(1) : 0}%
+                          Attendance Rate: {totalStats.total > 0 ? ((totalStats.present / totalStats.total) * 100).toFixed(1) : 0}%
                         </Text>
                       </Card>
                     </Col>
@@ -1036,7 +1098,7 @@ const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 
         
         <Select
           value={filterType}
-          onChange={setFilterType}
+          onChange={handleFilterChange}
           style={{ width: '150px' }}
           size="large"
         >
@@ -1051,13 +1113,25 @@ const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 
     {/* Search */}
     <Col xs={24} sm={12} lg={6}>
       <Search
-        placeholder="Search employees..."
-        allowClear
-        size="large"
-        value={searchText}
-        onChange={(e) => setSearchText(e.target.value)}
-        style={{ width: '100%' }}
-      />
+  placeholder="Search employees..."
+  allowClear
+  size="large"
+  value={searchText}
+  onSearch={handleSearch}
+  onChange={(e) => setSearchText(e.target.value)}
+  style={{ width: '100%'}}
+  enterButton={
+    <Button 
+      style={{ 
+        backgroundColor: '#0D7139', 
+        borderColor: '#0D7139',
+        color: 'white'
+      }}
+    >
+      <SearchOutlined />
+    </Button>
+  }
+/>
     </Col>
     
     {/* Mark Remaining as Absent Button */}
@@ -1114,18 +1188,32 @@ const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 
                   dataSource={filteredEmployees}
                   rowKey="id"
                   pagination={{
-  pageSize: 10,
+  current: currentPage,
+  pageSize: pageSize,
+  total: totalEmployees,
   showSizeChanger: true,
   showQuickJumper: true,
-  loading:{loading},
   showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} employees`,
+  pageSizeOptions: ['5', '10', '20', '50'],
+  onChange: (page, size) => {
+    setCurrentPage(page);
+    setPageSize(size);
+    fetchEmployees(page, size, searchText, filterType);
+  },
+  onShowSizeChange: (current, size) => {
+    setCurrentPage(1);
+    setPageSize(size);
+    fetchEmployees(1, size, searchText, filterType);
+  },
   itemRender: (current, type, originalElement) => {
     if (type === 'page') {
       return (
         <a style={{ 
-          color: '#000000d9', 
-          backgroundColor: 'white',
-          border: '1px solid #d9d9d9'
+          color: current === currentPage ? '#0D7139' : '#666',
+          backgroundColor: current === currentPage ? '#f6ffed' : 'white',
+          border: `1px solid ${current === currentPage ? '#0D7139' : '#d9d9d9'}`,
+          borderRadius: '6px',
+          fontWeight: current === currentPage ? 600 : 400
         }}>
           {current}
         </a>

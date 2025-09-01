@@ -62,7 +62,9 @@ const [selectedStudents, setSelectedStudents] = useState([]);
 const [selectedStudentKeys, setSelectedStudentKeys] = useState([]);
 const isMobile = useMediaQuery({ maxWidth: 768 });
 const isTablet = useMediaQuery({ minWidth: 769, maxWidth: 1024 });
-
+const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState(5);
+const [totalExams, setTotalExams] = useState(0);
 
 const moveToCandidateList = async () => {
   if (selectedStudents.length === 0) {
@@ -312,17 +314,33 @@ const rowSelection = {
 };
 
   // Fetch exams from database
- const fetchExams = async () => {
+ const fetchExams = async (page = 1, size = 5) => {
   setLoading(true);
   try {
+    // Calculate offset for pagination
+    const from = (page - 1) * size;
+    const to = from + size - 1;
+
+    // Get total count first
+    const { count, error: countError } = await supabase
+      .from('campus_management')
+      .select('*', { count: 'exact', head: true })
+      .eq('type', 'exam');
+
+    if (countError) throw countError;
+
+    // Fetch paginated data
     const { data, error } = await supabase
       .from('campus_management')
       .select('*')
       .eq('type', 'exam')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .range(from, to);
 
     if (error) throw error;
+    
     setExams(data || []);
+    setTotalExams(count);
   } catch (error) {
     console.error('Error fetching exams:', error);
     message.error('Failed to load exams');
@@ -334,7 +352,7 @@ const rowSelection = {
 
   useEffect(() => {
     fetchJobsAndColleges();
-    fetchExams();
+    fetchExams(1, 5);
   }, []);
 
   // Generate unique exam link
@@ -450,7 +468,8 @@ college: Array.isArray(values.college) ? values.college[0] : values.college,
     if (error) throw error;
 
     // Add to local state
-    setExams([data, ...exams]);
+    fetchExams(1, pageSize);
+setCurrentPage(1);
     setCreateExamVisible(false);
     form.resetFields();
     setQuestionFile(null);
@@ -733,10 +752,40 @@ const [jobTitles, setJobTitles] = useState([]);
           loading={loading}
           scroll={{ x: 'max-content' }}
           pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            showQuickJumper: true,
-          }}
+  current: currentPage,
+  pageSize: pageSize,
+  total: totalExams,
+  showSizeChanger: true,
+  showQuickJumper: true,
+  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} exams`,
+  pageSizeOptions: ['5', '10', '20', '50'],
+  onChange: (page, size) => {
+    setCurrentPage(page);
+    setPageSize(size);
+    fetchExams(page, size);
+  },
+  onShowSizeChange: (current, size) => {
+    setCurrentPage(1);
+    setPageSize(size);
+    fetchExams(1, size);
+  },
+  itemRender: (current, type, originalElement) => {
+    if (type === 'page') {
+      return (
+        <a style={{
+          color: current === currentPage ? '#0D7139' : '#666',
+          backgroundColor: current === currentPage ? '#f6ffed' : 'white',
+          border: `1px solid ${current === currentPage ? '#0D7139' : '#d9d9d9'}`,
+          borderRadius: '6px',
+          fontWeight: current === currentPage ? 600 : 400
+        }}>
+          {current}
+        </a>
+      );
+    }
+    return originalElement;
+  }
+}}
         />
       </Card>
 

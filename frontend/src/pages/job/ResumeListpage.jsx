@@ -129,7 +129,8 @@ const ResumeListPage = ({ userRole }) => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateRange, setDateRange] = useState(null);
   const [jobTitles, setJobTitles] = useState([]);
-  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
   // Modal states
   const [resumeModalVisible, setResumeModalVisible] = useState(false);
   const [mailModalVisible, setMailModalVisible] = useState(false);
@@ -235,7 +236,7 @@ const refreshJobTitles = async () => {
         return resumeDate >= start && resumeDate <= end;
       });
     }
-
+    setCurrentPage(1); 
     setFilteredResumes(filtered);
   };
 
@@ -852,12 +853,38 @@ const getProgressSteps = (resume) => {
     rowKey="id"
     loading={loading}
     pagination={{
-    pageSize: window.innerWidth > 768 ? 10 : 5, // Less items on mobile
-    showSizeChanger: window.innerWidth > 768,
-    showQuickJumper: window.innerWidth > 768,
-    showTotal: window.innerWidth > 768 ? (total, range) =>
-      `${range[0]}-${range[1]} of ${total} resumes` : false,
-  }}
+  current: currentPage,
+  pageSize: pageSize,
+  total: filteredResumes.length,
+  showSizeChanger: true,
+  showQuickJumper: true,
+  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} resumes`,
+  pageSizeOptions: ['5', '10', '20', '50'],
+  onChange: (page, size) => {
+    setCurrentPage(page);
+    setPageSize(size);
+  },
+  onShowSizeChange: (current, size) => {
+    setCurrentPage(1);
+    setPageSize(size);
+  },
+  itemRender: (current, type, originalElement) => {
+    if (type === 'page') {
+      return (
+        <a style={{
+          color: current === currentPage ? '#0D7139' : '#666',
+          backgroundColor: current === currentPage ? '#f6ffed' : 'white',
+          border: `1px solid ${current === currentPage ? '#0D7139' : '#d9d9d9'}`,
+          borderRadius: '6px',
+          fontWeight: current === currentPage ? 600 : 400
+        }}>
+          {current}
+        </a>
+      );
+    }
+    return originalElement;
+  }
+}}
     scroll={{ x: 800 }} // allows natural scroll
     size="small"
   />

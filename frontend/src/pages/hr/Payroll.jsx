@@ -76,6 +76,9 @@ const [monthlyExpensesData, setMonthlyExpensesData] = useState([]);
 const [expensesList, setExpensesList] = useState([]);
 const [thisMonthPayroll, setThisMonthPayroll] = useState(0);
 const [isPayrollEdited, setIsPayrollEdited] = useState(false);
+const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState(5);
+const [totalEmployees, setTotalEmployees] = useState(0);
 const [expensesModalVisible, setExpensesModalVisible] = useState(false);
 const [payrollEditModalVisible, setPayrollEditModalVisible] = useState(false);
 const [selectedEmployees, setSelectedEmployees] = useState([]);
@@ -329,7 +332,7 @@ const saveEditedPayroll = async (amount) => {
 useEffect(() => {
   const initializeData = async () => {
     await loadUsers();
-    await fetchEmployees();
+    await fetchEmployees(currentPage, pageSize);
     const currentMonth = dayjs().format('YYYY-MM');
     await fetchExpenses(currentMonth);
     fetchStats();
@@ -779,7 +782,7 @@ const uploadPDFToStorage = async (pdfBlob, employee) => {
     form.resetFields();
     setEarnings([]);
     setDeductions([]);
-    fetchEmployees();
+    fetchEmployees(currentPage, pageSize);
     fetchStats();
   } catch (error) {
     console.error('Save error:', error);
@@ -1029,7 +1032,7 @@ const netPay = Number(record.net_pay) || (totalEarnings - totalDeductions);
   useEffect(() => {
     const initializeData = async () => {
       await loadUsers();
-      await fetchEmployees();
+      await fetchEmployees(currentPage, pageSize);
       fetchStats();
     };
     
@@ -1054,22 +1057,26 @@ const netPay = Number(record.net_pay) || (totalEarnings - totalDeductions);
     }
   };
 
-  const fetchEmployees = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('payroll')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      setEmployees(data || []);
-    } catch (error) {
-      message.error('Error fetching employees: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchEmployees = async (page = 1, size = 5) => {
+  try {
+    setLoading(true);
+    const offset = (page - 1) * size;
+    
+    const { data, error, count } = await supabase
+      .from('payroll')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(offset, offset + size - 1);
+    
+    if (error) throw error;
+    setEmployees(data || []);
+    setTotalEmployees(count || 0);
+  } catch (error) {
+    message.error('Error fetching employees: ' + error.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleEmailOnly = async () => {
     try {
@@ -1673,7 +1680,7 @@ if (printWindow) {
     form.resetFields();
     setEarnings([]);
     setDeductions([]);
-    fetchEmployees();
+    fetchEmployees(currentPage, pageSize);
     fetchStats();
   } catch (error) {
     console.error('Error:', error);
@@ -1691,24 +1698,21 @@ if (printWindow) {
       .filter(emp => emp.user_id === user.id)
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
     
-    // NEW LOGIC: Priority for net_pay calculation
     let netPay = 0;
     if (latestPayroll) {
-      // First priority: Check final_payslips for most recent amount
       if (latestPayroll.final_payslips && Array.isArray(latestPayroll.final_payslips) && latestPayroll.final_payslips.length > 0) {
-        // Get the most recent payslip (sorted by month or generated_at)
         const sortedPayslips = latestPayroll.final_payslips.sort((a, b) => 
           new Date(b.generated_at || b.month) - new Date(a.generated_at || a.month)
         );
         netPay = sortedPayslips[0].amount || 0;
       } else {
-        // Second priority: Calculate from earnings if no final_payslips
         const earnings = Array.isArray(latestPayroll.earnings) ? latestPayroll.earnings : [];
         netPay = earnings.reduce((sum, earning) => sum + (earning.amount || 0), 0);
       }
     }
     
     return {
+      key: user.id, // ADD THIS LINE - ensures unique key
       ...user,
       pay_period: latestPayroll?.pay_period || null,
       net_pay: netPay,
@@ -1717,6 +1721,7 @@ if (printWindow) {
     };
   });
 };
+
 
   // NEW: Professional Dashboard Component
   const renderDashboard = () => (
@@ -1881,7 +1886,7 @@ if (printWindow) {
           </div>
           <Table
             dataSource={getMergedEmployeeData()}
-            rowKey="id"
+            rowKey="key"
             loading={loading}
             rowSelection={{
     selectedRowKeys: selectedEmployees,
@@ -1890,18 +1895,32 @@ if (printWindow) {
   }}
             scroll={{ x: 800 }}
             pagination={{
-  pageSize: 10,
+  current: currentPage,
+  pageSize: pageSize,
+  total: totalEmployees,
   showSizeChanger: true,
   showQuickJumper: true,
-  loading:{loading},
   showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} employees`,
+  pageSizeOptions: ['5', '10', '20', '50'],
+  onChange: (page, size) => {
+    setCurrentPage(page);
+    setPageSize(size);
+    fetchEmployees(page, size);
+  },
+  onShowSizeChange: (current, size) => {
+    setCurrentPage(1);
+    setPageSize(size);
+    fetchEmployees(1, size);
+  },
   itemRender: (current, type, originalElement) => {
     if (type === 'page') {
       return (
         <a style={{ 
-          color: '#000000d9', 
-          backgroundColor: 'white',
-          border: '1px solid #d9d9d9'
+          color: current === currentPage ? '#0D7139' : '#666',
+          backgroundColor: current === currentPage ? '#f6ffed' : 'white',
+          border: `1px solid ${current === currentPage ? '#0D7139' : '#d9d9d9'}`,
+          borderRadius: '6px',
+          fontWeight: current === currentPage ? 600 : 400
         }}>
           {current}
         </a>

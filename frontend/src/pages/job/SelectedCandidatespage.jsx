@@ -43,7 +43,8 @@ const SelectedCandidatesPage = ({ userRole }) => {
   // Add this new state after your existing modal states
 const [offerTypeModalVisible, setOfferTypeModalVisible] = useState(false);
 const [selectedOfferType, setSelectedOfferType] = useState(null);
-
+const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState(5);
   // Modal states
   const [candidateModalVisible, setCandidateModalVisible] = useState(false);
   const [offerModalVisible, setOfferModalVisible] = useState(false);
@@ -205,6 +206,12 @@ const fetchSelectedCandidates = async () => {
     const uniqueTitles = [...new Set(allCandidates.map(item => item.jobTitle))];
     setJobTitles(uniqueTitles);
 
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedCandidates = allCandidates.slice(startIndex, endIndex);
+    setCandidates(allCandidates); // Keep full data for filtering
+    setFilteredCandidates(paginatedCandidates);
+
   } catch (error) {
     console.error('Error loading candidates:', error);
     message.error('Failed to load candidates');
@@ -248,7 +255,52 @@ const fetchSelectedCandidates = async () => {
     }
 
     setFilteredCandidates(filtered);
+    setCurrentPage(1);
+  handlePaginationChange(1, pageSize);
   };
+
+  const handlePaginationChange = (page, size) => {
+  setCurrentPage(page);
+  setPageSize(size);
+  
+  // Apply pagination to current filtered results
+  const startIndex = (page - 1) * size;
+  const endIndex = startIndex + size;
+  
+  // First apply filters to get filtered data
+  let filtered = [...candidates];
+  
+  if (searchText) {
+    filtered = filtered.filter(candidate =>
+      candidate.name.toLowerCase().includes(searchText.toLowerCase()) ||
+      candidate.email.toLowerCase().includes(searchText.toLowerCase())
+    );
+  }
+  
+  if (jobTitleFilter !== 'all') {
+    filtered = filtered.filter(candidate => candidate.jobTitle === jobTitleFilter);
+  }
+  
+  if (statusFilter !== 'all') {
+    if (statusFilter === 'offer_sent') {
+      filtered = filtered.filter(candidate => candidate.offerSent);
+    } else if (statusFilter === 'offer_pending') {
+      filtered = filtered.filter(candidate => !candidate.offerSent);
+    }
+  }
+  
+  if (dateRange) {
+    const [start, end] = dateRange;
+    filtered = filtered.filter(candidate => {
+      const candidateDate = new Date(candidate.selectedDate);
+      return candidateDate >= start && candidateDate <= end;
+    });
+  }
+  
+  // Then apply pagination
+  const paginatedData = filtered.slice(startIndex, endIndex);
+  setFilteredCandidates(paginatedData);
+};
 
   useEffect(() => {
     applyFilters();
@@ -1428,13 +1480,40 @@ return doc.output('blob', { compress: true });
   rowKey="id"
   loading={loading}
   pagination={{
-    pageSize: screenSize.isMobile ? 5 : screenSize.isTablet ? 8 : 10,
-    showSizeChanger: screenSize.isDesktop,
-    showQuickJumper: screenSize.isDesktop,
-    showTotal: screenSize.isDesktop ? (total, range) =>
-      `${range[0]}-${range[1]} of ${total} candidates` : null,
-    simple: screenSize.isMobile
-  }}
+  current: currentPage,
+  pageSize: pageSize,
+  total: candidates.length, // Total count for pagination calculation
+  showSizeChanger: screenSize.isDesktop,
+  showQuickJumper: screenSize.isDesktop,
+  showTotal: screenSize.isDesktop ? (total, range) =>
+    `${range[0]}-${range[1]} of ${total} candidates` : null,
+  pageSizeOptions: ['5', '10', '20', '50'],
+  simple: screenSize.isMobile,
+  onChange: handlePaginationChange,
+  onShowSizeChange: (current, size) => {
+    setCurrentPage(1);
+    setPageSize(size);
+    handlePaginationChange(1, size);
+  },
+  itemRender: (current, type, originalElement) => {
+    if (type === 'page') {
+      return (
+        <a style={{
+          color: current === currentPage ? '#0D7139' : '#666',
+          backgroundColor: current === currentPage ? '#f6ffed' : 'white',
+          border: `1px solid ${current === currentPage ? '#0D7139' : '#d9d9d9'}`,
+          borderRadius: '6px',
+          fontWeight: current === currentPage ? 600 : 400,
+          padding: '0px 8px',
+          textDecoration: 'none'
+        }}>
+          {current}
+        </a>
+      );
+    }
+    return originalElement;
+  }
+}}
   scroll={{ 
     x: screenSize.isMobile ? 350 : screenSize.isTablet ? 500 : 900 
   }}
