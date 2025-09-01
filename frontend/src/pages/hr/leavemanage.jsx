@@ -895,35 +895,36 @@ const countDeductibleDays = async (startDate, endDate) => {
 
 // In leavemanage.jsx, replace the existing calculateLeaveDays function
 
+// In leavemanage.jsx, replace the existing calculateLeaveDays function
+
 const calculateLeaveDays = async () => {
   const startDate = form.getFieldValue('startDate');
   const endDate = form.getFieldValue('endDate');
   const leaveType = form.getFieldValue('leaveType');
   const subType = form.getFieldValue('subType');
 
-  if (!startDate || !leaveType) return;
+  if (!startDate || !leaveType) {
+    setCalculatedDays(0);
+    setBalanceWarning('');
+    return;
+  }
 
   let days = 0;
-  
+
+  // --- FIX: Clarified and corrected logic ---
   if (leaveType === 'Permission') {
-    days = 0;
+    days = 0; // Permissions are calculated in hours, not days.
   } else if (leaveType === 'Casual Leave' && subType === 'HDL') {
     days = 0.5;
   } else if (leaveType === 'Casual Leave' || leaveType === 'Medical Leave') {
-    // Correctly counts only working days
+    // CORRECT: For these types, we count ONLY working days (excluding weekends/holidays).
     days = await countDeductibleDays(startDate, endDate || startDate);
-  } else if (leaveType === 'Earned Leave' || leaveType === 'Compensatory Leave') {
-    // --- FIX IS HERE ---
-    // Count ALL calendar days (inclusive of start and end dates)
-    const start = dayjs(startDate);
-    const end = dayjs(endDate || startDate);
-    // The '+ 1' is crucial to include the last day in the count.
-    // e.g., Sep 1 to Sep 2 is a 1-day difference, so 1 + 1 = 2 days.
-    days = end.diff(start, 'days') + 1;
   } else {
-    // For other leave types, ensure inclusive counting as well
+    // CORRECT: For ALL OTHER leave types (Earned, Compensatory, Maternity, etc.),
+    // we count EVERY calendar day (including weekends/holidays).
     const start = dayjs(startDate);
     const end = dayjs(endDate || startDate);
+    // The '+ 1' is crucial to make the day count inclusive of the end date.
     days = end.diff(start, 'days') + 1;
   }
 
@@ -931,9 +932,8 @@ const calculateLeaveDays = async () => {
 
   const currentBalance = getCurrentBalance(leaveType);
   if (days > currentBalance && leaveType !== 'On Duty' && leaveType !== 'Overtime') {
-  setBalanceWarning(`❌ You don’t have ${days} ${leaveType} day(s). Only ${currentBalance} available.`);
-}
- else if (days > 0) {
+    setBalanceWarning(`❌ You don’t have ${days} ${leaveType} day(s). Only ${currentBalance} available.`);
+  } else if (days > 0) {
     setBalanceWarning(`✅ Total Days: ${days} days - This will deduct ${days} days from your ${leaveType} balance`);
   } else {
     setBalanceWarning('');
@@ -964,45 +964,36 @@ useEffect(() => {
 const handleApplyLeave = async (values) => {
   setLoading(true);
   try {
-    // --- Step 1: Calculate leave details from form ---
-    const startDate = values.startDate;
-    const endDate = values.endDate;
-    const leaveType = values.leaveType;
-    const subType = values.subType;
+    const { startDate, endDate, leaveType, subType } = values;
 
-    // --- Step 2: Recalculate total days with the correct inclusive logic ---
+    // --- Step 1: Recalculate total days with the same corrected logic ---
     let totalDays = 0;
-    
+
     if (leaveType === 'Permission') {
       totalDays = 0;
     } else if (leaveType === 'Casual Leave' && subType === 'HDL') {
       totalDays = 0.5;
     } else if (leaveType === 'Casual Leave' || leaveType === 'Medical Leave') {
+      // CORRECT: For Casual and Medical leave, count only working days.
       totalDays = await countDeductibleDays(startDate, endDate || startDate);
-    } else if (leaveType === 'Earned Leave' || leaveType === 'Compensatory Leave') {
-      // Correctly counts ALL calendar days (e.g., Jan 1 to Jan 2 is 2 days)
-      const start = dayjs(startDate);
-      const end = dayjs(endDate || startDate);
-      totalDays = end.diff(start, 'days') + 1;
     } else {
-      // Fallback for other leave types, ensuring inclusive counting
+      // CORRECT: For Earned, Compensatory, and all other types, count all calendar days.
       const start = dayjs(startDate);
       const end = dayjs(endDate || startDate);
-      totalDays = end.diff(start, 'days') + 1;
+      totalDays = end.diff(start, 'days') + 1; // Inclusive count
     }
 
-    // --- Step 3: CRITICAL - Validate balance before proceeding ---
+    // --- Step 2: CRITICAL - Validate balance before proceeding ---
     const currentBalance = getCurrentBalance(leaveType);
     const isValidationRequired = !['On Duty', 'Overtime'].includes(leaveType);
 
     if (isValidationRequired && totalDays > currentBalance) {
-  message.error(`❌ You don’t have ${totalDays} ${leaveType} day(s). Only ${currentBalance} available.`);
-  setLoading(false);
-  return; // stop submission
-}
+      message.error(`❌ You don’t have ${totalDays} ${leaveType} day(s). Only ${currentBalance} available.`);
+      setLoading(false);
+      return; // Stop the submission
+    }
 
-
-    // --- Step 4: If validation passes, proceed with submitting the leave ---
+    // --- Step 3: If validation passes, proceed with submitting the leave ---
     const { data: userData } = await supabase
       .from('users')
       .select('*')
