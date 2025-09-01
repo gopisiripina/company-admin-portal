@@ -23,7 +23,6 @@ import {
   Calendar,
   Badge,
   Tooltip,
-  Empty,
   Spin
 } from 'antd';
 import { 
@@ -37,51 +36,20 @@ import {
   DownloadOutlined,
   EyeOutlined,
   DashboardOutlined,
-  BarChartOutlined,
   SearchOutlined,
-  FileExcelOutlined,
   PrinterOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { supabase } from '../../supabase/config';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 const { Search } = Input;
 const { TabPane } = Tabs;
-const { RangePicker } = DatePicker;
-import { supabase } from '../../supabase/config';
-// Dummy data for employees and interns
-
-// Generate dummy attendance data
-const generateAttendanceData = () => {
-  const attendanceData = {};
-  const currentDate = dayjs();
-  
-  // Generate data for last 30 days
-  for (let i = 0; i < 30; i++) {
-    const date = currentDate.subtract(i, 'day').format('YYYY-MM-DD');
-    attendanceData[date] = {};
-    
-    employeesData.forEach(employee => {
-      const isPresent = Math.random() > 0.1; // 90% attendance rate
-      const checkInTime = isPresent ? dayjs().hour(9).minute(Math.floor(Math.random() * 60)).second(0) : null;
-      const checkOutTime = isPresent ? dayjs().hour(17).minute(Math.floor(Math.random() * 60)).second(0) : null;
-      
-      attendanceData[date][employee.id] = {
-        present: isPresent,
-        checkIn: checkInTime ? checkInTime.format('HH:mm') : null,
-        checkOut: checkOutTime ? checkOutTime.format('HH:mm') : null,
-        totalHours: isPresent ? 8 + Math.random() * 2 : 0
-      };
-    });
-  }
-  
-  return attendanceData;
-};
 
 const EmployeeAttendancePage = ({ userRole = 'hr' }) => { 
-    const [employeesData, setEmployeesData] = useState([]);
-     const [selectedDate, setSelectedDate] = useState(dayjs());
+  const [employeesData, setEmployeesData] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(dayjs());
   const [attendanceData, setAttendanceData] = useState({});
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [timeModalVisible, setTimeModalVisible] = useState(false);
@@ -95,227 +63,485 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-const [pageSize, setPageSize] = useState(5);
-const [totalEmployeeCount, setTotalEmployeeCount] = useState(0);
-const [totalEmployees, setTotalEmployees] = useState(0);
+  const [pageSize, setPageSize] = useState(5);
+  const [totalEmployeeCount, setTotalEmployeeCount] = useState(0);
+  const [totalEmployees, setTotalEmployees] = useState(0);
 
+  // Get current user
   useEffect(() => {
-  const getCurrentUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data } = await supabase
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        setCurrentUser(data);
+      }
+    };
+    getCurrentUser();
+  }, []);
+
+  // Auto-mark absent employees at midnight
+  useEffect(() => {
+    const autoMarkAbsentAtMidnight = async () => {
+      const now = dayjs();
+      const yesterday = now.subtract(1, 'day').format('YYYY-MM-DD');
+      
+      try {
+        // Get all employees
+        const { data: allUsers, error: usersError } = await supabase
+          .from('users')
+          .select('id')
+          .in('employee_type', ['full-time', 'internship', 'temporary'])
+          .not('role', 'in', '(superadmin,admin)');
+
+        if (usersError) throw usersError;
+
+        // Get existing attendance records for yesterday
+        const { data: existingAttendance, error: attendanceError } = await supabase
+          .from('attendance')
+          .select('user_id')
+          .eq('date', yesterday);
+
+        if (attendanceError) throw attendanceError;
+
+        const checkedInEmployeeIds = existingAttendance?.map(record => record.user_id) || [];
+        
+        // Find employees without attendance records
+        const absentEmployees = allUsers.filter(user => 
+          !checkedInEmployeeIds.includes(user.id)
+        );
+
+        if (absentEmployees.length > 0) {
+          const absentRecords = absentEmployees.map(employee => ({
+            user_id: employee.id,
+            date: yesterday,
+            check_in: null,
+            check_out: null,
+            total_hours: 0,
+            is_present: false
+          }));
+
+          const { error: insertError } = await supabase
+            .from('attendance')
+            .insert(absentRecords);
+
+          if (insertError) throw insertError;
+          
+          console.log(`Auto-marked ${absentEmployees.length} employees as absent for ${yesterday}`);
+        }
+      } catch (error) {
+        console.error('Error auto-marking absent:', error);
+      }
+    };
+
+    // Check if it's midnight (00:00) and auto-mark absent
+    const checkMidnight = () => {
+      const now = dayjs();
+      if (now.hour() === 0 && now.minute() === 0) {
+        autoMarkAbsentAtMidnight();
+      }
+    };
+
+    // Check every minute
+    const interval = setInterval(checkMidnight, 60000);
+    
+    // Also run once on component mount if it's past midnight
+    const now = dayjs();
+    if (now.hour() === 0 && now.minute() < 5) {
+      autoMarkAbsentAtMidnight();
+    }
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch employees with pagination and filtering
+  const fetchEmployees = async (page = 1, size = 5, search = '', type = 'All') => {
+    try {
+      setLoading(true);
+      
+      let baseQuery = supabase
         .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-      setCurrentUser(data);
+        .select('*', { count: 'exact' })
+        .in('employee_type', ['full-time', 'internship', 'temporary'])
+        .not('role', 'in', '(superadmin,admin)');
+      
+      if (search) {
+        baseQuery = baseQuery.or(`name.ilike.%${search}%,employee_id.ilike.%${search}%,department.ilike.%${search}%`);
+      }
+      
+      if (type !== 'All') {
+        const typeMapping = {
+          'Full-time': 'full-time',
+          'Intern': 'internship', 
+          'Temporary': 'temporary'
+        };
+        baseQuery = baseQuery.eq('employee_type', typeMapping[type]);
+      }
+      
+      const { data, count, error } = await baseQuery.range((page - 1) * size, page * size - 1);
+      
+      if (error) throw error;
+      
+      setTotalEmployeeCount(count || 0);
+      setTotalEmployees(count || 0);
+      
+      const transformedData = data.map(user => ({
+        id: user.id,
+        name: user.name,
+        employeeId: user.employee_id,
+        department: user.department || 'N/A',
+        position: user.position || 'N/A',
+        type: user.employee_type === 'internship' ? 'Intern' : 
+              user.employee_type === 'temporary' ? 'Temporary' : 'Full-time',
+        email: user.email,
+        joinDate: user.start_date,
+        avatar: user.profileimage,
+        role: user.role
+      }));
+      
+      setEmployeesData(transformedData);
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+      message.error('Failed to load employees');
+    } finally {
+      setLoading(false);
     }
   };
-  getCurrentUser();
-}, []);
 
-  const fetchEmployees = async (page = 1, size = 5, search = '', type = 'All') => {
-  try {
-    setLoading(true);
-    
-    // Start building the query for both count and data
-    let baseQuery = supabase
-      .from('users')
-      .select('*', { count: 'exact' })
-      .in('employee_type', ['full-time', 'internship', 'temporary'])
-      .not('role', 'in', '(superadmin,admin)');
-    
-    // Add search filter if search text exists
-    if (search) {
-      baseQuery = baseQuery.or(`name.ilike.%${search}%,employee_id.ilike.%${search}%,department.ilike.%${search}%`);
+  // Fetch attendance data
+  const fetchAttendanceData = async (startDate, endDate) => {
+    try {
+      const { data, error } = await supabase
+        .from('attendance')
+        .select('*')
+        .gte('date', startDate)
+        .lte('date', endDate);
+      
+      if (error) throw error;
+      
+      const transformedData = {};
+      data.forEach(record => {
+        const dateKey = record.date;
+        if (!transformedData[dateKey]) {
+          transformedData[dateKey] = {};
+        }
+        transformedData[dateKey][record.user_id] = {
+          present: record.is_present,
+          checkIn: record.check_in,
+          checkOut: record.check_out,
+          totalHours: record.total_hours
+        };
+      });
+      
+      setAttendanceData(transformedData);
+    } catch (error) {
+      console.error('Error fetching attendance:', error);
+      message.error('Failed to load attendance data');
     }
+  };
+
+  // Mark individual employee as absent
+  const handleMarkIndividualAbsent = async (employee) => {
+    const dateKey = selectedDate.format('YYYY-MM-DD');
     
-    // Add type filter if not "All"
-    if (type !== 'All') {
-      const typeMapping = {
-        'Full-time': 'full-time',
-        'Intern': 'internship', 
-        'Temporary': 'temporary'
-      };
-      baseQuery = baseQuery.eq('employee_type', typeMapping[type]);
+    try {
+      const { error } = await supabase
+        .from('attendance')
+        .upsert([{
+          user_id: employee.id,
+          date: dateKey,
+          check_in: null,
+          check_out: null,
+          total_hours: 0,
+          is_present: false
+        }], { onConflict: 'user_id,date' });
+
+      if (error) throw error;
+
+      await fetchAttendanceData(
+        selectedDate.startOf('month').format('YYYY-MM-DD'),
+        selectedDate.endOf('month').format('YYYY-MM-DD')
+      );
+
+      message.success(`${employee.name} marked as absent`);
+    } catch (error) {
+      console.error('Error marking absent:', error);
+      message.error('Failed to mark absent');
     }
-    
-    // Apply pagination - this fetches only the records for current page
-    const { data, count, error } = await baseQuery.range((page - 1) * size, page * size - 1);
-    
-    if (error) throw error;
-    
-    // Set both counts with the filtered count
-    setTotalEmployeeCount(count || 0);
-    setTotalEmployees(count || 0);
-    
-    if (error) throw error;
-    
-    setTotalEmployees(count || 0);
-    
-    const transformedData = data.map(user => ({
-      id: user.id,
-      name: user.name,
-      employeeId: user.employee_id,
-      department: user.department || 'N/A',
-      position: user.position || 'N/A',
-      type: user.employee_type === 'internship' ? 'Intern' : 
-            user.employee_type === 'temporary' ? 'Temporary' : 'Full-time',
-      email: user.email,
-      joinDate: user.start_date,
-      avatar: user.profileimage,
-      role: user.role
-    }));
-    
-    setEmployeesData(transformedData);
-  } catch (error) {
-    console.error('Error fetching employees:', error);
-    message.error('Failed to load employees');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
-const handleMarkAbsent = async () => {
-  const dateKey = selectedDate.format('YYYY-MM-DD');
-  const presentEmployeeIds = Object.keys(attendanceData[dateKey] || {})
-    .filter(id => attendanceData[dateKey][id]?.present);
-  
-  const absentEmployees = filteredEmployees.filter(emp => 
-    !presentEmployeeIds.includes(emp.id)
-  );
-
-  if (absentEmployees.length === 0) {
-    message.info('All employees already have attendance records');
-    return;
-  }
-
-  try {
-    const absentRecords = absentEmployees.map(employee => ({
-      user_id: employee.id,
-      date: dateKey,
-      check_in: null,
-      check_out: null,
-      total_hours: 0,
-      is_present: false
-    }));
-
-    const { error } = await supabase
-      .from('attendance')
-      .upsert(absentRecords, { onConflict: 'user_id,date' });
-
-    if (error) throw error;
-
-    // Refresh data
-    await fetchAttendanceData(
-      selectedDate.startOf('month').format('YYYY-MM-DD'),
-      selectedDate.endOf('month').format('YYYY-MM-DD')
+  // Mark remaining employees as absent
+  const handleMarkAbsent = async () => {
+    const dateKey = selectedDate.format('YYYY-MM-DD');
+    const presentEmployeeIds = Object.keys(attendanceData[dateKey] || {})
+      .filter(id => attendanceData[dateKey][id]?.present);
+    
+    const absentEmployees = employeesData.filter(emp => 
+      !presentEmployeeIds.includes(emp.id)
     );
 
-    message.success(`Marked ${absentEmployees.length} employees as absent`);
-  } catch (error) {
-    console.error('Error marking absent:', error);
-    message.error('Failed to mark absent');
-  }
-};
+    if (absentEmployees.length === 0) {
+      message.info('All employees already have attendance records');
+      return;
+    }
 
-const handleMarkIndividualAbsent = async (employee) => {
-  const dateKey = selectedDate.format('YYYY-MM-DD');
-  
-  try {
-    const { error } = await supabase
-      .from('attendance')
-      .upsert([{
+    try {
+      const absentRecords = absentEmployees.map(employee => ({
         user_id: employee.id,
         date: dateKey,
         check_in: null,
         check_out: null,
         total_hours: 0,
         is_present: false
-      }], { onConflict: 'user_id,date' });
+      }));
 
-    if (error) throw error;
+      const { error } = await supabase
+        .from('attendance')
+        .upsert(absentRecords, { onConflict: 'user_id,date' });
 
-    await fetchAttendanceData(
-      selectedDate.startOf('month').format('YYYY-MM-DD'),
-      selectedDate.endOf('month').format('YYYY-MM-DD')
-    );
+      if (error) throw error;
 
-    message.success(`${employee.name} marked as absent`);
-  } catch (error) {
-    console.error('Error marking absent:', error);
-    message.error('Failed to mark absent');
-  }
-};
+      await fetchAttendanceData(
+        selectedDate.startOf('month').format('YYYY-MM-DD'),
+        selectedDate.endOf('month').format('YYYY-MM-DD')
+      );
 
-const fetchAttendanceData = async (startDate, endDate) => {
-  try {
-    const { data, error } = await supabase
-      .from('attendance')
-      .select('*')
-      .gte('date', startDate)
-      .lte('date', endDate);
+      message.success(`Marked ${absentEmployees.length} employees as absent`);
+    } catch (error) {
+      console.error('Error marking absent:', error);
+      message.error('Failed to mark absent');
+    }
+  };
+
+  // Handle search
+  const handleSearch = (value) => {
+    setSearchText(value);
+    setCurrentPage(1);
+    fetchEmployees(1, pageSize, value, filterType);
+  };
+
+  // Handle filter change
+  const handleFilterChange = (value) => {
+    setFilterType(value);
+    setCurrentPage(1);
+    fetchEmployees(1, pageSize, searchText, value);
+  };
+
+  // Handle employee selection
+  const handleEmployeeSelect = (employeeId, checked) => {
+    if (checked) {
+      setSelectedEmployees([...selectedEmployees, employeeId]);
+    } else {
+      setSelectedEmployees(selectedEmployees.filter(id => id !== employeeId));
+    }
+  };
+
+  // Handle mark attendance
+  const handleMarkAttendance = () => {
+    if (selectedEmployees.length === 0) {
+      message.warning('Please select at least one employee');
+      return;
+    }
+    setTimeModalVisible(true);
+  };
+
+  // Submit attendance
+  const handleSubmitAttendance = async () => {
+    if (!selectedDate.isSame(dayjs(), 'day')) {
+      message.error('You can only mark attendance for today');
+      return;
+    }
     
-    console.log('Raw attendance data from DB:', data); // Add this debug log
+    if (!checkInTime) {
+      message.error('Please select check-in time');
+      return;
+    }
+
+    setLoading(true);
     
-    if (error) throw error;
+    try {
+      const dateKey = selectedDate.format('YYYY-MM-DD');
+      const attendanceRecords = selectedEmployees.map(employeeId => {
+        let totalHours = 8;
+        let checkOutValue = null;
+        
+        if (checkInTime && checkOutTime && checkOutTime.isAfter(checkInTime)) {
+          totalHours = checkOutTime.diff(checkInTime, 'hours', true);
+          checkOutValue = checkOutTime.format('HH:mm:ss');
+        }
+        
+        return {
+          user_id: employeeId,
+          date: dateKey,
+          check_in: checkInTime.format('HH:mm:ss'),
+          check_out: checkOutValue,
+          total_hours: totalHours,
+          is_present: true
+        };
+      });
+
+      const { error } = await supabase
+        .from('attendance')
+        .upsert(attendanceRecords, { onConflict: 'user_id,date' });
+
+      if (error) throw error;
+
+      await fetchAttendanceData(
+        selectedDate.startOf('month').format('YYYY-MM-DD'),
+        selectedDate.endOf('month').format('YYYY-MM-DD')
+      );
+
+      setTimeModalVisible(false);
+      setSelectedEmployees([]);
+      setCheckInTime(null);
+      setCheckOutTime(null);
+      
+      message.success(`Attendance updated for ${selectedEmployees.length} employee(s)`);
+    } catch (error) {
+      console.error('Error marking attendance:', error);
+      message.error('Failed to mark attendance');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // View attendance details
+  const handleViewAttendance = (employee) => {
+    const dateKey = selectedDate.format('YYYY-MM-DD');
+    const attendance = attendanceData[dateKey]?.[employee.id];
     
-    // Transform to match existing structure
-    const transformedData = {};
-    data.forEach(record => {
-      const dateKey = record.date;
-      if (!transformedData[dateKey]) {
-        transformedData[dateKey] = {};
+    const employeeMonthlyData = {};
+    Object.keys(attendanceData).forEach(date => {
+      const month = dayjs(date).format('YYYY-MM');
+      if (!employeeMonthlyData[month]) {
+        employeeMonthlyData[month] = { present: 0, absent: 0 };
       }
-      transformedData[dateKey][record.user_id] = {
-        present: record.is_present,
-        checkIn: record.check_in,
-        checkOut: record.check_out,
-        totalHours: record.total_hours
-      };
+      
+      if (attendanceData[date][employee.id]?.present) {
+        employeeMonthlyData[month].present++;
+      } else {
+        employeeMonthlyData[month].absent++;
+      }
     });
     
-    console.log('Transformed attendance data:', transformedData); // Add this debug log
-    setAttendanceData(transformedData);
-  } catch (error) {
-    console.error('Error fetching attendance:', error);
-    message.error('Failed to load attendance data');
-  }
-};
+    Modal.info({
+      title: `${employee.name}'s Attendance Details`,
+      width: 800,
+      content: (
+        <div style={{ padding: '16px 0' }}>
+          <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <Card>
+              <Text strong>Status for {selectedDate.format('DD/MM/YYYY')}: </Text>
+              <Tag color={attendance?.present ? 'success' : 'error'}>
+                {attendance?.present ? 'Present' : 'Absent'}
+              </Tag>
+              {attendance?.present && (
+                <div style={{ marginTop: 8 }}>
+                  <Text strong>Hours: </Text>
+                  <Text>{attendance.totalHours?.toFixed(1) || 0}h</Text>
+                </div>
+              )}
+            </Card>
 
-const handleSearch = (value) => {
-  setSearchText(value);
-  setCurrentPage(1);
-  fetchEmployees(1, pageSize, value, filterType);
-};
+            <Card title="Monthly Summary">
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Statistic 
+                    title="Days Present" 
+                    value={employeeMonthlyData[selectedDate.format('YYYY-MM')]?.present || 0} 
+                    prefix={<CheckCircleOutlined />}
+                  />
+                </Col>
+                <Col span={12}>
+                  <Statistic 
+                    title="Days Absent" 
+                    value={employeeMonthlyData[selectedDate.format('YYYY-MM')]?.absent || 0} 
+                    prefix={<CloseCircleOutlined />}
+                    valueStyle={{ color: '#ff4d4f' }}
+                  />
+                </Col>
+              </Row>
+            </Card>
 
-const handleFilterChange = (value) => {
-  setFilterType(value);
-  setCurrentPage(1);
-  fetchEmployees(1, pageSize, searchText, value);
-};
+            <Card title="Attendance Calendar">
+              <Calendar
+                fullscreen={false}
+                value={selectedDate}
+                dateCellRender={(date) => {
+                  const dayKey = date.format('YYYY-MM-DD');
+                  const dayAttendance = attendanceData[dayKey]?.[employee.id];
+                  
+                  if (dayAttendance?.present) {
+                    return <Badge status="success" text="P" />;
+                  } else if (date.isBefore(dayjs(), 'day') && dayAttendance) {
+                    return <Badge status="error" text="A" />;
+                  }
+                  return null;
+                }}
+              />
+            </Card>
+          </Space>
+        </div>
+      ),
+    });
+  };
 
-// ADD THE useEffect HOOKS HERE - after the function definitions but before the existing useEffect
+  // Update times for existing attendance
+  const handleUpdateTimes = (employee) => {
+    const dateKey = selectedDate.format('YYYY-MM-DD');
+    const attendance = attendanceData[dateKey]?.[employee.id];
+    
+    setSelectedEmployees([employee.id]);
+    setCheckInTime(attendance?.checkIn ? dayjs(`${dateKey} ${attendance.checkIn}`) : null);
+    setCheckOutTime(attendance?.checkOut ? dayjs(`${dateKey} ${attendance.checkOut}`) : null);
+    setTimeModalVisible(true);
+  };
+
+  // Calculate total statistics
+  const calculateTotalStats = () => {
+    const dateKey = selectedDate.format('YYYY-MM-DD');
+    const dayData = attendanceData[dateKey] || {};
+    
+    const totalEmpCount = totalEmployeeCount || 0;
+    let presentCount = 0;
+    
+    Object.values(dayData).forEach(record => {
+      if (record.present) {
+        presentCount++;
+      }
+    });
+    
+    const absentCount = totalEmpCount - presentCount;
+    
+    return {
+      present: presentCount,
+      absent: absentCount,
+      total: totalEmpCount
+    };
+  };
+
+  // Fetch employees on component mount and when filters change
   useEffect(() => {
     fetchEmployees(currentPage, pageSize, searchText, filterType);
     
-    // Fetch attendance data for current month
     const startDate = dayjs().startOf('month').format('YYYY-MM-DD');
     const endDate = dayjs().endOf('month').format('YYYY-MM-DD');
     fetchAttendanceData(startDate, endDate);
-  }, [currentPage, pageSize,searchText, filterType]);
+  }, [currentPage, pageSize, searchText, filterType]);
 
-  // Add effect for date changes
+  // Fetch attendance data when date changes
   useEffect(() => {
     const startDate = selectedDate.startOf('month').format('YYYY-MM-DD');
     const endDate = selectedDate.endOf('month').format('YYYY-MM-DD');
     fetchAttendanceData(startDate, endDate);
   }, [selectedDate]);
+
   // Animation effect
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoaded(true);
-    }, 100);
+    const timer = setTimeout(() => setIsLoaded(true), 100);
     return () => clearTimeout(timer);
   }, []);
 
@@ -340,460 +566,8 @@ const handleFilterChange = (value) => {
     setMonthlyData(monthly);
   }, [attendanceData]);
 
-  // Filter employees based on type and search
   const filteredEmployees = employeesData;
-
-  // Handle checkbox selection
-  const handleEmployeeSelect = (employeeId, checked) => {
-    if (checked) {
-      setSelectedEmployees([...selectedEmployees, employeeId]);
-    } else {
-      setSelectedEmployees(selectedEmployees.filter(id => id !== employeeId));
-    }
-  };
-
-  // Handle bulk attendance marking
-  const handleMarkAttendance = () => {
-    if (selectedEmployees.length === 0) {
-      message.warning('Please select at least one employee');
-      return;
-    }
-    setTimeModalVisible(true);
-  };
-
-  // Handle view attendance details
-const handleViewAttendance = (employee) => {
-  const dateKey = selectedDate.format('YYYY-MM-DD');
-  const attendance = attendanceData[dateKey]?.[employee.id];
-  
-  const employeeMonthlyData = {};
-  Object.keys(attendanceData).forEach(date => {
-    const month = dayjs(date).format('YYYY-MM');
-    if (!employeeMonthlyData[month]) {
-      employeeMonthlyData[month] = { present: 0, absent: 0 };
-    }
-    
-    if (attendanceData[date][employee.id]?.present) {
-      employeeMonthlyData[month].present++;
-    } else {
-      employeeMonthlyData[month].absent++;
-    }
-  });
-  
-  Modal.info({
-    title: `${employee.name}'s Attendance Details`,
-    width: 800, // Increase width to accommodate calendar
-    content: (
-      <div style={{ padding: '16px 0' }}>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          {/* Current day status */}
-          <Card>
-            <Text strong>Status for {selectedDate.format('DD/MM/YYYY')}: </Text>
-            <Tag color={attendance?.present ? 'success' : 'error'}>
-              {attendance?.present ? 'Present' : 'Absent'}
-            </Tag>
-            {attendance?.present && (
-              <div style={{ marginTop: 8 }}>
-                <Text strong>Hours: </Text>
-                <Text>{attendance.totalHours?.toFixed(1) || 0}h</Text>
-              </div>
-            )}
-          </Card>
-
-          {/* Monthly summary */}
-          <Card title="Monthly Summary">
-            <Row gutter={16}>
-              <Col span={12}>
-                <Statistic 
-                  title="Days Present" 
-                  value={employeeMonthlyData[selectedDate.format('YYYY-MM')]?.present || 0} 
-                  prefix={<CheckCircleOutlined />}
-                />
-              </Col>
-              <Col span={12}>
-                <Statistic 
-                  title="Days Absent" 
-                  value={employeeMonthlyData[selectedDate.format('YYYY-MM')]?.absent || 0} 
-                  prefix={<CloseCircleOutlined />}
-                  valueStyle={{ color: '#ff4d4f' }}
-                />
-              </Col>
-            </Row>
-          </Card>
-
-          {/* Calendar view */}
-          <Card title="Attendance Calendar">
-            <Calendar
-              fullscreen={false}
-              value={selectedDate}
-              dateCellRender={(date) => {
-                const dayKey = date.format('YYYY-MM-DD');
-                const dayAttendance = attendanceData[dayKey]?.[employee.id];
-                
-                if (dayAttendance?.present) {
-                  return <Badge status="success" text="P" />;
-                } else if (date.isBefore(dayjs(), 'day') && dayAttendance) {
-                  return <Badge status="error" text="A" />;
-                }
-                return null;
-              }}
-            />
-          </Card>
-        </Space>
-      </div>
-    ),
-  });
-};
-
-// Handle update times
-const handleUpdateTimes = (employee) => {
-  const dateKey = selectedDate.format('YYYY-MM-DD');
-  const attendance = attendanceData[dateKey]?.[employee.id];
-  
-  setSelectedEmployees([employee.id]);
-  setCheckInTime(attendance?.checkIn ? dayjs(`${dateKey} ${attendance.checkIn}`) : null);
-  setCheckOutTime(attendance?.checkOut ? dayjs(`${dateKey} ${attendance.checkOut}`) : null);
-  setTimeModalVisible(true);
-};
-
-  // Submit attendance
-  const handleSubmitAttendance = async () => {
-  if (!checkInTime) {
-    message.error('Please select check-in time');
-    return;
-  }
-
-  if (!selectedDate.isSame(dayjs(), 'day')) {
-    message.error('You can only mark attendance for today');
-    return;
-  }
-  
-  if (!checkInTime) {
-    message.error('Please select check-in time');
-    return;
-  }
-  setLoading(true);
-  
-  try {
-    const dateKey = selectedDate.format('YYYY-MM-DD');
-    const attendanceRecords = selectedEmployees.map(employeeId => {
-  let totalHours = 8; // Default 8 hours
-  let checkOutValue = null;
-  
-  // Only set check_out if it's after check_in
-  if (checkInTime && checkOutTime) {
-    if (checkOutTime.isAfter(checkInTime)) {
-      totalHours = checkOutTime.diff(checkInTime, 'hours', true);
-      checkOutValue = checkOutTime.format('HH:mm:ss');
-    } else {
-      checkOutValue = null; // Don't set check_out if it's before check_in
-    }
-  }
-  
-  return {
-    user_id: employeeId,
-    date: dateKey,
-    check_in: checkInTime.format('HH:mm:ss'),
-    check_out: checkOutValue,
-    total_hours: totalHours,
-    is_present: true
-  };
-});
-
-// Automatically mark unselected employees as absent
-const absentEmployees = filteredEmployees.filter(emp => 
-  !selectedEmployees.includes(emp.id)
-);
-
-const absentRecords = absentEmployees.map(employee => ({
-  user_id: employee.id,
-  date: dateKey,
-  check_in: null,
-  check_out: null,
-  total_hours: 0,
-  is_present: false
-}));
-
-const allRecords = [...attendanceRecords, ...absentRecords];
-
-const { error } = await supabase
-  .from('attendance')
-  .upsert(allRecords, { 
-    onConflict: 'user_id,date' 
-  });
-
-    if (error) throw error;
-
-    // Refresh attendance data
-    await fetchAttendanceData(
-      selectedDate.startOf('month').format('YYYY-MM-DD'),
-      selectedDate.endOf('month').format('YYYY-MM-DD')
-    );
-
-    setTimeModalVisible(false);
-    setSelectedEmployees([]);
-    setCheckInTime(null);
-    setCheckOutTime(null);
-    
-    message.success(`Attendance updated for ${selectedEmployees.length} employee(s)`);
-  } catch (error) {
-    console.error('Error marking attendance:', error);
-    message.error('Failed to mark attendance');
-  } finally {
-    setLoading(false);
-  }
-};
-
-const submitAttendanceRecords = async (records) => {
-  try {
-    const { error } = await supabase
-      .from('attendance')
-      .upsert(records, { onConflict: 'user_id,date' });
-
-    if (error) throw error;
-
-    // Refresh attendance data
-    await fetchAttendanceData(
-      selectedDate.startOf('month').format('YYYY-MM-DD'),
-      selectedDate.endOf('month').format('YYYY-MM-DD')
-    );
-
-    setTimeModalVisible(false);
-    setSelectedEmployees([]);
-    setCheckInTime(null);
-    setCheckOutTime(null);
-    
-    message.success(`Attendance updated for ${selectedEmployees.length} employee(s)`);
-  } catch (error) {
-    console.error('Error marking attendance:', error);
-    message.error('Failed to mark attendance');
-  } finally {
-    setLoading(false);
-  }
-};
-
-const handleAutoMarkAbsent = async () => {
-  const yesterdayKey = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
-  
-  try {
-    // Get all employees who don't have attendance record for yesterday
-    const { data: existingAttendance } = await supabase
-      .from('attendance')
-      .select('user_id')
-      .eq('date', yesterdayKey);
-    
-    const checkedInEmployeeIds = existingAttendance?.map(record => record.user_id) || [];
-    
-    const absentEmployees = employeesData.filter(emp => 
-      !checkedInEmployeeIds.includes(emp.id)
-    );
-
-    if (absentEmployees.length > 0) {
-      const absentRecords = absentEmployees.map(employee => ({
-        user_id: employee.id,
-        date: yesterdayKey,
-        check_in: null,
-        check_out: null,
-        total_hours: 0,
-        is_present: false
-      }));
-
-      const { error } = await supabase
-        .from('attendance')
-        .insert(absentRecords);
-
-      if (error) throw error;
-      
-      console.log(`Auto-marked ${absentEmployees.length} employees as absent for ${yesterdayKey}`);
-    }
-  } catch (error) {
-    console.error('Error auto-marking absent:', error);
-  }
-};
-
-
-// Remove the getTotalAttendanceStats function and useEffect
-// Instead, calculate stats directly from attendanceData and employeesData
-
-const calculateTotalStats = () => {
-  const dateKey = selectedDate.format('YYYY-MM-DD');
-  const dayData = attendanceData[dateKey] || {};
-  
-  // Use totalEmployeeCount state variable, not totalEmployees
-  const totalEmpCount = totalEmployeeCount || 0;
-  let presentCount = 0;
-  
-  // Count present employees from attendance data
-  Object.values(dayData).forEach(record => {
-    if (record.present) {
-      presentCount++;
-    }
-  });
-  
-  const absentCount = totalEmpCount - presentCount;
-  
-  return {
-    present: presentCount,
-    absent: absentCount,
-    total: totalEmpCount
-  };
-};
-const totalStats = calculateTotalStats();
-
-  // Table columns for employee list
-  const columns = [
-    {
-      title: 'Employee',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text, record) => (
-        <Space>
-          <Avatar 
-            icon={<UserOutlined />} 
-            style={{ backgroundColor: record.type === 'Employee' ? '#0D7139' : '#52c41a' }}
-          />
-          <div>
-            <div style={{ fontWeight: 600 }}>{text}</div>
-            <Text type="secondary" style={{ fontSize: '12px' }}>
-              {record.employeeId}
-            </Text>
-          </div>
-        </Space>
-      ),
-      responsive: ['xs', 'sm', 'md', 'lg'],
-    },
-    {
-      title: 'Type',
-      dataIndex: 'type',
-      key: 'type',
-      render: (type) => (
-        <Tag color={type === 'Employee' ? '#0D7139' : '#52c41a'}>
-          {type}
-        </Tag>
-      ),
-      responsive: ['sm', 'md', 'lg'],
-    },
-    {
-  title: 'Status',
-  key: 'status',
-  render: (_, record) => {
-    const dateKey = selectedDate.format('YYYY-MM-DD');
-    const attendance = attendanceData[dateKey]?.[record.id];
-    
-    if (attendance?.present) {
-      return (
-        <Space direction="vertical" size="small">
-          <Space>
-            <Badge status="success" />
-            <Text style={{ color: '#52c41a' }}>Present</Text>
-          </Space>
-          <div style={{ fontSize: '12px' }}>
-            <Text type="secondary">In: </Text>
-            <Text>{attendance.checkIn || '-'}</Text>
-          </div>
-          <div style={{ fontSize: '12px' }}>
-            <Text type="secondary">Out: </Text>
-            <Text>{attendance.checkOut || '-'}</Text>
-          </div>
-        </Space>
-      );
-    } else {
-      return (
-        <Space>
-          <Badge status="error" />
-          <Text style={{ color: '#ff4d4f' }}>Absent</Text>
-        </Space>
-      );
-    }
-  },
-  responsive: ['xs', 'sm', 'md', 'lg'],
-},
-    {
-  title: 'Hours',
-  key: 'hours',
-  render: (_, record) => {
-    const dateKey = selectedDate.format('YYYY-MM-DD');
-    const attendance = attendanceData[dateKey]?.[record.id];
-    
-    if (attendance?.present) {
-      let hours = 0;
-      if (attendance.checkIn && attendance.checkOut) {
-        // Calculate hours between check-in and check-out
-        const checkIn = dayjs(`${dateKey} ${attendance.checkIn}`);
-        const checkOut = dayjs(`${dateKey} ${attendance.checkOut}`);
-        hours = checkOut.diff(checkIn, 'hours', true);
-      } else if (attendance.totalHours) {
-        hours = attendance.totalHours;
-      }
-      
-      return (
-        <div>
-          <Text style={{ fontWeight: 600 }}>{hours.toFixed(1)}h</Text>
-          {hours < 8 && (
-            <div>
-              <Text type="danger" style={{ fontSize: '10px' }}>
-                Short by {(8 - hours).toFixed(1)}h
-              </Text>
-            </div>
-          )}
-        </div>
-      );
-    }
-    return <Text type="secondary">-</Text>;
-  },
-  responsive: ['md', 'lg'],
-},
-    {
-  title: 'Actions',
-  key: 'actions',
-  render: (_, record) => {
-  const dateKey = selectedDate.format('YYYY-MM-DD');
-  const attendance = attendanceData[dateKey]?.[record.id];
-  const isToday = selectedDate.isSame(dayjs(), 'day');
-  
-  return (
-    <Space>
-      <Tooltip title="Edit Attendance">
-        <Button
-          type="text"
-          size="small"
-          icon={<EyeOutlined />}
-          onClick={() => handleViewAttendance(record)}
-        />
-      </Tooltip>
-      {attendance?.present && isToday && ( // Add isToday condition
-        <Tooltip title="Update Times">
-          <Button
-            type="text"
-            size="small"
-            icon={<ClockCircleOutlined />}
-            onClick={() => handleUpdateTimes(record)}
-          />
-        </Tooltip>
-      )}
-      {isToday && ( // Add isToday condition
-        <Tooltip title="Mark Absent">
-          <Button
-            type="text"
-            size="small"
-            icon={<CloseCircleOutlined />}
-            onClick={() => handleMarkIndividualAbsent(record)}
-            style={{ color: '#ff4d4f' }}
-          />
-        </Tooltip>
-      )}
-      {isToday && ( // Add isToday condition
-        <Checkbox
-          checked={selectedEmployees.includes(record.id)}
-          onChange={(e) => handleEmployeeSelect(record.id, e.target.checked)}
-        />
-      )}
-    </Space>
-  );
-},
-  responsive: ['xs', 'sm', 'md', 'lg'],
-},
-  ];
+  const totalStats = calculateTotalStats();
 
   // Animation styles
   const animationStyles = {
@@ -819,38 +593,39 @@ const totalStats = calculateTotalStats();
     },
   };
 
+  // Employee view (simplified)
   if (!['superadmin', 'admin', 'hr'].includes(userRole)) {
-    // Employee view - show their own attendance
     const currentEmployee = currentUser ? employeesData.find(emp => emp.id === currentUser.id) : null; 
+    
     if (!currentEmployee) {
-  return <Spin size="large" style={{ display: 'block', margin: '50px auto' }} />;
-}
+      return <Spin size="large" style={{ display: 'block', margin: '50px auto' }} />;
+    }
+
     const currentMonth = dayjs().format('YYYY-MM');
     const employeeMonthlyData = {};
 
-// Calculate stats for current employee only
-Object.keys(attendanceData).forEach(date => {
-  const month = dayjs(date).format('YYYY-MM');
-  if (month === currentMonth) {
-    if (!employeeMonthlyData[month]) {
-      employeeMonthlyData[month] = { present: 0, absent: 0, totalDays: 0 };
-    }
-    
-    const attendance = attendanceData[date][currentEmployee.id];
-    employeeMonthlyData[month].totalDays++;
-    if (attendance?.present) {
-      employeeMonthlyData[month].present++;
-    } else {
-      employeeMonthlyData[month].absent++;
-    }
-  }
-});
-const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 0, totalDays: 0 };
+    Object.keys(attendanceData).forEach(date => {
+      const month = dayjs(date).format('YYYY-MM');
+      if (month === currentMonth) {
+        if (!employeeMonthlyData[month]) {
+          employeeMonthlyData[month] = { present: 0, absent: 0, totalDays: 0 };
+        }
+        
+        const attendance = attendanceData[date][currentEmployee.id];
+        employeeMonthlyData[month].totalDays++;
+        if (attendance?.present) {
+          employeeMonthlyData[month].present++;
+        } else {
+          employeeMonthlyData[month].absent++;
+        }
+      }
+    });
+
+    const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 0, totalDays: 0 };
     
     return (
       <div style={{ padding: '24px', backgroundColor: 'transparent', ...animationStyles.container }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          {/* Header */}
           <Card style={{ 
             marginBottom: '24px',
             background: 'rgba(255, 255, 255, 0.95)',
@@ -871,14 +646,12 @@ const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 
             </Row>
           </Card>
 
-          {/* Employee Stats */}
           <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
             <Col xs={24} sm={12} md={6}>
               <Card style={{ ...animationStyles.statsCard, borderRadius: '12px' }}>
                 <Statistic
                   title="Days Present"
                   value={monthlyStats.present}
-                  precision={0}
                   valueStyle={{ color: '#0D7139' }}
                   prefix={<CheckCircleOutlined />}
                 />
@@ -889,8 +662,7 @@ const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 
               <Card style={{ ...animationStyles.statsCard, borderRadius: '12px' }}>
                 <Statistic
                   title="Days Absent"
-                  value={employeeMonthlyData.absent / employeesData.length}
-                  precision={0}
+                  value={monthlyStats.absent}
                   valueStyle={{ color: '#ff4d4f' }}
                   prefix={<CloseCircleOutlined />}
                 />
@@ -901,8 +673,7 @@ const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 
               <Card style={{ ...animationStyles.statsCard, borderRadius: '12px' }}>
                 <Statistic
                   title="Attendance Rate"
-                  value={((employeeMonthlyData.present / employeesData.length) / 22) * 100}
-                  precision={1}
+                  value={monthlyStats.totalDays > 0 ? ((monthlyStats.present / monthlyStats.totalDays) * 100).toFixed(1) : 0}
                   valueStyle={{ color: '#0D7139' }}
                   suffix="%"
                 />
@@ -913,8 +684,7 @@ const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 
               <Card style={{ ...animationStyles.statsCard, borderRadius: '12px' }}>
                 <Statistic
                   title="Total Hours"
-                  value={((employeeMonthlyData.present / employeesData.length) * 8)}
-                  precision={1}
+                  value={monthlyStats.present * 8}
                   valueStyle={{ color: '#0D7139' }}
                   suffix="h"
                 />
@@ -923,7 +693,6 @@ const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 
             </Col>
           </Row>
 
-          {/* Employee Calendar */}
           <Card style={{ 
             background: 'rgba(255, 255, 255, 0.95)',
             backdropFilter: 'blur(10px)',
@@ -956,21 +725,158 @@ const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 
     );
   }
 
-useEffect(() => {
-  const fetchTotalStats = async () => {
-    console.log('useEffect triggered for date:', selectedDate.format('YYYY-MM-DD')); // Debug log
-    const stats = await getTotalAttendanceStats(selectedDate);
-    console.log('Setting total stats:', stats); // Debug log
-    setTotalStats(stats);
-  };
-  
-  if (selectedDate) { // Add this check
-    fetchTotalStats();
-  }
-}, [selectedDate, employeesData]); // Add employeesData as dependency
+  // Table columns
+  const columns = [
+    {
+      title: 'Employee',
+      dataIndex: 'name',
+      key: 'name',
+      render: (text, record) => (
+        <Space>
+          <Avatar 
+            icon={<UserOutlined />} 
+            style={{ backgroundColor: record.type === 'Full-time' ? '#0D7139' : '#52c41a' }}
+          />
+          <div>
+            <div style={{ fontWeight: 600 }}>{text}</div>
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              {record.employeeId}
+            </Text>
+          </div>
+        </Space>
+      ),
+    },
+    {
+      title: 'Type',
+      dataIndex: 'type',
+      key: 'type',
+      render: (type) => (
+        <Tag color={type === 'Full-time' ? '#0D7139' : '#52c41a'}>
+          {type}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Status',
+      key: 'status',
+      render: (_, record) => {
+        const dateKey = selectedDate.format('YYYY-MM-DD');
+        const attendance = attendanceData[dateKey]?.[record.id];
+        
+        if (attendance?.present) {
+          return (
+            <Space direction="vertical" size="small">
+              <Space>
+                <Badge status="success" />
+                <Text style={{ color: '#52c41a' }}>Present</Text>
+              </Space>
+              <div style={{ fontSize: '12px' }}>
+                <Text type="secondary">In: </Text>
+                <Text>{attendance.checkIn || '-'}</Text>
+              </div>
+              <div style={{ fontSize: '12px' }}>
+                <Text type="secondary">Out: </Text>
+                <Text>{attendance.checkOut || '-'}</Text>
+              </div>
+            </Space>
+          );
+        } else {
+          return (
+            <Space>
+              <Badge status="error" />
+              <Text style={{ color: '#ff4d4f' }}>Absent</Text>
+            </Space>
+          );
+        }
+      },
+    },
+    {
+      title: 'Hours',
+      key: 'hours',
+      render: (_, record) => {
+        const dateKey = selectedDate.format('YYYY-MM-DD');
+        const attendance = attendanceData[dateKey]?.[record.id];
+        
+        if (attendance?.present) {
+          let hours = 0;
+          if (attendance.checkIn && attendance.checkOut) {
+            const checkIn = dayjs(`${dateKey} ${attendance.checkIn}`);
+            const checkOut = dayjs(`${dateKey} ${attendance.checkOut}`);
+            hours = checkOut.diff(checkIn, 'hours', true);
+          } else if (attendance.totalHours) {
+            hours = attendance.totalHours;
+          }
+          
+          return (
+            <div>
+              <Text style={{ fontWeight: 600 }}>{hours.toFixed(1)}h</Text>
+              {hours < 8 && (
+                <div>
+                  <Text type="danger" style={{ fontSize: '10px' }}>
+                    Short by {(8 - hours).toFixed(1)}h
+                  </Text>
+                </div>
+              )}
+            </div>
+          );
+        }
+        return <Text type="secondary">-</Text>;
+      },
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_, record) => {
+        const dateKey = selectedDate.format('YYYY-MM-DD');
+        const attendance = attendanceData[dateKey]?.[record.id];
+        const isToday = selectedDate.isSame(dayjs(), 'day');
+        
+        return (
+          <Space>
+            <Tooltip title="View Details">
+              <Button
+                type="text"
+                size="small"
+                icon={<EyeOutlined />}
+                onClick={() => handleViewAttendance(record)}
+              />
+            </Tooltip>
+            {attendance?.present && isToday && (
+              <Tooltip title="Update Times">
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<ClockCircleOutlined />}
+                  onClick={() => handleUpdateTimes(record)}
+                />
+              </Tooltip>
+            )}
+            {isToday && (
+              <Tooltip title="Mark Absent">
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<CloseCircleOutlined />}
+                  onClick={() => handleMarkIndividualAbsent(record)}
+                  style={{ color: '#ff4d4f' }}
+                />
+              </Tooltip>
+            )}
+            {isToday && (
+              <Checkbox
+                checked={selectedEmployees.includes(record.id)}
+                onChange={(e) => handleEmployeeSelect(record.id, e.target.checked)}
+              />
+            )}
+          </Space>
+        );
+      },
+    },
+  ];
 
+  // HR/Admin view
   return (
-    
+    <div style={{ padding: '24px', backgroundColor: 'transparent', ...animationStyles.container }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
         {/* Header */}
         <Card style={{ 
@@ -1004,52 +910,52 @@ useEffect(() => {
         </Card>
 
         {/* Tabs */}
-          <Card style={{ 
-            marginBottom: '24px',
-            background: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(10px)',
-            border: 'none',
-            borderRadius: '16px',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-            ...animationStyles.headerCard
-          }}>
-            <Tabs activeKey={activeTab} onChange={setActiveTab}>
-              <TabPane tab="Daily View" key="daily">
-                {/* Date Selection and Stats */}
-                <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
-                  <Col xs={24} md={8}>
-                    <Card style={{ borderRadius: '12px', ...animationStyles.statsCard }}>
-                      <div style={{ textAlign: 'center' }}>
-                        <Title level={4} style={{ color: '#0D7139', marginBottom: '16px' }}>
-                          <CalendarOutlined style={{ marginRight: '8px' }} />
-                          Select Date
-                        </Title>
-                        <DatePicker
-                          value={selectedDate}
-                          onChange={setSelectedDate}
-                          size="large"
-                          style={{ width: '100%' }}
+        <Card style={{ 
+          marginBottom: '24px',
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(10px)',
+          border: 'none',
+          borderRadius: '16px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+          ...animationStyles.headerCard
+        }}>
+          <Tabs activeKey={activeTab} onChange={setActiveTab}>
+            <TabPane tab="Daily View" key="daily">
+              {/* Date Selection and Stats */}
+              <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
+                <Col xs={24} md={8}>
+                  <Card style={{ borderRadius: '12px', ...animationStyles.statsCard }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <Title level={4} style={{ color: '#0D7139', marginBottom: '16px' }}>
+                        <CalendarOutlined style={{ marginRight: '8px' }} />
+                        Select Date
+                      </Title>
+                      <DatePicker
+                        value={selectedDate}
+                        onChange={setSelectedDate}
+                        size="large"
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                  </Card>
+                </Col>
+                <Col xs={24} md={16}>
+                  <Row gutter={[16, 16]}>
+                    <Col xs={24} sm={8}>
+                      <Card style={{ borderRadius: '12px', ...animationStyles.statsCard }}>
+                        <Statistic
+                          title="Present"
+                          value={totalStats.present}
+                          valueStyle={{ color: '#0D7139' }}
+                          prefix={<CheckCircleOutlined />}
                         />
-                      </div>
-                    </Card>
-                  </Col>
-                  <Col xs={24} md={16}>
-                    <Row gutter={[16, 16]}>
-                      <Col xs={24} sm={8}>
-                        <Card style={{ borderRadius: '12px', ...animationStyles.statsCard }}>
-                          <Statistic
-                            title="Present"
-                            value={totalStats.present}
-                            valueStyle={{ color: '#0D7139' }}
-                            prefix={<CheckCircleOutlined />}
-                          />
-                          <Progress 
-                            percent={totalStats.total > 0 ? (totalStats.present / totalStats.total) * 100 : 0}
-                            strokeColor="#0D7139"
-                            showInfo={false}
-                            size="small"
-                          />
-                        </Card>
+                        <Progress 
+                          percent={totalStats.total > 0 ? (totalStats.present / totalStats.total) * 100 : 0}
+                          strokeColor="#0D7139"
+                          showInfo={false}
+                          size="small"
+                        />
+                      </Card>
                     </Col>
                     <Col xs={24} sm={8}>
                       <Card style={{ borderRadius: '12px', ...animationStyles.statsCard }}>
@@ -1066,7 +972,6 @@ useEffect(() => {
                           size="small"
                         />
                       </Card>
-                      
                     </Col>
                     <Col xs={24} sm={8}>
                       <Card style={{ borderRadius: '12px', ...animationStyles.statsCard }}>
@@ -1085,94 +990,90 @@ useEffect(() => {
                 </Col>
               </Row>
 
+              {/* Controls */}
               <Card style={{ 
-  marginBottom: '24px',
-  borderRadius: '12px',
-  ...animationStyles.statsCard
-}}>
-  <Row gutter={[16, 16]} align="middle">
-    {/* Filter Dropdown */}
-    <Col xs={24} sm={12} lg={6}>
-      <Space style={{ width: '100%' }}>
-        <FilterOutlined style={{ color: '#0D7139' }} />
-        
-        <Select
-          value={filterType}
-          onChange={handleFilterChange}
-          style={{ width: '150px' }}
-          size="large"
-        >
-          <Option value="All">All Types</Option>
-          <Option value="Full-time">Full-time</Option>
-          <Option value="Intern">Internship</Option>
-          <Option value="Temporary">Temporary</Option>
-        </Select>
-      </Space>
-    </Col>
-    
-    {/* Search */}
-    <Col xs={24} sm={12} lg={6}>
-      <Search
-  placeholder="Search employees..."
-  allowClear
-  size="large"
-  value={searchText}
-  onSearch={handleSearch}
-  onChange={(e) => setSearchText(e.target.value)}
-  style={{ width: '100%'}}
-  enterButton={
-    <Button 
-      style={{ 
-        backgroundColor: '#0D7139', 
-        borderColor: '#0D7139',
-        color: 'white'
-      }}
-    >
-      <SearchOutlined />
-    </Button>
-  }
-/>
-    </Col>
-    
-    {/* Mark Remaining as Absent Button */}
-    <Col xs={24} sm={12} lg={6}>
-  <Button
-    type="default"
-    size="large"
-    onClick={handleMarkAbsent}
-    disabled={!selectedDate.isSame(dayjs(), 'day')} // Add this condition
-    style={{  
-      background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
-      border: 'none',
-      borderRadius: '8px',
-      width: '100%',
-      color:"white"
-    }}
-  >
-    Mark Remaining as Absent
-  </Button>
-</Col>
-    
-    {/* Mark Attendance Button */}
-    <Col xs={24} sm={12} lg={6}>
-  <Button
-    type="primary"
-    size="large"
-    onClick={handleMarkAttendance}
-    disabled={selectedEmployees.length === 0 || !selectedDate.isSame(dayjs(), 'day')} // Add date condition
-    style={{
-      background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
-      border: 'none',
-      borderRadius: '8px',
-      width: '100%',
-      color:"white"
-    }}
-  >
-    Mark Attendance ({selectedEmployees.length})
-  </Button>
-</Col>
-  </Row>
-</Card>
+                marginBottom: '24px',
+                borderRadius: '12px',
+                ...animationStyles.statsCard
+              }}>
+                <Row gutter={[16, 16]} align="middle">
+                  <Col xs={24} sm={12} lg={6}>
+                    <Space style={{ width: '100%' }}>
+                      <FilterOutlined style={{ color: '#0D7139' }} />
+                      <Select
+                        value={filterType}
+                        onChange={handleFilterChange}
+                        style={{ width: '150px' }}
+                        size="large"
+                      >
+                        <Option value="All">All Types</Option>
+                        <Option value="Full-time">Full-time</Option>
+                        <Option value="Intern">Internship</Option>
+                        <Option value="Temporary">Temporary</Option>
+                      </Select>
+                    </Space>
+                  </Col>
+                  
+                  <Col xs={24} sm={12} lg={6}>
+                    <Search
+                      placeholder="Search employees..."
+                      allowClear
+                      size="large"
+                      value={searchText}
+                      onSearch={handleSearch}
+                      onChange={(e) => setSearchText(e.target.value)}
+                      style={{ width: '100%'}}
+                      enterButton={
+                        <Button 
+                          style={{ 
+                            backgroundColor: '#0D7139', 
+                            borderColor: '#0D7139',
+                            color: 'white'
+                          }}
+                        >
+                          <SearchOutlined />
+                        </Button>
+                      }
+                    />
+                  </Col>
+                  
+                  <Col xs={24} sm={12} lg={6}>
+                    <Button
+                      type="default"
+                      size="large"
+                      onClick={handleMarkAbsent}
+                      disabled={!selectedDate.isSame(dayjs(), 'day')}
+                      style={{  
+                        background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        width: '100%',
+                        color:"white"
+                      }}
+                    >
+                      Mark Remaining as Absent
+                    </Button>
+                  </Col>
+                  
+                  <Col xs={24} sm={12} lg={6}>
+                    <Button
+                      type="primary"
+                      size="large"
+                      onClick={handleMarkAttendance}
+                      disabled={selectedEmployees.length === 0 || !selectedDate.isSame(dayjs(), 'day')}
+                      style={{
+                        background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        width: '100%',
+                        color:"white"
+                      }}
+                    >
+                      Mark Attendance ({selectedEmployees.length})
+                    </Button>
+                  </Col>
+                </Row>
+              </Card>
 
               {/* Employee Table */}
               <Card style={{ 
@@ -1188,40 +1089,40 @@ useEffect(() => {
                   dataSource={filteredEmployees}
                   rowKey="id"
                   pagination={{
-  current: currentPage,
-  pageSize: pageSize,
-  total: totalEmployees,
-  showSizeChanger: true,
-  showQuickJumper: true,
-  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} employees`,
-  pageSizeOptions: ['5', '10', '20', '50'],
-  onChange: (page, size) => {
-    setCurrentPage(page);
-    setPageSize(size);
-    fetchEmployees(page, size, searchText, filterType);
-  },
-  onShowSizeChange: (current, size) => {
-    setCurrentPage(1);
-    setPageSize(size);
-    fetchEmployees(1, size, searchText, filterType);
-  },
-  itemRender: (current, type, originalElement) => {
-    if (type === 'page') {
-      return (
-        <a style={{ 
-          color: current === currentPage ? '#0D7139' : '#666',
-          backgroundColor: current === currentPage ? '#f6ffed' : 'white',
-          border: `1px solid ${current === currentPage ? '#0D7139' : '#d9d9d9'}`,
-          borderRadius: '6px',
-          fontWeight: current === currentPage ? 600 : 400
-        }}>
-          {current}
-        </a>
-      );
-    }
-    return originalElement;
-  }
-}}
+                    current: currentPage,
+                    pageSize: pageSize,
+                    total: totalEmployees,
+                    showSizeChanger: true,
+                    showQuickJumper: true,
+                    showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} employees`,
+                    pageSizeOptions: ['5', '10', '20', '50'],
+                    onChange: (page, size) => {
+                      setCurrentPage(page);
+                      setPageSize(size);
+                      fetchEmployees(page, size, searchText, filterType);
+                    },
+                    onShowSizeChange: (current, size) => {
+                      setCurrentPage(1);
+                      setPageSize(size);
+                      fetchEmployees(1, size, searchText, filterType);
+                    },
+                    itemRender: (current, type, originalElement) => {
+                      if (type === 'page') {
+                        return (
+                          <a style={{ 
+                            color: current === currentPage ? '#0D7139' : '#666',
+                            backgroundColor: current === currentPage ? '#f6ffed' : 'white',
+                            border: `1px solid ${current === currentPage ? '#0D7139' : '#d9d9d9'}`,
+                            borderRadius: '6px',
+                            fontWeight: current === currentPage ? 600 : 400
+                          }}>
+                            {current}
+                          </a>
+                        );
+                      }
+                      return originalElement;
+                    }
+                  }}
                   scroll={{ x: 800 }}
                   size="middle"
                 />
@@ -1238,7 +1139,6 @@ useEffect(() => {
                 ...animationStyles.mainCard
               }}>
                 <Title level={4} style={{ color: '#0D7139', marginBottom: '24px' }}>
-                  <BarChartOutlined style={{ marginRight: '8px' }} />
                   Monthly Statistics
                 </Title>
                 
@@ -1303,8 +1203,6 @@ useEffect(() => {
             </Button>,
           ]}
         >
-
-          
           <div style={{ padding: '16px 0' }}>
             <Row gutter={[16, 16]}>
               <Col xs={24} sm={12}>
@@ -1362,14 +1260,14 @@ useEffect(() => {
                         size="small" 
                         icon={<UserOutlined />} 
                         style={{ 
-                          backgroundColor: employee?.type === 'Employee' ? '#0D7139' : '#52c41a',
+                          backgroundColor: employee?.type === 'Full-time' ? '#0D7139' : '#52c41a',
                           marginRight: '8px'
                         }} 
                       />
                       <span style={{ fontSize: '14px' }}>{employee?.name}</span>
                       <Tag 
                         size="small" 
-                        color={employee?.type === 'Employee' ? '#0D7139' : '#52c41a'}
+                        color={employee?.type === 'Full-time' ? '#0D7139' : '#52c41a'}
                         style={{ marginLeft: 'auto' }}
                       >
                         {employee?.type}
@@ -1395,410 +1293,8 @@ useEffect(() => {
           </div>
         </Modal>
       </div>
-    
-  );
-};
-
-// Enhanced Employee Dashboard Component
-const EmployeeDashboard = ({ employee }) => {
-  const [selectedMonth, setSelectedMonth] = useState(dayjs());
-  const [yearlyData, setYearlyData] = useState({});
-  const [loading, setLoading] = useState(false);
-
-  // Calculate yearly attendance data
-  useEffect(() => {
-    const yearly = {};
-    const currentYear = dayjs().year();
-    
-    // Generate yearly data for current year
-    for (let month = 0; month < 12; month++) {
-      const monthKey = dayjs().year(currentYear).month(month).format('YYYY-MM');
-      yearly[monthKey] = {
-        present: Math.floor(Math.random() * 20) + 15, // 15-35 days
-        absent: Math.floor(Math.random() * 5) + 1,    // 1-6 days
-        totalDays: 22 // Average working days
-      };
-    }
-    
-    setYearlyData(yearly);
-  }, []);
-
-useEffect(() => {
-  const checkMidnight = () => {
-    const now = dayjs();
-    if (now.hour() === 0 && now.minute() === 0) {
-      handleAutoMarkAbsent();
-    }
-  };
-
-  // Check every minute
-  const interval = setInterval(checkMidnight, 60000);
-  
-  return () => clearInterval(interval);
-}, []);
-  // Get monthly attendance summary
-  const getMonthlyAttendance = (month) => {
-    const monthKey = month.format('YYYY-MM');
-    return yearlyData[monthKey] || { present: 0, absent: 0, totalDays: 0 };
-  };
-
-  const monthlyData = getMonthlyAttendance(selectedMonth);
-  const attendanceRate = monthlyData.totalDays > 0 ? 
-    ((monthlyData.present / monthlyData.totalDays) * 100).toFixed(1) : 0;
-
-  // Calculate yearly totals
-  const yearlyTotals = Object.values(yearlyData).reduce(
-    (acc, curr) => ({
-      present: acc.present + curr.present,
-      absent: acc.absent + curr.absent,
-      totalDays: acc.totalDays + curr.totalDays
-    }),
-    { present: 0, absent: 0, totalDays: 0 }
-  );
-
-  const yearlyAttendanceRate = yearlyTotals.totalDays > 0 ? 
-    ((yearlyTotals.present / yearlyTotals.totalDays) * 100).toFixed(1) : 0;
-
-  return (
-    <div style={{ padding: '24px', backgroundColor: 'transparent' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        {/* Employee Header */}
-        <Card style={{ 
-          marginBottom: '24px',
-          background: 'rgba(255, 255, 255, 0.95)',
-          backdropFilter: 'blur(10px)',
-          border: 'none',
-          borderRadius: '16px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
-        }}>
-          <Row align="middle" justify="space-between">
-            <Col>
-              <Space size="large">
-                <Avatar 
-                  size={64} 
-                  icon={<UserOutlined />} 
-                  style={{ backgroundColor: '#0D7139' }}
-                />
-                <div>
-                  <Title level={2} style={{ margin: 0, color: '#0D7139' }}>
-                    {employee.name}
-                  </Title>
-                  <Text type="secondary" style={{ fontSize: '16px' }}>
-                    {employee.position} • {employee.department}
-                  </Text>
-                  <br />
-                  <Tag color={employee.type === 'Employee' ? '#0D7139' : '#52c41a'}>
-                    {employee.type}
-                  </Tag>
-                </div>
-              </Space>
-            </Col>
-            <Col>
-              <div style={{ textAlign: 'right' }}>
-                <Text type="secondary">Employee ID</Text>
-                <br />
-                <Text strong style={{ fontSize: '18px' }}>{employee.employeeId}</Text>
-              </div>
-            </Col>
-          </Row>
-        </Card>
-
-        {/* Monthly and Yearly Overview */}
-        <Tabs defaultActiveKey="monthly" style={{ marginBottom: '24px' }}>
-          <TabPane tab="Monthly View" key="monthly">
-            <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
-              <Col xs={24} md={8}>
-                <Card style={{ borderRadius: '12px', textAlign: 'center' }}>
-                  <Title level={4} style={{ color: '#0D7139', marginBottom: '16px' }}>
-                    Select Month
-                  </Title>
-                  <DatePicker
-  value={selectedDate}
-  onChange={setSelectedDate}
-  size="large"
-  style={{ width: '100%' }}
-  disabledDate={(current) => {
-    // Disable dates before today
-    return current && current.valueOf() !== dayjs().startOf('day').valueOf();
-  }}
-/>
-                </Card>
-              </Col>
-              <Col xs={24} md={16}>
-                <Row gutter={[16, 16]}>
-                  <Col xs={24} sm={12}>
-                    <Card style={{ borderRadius: '12px' }}>
-                      <Statistic
-                        title="Days Present"
-                        value={monthlyData.present}
-                        valueStyle={{ color: '#0D7139' }}
-                        prefix={<CheckCircleOutlined />}
-                      />
-                      <Progress 
-                        percent={parseFloat(attendanceRate)}
-                        strokeColor="#0D7139"
-                        showInfo={false}
-                        size="small"
-                      />
-                    </Card>
-                  </Col>
-                  <Col xs={24} sm={12}>
-                    <Card style={{ borderRadius: '12px' }}>
-                      <Statistic
-                        title="Days Absent"
-                        value={monthlyData.absent}
-                        valueStyle={{ color: '#ff4d4f' }}
-                        prefix={<CloseCircleOutlined />}
-                      />
-                      <Text type="secondary" style={{ fontSize: '12px' }}>
-                        Attendance Rate: {attendanceRate}%
-                      </Text>
-                    </Card>
-                  </Col>
-                </Row>
-              </Col>
-            </Row>
-
-            {/* Monthly Calendar */}
-            <Card style={{ 
-              background: 'rgba(255, 255, 255, 0.95)',
-              backdropFilter: 'blur(10px)',
-              border: 'none',
-              borderRadius: '16px',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
-            }}>
-              <Title level={4} style={{ color: '#0D7139', marginBottom: '24px' }}>
-                <CalendarOutlined style={{ marginRight: '8px' }} />
-                Monthly Attendance - {selectedMonth.format('MMMM YYYY')}
-              </Title>
-              <Calendar
-                value={selectedMonth}
-                validRange={[selectedMonth.startOf('month'), selectedMonth.endOf('month')]}
-                dateCellRender={(date) => {
-                  if (date.month() !== selectedMonth.month()) return null;
-                  
-                  // Random attendance for demo
-                  const isPresent = Math.random() > 0.1;
-                  const isWeekend = date.day() === 0 || date.day() === 6;
-                  
-                  if (isWeekend) return null;
-                  
-                  if (date.isAfter(dayjs())) return null;
-                  
-                  return (
-                    <div style={{ textAlign: 'center' }}>
-                      <Badge 
-                        status={isPresent ? "success" : "error"} 
-                        text={isPresent ? "P" : "A"}
-                        style={{ fontSize: '10px' }}
-                      />
-                    </div>
-                  );
-                }}
-              />
-            </Card>
-          </TabPane>
-
-          <TabPane tab="Yearly View" key="yearly">
-            <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
-              <Col xs={24} sm={6}>
-                <Card style={{ borderRadius: '12px', textAlign: 'center' }}>
-                  <Statistic
-                    title="Total Present"
-                    value={yearlyTotals.present}
-                    valueStyle={{ color: '#0D7139' }}
-                    prefix={<CheckCircleOutlined />}
-                  />
-                </Card>
-              </Col>
-              <Col xs={24} sm={6}>
-                <Card style={{ borderRadius: '12px', textAlign: 'center' }}>
-                  <Statistic
-                    title="Total Absent"
-                    value={yearlyTotals.absent}
-                    valueStyle={{ color: '#ff4d4f' }}
-                    prefix={<CloseCircleOutlined />}
-                  />
-                </Card>
-              </Col>
-              <Col xs={24} sm={6}>
-                <Card style={{ borderRadius: '12px', textAlign: 'center' }}>
-                  <Statistic
-                    title="Attendance Rate"
-                    value={yearlyAttendanceRate}
-                    valueStyle={{ color: '#0D7139' }}
-                    suffix="%"
-                  />
-                </Card>
-              </Col>
-              <Col xs={24} sm={6}>
-                <Card style={{ borderRadius: '12px', textAlign: 'center' }}>
-                  <Statistic
-                    title="Total Hours"
-                    value={yearlyTotals.present * 8}
-                    valueStyle={{ color: '#0D7139' }}
-                    suffix="h"
-                  />
-                </Card>
-              </Col>
-            </Row>
-
-            {/* Yearly Chart */}
-            <Card style={{ 
-              background: 'rgba(255, 255, 255, 0.95)',
-              backdropFilter: 'blur(10px)',
-              border: 'none',
-              borderRadius: '16px',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
-            }}>
-              <Title level={4} style={{ color: '#0D7139', marginBottom: '24px' }}>
-                <BarChartOutlined style={{ marginRight: '8px' }} />
-                Yearly Attendance Overview - {dayjs().year()}
-              </Title>
-              
-              <Row gutter={[16, 16]}>
-                {Object.entries(yearlyData).map(([month, data]) => {
-                  const monthName = dayjs(month).format('MMM');
-                  const rate = ((data.present / data.totalDays) * 100).toFixed(1);
-                  
-                  return (
-                    <Col xs={24} sm={12} md={8} lg={6} key={month}>
-                      <Card size="small" style={{ borderRadius: '8px' }}>
-                        <div style={{ textAlign: 'center' }}>
-                          <Text strong style={{ color: '#0D7139' }}>{monthName}</Text>
-                          <div style={{ margin: '8px 0' }}>
-                            <Progress 
-                              type="circle" 
-                              percent={parseFloat(rate)}
-                              width={60}
-                              strokeColor="#0D7139"
-                              format={() => `${rate}%`}
-                            />
-                          </div>
-                          <div style={{ fontSize: '12px' }}>
-                            <Text type="secondary">
-                              {data.present}P / {data.absent}A
-                            </Text>
-                          </div>
-                        </div>
-                      </Card>
-                    </Col>
-                  );
-                })}
-              </Row>
-            </Card>
-          </TabPane>
-        </Tabs>
-
-        {/* Quick Actions */}
-        <Card style={{ 
-          background: 'rgba(255, 255, 255, 0.95)',
-          backdropFilter: 'blur(10px)',
-          border: 'none',
-          borderRadius: '16px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
-        }}>
-          <Title level={4} style={{ color: '#0D7139', marginBottom: '16px' }}>
-            Quick Actions
-          </Title>
-          <Row gutter={[16, 16]}>
-            <Col xs={24} sm={12} md={6}>
-              <Button 
-                type="primary" 
-                size="large" 
-                block
-                style={{
-                  background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  height: '50px'
-                }}
-              >
-                <ClockCircleOutlined /> Check In
-              </Button>
-            </Col>
-            <Col xs={24} sm={12} md={6}>
-              <Button 
-                size="large" 
-                block
-                style={{
-                  borderRadius: '8px',
-                  height: '50px'
-                }}
-              >
-                <FileExcelOutlined /> Download Report
-              </Button>
-            </Col>
-            <Col xs={24} sm={12} md={6}>
-              <Button 
-                size="large" 
-                block
-                style={{
-                  borderRadius: '8px',
-                  height: '50px'
-                }}
-              >
-                <EyeOutlined /> View Leaves
-              </Button>
-            </Col>
-            <Col xs={24} sm={12} md={6}>
-              <Button 
-                size="large" 
-                block
-                style={{
-                  borderRadius: '8px',
-                  height: '50px'
-                }}
-              >
-                <SearchOutlined /> Search Records
-              </Button>
-            </Col>
-          </Row>
-        </Card>
-      </div>
     </div>
   );
 };
 
-// Main App Component
-const App = () => {
-  const [userRole, setUserRole] = useState('hr'); // 'hr' or 'employee'
-  const [selectedEmployee] = useState(employeesData[0]); // For employee view
-
-  return (
-    <div style={{ 
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'
-    }}>
-      {/* Role Switcher for Demo */}
-      <div style={{ 
-        position: 'fixed', 
-        top: '20px', 
-        right: '20px', 
-        zIndex: 1000,
-        background: 'white',
-        padding: '8px',
-        borderRadius: '8px',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-      }}>
-        <Select
-          value={userRole}
-          onChange={setUserRole}
-          style={{ width: '150px' }}
-          size="small"
-        >
-          <Option value="hr">HR View</Option>
-          <Option value="employee">Employee View</Option>
-        </Select>
-      </div>
-
-      {['superadmin', 'admin', 'hr'].includes(userRole) ? (
-        <AttendanceManagement userRole={userRole} />
-      ) : (
-        <EmployeeDashboard employee={selectedEmployee} />
-      )}
-    </div>
-  );
-};
-
-export default EmployeeAttendancePage;
+export default EmployeeAttendancePage;  

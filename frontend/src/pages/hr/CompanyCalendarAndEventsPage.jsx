@@ -364,21 +364,28 @@ const deleteDisaster = async (id) => {
   }
     try {
       setLoading(true);
-      const holidayData = {
-  date: values.startDate.format('YYYY-MM-DD'),
-  day_type: 'holiday',
-  holiday_name: values.holidayName,
-  reason: values.description || null,
-  is_mandatory: values.type === 'National' ? true : false,
-  holiday_type: values.type, // Add this line to store the actual type
-  created_by: currentUserId
-};
+      const startDate = values.startDate;
+const endDate = values.endDate || values.startDate;
+const holidayRecords = [];
 
-
+// Generate records for each date in the range
+let currentDate = startDate;
+while (currentDate.isSameOrBefore(endDate, 'day')) {
+  holidayRecords.push({
+    date: currentDate.format('YYYY-MM-DD'),
+    day_type: 'holiday',
+    holiday_name: values.holidayName,
+    reason: values.description || null,
+    is_mandatory: values.type === 'National' ? true : false,
+    holiday_type: values.type,
+    created_by: currentUserId
+  });
+  currentDate = currentDate.add(1, 'day');
+}
 
 const { data, error } = await supabase
   .from('company_calendar')
-  .insert([holidayData])
+  .insert(holidayRecords)
   .select();
 
       if (error) throw error;
