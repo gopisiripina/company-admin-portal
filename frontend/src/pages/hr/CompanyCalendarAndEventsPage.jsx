@@ -334,7 +334,7 @@ const deleteDisaster = async (id) => {
       throw error;
     }
     
-    console.log('Holidays fetched:', data);
+    
     setHolidays(data || []);
   } catch (error) {
     console.error('Error fetching holidays:', error);
