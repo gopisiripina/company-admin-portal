@@ -48,7 +48,6 @@ import {
   ProjectOutlined,
   DeleteOutlined,
   ClockCircleOutlined,
-  DollarOutlined,
   UploadOutlined,
   LinkedinOutlined,
   GithubOutlined,
@@ -73,7 +72,7 @@ const { TabPane } = Tabs;
 const { Option } = Select;
 const { confirm } = Modal;
 const { useBreakpoint } = Grid;
-
+import { FaIndianRupeeSign } from "react-icons/fa6";
 export default function EmployeeProfileModal({ isVisible, onClose, userData, isLoading = false,onProfileUpdate}) {
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
@@ -2077,7 +2076,7 @@ const uploadProps = {
                     </Descriptions.Item>
                     <Descriptions.Item label="Salary">
                       <Space>
-                        <DollarOutlined style={{color: '#0D7139'}} />
+                        <FaIndianRupeeSign style={{color: '#0D7139'}} />
                         <Text strong style={{ color: '#0D7139' }}>{employeeData.salary}</Text>
                       </Space>
                     </Descriptions.Item>

@@ -3,7 +3,7 @@ import {
   Table, Card, Select, Input, DatePicker, Button, Tag, Form, TimePicker, Space, Modal, Avatar, Badge, Row, Col, Typography, Divider, message, Drawer, Steps, Timeline, Tooltip, Radio, Rate, Popconfirm
 } from 'antd';
 import {
-  SearchOutlined, EyeOutlined, EditOutlined, CheckCircleOutlined, CloseCircleOutlined, CalendarOutlined, UserOutlined, FileTextOutlined, VideoCameraOutlined, ClockCircleOutlined, SendOutlined, PhoneOutlined, EnvironmentOutlined, DollarOutlined, HistoryOutlined, ReloadOutlined, StarOutlined, CommentOutlined
+  SearchOutlined, EyeOutlined, EditOutlined, CheckCircleOutlined, CloseCircleOutlined, CalendarOutlined, UserOutlined, FileTextOutlined, VideoCameraOutlined, ClockCircleOutlined, SendOutlined, PhoneOutlined, EnvironmentOutlined, HistoryOutlined, ReloadOutlined, StarOutlined, CommentOutlined
 } from '@ant-design/icons';
 import ErrorPage from '../../error/ErrorPage';
 const { Option } = Select;
