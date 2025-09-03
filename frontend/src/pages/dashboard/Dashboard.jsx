@@ -302,7 +302,7 @@ const generatePayslipPDF = async (employee, returnBlob = false) => {
           
           // For print dialog
           pdf.save(`payslip_${employee.employee_name}_${dayjs(employee.pay_period).format('YYYY-MM')}.pdf`);
-resolve(true);
+          resolve(true);
         });
       });
     }
@@ -379,17 +379,17 @@ const startFaceDetection = () => {
 };
 
 useEffect(() => {
-  if (userData && userData.id && selectedPayslipMonth) {
-   
+  if (activeSection === 'dashboard' && userData && userData.id && selectedPayslipMonth) {
     fetchUserPayslips();
   }
-}, [selectedPayslipMonth]);
+}, [activeSection, selectedPayslipMonth, userData]);
+
 useEffect(() => {
-  if (userData && userData.id) {
+  if (activeSection === 'dashboard' && userData && userData.id) {
     fetchAttendanceData();
-    fetchUserPayslips(); // Add this line
+    fetchUserPayslips();
   }
-}, [userData, currentMonth]);
+}, [activeSection, userData, currentMonth]);
 useEffect(() => {
   if (isCameraModalVisible && !isModelLoaded) {
     loadFaceDetectionModels();
@@ -660,10 +660,15 @@ useEffect(() => {
 
 
 // Move these calculations here, after the useEffect hooks
-const presentDays = attendanceData.filter(record => record.is_present === true).length || 0;
-const absentDays = attendanceData.filter(record => record.is_present === false).length || 0;
+const presentDays = activeSection === 'dashboard' ? 
+  (attendanceData.filter(record => record.is_present === true).length || 0) : 0;
+const absentDays = activeSection === 'dashboard' ? 
+  (attendanceData.filter(record => record.is_present === false).length || 0) : 0;
 const totalDays = attendanceData.length || 0;
-
+const missingDays = attendanceData.filter(record => 
+  record.check_in && !record.check_out && 
+  new Date(record.date) < new Date().setHours(0,0,0,0)
+).length || 0;
 // Add these state variables at the top of your component
 const [holidays, setHolidays] = useState([]);
 const [workingDaysConfig, setWorkingDaysConfig] = useState({
@@ -746,6 +751,13 @@ const getAttendanceStatus = (dateStr, attendanceInfo, currentDate) => {
 if (isHol) {
   // If employee worked on holiday, prioritize attendance status
   if (attendanceInfo) {
+    if (attendanceInfo.hasCheckedIn && !attendanceInfo.hasCheckedOut && isPastDate) {
+    return {
+      dayClass: 'missing',
+      tooltipText: `Missing Check Out - Checked In at ${attendanceInfo.checkIn} but didn't check out`
+    };
+  }
+  
     if (attendanceInfo.hasCheckedIn && !attendanceInfo.hasCheckedOut) {
       return {
         dayClass: 'checked-in', // Orange color #f97316
@@ -1093,6 +1105,8 @@ const renderAttendanceCalendar = () => {
                 }).length}
               </Text>
             </Flex>
+            
+                
           </Col>
         </Row>
       </Card>
@@ -1195,6 +1209,17 @@ const renderAttendanceCalendar = () => {
           />
           <Text style={{ fontSize: '12px' }}>Non-Working</Text>
         </Flex>
+        <Flex align="center" gap={5}>
+  <Badge 
+    color="#fbbf24" 
+    style={{ 
+      width: '12px', 
+      height: '12px', 
+      borderRadius: '50%' 
+    }} 
+  />
+  <Text style={{ fontSize: '12px' }}>Missing</Text>
+</Flex>
       </Flex>
     </Card>
   );
@@ -1558,7 +1583,13 @@ const handleEmailFolderChange = (folder) => {
     bgGradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
     isPayslip: true
   }
-  ];
+  ].filter(stat => {
+  // Hide attendance calendar for admin roles
+  if (stat.isCalendar && ['superadmin', 'admin', 'hr'].includes(userData?.role?.toLowerCase())) {
+    return false;
+  }
+  return true;
+});
 
   const quickActions = [
     { title: 'Create New Project', icon: Zap, color: '#8b5cf6' },
@@ -1995,9 +2026,29 @@ if (activeSection === 'payroll') {
         </div>
       </div>
     </Col>
-    
-    
-    
+    <Col xs={6} sm={6} md={6} lg={6}>
+      <div style={{ textAlign: 'center' }}>
+        <Statistic 
+          value={missingDays} 
+          valueStyle={{ 
+            color: '#fbbf24', 
+            fontSize: '16px', 
+            fontWeight: '700',
+            lineHeight: 1.2
+          }}
+          suffix=""
+        />
+        <div style={{ 
+          fontSize: '12px', 
+          color: '#64748b', 
+          fontWeight: '500',
+          marginTop: '4px'
+        }}>
+          Missing
+        </div>
+      </div>
+    </Col>
+      
     <Col xs={6} sm={6} md={6} lg={6}>
       <div style={{ textAlign: 'center' }}>
         <Button 
@@ -2057,6 +2108,7 @@ if (activeSection === 'payroll') {
               Quick Actions
             </h2>
             <div className="quick-actions-grid">
+              {!['superadmin', 'admin', 'hr'].includes(userData?.role?.toLowerCase()) && (
                   <div
       key="take-attendance"
       className="quick-action-card animate-1"
@@ -2106,7 +2158,7 @@ if (activeSection === 'payroll') {
           Take Attendance
         </span>
       </div>
-    </div>
+    </div> )}
 
               {quickActions.map((action, index) => (
                 <div
