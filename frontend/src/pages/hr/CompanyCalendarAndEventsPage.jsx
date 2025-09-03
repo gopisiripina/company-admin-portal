@@ -385,10 +385,10 @@ const deleteDisaster = async (id) => {
       throw error;
     }
     
-    console.log('Holidays fetched:', data);
+    
     setHolidays(data || []);
   } catch (error) {
-    console.error('Error fetching holidays:', error);
+    
     message.error('Failed to fetch holidays');
   }
 };
@@ -946,7 +946,7 @@ const getSelectedDateEvents = () => {
       await saveWorkingDaysConfig(defaultConfig);
     }
   } catch (error) {
-    console.error('Error fetching working days config:', error);
+    
     message.error('Failed to fetch working days configuration');
   }
 };

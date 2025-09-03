@@ -540,7 +540,7 @@ const fetchUserPayslips = async () => {
     
     setUserPayslips(transformedPayslips);
   } catch (error) {
-    console.error('Error fetching payslips:', error);
+    
   }
 };
 
@@ -688,7 +688,7 @@ const fetchHolidays = async () => {
     if (error) throw error;
     setHolidays(data || []);
   } catch (error) {
-    console.error('Error fetching holidays:', error);
+    
   }
 };
 
@@ -710,7 +710,7 @@ const fetchWorkingDaysConfig = async () => {
       setWorkingDaysConfig(config);
     }
   } catch (error) {
-    console.error('Error fetching working days config:', error);
+    
   }
 };
 

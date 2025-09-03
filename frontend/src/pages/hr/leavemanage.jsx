@@ -2580,18 +2580,24 @@ useEffect(() => {
   };
 }, [dataLoaded, currentUserId, userRole, currentUser]);
 // Add this useEffect hook inside LeaveManagementPage
+// Update this useEffect hook inside LeaveManagementPage
 useEffect(() => {
     const fetchEmployees = async () => {
         if (userRole !== 'employee') {
             const { data, error } = await supabase
                 .from('users')
-                .select('id, name')
+                .select('id, name, employee_id')
                 .order('name', { ascending: true });
             
             if (error) {
                 console.error("Error fetching employees:", error);
             } else {
-                setEmployees(data || []);
+                // Filter to show only employees and interns
+                const filteredEmployees = (data || []).filter(emp => 
+                    emp.employee_id?.startsWith('MYAEMP') || 
+                    emp.employee_id?.startsWith('MYAINT')
+                );
+                setEmployees(filteredEmployees);
             }
         }
     };
