@@ -64,7 +64,7 @@ const [workingDaysConfig, setWorkingDaysConfig] = useState({
   wednesday: true,
   thursday: true,
   friday: true,
-  saturday: false,
+  saturday: true,
   sunday: false
 });
   // Database state
@@ -172,35 +172,86 @@ const createDisaster = async (values) => {
       throw new Error('Invalid API response format');
     }
 
+    // First, get all existing holidays for the year (not just system ones)
+    const { data: existingHolidays, error: fetchError } = await supabase
+      .from('company_calendar')
+      .select('date, holiday_name')
+      .eq('day_type', 'holiday')
+      .gte('date', `${year}-01-01`)
+      .lte('date', `${year}-12-31`);
+
+    if (fetchError) {
+      throw new Error(`Failed to fetch existing holidays: ${fetchError.message}`);
+    }
+
+    // Create a Set for faster lookup - check by date only
+    const existingDatesSet = new Set();
+    if (existingHolidays) {
+      existingHolidays.forEach(holiday => {
+        existingDatesSet.add(holiday.date);
+      });
+    }
+
     let successCount = 0;
+    const holidaysToInsert = [];
+    const processedDates = new Set(); // Track dates we've already processed in this sync
+    
+    // Process each holiday and prepare for batch insert
     for (const holiday of indianHolidays) {
       try {
-        const { data: existing } = await supabase
-          .from('company_calendar')
-          .select('id')
-          .eq('date', holiday.date)
-          .eq('day_type', 'holiday')
-          .single();
-
-        if (!existing) {
-          const { error } = await supabase.from('company_calendar').insert({
-            date: holiday.date,
-            day_type: 'holiday',
-            holiday_name: holiday.name || holiday.localName,
-            reason: holiday.localName ? `${holiday.localName} - Government of India` : `${holiday.name} - Government of India`,
-            is_mandatory: true,
-            created_by: 'system'
-          });
-          
-          if (!error) successCount++;
+        const holidayName = holiday.localName || holiday.name;
+        
+        if (!holidayName || !holiday.date) {
+          console.warn('Skipping holiday with missing name or date:', holiday);
+          continue;
         }
-      } catch (insertError) {
-        console.error('Error inserting holiday:', insertError);
+
+        // Skip if we already have a holiday on this date (from database)
+        if (existingDatesSet.has(holiday.date)) {
+          console.log(`Holiday already exists for date: ${holiday.date}`);
+          continue;
+        }
+
+        // Skip if we've already processed this date in current sync (prevents API duplicates)
+        if (processedDates.has(holiday.date)) {
+          console.log(`Date already processed in this sync: ${holiday.date}`);
+          continue;
+        }
+
+        holidaysToInsert.push({
+          date: holiday.date,
+          day_type: 'holiday',
+          holiday_name: holidayName,
+          reason: `${holidayName} - Government of India`,
+          is_mandatory: true,
+          created_by: 'system'
+        });
+        
+        // Mark this date as processed
+        processedDates.add(holiday.date);
+        
+      } catch (error) {
+        console.error('Error processing holiday:', holiday, error);
       }
+    }
+
+    // Batch insert all new holidays
+    if (holidaysToInsert.length > 0) {
+      const { data, error: insertError } = await supabase
+        .from('company_calendar')
+        .insert(holidaysToInsert)
+        .select();
+
+      if (insertError) {
+        throw new Error(`Failed to insert holidays: ${insertError.message}`);
+      }
+
+      successCount = holidaysToInsert.length;
     }
     
     message.success(`${successCount} government holidays synced for ${year}`);
     await fetchHolidays();
+    
   } catch (error) {
     console.error('Error syncing holidays:', error);
     message.error(`Failed to sync government holidays for ${year}: ${error.message}`);
