@@ -331,9 +331,15 @@ const fetchLeaveBalances = async (userId) => {
 const calculateLeaveBalances = async (userId, currentUser) => {
   // 1. Fetch all necessary data first.
   const balanceData = await fetchLeaveBalances(userId);
-  const holidays = await fetchCompanyCalendar(); // Define holidays FIRST.
-  const totalWorkingDaysPresent = await fetchWorkingDays(userId, holidays); // Now this works.
-  const totalCompensatoryDaysEarned = await fetchCompensatoryOffDays(userId, holidays); // This also works.
+  
+  // Cache holidays to prevent repeated fetching
+  if (!window.holidayCache) {
+    window.holidayCache = await fetchCompanyCalendar();
+  }
+  const holidays = window.holidayCache;
+  
+  const totalWorkingDaysPresent = await fetchWorkingDays(userId, holidays);
+  const totalCompensatoryDaysEarned = await fetchCompensatoryOffDays(userId, holidays);
 
   // 2. Calculate the total leaves earned based on your rules.
   const totalEarnedLeave = Math.floor(totalWorkingDaysPresent / 20);
@@ -443,7 +449,7 @@ const LeaveHistoryDrawer = ({ visible, onClose, leaveData, currentUser }) => {
       onClose={onClose}
       open={visible}
       width={window.innerWidth > 768 ? 500 : '90%'}
-      destroyOnClose
+      destroyOnHidden
     >
       {/* Filter Controls */}
       <Card style={{ marginBottom: '16px', background: '#fafafa' }} size="small">
@@ -603,19 +609,25 @@ useEffect(() => {
     return () => clearTimeout(timer);
   }, []);
 
-  // Filter leaves based on current filters
 useEffect(() => {
   // Only load data ONCE when component mounts and user is available
-  if (!dataLoaded && currentUser?.id) {
+  if (!dataLoaded && currentUser?.id && activeTab === 'dashboard') {
     const loadInitialData = async () => {
       setLoading(true);
       try {
-        // FIRST: Initialize balance if it doesn't exist
-        await initializeUserLeaveBalance(currentUserId);
+        // FIRST: Initialize balance if it doesn't exist (only for employee)
+        if (userRole === 'employee') {
+          await initializeUserLeaveBalance(currentUserId);
+        }
         
         // THEN: Load data
         const leaves = await fetchLeaveApplications(userRole === 'employee' ? currentUserId : null);
-        const balances = await calculateLeaveBalances(currentUserId, currentUser);
+        
+        // Only calculate balances for employee view
+        let balances = {};
+        if (userRole === 'employee') {
+          balances = await calculateLeaveBalances(currentUserId, currentUser);
+        }
         
         setLeaveData(leaves);
         setLeaveBalances(balances);
@@ -631,8 +643,7 @@ useEffect(() => {
     
     loadInitialData();
   }
-}, [currentUser?.id, currentUserId]); // Added currentUserId to dependencies
- 
+}, [currentUser?.id, dataLoaded, activeTab, userRole]);
  useEffect(() => {
   let filtered = leaveData;
   
@@ -701,7 +712,7 @@ const HRMedicalLeaveModal = ({ visible, onCancel, employees, onAllocate, loading
         </Button>
       ]}
       width={600}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical" onFinish={onAllocate}>
         <Form.Item
@@ -1049,12 +1060,18 @@ const handleApplyLeave = async (values) => {
     
     if (error) throw error;
     
-    // Refresh data and close modal on success
+   // Clear cache before fetching fresh data
+    clearCache();
+    
+    // ✅ FORCE IMMEDIATE UI UPDATE - Don't wait for realtime
     const updatedLeaves = await fetchLeaveApplications(userRole === 'employee' ? currentUserId : null);
     setLeaveData(updatedLeaves);
     
-    const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
-    setLeaveBalances(updatedBalances);
+    // ✅ FORCE IMMEDIATE BALANCE UPDATE (only for employee)
+    if (userRole === 'employee') {
+      const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
+      setLeaveBalances(updatedBalances);
+    }
     
     setApplyLeaveModal(false);
     form.resetFields();
@@ -2536,14 +2553,14 @@ useEffect(() => {
   };
 }, [])
 useEffect(() => {
-  // Only set up realtime after initial data is loaded
-  if (!dataLoaded) return;
+  // Only set up realtime after initial data is loaded and for dashboard tab
+  if (!dataLoaded || activeTab !== 'dashboard') return;
   
-  // LEAVE APPLICATIONS
+  // LEAVE APPLICATIONS - only for relevant changes
   const leaveSub = supabase
     .channel('realtime-leave-applications')
     .on('postgres_changes', {
-      event: '*',
+      event: 'UPDATE', // Only updates, not all events
       schema: 'public',
       table: 'leave_applications',
     }, async (payload) => {
@@ -2579,31 +2596,30 @@ useEffect(() => {
     supabase.removeChannel(balanceSub);
   };
 }, [dataLoaded, currentUserId, userRole, currentUser]);
+// Add cache clearing utility
+const clearCache = () => {
+  delete window.holidayCache;
+};
 // Add this useEffect hook inside LeaveManagementPage
-// Update this useEffect hook inside LeaveManagementPage
 useEffect(() => {
     const fetchEmployees = async () => {
-        if (userRole !== 'employee') {
+        if (userRole !== 'employee' && activeTab === 'dashboard' && employees.length === 0) {
             const { data, error } = await supabase
                 .from('users')
-                .select('id, name, employee_id')
+                .select('id, name, employee_id') // Only essential fields
+                .or('employee_id.like.MYAEMP%,employee_id.like.MYAINT%') // Server-side filtering
                 .order('name', { ascending: true });
             
             if (error) {
                 console.error("Error fetching employees:", error);
             } else {
-                // Filter to show only employees and interns
-                const filteredEmployees = (data || []).filter(emp => 
-                    emp.employee_id?.startsWith('MYAEMP') || 
-                    emp.employee_id?.startsWith('MYAINT')
-                );
-                setEmployees(filteredEmployees);
+                setEmployees(data || []);
             }
         }
     };
 
     fetchEmployees();
-}, [userRole]);
+}, [userRole, activeTab, employees.length]);
   // HR/Admin Dashboard Component
   const HRDashboard = () => (
   <div style={animationStyles.container}>
@@ -3556,7 +3572,7 @@ const ExportReportModal = ({ visible, onCancel, leaveData }) => {
         </Button>
       ]}
       width={400}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form
         form={exportForm}
