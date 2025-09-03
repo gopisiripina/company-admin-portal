@@ -34,6 +34,86 @@ const SelectedCandidatesPage = ({ userRole }) => {
   }
   const [candidates, setCandidates] = useState([]);
   const [filteredCandidates, setFilteredCandidates] = useState([]);
+  const [offerActionModalVisible, setOfferActionModalVisible] = useState(false);
+  const [selectedOfferRecord, setSelectedOfferRecord] = useState(null);
+  const [offerLetterModalVisible, setOfferLetterModalVisible] = useState(false);
+
+  // Handle updating the candidate offer status
+  const handleOfferStatusChange = async (candidateId, newStatus) => {
+    try {
+      const { error } = await supabase
+        .from('job_applications')
+        .update({ candidate_offerstatus: newStatus })
+        .eq('id', candidateId);
+
+      if (error) throw error;
+
+      message.success('Offer status updated successfully');
+      
+      // Update local state
+      setCandidates(prevCandidates => 
+        prevCandidates.map(candidate => 
+          candidate.id === candidateId 
+            ? { ...candidate, candidateOfferStatus: newStatus }
+            : candidate
+        )
+      );
+      
+      // Update filtered candidates as well
+      setFilteredCandidates(prevFiltered =>
+        prevFiltered.map(candidate =>
+          candidate.id === candidateId
+            ? { ...candidate, candidateOfferStatus: newStatus }
+            : candidate
+        )
+      );
+    } catch (error) {
+      console.error('Error updating offer status:', error);
+      message.error('Failed to update offer status');
+    }
+  };
+
+  const handleOfferLetterAction = async (record, action) => {
+    if (!record.offerPdfUrl) {
+      message.error('Offer letter not available');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.storage
+        .from('job-applications')
+        .download(record.offerPdfUrl);
+
+      if (error) throw error;
+
+      const blob = new Blob([data], { type: 'application/pdf' });
+
+      if (action === 'view') {
+        // Open in browser
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, '_blank');
+      } else {
+        // Download file
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${record.name.replace(/\s+/g, '_')}_offer_letter.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }
+    } catch (error) {
+      console.error('Error handling offer letter:', error);
+      message.error('Failed to process offer letter');
+    }
+  };
+
+  // ADD THIS NEW FUNCTION
+  const showOfferActionsModal = (record) => {
+    setSelectedOfferRecord(record);
+    setOfferLetterModalVisible(true);
+  };
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [jobTitleFilter, setJobTitleFilter] = useState('all');
@@ -131,6 +211,8 @@ const fetchSelectedCandidates = async () => {
       skills: candidate.skills ? candidate.skills.split(',') : [],
       status: candidate.status,
       resumeUrl: candidate.resume_url,
+      offerPdfUrl: candidate.offer_pdf_url,
+      candidateOfferStatus: candidate.candidate_offerstatus || 'pending',
       location: candidate.location,
       expectedSalary: candidate.expected_salary,
       currentPosition: candidate.current_position,
@@ -334,8 +416,47 @@ const sendOfferLetter = async (offerData) => {
       ...offerData,
       joiningDate: formattedJoiningDate
     });
+
+    // Upload the PDF to Supabase storage
+    const pdfFileName = `offer_letters/${candidateData.id || 'manual'}_${Date.now()}.pdf`;
+    const { error: uploadError } = await supabase.storage
+      .from('job-applications')
+      .upload(pdfFileName, pdfBlob, {
+        contentType: 'application/pdf'
+      });
+
+    if (uploadError) throw new Error(`Failed to upload PDF: ${uploadError.message}`);
+
+    // Update job_applications table with the offer PDF URL if this is a selected candidate
+if (candidateData.id && !candidateData.id.toString().startsWith('manual_')) {
+  const { error: updateError } = await supabase
+    .from('job_applications')
+    .update({ 
+      offer_pdf_url: pdfFileName,
+      candidate_offerstatus: 'pending'
+    })
+    .eq('id', candidateData.id);
+      if (updateError) throw new Error(`Failed to update job application: ${updateError.message}`);
+
+      // Update local state after successful update
+      setCandidates(prevCandidates => 
+        prevCandidates.map(candidate => 
+          candidate.id === candidateData.id
+            ? { ...candidate, offerPdfUrl: pdfFileName, candidateOfferStatus: 'pending' }
+            : candidate
+        )
+      );
+
+      setFilteredCandidates(prevFiltered =>
+        prevFiltered.map(candidate =>
+          candidate.id === candidateData.id
+            ? { ...candidate, offerPdfUrl: pdfFileName, candidateOfferStatus: 'pending' }
+            : candidate
+        )
+      );
+    }
     
-    // Convert blob to base64 for email attachment - FIXED VERSION
+    // Convert blob to base64 for email attachment
     const base64PDF = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -413,8 +534,8 @@ const sendOfferLetter = async (offerData) => {
     // Handle successful email sending
     if (result.success) {
       // For selected candidates (existing logic)
-      if (selectedCandidate && selectedCandidate.id && !selectedCandidate.isManual) {
-        const { error: updateError } = await supabase
+// For selected candidates (existing logic)
+if (selectedCandidate && selectedCandidate.id && !selectedCandidate.isManual && !selectedCandidate.id.toString().startsWith('manual_')) {        const { error: updateError } = await supabase
           .from('job_applications')
           .update({
             mail_history: [
@@ -1026,14 +1147,14 @@ return doc.output('blob', { compress: true });
       <Button
         size="small"
         block
-        type="primary"
-        icon={<SendOutlined />}
+        icon={<DownloadOutlined />}
         onClick={() => {
-          setSelectedCandidate(record);
-          setOfferTypeModalVisible(true); // Changed from setOfferModalVisible(true)
+          setSelectedOfferRecord(record);
+          setOfferLetterModalVisible(true);
         }}
+        disabled={!record.offerPdfUrl}
       >
-        {record.offerSent ? 'Resend Offer' : 'Send Offer'}
+        View/Download Offer
       </Button>
     </Space>
   ),
@@ -1170,6 +1291,22 @@ return doc.output('blob', { compress: true });
     ),
   },
   {
+    title: 'Candidate Offer Status',
+    key: 'candidateOfferStatus',
+    width: 150,
+    render: (_, record) => (
+      <Select
+        defaultValue={record.candidateOfferStatus || 'pending'}
+        style={{ width: '100%' }}
+        onChange={(value) => handleOfferStatusChange(record.id, value)}
+      >
+        <Option value="pending">Pending</Option>
+        <Option value="accepted">Accepted</Option>
+        <Option value="rejected">Rejected</Option>
+      </Select>
+    ),
+  },
+  {
     title: 'Selected Date',
     dataIndex: 'selectedDate',
     key: 'selectedDate',
@@ -1209,7 +1346,7 @@ return doc.output('blob', { compress: true });
   {
     title: 'Actions',
     key: 'actions',
-    width: 80, // Reduced from 100
+    width: 100,
     render: (_, record) => (
       <Space size="small">
         <Tooltip title="View Details">
@@ -1223,12 +1360,16 @@ return doc.output('blob', { compress: true });
             }}
           />
         </Tooltip>
-        <Tooltip title="Download Resume">
+        <Tooltip title="View/Download Offer Letter">
           <Button 
             type="text" 
             size="small"
             icon={<DownloadOutlined />}
-            onClick={() => window.open(record.resumeUrl, '_blank')}
+            onClick={() => {
+              setSelectedOfferRecord(record);
+              setOfferLetterModalVisible(true);
+            }}
+            disabled={!record.offerPdfUrl}
           />
         </Tooltip>
       </Space>
@@ -1284,6 +1425,38 @@ return doc.output('blob', { compress: true });
   width: '100%',
   minHeight: '100vh'
 }}>
+      {/* Offer Letter Action Modal */}
+      <Modal
+        title="Offer Letter Actions"
+        visible={offerLetterModalVisible}
+        onCancel={() => setOfferLetterModalVisible(false)}
+        footer={null}
+      >
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Button
+            type="primary"
+            block
+            icon={<EyeOutlined />}
+            onClick={() => {
+              handleOfferLetterAction(selectedOfferRecord, 'view');
+              setOfferLetterModalVisible(false);
+            }}
+          >
+            View in Browser
+          </Button>
+          <Button
+            block
+            icon={<DownloadOutlined />}
+            onClick={() => {
+              handleOfferLetterAction(selectedOfferRecord, 'download');
+              setOfferLetterModalVisible(false);
+            }}
+          >
+            Download
+          </Button>
+        </Space>
+      </Modal>
+
     {/* Header */}
 <div style={{ 
   marginBottom: '24px', 
