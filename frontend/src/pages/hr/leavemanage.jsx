@@ -53,7 +53,6 @@ import {
   HeartOutlined,
   BankOutlined,
   ExclamationCircleOutlined,
-  DollarOutlined,
   NotificationOutlined,
   SendOutlined,
   UploadOutlined,
@@ -76,7 +75,7 @@ import { supabase } from '../../supabase/config';
 import useSWR, { mutate } from 'swr';
 import Analytics from './Analytics'; // Add this line - adjust path as needed
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
-
+import { FaIndianRupeeSign } from "react-icons/fa6";
 
 
 dayjs.extend(relativeTime);
@@ -116,7 +115,7 @@ const uploadFileToSupabase = async (file, bucketName = 'leave-documents') => {
       'Earned Leave': { color: '#0D7139', icon: <BankOutlined />, gradient: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)' },
       'Medical Leave': { color: '#ff4d4f', icon: <MedicineBoxOutlined />, gradient: 'linear-gradient(45deg, #ff7875 0%, #ff4d4f 100%)' },
       'Maternity Leave': { color: '#eb2f96', icon: <MedicineBoxOutlined />, gradient: 'linear-gradient(45deg, #f759ab 0%, #eb2f96 100%)' },
-      'Compensatory Leave': { color: '#722ed1', icon: <DollarOutlined />, gradient: 'linear-gradient(45deg, #9254de 0%, #722ed1 100%)' },
+      'Compensatory Leave': { color: '#722ed1', icon: <FaIndianRupeeSign/>, gradient: 'linear-gradient(45deg, #9254de 0%, #722ed1 100%)' },
       'On Duty': { color: '#13c2c2', icon: <TeamOutlined />, gradient: 'linear-gradient(45deg, #36cfc9 0%, #13c2c2 100%)' },
       'Excuses': { color: '#fa8c16', icon: <ExclamationCircleOutlined />, gradient: 'linear-gradient(45deg, #ffa940 0%, #fa8c16 100%)' },
       'Overtime': { color: '#a0d911', icon: <ThunderboltOutlined />, gradient: 'linear-gradient(45deg, #b7eb8f 0%, #a0d911 100%)' },
@@ -2102,7 +2101,7 @@ const isMedicalDisabled = !leaveBalances.medicalLeave || leaveBalances.medicalLe
                 </Option>
                <Option value="Compensatory Leave" disabled={isCompensatoryDisabled}>
                    <Space>
-                    <DollarOutlined style={{ color: '#722ed1' }} />
+                    <FaIndianRupeeSign  style={{ color: '#722ed1' }} />
                     Compensatory Leave ({leaveBalances.compensatoryLeave?.remaining || 0} remaining)
                   </Space>
                 </Option>

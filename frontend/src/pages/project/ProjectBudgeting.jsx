@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Plus, DollarSign, TrendingUp, TrendingDown, PiggyBank, Package, Filter, Calendar } from 'lucide-react';
+import { Plus, IndianRupee , TrendingUp, TrendingDown, PiggyBank, Package, Filter, Calendar } from 'lucide-react';
 
 const ProjectBudgeting = ({ userRole }) => {
   const [projects, setProjects] = useState([
@@ -236,7 +236,7 @@ const ProjectBudgeting = ({ userRole }) => {
               color: 'white'
             }}
           >
-            <DollarSign size={20} />
+            <IndianRupee  size={20} />
             Add Expenses
           </button>
           <button
@@ -417,7 +417,7 @@ const ProjectBudgeting = ({ userRole }) => {
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>
-                <DollarSign size={24} />
+                <IndianRupee  size={24} />
               </div>
               <div>
                 <h3 style={{
@@ -505,7 +505,7 @@ const ProjectBudgeting = ({ userRole }) => {
           boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
         }}>
           <div style={{ textAlign: 'center' }}>
-            <DollarSign size={48} style={{ color: '#9ca3af', marginBottom: '16px' }} />
+            <IndianRupee  size={48} style={{ color: '#9ca3af', marginBottom: '16px' }} />
             <h3 style={{ color: '#374151', margin: '0 0 8px 0' }}>No Project Selected</h3>
             <p style={{ color: '#6b7280', margin: '0' }}>
               Please select a project from the dropdown to view budget details

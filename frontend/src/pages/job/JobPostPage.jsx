@@ -37,7 +37,6 @@ import {
   HistoryOutlined,
   RocketOutlined,
   EnvironmentOutlined,
-  DollarOutlined,
   StarOutlined,
   FileTextOutlined,
   BellOutlined,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Bell, Users, DollarSign, ShoppingCart,  TrendingUp, Calendar,Camera , Clock, Star, ArrowUpRight, ArrowDownRight, Activity, Zap, Menu} from 'lucide-react';
+import { Search, Bell, Users, ShoppingCart,  TrendingUp, Calendar,Camera , Clock, Star, ArrowUpRight, ArrowDownRight, Activity, Zap, Menu,IndianRupee } from 'lucide-react';
 import {Row, Col, Statistic, Button, Card, Space,Typography,  Spin, Alert,Badge, Modal, Flex,DatePicker} from 'antd';
 import {LeftOutlined, RightOutlined, CalendarOutlined,FilePdfOutlined, } from '@ant-design/icons';
 import './Dashboard.css';
@@ -1515,7 +1515,7 @@ const handleEmailFolderChange = (folder) => {
       value: '$89,231', 
       change: '+8.2%', 
       trend: 'up', 
-      icon: DollarSign, 
+      icon: IndianRupee, 
       color: '#10b981',
       bgGradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
     },

@@ -24,7 +24,6 @@ import {
   EnvironmentOutlined,
   TeamOutlined,
   ClockCircleOutlined,
-  DollarOutlined,
   StarOutlined,
   CheckCircleOutlined,
   GiftOutlined,
@@ -41,7 +40,7 @@ import {
   UploadOutlined 
 } from '@ant-design/icons';
 import { supabase } from '../../supabase/config';
-
+import { FaIndianRupeeSign } from "react-icons/fa6";
 const { Title, Text, Paragraph } = Typography;
 
 const CampusJobViewPage = () => {
@@ -352,7 +351,7 @@ const CampusJobViewPage = () => {
                       </Tag>
                     )}
                     {jobData.salaryRange && (
-                      <Tag icon={<DollarOutlined />} color="gold" style={{ 
+                      <Tag icon={<FaIndianRupeeSign />} color="gold" style={{ 
                         padding: '4px 8px', 
                         fontSize: '12px',
                         lineHeight: '1.2'

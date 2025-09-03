@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {Table,Card,Select,Input,DatePicker,Button,Tag,Form, TimePicker ,Space,Modal,Avatar,Badge,Row,Col,Typography,Divider,message,Drawer,Steps,Timeline,Tooltip} from 'antd';
-import {SearchOutlined,EyeOutlined,DownloadOutlined,MailOutlined,UserOutlined, FileTextOutlined, VideoCameraOutlined, CloseCircleOutlined ,CalendarOutlined,CheckCircleOutlined,ClockCircleOutlined,SendOutlined,PhoneOutlined,EnvironmentOutlined,DollarOutlined,HistoryOutlined,ReloadOutlined} from '@ant-design/icons';
+import {SearchOutlined,EyeOutlined,DownloadOutlined,MailOutlined,UserOutlined, FileTextOutlined, VideoCameraOutlined, CloseCircleOutlined ,CalendarOutlined,CheckCircleOutlined,ClockCircleOutlined,SendOutlined,PhoneOutlined,EnvironmentOutlined,HistoryOutlined,ReloadOutlined} from '@ant-design/icons';
+import { FaIndianRupeeSign } from "react-icons/fa6";
 // import { sendInterviewInvitation } from '../email/EmailService';
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -956,7 +957,7 @@ const getProgressSteps = (resume) => {
                     </div>
                   </div>
                   <div>
-                    <Text strong><DollarOutlined /> Expected Salary:</Text>
+                    <Text strong><FaIndianRupeeSign /> Expected Salary:</Text>
                     <div style={{ marginTop: 4 }}>
                       <Text>{selectedResume.expectedSalary}</Text>
                     </div>
