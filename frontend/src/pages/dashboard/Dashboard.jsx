@@ -1512,7 +1512,7 @@ const handleEmailFolderChange = (folder) => {
     },
     { 
       title: 'Revenue', 
-      value: '$89,231', 
+      value: '₹ 89,231', 
       change: '+8.2%', 
       trend: 'up', 
       icon: IndianRupee, 
