@@ -434,7 +434,7 @@ const handleVerifyAndCheckIn = async () => {
   formData.append('image', imageFile);
 
   try {
-  const apiResponse = await fetch('https://hrm.myaccess.cloud/api/verify-face/', {
+  const apiResponse = await fetch('https://cap.myaccessio.com/api/verify-face/', {
     method: 'POST',
     body: formData,
   });

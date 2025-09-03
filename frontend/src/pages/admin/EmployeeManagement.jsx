@@ -95,7 +95,7 @@ const sendWelcomeEmail = async (employeeData) => {
           user_role: employeeData.role,
           user_email: employeeData.email,
           user_password: employeeData.password,
-          website_link: "https://hrm.myaccess.cloud/",
+          website_link: "https://cap.myaccessio.com/",
           from_name: "HR Team"
         }
       })
@@ -491,7 +491,7 @@ const handleSubmit = useCallback(async (values) => {
       const formData = new FormData();
       formData.append('image', uploadedFile);
       
-      const embeddingResponse = await fetch('https://hrm.myaccess.cloud/api/get-face-embedding/', {
+      const embeddingResponse = await fetch('https://cap.myaccessio.com/api/get-face-embedding/', {
         method: 'POST',
         body: formData
       });

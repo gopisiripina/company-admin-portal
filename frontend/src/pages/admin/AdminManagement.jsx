@@ -66,7 +66,7 @@ const sendWelcomeEmail = async (employeeData) => {
           user_role: employeeData.role,
           user_email: employeeData.email,
           user_password: employeeData.password,
-          website_link: "http://hrm.myaccess.cloud/",
+          website_link: "http://cap.myaccessio.com/",
           from_name: "Admin Team"
         }
       })
