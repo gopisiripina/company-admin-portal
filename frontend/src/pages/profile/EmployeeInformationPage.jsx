@@ -33,7 +33,6 @@ import {
   TwitterOutlined,
   CalendarOutlined,
   BankOutlined,
-  DollarOutlined,
   BookOutlined,
   TrophyOutlined,
   GlobalOutlined,

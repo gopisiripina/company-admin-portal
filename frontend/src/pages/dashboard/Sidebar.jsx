@@ -1,5 +1,5 @@
 import React, { useState, useEffect,useMemo  } from 'react';
-import { Home, User, ChevronLeft, ChevronRight, Zap, LogOut, UserCheck, FolderKanban, ChevronDown, ChevronUp, Calendar, DollarSign, BarChart3, GitBranch, ClipboardList, AlertTriangle, FileText, BookOpen, MessageSquare } from 'lucide-react';
+import { Home, User, ChevronLeft, ChevronRight, Zap, LogOut, UserCheck, FolderKanban, ChevronDown, ChevronUp, Calendar, IndianRupee , BarChart3, GitBranch, ClipboardList, AlertTriangle, FileText, BookOpen, MessageSquare } from 'lucide-react';
 import './Sidebar.css';
 import Myaccesslogo from '../../assets/Myalogobgr.svg'; // Adjust the path as necessary
 import { InboxOutlined, EditOutlined ,SendOutlined,DeleteOutlined} from '@ant-design/icons';
@@ -72,7 +72,7 @@ useEffect(() => {
     hasChildren: true,
     children: [
       { icon: Calendar, label: 'Project Timeline', id: 'project-timeline' },
-      { icon: DollarSign, label: 'Project Budgeting', id: 'project-budgeting' },
+      { icon: IndianRupee , label: 'Project Budgeting', id: 'project-budgeting' },
       { icon: BarChart3, label: 'Gantt Chart', id: 'gantt-chart' },
       { icon: GitBranch, label: 'Agile Project Plan', id: 'agile-project-plan' },
       { icon: ClipboardList, label: 'Project Tracker', id: 'project-tracker' },
@@ -96,18 +96,18 @@ useEffect(() => {
     children: [
       // For superadmin, admin, and hr - show all options
       ...(userRole === 'superadmin' || userRole === 'admin' || userRole === 'hr' ? [
-        { icon: DollarSign, label: 'Employee Attendance', id: 'employee-attendance' },
+        { icon: IndianRupee , label: 'Employee Attendance', id: 'employee-attendance' },
         { icon: AlertTriangle, label: 'Payroll', id: 'payroll' },
-        { icon: DollarSign, label: 'Leaves Approval', id: 'leave-manage' },
-        { icon: DollarSign, label: 'Calender And Events', id: 'company-calender' },
-        { icon: DollarSign, label: 'AppraisalLetter', id: 'appraisalLetter' },
+        { icon: IndianRupee , label: 'Leaves Approval', id: 'leave-manage' },
+        { icon: IndianRupee , label: 'Calender And Events', id: 'company-calender' },
+        { icon: IndianRupee , label: 'AppraisalLetter', id: 'appraisalLetter' },
         
       ] : []),
       
       // For employee - show only leave and calendar events
       ...(userRole === 'employee' ? [
-        { icon: DollarSign, label: 'leaves Apply', id: 'leave-manage' },
-        { icon: DollarSign, label: 'Calender and Events', id: 'company-calender' },
+        { icon: IndianRupee , label: 'leaves Apply', id: 'leave-manage' },
+        { icon: IndianRupee , label: 'Calender and Events', id: 'company-calender' },
       ] : [])
     ]
   }

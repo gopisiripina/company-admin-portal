@@ -10,7 +10,7 @@ import {
   SearchOutlined, EyeOutlined, DownloadOutlined, MailOutlined, 
   UserOutlined, FileTextOutlined, TrophyOutlined, CloseCircleOutlined,
   CalendarOutlined, CheckCircleOutlined, ClockCircleOutlined, 
-  SendOutlined, PhoneOutlined, EnvironmentOutlined, DollarOutlined,
+  SendOutlined, PhoneOutlined, EnvironmentOutlined,
   HistoryOutlined, ReloadOutlined, StarOutlined, TeamOutlined,
   BankOutlined, IdcardOutlined, HomeOutlined, ContactsOutlined,
   UpOutlined, DownOutlined
@@ -18,7 +18,8 @@ import {
 import suryaSignature from '../../assets/surya.png'; // Add this line for the founder's signature
 import naveenSignature from '../../assets/naveen.png'; 
 import ErrorPage from '../../error/ErrorPage';
-import logoImage from '../../assets/logo.png'; // Ensure you have a logo image in assets
+import logoImage from '../../assets/logo.png';
+import { FaIndianRupeeSign } from "react-icons/fa6";
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 const { Title, Text, Paragraph } = Typography;
@@ -1568,7 +1569,7 @@ return doc.output('blob', { compress: true });
                 <FileTextOutlined /> {selectedCandidate.education}
               </Descriptions.Item>
               <Descriptions.Item label="Expected Salary" span={1}>
-                <DollarOutlined /> {selectedCandidate.expectedSalary}
+                <FaIndianRupeeSign /> {selectedCandidate.expectedSalary}
               </Descriptions.Item>
               <Descriptions.Item label="Technical Rating" span={1}>
                 <Tag color="blue">{selectedCandidate.technicalRating || 'N/A'}/5</Tag>
@@ -1753,7 +1754,7 @@ title={selectedCandidate ?
       rules={selectedOfferType === 'internship' ? [] : [{ required: true }]}
     >
       <Input 
-        prefix={<DollarOutlined />} 
+        prefix={<FaIndianRupeeSign />} 
         placeholder={selectedOfferType === 'internship' ? 
           "e.g., ₹15,000 per month (optional)" : 
           "e.g., $75,000 per annum"

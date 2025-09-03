@@ -23,7 +23,6 @@ import {
   PhoneOutlined,
   UploadOutlined,
   BankOutlined,
-  DollarOutlined,
   FileTextOutlined,
   CheckCircleOutlined,
   LinkOutlined
