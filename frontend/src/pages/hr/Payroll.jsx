@@ -42,7 +42,7 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL;
 const { Header, Content } = Layout;
 const { Title, Text } = Typography;
 const { Option } = Select;
-
+import myaccessLogo from '../../assets/myaccessRBG.png';
 const truncateText = (text, maxLength) => {
   return text && text.length > maxLength ? text.substring(0, maxLength) + '...' : text || '';
 };
@@ -1288,15 +1288,9 @@ const saveEditedPayroll = async (amount) => {
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div style="flex: 1;">
                     <div style="display: flex; align-items: center; margin-bottom: 10px;">
-                        <div style="background-color: #2c5aa0; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-right: 10px;">
-                            MYACCESS
-                        </div>
-                        <h1 style="margin: 0; font-size: 18px; font-weight: bold; color: #333;">${employeeData.company_name}</h1>
-                    </div>
-                    <p style="margin: 0; font-size: 12px; color: #666; line-height: 1.4;">
-                        ${employeeData.company_address.replace(/\n/g, '<br>')}
-                    </p>
-                </div>
+    <img src="${myaccessLogo}" alt="MYACCESS" style="height: 40px; width: auto; margin-right: 10px; border-radius: 4px;" />
+    <h1 style="margin: 0; font-size: 18px; font-weight: bold; color: #333;">${employeeData.company_name}</h1>
+</div>
                 <div style="text-align: right;">
                     <div style="font-size: 12px; color: #666; margin-bottom: 5px;">Payslip For the Month</div>
                     <div style="font-size: 18px; font-weight: bold; color: #333;">${dayjs(employeeData.pay_period).format('MMMM YYYY')}</div>
