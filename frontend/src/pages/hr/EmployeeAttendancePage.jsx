@@ -95,7 +95,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
           .from('users')
           .select('id')
           .in('employee_type', ['full-time', 'internship', 'temporary'])
-          .not('role', 'in', '(superadmin,admin)');
+          .not('role', 'in', '(superadmin,admin,hr)');
 
         if (usersError) throw usersError;
 
