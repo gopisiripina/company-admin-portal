@@ -74,7 +74,11 @@
   background-color: #dc2626;
   transform: scale(1.05);
 }
-
+.calendar-day.missing {
+  background-color: #fbbf24;
+  color: white;
+  font-weight: 600;
+}
 /* Holiday - Purple */
 .calendar-day.holiday {
   background-color: #8b5cf6;
