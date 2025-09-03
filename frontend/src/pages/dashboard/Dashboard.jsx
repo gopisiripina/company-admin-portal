@@ -379,17 +379,17 @@ const startFaceDetection = () => {
 };
 
 useEffect(() => {
-  if (userData && userData.id && selectedPayslipMonth) {
-   
+  if (activeSection === 'dashboard' && userData && userData.id && selectedPayslipMonth) {
     fetchUserPayslips();
   }
-}, [selectedPayslipMonth]);
+}, [activeSection, selectedPayslipMonth, userData]);
+
 useEffect(() => {
-  if (userData && userData.id) {
+  if (activeSection === 'dashboard' && userData && userData.id) {
     fetchAttendanceData();
-    fetchUserPayslips(); // Add this line
+    fetchUserPayslips();
   }
-}, [userData, currentMonth]);
+}, [activeSection, userData, currentMonth]);
 useEffect(() => {
   if (isCameraModalVisible && !isModelLoaded) {
     loadFaceDetectionModels();
@@ -660,8 +660,10 @@ useEffect(() => {
 
 
 // Move these calculations here, after the useEffect hooks
-const presentDays = attendanceData.filter(record => record.is_present === true).length || 0;
-const absentDays = attendanceData.filter(record => record.is_present === false).length || 0;
+const presentDays = activeSection === 'dashboard' ? 
+  (attendanceData.filter(record => record.is_present === true).length || 0) : 0;
+const absentDays = activeSection === 'dashboard' ? 
+  (attendanceData.filter(record => record.is_present === false).length || 0) : 0;
 const totalDays = attendanceData.length || 0;
 const missingDays = attendanceData.filter(record => 
   record.check_in && !record.check_out && 
