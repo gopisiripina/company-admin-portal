@@ -32,7 +32,8 @@ import {
   EditOutlined,
   StarOutlined,
   TrophyOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  HistoryOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { supabase } from '../../supabase/config';
@@ -59,7 +60,10 @@ const [totalEmployees, setTotalEmployees] = useState(0);
     totalAppraisals: 0,
     thisYear: 0
   });
-
+  const [showAppraisalHistory, setShowAppraisalHistory] = useState(false);
+const [selectedEmployeeHistory, setSelectedEmployeeHistory] = useState(null);
+const [historyLoading, setHistoryLoading] = useState(false);
+const [employeeAppraisals, setEmployeeAppraisals] = useState([]);
   // Default letter template
   const defaultLetterContent = `Dear [EMPLOYEE_NAME],
 
@@ -103,7 +107,16 @@ Email ID: surya@myaccessio.com`;
       setLoading(false);
     }
   };
-
+const fetchEmployeeAppraisalHistory = async (userId) => {
+  // Fetch all appraisals for this user, ordered by date
+  const { data, error } = await supabase
+    .from('appraisals')
+    .select('*')
+    .eq('user_id', userId)
+    .order('effective_date', { ascending: false });
+  
+  return data;
+};
   const fetchAppraisals = async () => {
     try {
       setLoading(true);
@@ -131,6 +144,33 @@ Email ID: surya@myaccessio.com`;
     }
   };
 
+  // Add this with your other useEffect hooks
+useEffect(() => {
+  const fetchHistory = async () => {
+    if (selectedEmployeeHistory?.id && showAppraisalHistory) {
+      setHistoryLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('appraisals')
+          .select('*')
+          .eq('user_id', selectedEmployeeHistory.id)
+          .order('effective_date', { ascending: false });
+        
+        if (error) throw error;
+        setEmployeeAppraisals(data || []);
+      } catch (error) {
+        message.error('Error fetching appraisal history: ' + error.message);
+        setEmployeeAppraisals([]);
+      } finally {
+        setHistoryLoading(false);
+      }
+    }
+  };
+
+  if (showAppraisalHistory) {
+    fetchHistory();
+  }
+}, [showAppraisalHistory, selectedEmployeeHistory]);
   const fetchStats = async () => {
     try {
       const currentYear = dayjs().year();
@@ -207,6 +247,241 @@ Email ID: surya@myaccessio.com`;
     }
   };
 
+  const renderAppraisalHistory = () => {
+  const historyColumns = [
+    {
+      title: 'Effective Date',
+      dataIndex: 'effective_date',
+      key: 'effective_date',
+      render: (date) => dayjs(date).format('DD MMM YYYY'),
+      sorter: (a, b) => dayjs(a.effective_date).unix() - dayjs(b.effective_date).unix(),
+    },
+    {
+      title: 'Previous Salary',
+      dataIndex: 'current_salary',
+      key: 'current_salary',
+      render: (amount) => (
+        <span style={{ color: '#8c8c8c' }}>
+          ₹{amount?.toLocaleString('en-IN') || '0'}
+        </span>
+      ),
+    },
+    {
+      title: 'New Salary',
+      dataIndex: 'new_salary',
+      key: 'new_salary',
+      render: (amount) => (
+        <span style={{ fontWeight: '600', color: '#059669' }}>
+          ₹{amount?.toLocaleString('en-IN') || '0'}
+        </span>
+      ),
+    },
+    {
+      title: 'Increase',
+      key: 'increase',
+      render: (_, record) => {
+        const increase = record.new_salary - record.current_salary;
+        const percentage = record.current_salary > 0 ? 
+          ((increase / record.current_salary) * 100).toFixed(2) : 0;
+        
+        return (
+          <div>
+            <div style={{ color: increase >= 0 ? '#059669' : '#dc2626', fontWeight: '600' }}>
+              {increase >= 0 ? '+' : ''}₹{increase.toLocaleString('en-IN')}
+            </div>
+            <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
+              ({increase >= 0 ? '+' : ''}{percentage}%)
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      title: 'Review Period',
+      dataIndex: 'review_period',
+      key: 'review_period',
+      responsive: ['lg'],
+    },
+    {
+      title: 'Manager',
+      dataIndex: 'manager_name',
+      key: 'manager_name',
+      responsive: ['md'],
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      align: 'right',
+      render: (_, record) => (
+        <Space>
+          {record.pdf_url && (
+            <Button 
+              size="small"
+              icon={<DownloadOutlined />}
+              onClick={() => window.open(record.pdf_url, '_blank')}
+              title="Download PDF"
+            >
+              Download
+            </Button>
+          )}
+          <Button 
+            size="small"
+            icon={<FilePdfOutlined />}
+            onClick={() => generateAppraisalPDF(record)}
+            title="Generate PDF"
+          >
+            Generate PDF
+          </Button>
+          <Button 
+            size="small"
+            icon={<SendOutlined />}
+            onClick={async () => {
+              const pdfBlob = await generateAppraisalPDF(record, true);
+              if (pdfBlob) {
+                await sendAppraisalEmail(record, pdfBlob);
+              }
+            }}
+            title="Send Email"
+          >
+            Send
+          </Button>
+          <Button 
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => {
+              const formValues = {
+                userId: selectedEmployeeHistory.id,
+                employeeName: record.employee_name,
+                employeeId: record.employee_id,
+                emailAddress: record.email_address,
+                department: record.department,
+                currentSalary: record.current_salary,
+                newSalary: record.new_salary,
+                effectiveDate: dayjs(record.effective_date),
+                reviewPeriod: record.review_period,
+                companyName: record.company_name,
+                managerName: record.manager_name,
+                managerDesignation: record.manager_designation,
+                letterContent: record.letter_content
+              };
+              
+              form.setFieldsValue(formValues);
+              setShowAppraisalHistory(false);
+              setCurrentView('createAppraisal');
+            }}
+            title="Edit/Copy"
+          >
+            Edit
+          </Button>
+        </Space>
+      ),
+    },
+  ];
+
+  return (
+    <Modal
+      title={
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <Avatar 
+            style={{ backgroundColor: '#10b981', marginRight: '12px' }} 
+            icon={<UserOutlined />}
+          />
+          <div>
+            <div style={{ fontSize: '18px', fontWeight: '600' }}>
+              Appraisal History - {selectedEmployeeHistory?.name}
+            </div>
+            <div style={{ fontSize: '14px', color: '#8c8c8c', fontWeight: 'normal' }}>
+              Employee ID: {selectedEmployeeHistory?.employee_id} | Department: {selectedEmployeeHistory?.department || 'N/A'}
+            </div>
+          </div>
+        </div>
+      }
+      open={showAppraisalHistory}
+      onCancel={() => {
+        setShowAppraisalHistory(false);
+        setSelectedEmployeeHistory(null);
+        setEmployeeAppraisals([]);
+      }}
+      width={1200}
+      footer={[
+        <Button 
+          key="close" 
+          onClick={() => {
+            setShowAppraisalHistory(false);
+            setSelectedEmployeeHistory(null);
+            setEmployeeAppraisals([]);
+          }}
+        >
+          Close
+        </Button>,
+        <Button 
+          key="new" 
+          type="primary" 
+          icon={<PlusOutlined />}
+          onClick={() => {
+            const formValues = {
+              userId: selectedEmployeeHistory.id,
+              employeeName: selectedEmployeeHistory.name,
+              employeeId: selectedEmployeeHistory.employee_id,
+              emailAddress: selectedEmployeeHistory.email,
+              department: selectedEmployeeHistory.department,
+              currentSalary: selectedEmployeeHistory.pay || 0,
+              newSalary: selectedEmployeeHistory.pay || 0,
+              effectiveDate: dayjs(),
+              reviewPeriod: `${dayjs().subtract(1, 'year').format('MMM YYYY')} - ${dayjs().format('MMM YYYY')}`,
+              companyName: 'MYACCESS PRIVATE LIMITED',
+              managerName: 'HR Manager',
+              managerDesignation: 'Human Resources',
+              letterContent: defaultLetterContent
+            };
+            
+            form.setFieldsValue(formValues);
+            setShowAppraisalHistory(false);
+            setCurrentView('createAppraisal');
+          }}
+        >
+          Create New Appraisal
+        </Button>
+      ]}
+      style={{ top: 20 }}
+    >
+      <div style={{ marginBottom: '16px' }}>
+        {employeeAppraisals.length > 0 ? (
+          <div style={{ background: '#f6ffed', padding: '12px', borderRadius: '6px', marginBottom: '16px' }}>
+            <Text>
+              <strong>{employeeAppraisals.length}</strong> appraisal record(s) found for this employee.
+              {employeeAppraisals.length > 0 && (
+                <span style={{ marginLeft: '16px', color: '#059669' }}>
+                  Latest appraisal: {dayjs(employeeAppraisals[0].effective_date).format('DD MMM YYYY')}
+                </span>
+              )}
+            </Text>
+          </div>
+        ) : !historyLoading && (
+          <div style={{ background: '#fff3cd', padding: '12px', borderRadius: '6px', marginBottom: '16px' }}>
+            <Text>No appraisal records found for this employee.</Text>
+          </div>
+        )}
+      </div>
+
+      <Table
+        dataSource={employeeAppraisals}
+        columns={historyColumns}
+        rowKey="id"
+        loading={historyLoading}
+        pagination={{
+          pageSize: 10,
+          showSizeChanger: true,
+          showQuickJumper: true,
+          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} records`,
+        }}
+        scroll={{ x: 800 }}
+        size="small"
+        bordered
+      />
+    </Modal>
+  );
+};
   const numberToWords = (num) => {
   const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
   const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
@@ -477,83 +752,98 @@ lines.forEach(line => {
 };
 
   const onFinish = async (values) => {
-    try {
-      setLoading(true);
-      
-      const effectiveDateFormatted = values.effectiveDate.format('YYYY-MM-DD');
+  try {
+    setLoading(true);
 
-      // Check if record already exists
-      const { data: existingRecord, error: checkError } = await supabase
-        .from('appraisals')
-        .select('id')
-        .eq('user_id', values.userId)
-        .eq('effective_date', effectiveDateFormatted)
-        .maybeSingle();
+    const effectiveDateFormatted = values.effectiveDate.format('YYYY-MM-DD');
+    const pdfFilename = `appraisal_letter_${values.employeeName.replace(/\s+/g, '_')}_${effectiveDateFormatted}.pdf`;
 
-      if (checkError && checkError.code !== 'PGRST116') {
-        throw checkError;
-      }
+    // Generate PDF blob
+    const appraisalData = {
+      company_name: values.companyName,
+      employee_name: values.employeeName,
+      employee_id: values.employeeId,
+      email_address: values.emailAddress,
+      department: values.department,
+      current_salary: values.currentSalary,
+      new_salary: values.newSalary,
+      effective_date: effectiveDateFormatted,
+      review_period: values.reviewPeriod,
+      manager_name: values.managerName,
+      manager_designation: values.managerDesignation,
+      letter_content: values.letterContent,
+      user_id: values.userId
+    };
+    const pdfBlob = await generateAppraisalPDF(appraisalData, true);
 
-      const appraisalData = {
-        company_name: values.companyName,
-        employee_name: values.employeeName,
-        employee_id: values.employeeId,
-        email_address: values.emailAddress,
-        department: values.department,
-        current_salary: values.currentSalary,
-        new_salary: values.newSalary,
-        effective_date: effectiveDateFormatted,
-        review_period: values.reviewPeriod,
-        manager_name: values.managerName,
-        manager_designation: values.managerDesignation,
-        letter_content: values.letterContent,
-        user_id: values.userId
-      };
-
-      let data, error;
-
-      if (existingRecord) {
-        // Update existing record
-        const { data: updateData, error: updateError } = await supabase
-          .from('appraisals')
-          .update(appraisalData)
-          .eq('id', existingRecord.id)
-          .select();
-
-        data = updateData;
-        error = updateError;
-        
-        if (!error) {
-          message.success('Appraisal data updated successfully!');
-        }
-      } else {
-        // Insert new record
-        const { data: insertData, error: insertError } = await supabase
-          .from('appraisals')
-          .insert([appraisalData])
-          .select();
-
-        data = insertData;
-        error = insertError;
-        
-        if (!error) {
-          message.success('Appraisal data saved successfully!');
-        }
-      }
-
-      if (error) throw error;
-
-      setCurrentView('dashboard');
-      form.resetFields();
-      fetchAppraisals();
-      fetchStats();
-    } catch (error) {
-      console.error('Error:', error);
-      message.error('Error: ' + error.message);
-    } finally {
-      setLoading(false);
+    // Upload PDF and get URL
+    let pdfUrl = null;
+    if (pdfBlob) {
+      pdfUrl = await uploadPDFToSupabase(pdfBlob, pdfFilename);
     }
-  };
+
+    // Check if record already exists
+    const { data: existingRecord, error: checkError } = await supabase
+      .from('appraisals')
+      .select('id')
+      .eq('user_id', values.userId)
+      .eq('effective_date', effectiveDateFormatted)
+      .maybeSingle();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      throw checkError;
+    }
+
+    const appraisalInsertData = {
+      ...appraisalData,
+      pdf_url: pdfUrl,
+      pdf_filename: pdfFilename
+    };
+
+    let data, error;
+
+    if (existingRecord) {
+      // Update existing record
+      const { data: updateData, error: updateError } = await supabase
+        .from('appraisals')
+        .update(appraisalInsertData)
+        .eq('id', existingRecord.id)
+        .select();
+
+      data = updateData;
+      error = updateError;
+
+      if (!error) {
+        message.success('Appraisal data updated successfully!');
+      }
+    } else {
+      // Insert new record
+      const { data: insertData, error: insertError } = await supabase
+        .from('appraisals')
+        .insert([appraisalInsertData])
+        .select();
+
+      data = insertData;
+      error = insertError;
+
+      if (!error) {
+        message.success('Appraisal data saved successfully!');
+      }
+    }
+
+    if (error) throw error;
+
+    setCurrentView('dashboard');
+    form.resetFields();
+    fetchAppraisals();
+    fetchStats();
+  } catch (error) {
+    console.error('Error:', error);
+    message.error('Error: ' + error.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleGeneratePDF = async () => {
     try {
@@ -607,6 +897,31 @@ lines.forEach(line => {
       message.error('Please fill all required fields');
     }
   };
+
+  const uploadPDFToSupabase = async (pdfBlob, filename) => {
+  try {
+    // Upload PDF to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('appraisal-letters')
+      .upload(filename, pdfBlob, {
+        cacheControl: '3600',
+        upsert: true,
+        contentType: 'application/pdf'
+      });
+
+    if (error) throw error;
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('appraisal-letters')
+      .getPublicUrl(filename);
+
+    return urlData?.publicUrl || null;
+  } catch (error) {
+    message.error('Error uploading PDF: ' + error.message);
+    return null;
+  }
+};
 
   const getMergedAppraisalData = () => {
   const allData = users.map(user => {
@@ -789,10 +1104,6 @@ lines.forEach(line => {
               key: 'employee',
               render: (_, record) => (
                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <Avatar 
-                    style={{ backgroundColor: '#10b981', marginRight: '12px' }} 
-                    icon={<UserOutlined />}
-                  />
                   <div>
                     <div style={{ fontWeight: '600', color: '#1e293b' }}>{record.name}</div>
                     <div style={{ fontSize: '12px', color: '#64748b' }}>ID: {record.employee_id}</div>
@@ -895,6 +1206,15 @@ lines.forEach(line => {
                   </Button>
                   {record.has_appraisal && (
                     <>
+                      {record.latest_appraisal?.pdf_url && (
+                        <Button 
+                          size="small"
+                          icon={<DownloadOutlined />}
+                          onClick={() => window.open(record.latest_appraisal.pdf_url, '_blank')}
+                        >
+                          Download
+                        </Button>
+                      )}
                       <Button 
                         size="small"
                         icon={<FilePdfOutlined />}
@@ -905,6 +1225,16 @@ lines.forEach(line => {
                         }}
                       >
                         PDF
+                      </Button>
+                      <Button 
+                        size="small"
+                        icon={<HistoryOutlined />}
+                        onClick={() => {
+                          setSelectedEmployeeHistory(record);
+                          setShowAppraisalHistory(true);
+                        }}
+                      >
+                        History
                       </Button>
                       <Button 
                         size="small"
@@ -1268,6 +1598,7 @@ lines.forEach(line => {
     <Layout style={{ minHeight: '100vh', background: '#f7fafc' }}>
       <Content>
         {currentView === 'dashboard' ? renderDashboard() : renderCreateAppraisal()}
+        {showAppraisalHistory && renderAppraisalHistory()}
       </Content>
     </Layout>
   );
