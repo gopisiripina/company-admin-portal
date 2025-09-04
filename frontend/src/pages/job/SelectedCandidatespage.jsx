@@ -1107,60 +1107,6 @@ return doc.output('blob', { compress: true });
 }
 
   const getColumns = () => {
-  if (screenSize.isMobile) {
-    return [
-      {
-        title: 'Candidate',
-        key: 'candidate',
-        render: (_, record) => (
-          <div>
-            <div style={{ fontWeight: 500, fontSize: '14px' }}>{record.name}</div>
-            <div style={{ fontSize: '12px', color: '#666' }}>{record.jobTitle}</div>
-            <div style={{ fontSize: '11px', color: '#999' }}>{record.email}</div>
-            <div style={{ marginTop: '4px' }}>
-              {record.offerSent ? (
-                <Tag color="green" size="small">Offer Sent</Tag>
-              ) : (
-                <Tag color="orange" size="small">Pending</Tag>
-              )}
-            </div>
-          </div>
-        ),
-      },
-{
-  title: 'Actions',
-  key: 'actions',
-  width: 100,
-  render: (_, record) => (
-    <Space direction="vertical" size="small">
-      <Button 
-        size="small" 
-        block
-        icon={<EyeOutlined />}
-        onClick={() => {
-          setSelectedCandidate(record);
-          setCandidateModalVisible(true);
-        }}
-      >
-        Details
-      </Button>
-      <Button
-        size="small"
-        block
-        icon={<DownloadOutlined />}
-        onClick={() => {
-          setSelectedOfferRecord(record);
-          setOfferLetterModalVisible(true);
-        }}
-        disabled={!record.offerPdfUrl}
-      >
-        View/Download Offer
-      </Button>
-    </Space>
-  ),
-}
-    ];
-  }
   
   if (screenSize.isTablet) {
     return [
@@ -1226,7 +1172,6 @@ return doc.output('blob', { compress: true });
   {
     title: 'Candidate',
     key: 'candidate',
-    fixed: 'left',
     width: 180, // Reduced from 200
     render: (_, record) => (
       <Space>
@@ -1270,7 +1215,7 @@ return doc.output('blob', { compress: true });
   {
     title: 'Ratings',
     key: 'ratings',
-    width: 120, // Reduced from 150
+    width: 100, // Reduced from 150
     render: (_, record) => (
       <div>
         <div style={{ marginBottom: '2px' }}>
@@ -1649,12 +1594,16 @@ return doc.output('blob', { compress: true });
       {/* Selected Candidates Table */}
       <Card>
         <Table
+        scroll={{ 
+    x: screenSize.isMobile ? 1200 : screenSize.isTablet ? 900 : 900 // Increased mobile scroll width
+  }}
   columns={getColumns()}
   dataSource={filteredCandidates}
   rowKey="id"
   loading={loading}
   pagination={{
   current: currentPage,
+  
   pageSize: pageSize,
   total: candidates.length, // Total count for pagination calculation
   showSizeChanger: screenSize.isDesktop,
@@ -1687,10 +1636,7 @@ return doc.output('blob', { compress: true });
     }
     return originalElement;
   }
-}}
-  scroll={{ 
-    x: screenSize.isMobile ? 350 : screenSize.isTablet ? 500 : 900 
-  }}
+}}  
   size={screenSize.isMobile ? "small" : "middle"}
 />
       </Card>

@@ -66,7 +66,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
   const [pageSize, setPageSize] = useState(5);
   const [totalEmployeeCount, setTotalEmployeeCount] = useState(0);
   const [totalEmployees, setTotalEmployees] = useState(0);
-  const AUTO_ABSENT_TIME = '23:59'; // 11:59 PM
+  const AUTO_ABSENT_TIME = '10:34'; // 11:59 PM
 
   useEffect(() => {
     const getCurrentUser = async () => {
