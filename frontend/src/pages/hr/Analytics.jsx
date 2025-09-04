@@ -1,610 +1,654 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Card,
-  Button,
-  DatePicker,
-  Modal,
   Row,
   Col,
   Typography,
   Space,
-  Select,
-  Input,
-  message,
+  Statistic,
   Progress,
+  Select,
+  DatePicker,
+  Table,
+  Tag,
+  Avatar,
   Empty,
   Spin,
-  Form,
+  Tooltip,
   Alert,
-  Table,
-  Statistic,
-  Tag
+  Divider,
+  Badge
 } from 'antd';
 import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
+  Area,
+  AreaChart,
+  Legend
+} from 'recharts';
+import {
+  
+  
+
+  TeamOutlined,
+  CalendarOutlined,
+  ClockCircleOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  ClockCircleOutlined,
-  DownloadOutlined,
+  ExclamationCircleOutlined,
   BarChartOutlined,
   PieChartOutlined,
-  RiseOutlined,
-   ExclamationCircleOutlined,
-  StopOutlined
+  LineChartOutlined,
+  UserOutlined,
+  MedicineBoxOutlined,
+  BankOutlined,
+  HeartOutlined,
+  ThunderboltOutlined,
+  EnvironmentOutlined
 } from '@ant-design/icons';
-import { supabase } from '../../supabase/config';
 import dayjs from 'dayjs';
+import { supabase } from '../../supabase/config';
 
-const { Title, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 
-const Analytics = () => {
-  const [analyticsData, setAnalyticsData] = useState({
-    leavesByType: [],
-    leavesByDepartment: [],
-    leavesByStatus: [], // Added for status breakdown
-    monthlyTrends: [],
-    topUsers: [],
-    rejectionAnalysis: [] // Added for rejection analysis
-  });
-  const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState([
-    dayjs().subtract(6, 'month'),
-    dayjs()
-  ]);
+const Analytics = ({ currentUserId, userRole = 'hr', leaveData = [] }) => {
+  const [loading, setLoading] = useState(false);
+  const [selectedTimeRange, setSelectedTimeRange] = useState('thisMonth');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const [customDateRange, setCustomDateRange] = useState(null);
+  const [employees, setEmployees] = useState([]);
+  const [departments, setDepartments] = useState([]);
 
+  // Fetch additional data for analytics
   useEffect(() => {
-    fetchAnalyticsData();
-  }, [dateRange, selectedDepartment]);
-
-  const fetchAnalyticsData = async () => {
-    try {
+    const fetchAnalyticsData = async () => {
       setLoading(true);
-      
-      let query = supabase
-        .from('leave_applications')
-        .select(`
-          *,
-          users:user_id (
-            id,
-            name,
-            employee_id,
-            email,
-            employee_type,
-            start_date
-          )
-        `)
-        .gte('start_date', dateRange[0].format('YYYY-MM-DD'))
-        .lte('end_date', dateRange[1].format('YYYY-MM-DD'));
-
-      if (selectedDepartment !== 'all') {
-        query = query.eq('department', selectedDepartment);
+      try {
+        // Fetch employees data
+        const { data: employeesData } = await supabase
+          .from('users')
+          .select('id, name, employee_id, department')
+          .or('employee_id.like.MYAEMP%,employee_id.like.MYAINT%');
+        
+        setEmployees(employeesData || []);
+        
+        // Extract unique departments
+        const uniqueDepartments = [...new Set(employeesData?.map(emp => emp.department).filter(Boolean))];
+        setDepartments(uniqueDepartments);
+        
+      } catch (error) {
+        console.error('Error fetching analytics data:', error);
+      } finally {
+        setLoading(false);
       }
-
-      const { data: leaveData, error } = await query;
-
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
-      }
-
-      const processedData = processAnalyticsData(leaveData || []);
-      setAnalyticsData(processedData);
-    } catch (error) {
-      console.error('Error fetching analytics data:', error);
-      message.error(`Failed to fetch leave applications: ${error.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const processAnalyticsData = (data) => {
-    if (!data || data.length === 0) {
-      return {
-        leavesByType: [],
-        leavesByDepartment: [],
-        leavesByStatus: [],
-        monthlyTrends: [],
-        topUsers: [],
-        rejectionAnalysis: []
-      };
-    }
-
-    // Process leaves by type
-    const leavesByType = {};
-    data.forEach(leave => {
-      const type = leave.leave_type || leave.leaveType || 'Unknown';
-      leavesByType[type] = (leavesByType[type] || 0) + 1;
-    });
-
-    // Process leaves by status (NEW)
-    const leavesByStatus = {};
-    data.forEach(leave => {
-      const status = leave.status || 'Unknown';
-      leavesByStatus[status] = (leavesByStatus[status] || 0) + 1;
-    });
-
-    // Process leaves by department
-    const leavesByDepartment = {};
-    data.forEach(leave => {
-      const dept = leave.department || 'Unknown';
-      leavesByDepartment[dept] = (leavesByDepartment[dept] || 0) + 1;
-    });
-
-    // Process monthly trends with status breakdown
-    const monthlyTrends = {};
-    data.forEach(leave => {
-      const month = dayjs(leave.start_date || leave.startDate).format('YYYY-MM');
-      if (!monthlyTrends[month]) {
-        monthlyTrends[month] = { total: 0, approved: 0, rejected: 0, pending: 0 };
-      }
-      monthlyTrends[month].total += 1;
-      monthlyTrends[month][leave.status.toLowerCase()] = (monthlyTrends[month][leave.status.toLowerCase()] || 0) + 1;
-    });
-
-    // Process top users
-    const userLeaves = {};
-    data.forEach(leave => {
-      const userId = leave.user_id;
-      const userName = leave.users?.name || leave.employee_name || leave.employeeName || 'Unknown';
-      if (!userLeaves[userId]) {
-        userLeaves[userId] = {
-          name: userName,
-          department: leave.department,
-          count: 0,
-          days: 0,
-          approved: 0,
-          rejected: 0,
-          pending: 0
-        };
-      }
-      userLeaves[userId].count += 1;
-      const totalDays = leave.total_days || leave.totalDays || 0;
-      userLeaves[userId].days += totalDays;
-      userLeaves[userId][leave.status.toLowerCase()] = (userLeaves[userId][leave.status.toLowerCase()] || 0) + 1;
-    });
-
-    // Process rejection analysis (NEW)
-    const rejectedLeaves = data.filter(leave => leave.status === 'Rejected');
-    const rejectionAnalysis = {};
-    
-    // Rejection by type
-    rejectedLeaves.forEach(leave => {
-      const type = leave.leave_type || leave.leaveType || 'Unknown';
-      if (!rejectionAnalysis[type]) {
-        rejectionAnalysis[type] = {
-          type,
-          rejectedCount: 0,
-          totalCount: 0,
-          rejectionRate: 0,
-          reasons: {}
-        };
-      }
-      rejectionAnalysis[type].rejectedCount += 1;
-      
-      // Count rejection reasons
-      const reason = leave.rejection_reason || 'No reason provided';
-      rejectionAnalysis[type].reasons[reason] = (rejectionAnalysis[type].reasons[reason] || 0) + 1;
-    });
-
-    // Calculate total count and rejection rate for each type
-    Object.keys(rejectionAnalysis).forEach(type => {
-      const totalOfType = data.filter(leave => (leave.leave_type || leave.leaveType) === type).length;
-      rejectionAnalysis[type].totalCount = totalOfType;
-      rejectionAnalysis[type].rejectionRate = ((rejectionAnalysis[type].rejectedCount / totalOfType) * 100).toFixed(1);
-    });
-
-    return {
-      leavesByType: Object.entries(leavesByType).map(([type, count]) => ({
-        type,
-        count,
-        percentage: ((count / data.length) * 100).toFixed(1)
-      })),
-      leavesByStatus: Object.entries(leavesByStatus).map(([status, count]) => ({
-        status,
-        count,
-        percentage: ((count / data.length) * 100).toFixed(1)
-      })),
-      leavesByDepartment: Object.entries(leavesByDepartment).map(([dept, count]) => ({
-        department: dept,
-        count,
-        percentage: ((count / data.length) * 100).toFixed(1)
-      })),
-      monthlyTrends: Object.entries(monthlyTrends)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([month, stats]) => ({
-          month,
-          monthName: dayjs(month).format('MMM YYYY'),
-          ...stats
-        })),
-      topUsers: Object.values(userLeaves)
-        .sort((a, b) => b.days - a.days)
-        .slice(0, 10),
-      rejectionAnalysis: Object.values(rejectionAnalysis)
-        .sort((a, b) => parseFloat(b.rejectionRate) - parseFloat(a.rejectionRate))
     };
+
+    fetchAnalyticsData();
+  }, []);
+
+  // Filter data based on selected criteria
+  const filteredData = useMemo(() => {
+    let filtered = [...leaveData];
+    
+    // Time range filtering
+    let startDate, endDate;
+    
+    if (customDateRange && customDateRange.length === 2) {
+      startDate = customDateRange[0];
+      endDate = customDateRange[1];
+    } else {
+      const now = dayjs();
+      switch (selectedTimeRange) {
+        case 'thisMonth':
+          startDate = now.startOf('month');
+          endDate = now.endOf('month');
+          break;
+        case 'lastMonth':
+          startDate = now.subtract(1, 'month').startOf('month');
+          endDate = now.subtract(1, 'month').endOf('month');
+          break;
+        case 'thisQuarter':
+          startDate = now.startOf('quarter');
+          endDate = now.endOf('quarter');
+          break;
+        case 'thisYear':
+          startDate = now.startOf('year');
+          endDate = now.endOf('year');
+          break;
+        default:
+          return filtered;
+      }
+    }
+    
+    if (startDate && endDate) {
+      filtered = filtered.filter(leave => {
+        const leaveDate = dayjs(leave.start_date);
+        return leaveDate.isBetween(startDate, endDate, 'day', '[]');
+      });
+    }
+    
+    // Department filtering
+    if (selectedDepartment !== 'all') {
+      filtered = filtered.filter(leave => leave.department === selectedDepartment);
+    }
+    
+    return filtered;
+  }, [leaveData, selectedTimeRange, selectedDepartment, customDateRange]);
+
+  // Calculate key metrics
+  const analytics = useMemo(() => {
+    const total = filteredData.length;
+    const approved = filteredData.filter(l => l.status === 'Approved').length;
+    const pending = filteredData.filter(l => l.status === 'Pending').length;
+    const rejected = filteredData.filter(l => l.status === 'Rejected').length;
+    
+    const approvalRate = total > 0 ? ((approved / total) * 100).toFixed(1) : 0;
+    const rejectionRate = total > 0 ? ((rejected / total) * 100).toFixed(1) : 0;
+    
+    // Leave type breakdown
+    const leaveTypes = {};
+    filteredData.forEach(leave => {
+      leaveTypes[leave.leave_type] = (leaveTypes[leave.leave_type] || 0) + 1;
+    });
+    
+    // Department breakdown
+    const departmentStats = {};
+    filteredData.forEach(leave => {
+      const dept = leave.department || 'Unknown';
+      departmentStats[dept] = (departmentStats[dept] || 0) + 1;
+    });
+    
+    // Monthly trends
+    const monthlyData = {};
+    filteredData.forEach(leave => {
+      const month = dayjs(leave.start_date).format('MMM YYYY');
+      if (!monthlyData[month]) {
+        monthlyData[month] = { month, total: 0, approved: 0, rejected: 0, pending: 0 };
+      }
+      monthlyData[month].total++;
+      monthlyData[month][leave.status.toLowerCase()]++;
+    });
+    
+    // Top employees by leave count
+    const employeeStats = {};
+    filteredData.forEach(leave => {
+      const empName = leave.users?.name || leave.employee_name;
+      if (!employeeStats[empName]) {
+        employeeStats[empName] = {
+          name: empName,
+          employeeId: leave.users?.employee_id || leave.employee_code,
+          department: leave.department,
+          total: 0,
+          approved: 0,
+          pending: 0,
+          rejected: 0
+        };
+      }
+      employeeStats[empName].total++;
+      employeeStats[empName][leave.status.toLowerCase()]++;
+    });
+    
+    return {
+      total,
+      approved,
+      pending,
+      rejected,
+      approvalRate: parseFloat(approvalRate),
+      rejectionRate: parseFloat(rejectionRate),
+      leaveTypes,
+      departmentStats,
+      monthlyTrends: Object.values(monthlyData).sort((a, b) => dayjs(a.month).unix() - dayjs(b.month).unix()),
+      topEmployees: Object.values(employeeStats).sort((a, b) => b.total - a.total).slice(0, 10)
+    };
+  }, [filteredData]);
+
+  // Chart colors
+  const COLORS = ['#0D7139', '#52c41a', '#faad14', '#ff4d4f', '#722ed1', '#13c2c2', '#eb2f96', '#fa8c16'];
+
+  // Leave type configurations
+  const getLeaveTypeConfig = (type) => {
+    const configs = {
+      'Permission': { color: '#1890ff', icon: <ClockCircleOutlined /> },
+      'Casual Leave': { color: '#52c41a', icon: <CalendarOutlined /> },
+      'Earned Leave': { color: '#0D7139', icon: <BankOutlined /> },
+      'Medical Leave': { color: '#ff4d4f', icon: <MedicineBoxOutlined /> },
+      'Maternity Leave': { color: '#eb2f96', icon: <HeartOutlined /> },
+      'Compensatory Leave': { color: '#722ed1', icon: <ThunderboltOutlined /> },
+      'On Duty': { color: '#13c2c2', icon: <TeamOutlined /> },
+      'Excuses': { color: '#fa8c16', icon: <ExclamationCircleOutlined /> },
+      'Overtime': { color: '#a0d911', icon: <ThunderboltOutlined /> },
+    };
+    return configs[type] || { color: '#666', icon: <CalendarOutlined /> };
   };
 
-  // Enhanced table columns with status information
-  const leaveTypeColumns = [
-    {
-      title: 'Leave Type',
-      dataIndex: 'type',
-      key: 'type',
-      render: (type) => <Tag color="blue">{type}</Tag>
-    },
-    {
-      title: 'Count',
-      dataIndex: 'count',
-      key: 'count'
-    },
-    {
-      title: 'Percentage',
-      dataIndex: 'percentage',
-      key: 'percentage',
-      render: (percentage) => (
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <Progress 
-            percent={parseFloat(percentage)} 
-            size="small" 
-            style={{ width: 100, marginRight: 8 }}
-          />
-          <span>{percentage}%</span>
-        </div>
-      )
-    }
-  ];
+  // Prepare chart data
+  const pieChartData = Object.entries(analytics.leaveTypes).map(([type, count], index) => ({
+    name: type,
+    value: count,
+    color: COLORS[index % COLORS.length]
+  }));
 
-  // New status columns
-  const statusColumns = [
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status) => {
-        const color = status === 'Approved' ? 'success' : 
-                     status === 'Rejected' ? 'error' : 'warning';
-        const icon = status === 'Approved' ? <CheckCircleOutlined /> :
-                     status === 'Rejected' ? <CloseCircleOutlined /> : <ClockCircleOutlined />;
-        return <Tag color={color} icon={icon}>{status}</Tag>;
-      }
-    },
-    {
-      title: 'Count',
-      dataIndex: 'count',
-      key: 'count',
-      render: (count) => <Text strong>{count}</Text>
-    },
-    {
-      title: 'Percentage',
-      dataIndex: 'percentage',
-      key: 'percentage',
-      render: (percentage) => (
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <Progress 
-            percent={parseFloat(percentage)} 
-            size="small" 
-            style={{ width: 100, marginRight: 8 }}
-            strokeColor={
-              percentage > 50 ? '#52c41a' : 
-              percentage > 25 ? '#faad14' : '#ff4d4f'
-            }
-          />
-          <span>{percentage}%</span>
-        </div>
-      )
-    }
-  ];
-
-  // Rejection analysis columns
-  const rejectionColumns = [
-    {
-      title: 'Leave Type',
-      dataIndex: 'type',
-      key: 'type',
-      render: (type) => <Tag color="red">{type}</Tag>
-    },
-    {
-      title: 'Total Requests',
-      dataIndex: 'totalCount',
-      key: 'totalCount'
-    },
-    {
-      title: 'Rejected',
-      dataIndex: 'rejectedCount',
-      key: 'rejectedCount',
-      render: (count) => <Text type="danger" strong>{count}</Text>
-    },
-    {
-      title: 'Rejection Rate',
-      dataIndex: 'rejectionRate',
-      key: 'rejectionRate',
-      render: (rate) => (
-        <Progress 
-          percent={parseFloat(rate)} 
-          size="small"
-          strokeColor="#ff4d4f"
-          format={(percent) => `${percent}%`}
-        />
-      )
-    }
-  ];
-
-  const departmentColumns = [
-    {
-      title: 'Department',
-      dataIndex: 'department',
-      key: 'department'
-    },
-    {
-      title: 'Leave Requests',
-      dataIndex: 'count',
-      key: 'count'
-    },
-    {
-      title: 'Percentage',
-      dataIndex: 'percentage',
-      key: 'percentage',
-      render: (percentage) => `${percentage}%`
-    }
-  ];
-
-  const topUsersColumns = [
-    {
-      title: 'Employee',
-      dataIndex: 'name',
-      key: 'name'
-    },
-    {
-      title: 'Department',
-      dataIndex: 'department',
-      key: 'department',
-      render: (dept) => <Tag>{dept || 'Unknown'}</Tag>
-    },
-    {
-      title: 'Total Requests',
-      dataIndex: 'count',
-      key: 'count'
-    },
-    {
-      title: 'Approved',
-      dataIndex: 'approved',
-      key: 'approved',
-      render: (count) => <Tag color="success">{count || 0}</Tag>
-    },
-    {
-      title: 'Rejected',
-      dataIndex: 'rejected',
-      key: 'rejected',
-      render: (count) => <Tag color="error">{count || 0}</Tag>
-    },
-    {
-      title: 'Total Days',
-      dataIndex: 'days',
-      key: 'days',
-      render: (days) => <Text strong>{days} days</Text>
-    }
-  ];
-
-  // Calculate rejection statistics
-  const totalRejected = analyticsData.leavesByStatus.find(item => item.status === 'Rejected')?.count || 0;
-  const totalRequests = analyticsData.leavesByStatus.reduce((sum, item) => sum + item.count, 0);
-  const rejectionRate = totalRequests > 0 ? ((totalRejected / totalRequests) * 100).toFixed(1) : 0;
+  const departmentChartData = Object.entries(analytics.departmentStats).map(([dept, count]) => ({
+    department: dept,
+    leaves: count,
+    fill: COLORS[Object.keys(analytics.departmentStats).indexOf(dept) % COLORS.length]
+  }));
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <Title level={3}>
-          <BarChartOutlined /> Leave Analytics
-        </Title>
-        <Space>
-          <Select
-            value={selectedDepartment}
-            onChange={setSelectedDepartment}
-            style={{ width: 150 }}
-            placeholder="Select Department"
-          >
-            <Option value="all">All Departments</Option>
-            <Option value="Engineering">Engineering</Option>
-            <Option value="HR">HR</Option>
-            <Option value="Marketing">Marketing</Option>
-            <Option value="Sales">Sales</Option>
-            <Option value="Finance">Finance</Option>
-          </Select>
-          <RangePicker
-            value={dateRange}
-            onChange={setDateRange}
-            style={{ width: 250 }}
-          />
-          <Button icon={<DownloadOutlined />}>Export Report</Button>
-        </Space>
-      </div>
-
-      {/* Enhanced Summary Statistics */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Total Leave Requests"
-              value={totalRequests}
-              prefix={<PieChartOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Total Rejected"
-              value={totalRejected}
-              prefix={<CloseCircleOutlined />}
-              valueStyle={{ color: '#ff4d4f' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Rejection Rate"
-              value={rejectionRate}
-              suffix="%"
-              prefix={<ExclamationCircleOutlined />}
-              valueStyle={{ color: rejectionRate > 20 ? '#ff4d4f' : '#52c41a' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Most Popular Leave Type"
-              value={analyticsData.leavesByType[0]?.type || 'N/A'}
-              prefix={<RiseOutlined />}
-            />
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Rejection Alert */}
-      {rejectionRate > 15 && (
-        <Alert
-          message="High Rejection Rate Detected"
-          description={`Current rejection rate is ${rejectionRate}%. Consider reviewing leave policies or approval processes.`}
-          type="warning"
-          showIcon
-          style={{ marginBottom: 24 }}
-        />
-      )}
-
-      {/* Analytics Tables */}
-      <Row gutter={[16, 16]}>
-        <Col xs={24} lg={8}>
-          <Card title="Leave Status Breakdown" loading={loading}>
-            <Table
-              columns={statusColumns}
-              dataSource={analyticsData.leavesByStatus}
-              rowKey="status"
-              pagination={false}
-              size="small"
-            />
-          </Card>
-        </Col>
-        <Col xs={24} lg={8}>
-          <Card title="Leave Requests by Type" loading={loading}>
-            <Table
-              columns={leaveTypeColumns}
-              dataSource={analyticsData.leavesByType}
-              rowKey="type"
-              pagination={false}
-              size="small"
-            />
-          </Card>
-        </Col>
-        <Col xs={24} lg={8}>
-          <Card title="Leave Requests by Department" loading={loading}>
-            <Table
-              columns={departmentColumns}
-              dataSource={analyticsData.leavesByDepartment}
-              rowKey="department"
-              pagination={false}
-              size="small"
-            />
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Rejection Analysis */}
-      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-        <Col xs={24}>
-          <Card 
-            title={
-              <Space>
-                <StopOutlined style={{ color: '#ff4d4f' }} />
-                <span>Rejection Analysis by Leave Type</span>
+    <div style={{ padding: '24px 0' }}>
+      <Spin spinning={loading}>
+        {/* Header with Filters */}
+        <Card style={{
+          marginBottom: '24px',
+          background: 'linear-gradient(135deg, #f8fffe 0%, #e6f7ff 50%, #f0f9ff 100%)',
+          border: '1px solid #e8f4fd',
+          borderRadius: '20px',
+          boxShadow: '0 10px 40px rgba(13, 113, 57, 0.08)'
+        }}>
+          <Row gutter={[24, 16]} align="middle">
+            <Col xs={24} md={12}>
+              <Space size={16}>
+                <div style={{
+                  padding: '12px',
+                  background: 'linear-gradient(135deg, #0D7139 0%, #52c41a 100%)',
+                  borderRadius: '12px',
+                  display: 'inline-flex'
+                }}>
+                  <BarChartOutlined style={{ fontSize: '24px', color: 'white' }} />
+                </div>
+                <div>
+                  <Title level={2} style={{
+                    margin: 0,
+                    background: 'linear-gradient(135deg, #0D7139 0%, #52c41a 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                    fontSize: 'clamp(20px, 4vw, 28px)',
+                    fontWeight: 700
+                  }}>
+                    Leave Analytics
+                  </Title>
+                  <Text style={{ color: '#6b7280', fontSize: '14px' }}>
+                    Comprehensive leave management insights and trends
+                  </Text>
+                </div>
               </Space>
-            } 
-            loading={loading}
-          >
-            {analyticsData.rejectionAnalysis.length > 0 ? (
-              <Table
-                columns={rejectionColumns}
-                dataSource={analyticsData.rejectionAnalysis}
-                rowKey="type"
-                pagination={false}
-                expandable={{
-                  expandedRowRender: (record) => {
-                    const reasons = Object.entries(record.reasons);
+            </Col>
+            
+            <Col xs={24} md={12}>
+              <Row gutter={[12, 12]}>
+                <Col xs={24} sm={12}>
+                  <Select
+                    value={selectedTimeRange}
+                    onChange={(value) => {
+                      setSelectedTimeRange(value);
+                      if (value !== 'custom') setCustomDateRange(null);
+                    }}
+                    style={{ width: '100%' }}
+                    size="large"
+                  >
+                    <Option value="thisMonth">This Month</Option>
+                    <Option value="lastMonth">Last Month</Option>
+                    <Option value="thisQuarter">This Quarter</Option>
+                    <Option value="thisYear">This Year</Option>
+                    <Option value="custom">Custom Range</Option>
+                  </Select>
+                </Col>
+                
+                {selectedTimeRange === 'custom' && (
+                  <Col xs={24} sm={12}>
+                    <RangePicker
+                      value={customDateRange}
+                      onChange={setCustomDateRange}
+                      style={{ width: '100%' }}
+                      size="large"
+                    />
+                  </Col>
+                )}
+                
+                <Col xs={24} sm={selectedTimeRange === 'custom' ? 24 : 12}>
+                  <Select
+                    value={selectedDepartment}
+                    onChange={setSelectedDepartment}
+                    style={{ width: '100%' }}
+                    size="large"
+                  >
+                    <Option value="all">All Departments</Option>
+                    {departments.map(dept => (
+                      <Option key={dept} value={dept}>{dept}</Option>
+                    ))}
+                  </Select>
+                </Col>
+              </Row>
+            </Col>
+          </Row>
+        </Card>
+
+        {/* Key Metrics Cards */}
+        <Row gutter={[20, 20]} style={{ marginBottom: '32px' }}>
+          <Col xs={12} sm={6} lg={6}>
+            <Card style={{
+              borderRadius: '16px',
+              background: 'white',
+              border: '1px solid rgba(13, 113, 57, 0.12)',
+              boxShadow: '0 4px 20px rgba(13, 113, 57, 0.08)',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                padding: '8px',
+                background: 'rgba(13, 113, 57, 0.1)',
+                borderRadius: '12px',
+                display: 'inline-flex',
+                marginBottom: '12px'
+              }}>
+                <CalendarOutlined style={{ fontSize: '24px', color: '#0D7139' }} />
+              </div>
+              <Statistic
+                title="Total Applications"
+                value={analytics.total}
+                valueStyle={{ color: '#0D7139', fontSize: '28px', fontWeight: 'bold' }}
+              />
+            </Card>
+          </Col>
+
+          <Col xs={12} sm={6} lg={6}>
+            <Card style={{
+              borderRadius: '16px',
+              background: 'white',
+              border: '1px solid rgba(82, 196, 26, 0.12)',
+              boxShadow: '0 4px 20px rgba(82, 196, 26, 0.08)',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                padding: '8px',
+                background: 'rgba(82, 196, 26, 0.1)',
+                borderRadius: '12px',
+                display: 'inline-flex',
+                marginBottom: '12px'
+              }}>
+                <CheckCircleOutlined style={{ fontSize: '24px', color: '#52c41a' }} />
+              </div>
+              <Statistic
+                title="Approved"
+                value={analytics.approved}
+                suffix={
+                  <div style={{ fontSize: '12px', marginTop: '4px' }}>
+                    <Text type="success">{analytics.approvalRate}%</Text>
+                  </div>
+                }
+                valueStyle={{ color: '#52c41a', fontSize: '28px', fontWeight: 'bold' }}
+              />
+            </Card>
+          </Col>
+
+          <Col xs={12} sm={6} lg={6}>
+            <Card style={{
+              borderRadius: '16px',
+              background: 'white',
+              border: '1px solid rgba(250, 173, 20, 0.12)',
+              boxShadow: '0 4px 20px rgba(250, 173, 20, 0.08)',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                padding: '8px',
+                background: 'rgba(250, 173, 20, 0.1)',
+                borderRadius: '12px',
+                display: 'inline-flex',
+                marginBottom: '12px'
+              }}>
+                <ClockCircleOutlined style={{ fontSize: '24px', color: '#faad14' }} />
+              </div>
+              <Statistic
+                title="Pending"
+                value={analytics.pending}
+                valueStyle={{ color: '#faad14', fontSize: '28px', fontWeight: 'bold' }}
+              />
+            </Card>
+          </Col>
+
+          <Col xs={12} sm={6} lg={6}>
+            <Card style={{
+              borderRadius: '16px',
+              background: 'white',
+              border: '1px solid rgba(255, 77, 79, 0.12)',
+              boxShadow: '0 4px 20px rgba(255, 77, 79, 0.08)',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                padding: '8px',
+                background: 'rgba(255, 77, 79, 0.1)',
+                borderRadius: '12px',
+                display: 'inline-flex',
+                marginBottom: '12px'
+              }}>
+                <CloseCircleOutlined style={{ fontSize: '24px', color: '#ff4d4f' }} />
+              </div>
+              <Statistic
+                title="Rejected"
+                value={analytics.rejected}
+                suffix={
+                  <div style={{ fontSize: '12px', marginTop: '4px' }}>
+                    <Text type="danger">{analytics.rejectionRate}%</Text>
+                  </div>
+                }
+                valueStyle={{ color: '#ff4d4f', fontSize: '28px', fontWeight: 'bold' }}
+              />
+            </Card>
+          </Col>
+        </Row>
+
+        {/* Charts Row */}
+        <Row gutter={[24, 24]} style={{ marginBottom: '32px' }}>
+          {/* Leave Types Distribution */}
+          <Col xs={24} md={12}>
+            <Card title={
+              <Space>
+                <PieChartOutlined style={{ color: '#0D7139' }} />
+                <span>Leave Types Distribution</span>
+              </Space>
+            } style={{
+              borderRadius: '16px',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.06)'
+            }}>
+              {pieChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={pieChartData}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {pieChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <Empty description="No data available" style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
+              )}
+            </Card>
+          </Col>
+
+          {/* Department-wise Statistics */}
+          <Col xs={24} md={12}>
+            <Card title={
+              <Space>
+                <BarChartOutlined style={{ color: '#0D7139' }} />
+                <span>Department-wise Leaves</span>
+              </Space>
+            } style={{
+              borderRadius: '16px',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.06)'
+            }}>
+              {departmentChartData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={departmentChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="department" />
+                    <YAxis />
+                    <RechartsTooltip />
+                    <Bar dataKey="leaves" fill="#0D7139" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <Empty description="No data available" style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />
+              )}
+            </Card>
+          </Col>
+        </Row>
+
+        {/* Monthly Trends */}
+        {analytics.monthlyTrends.length > 0 && (
+          <Card title={
+            <Space>
+              <LineChartOutlined style={{ color: '#0D7139' }} />
+              <span>Monthly Leave Trends</span>
+            </Space>
+          } style={{
+            marginBottom: '32px',
+            borderRadius: '16px',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.06)'
+          }}>
+            <ResponsiveContainer width="100%" height={350}>
+              <AreaChart data={analytics.monthlyTrends}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <RechartsTooltip />
+                <Legend />
+                <Area type="monotone" dataKey="total" stackId="1" stroke="#0D7139" fill="#0D7139" fillOpacity={0.6} />
+                <Area type="monotone" dataKey="approved" stackId="2" stroke="#52c41a" fill="#52c41a" fillOpacity={0.6} />
+                <Area type="monotone" dataKey="pending" stackId="2" stroke="#faad14" fill="#faad14" fillOpacity={0.6} />
+                <Area type="monotone" dataKey="rejected" stackId="2" stroke="#ff4d4f" fill="#ff4d4f" fillOpacity={0.6} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </Card>
+        )}
+
+        {/* Top Employees Table */}
+        {analytics.topEmployees.length > 0 && (
+          <Card title={
+            <Space>
+              <TeamOutlined style={{ color: '#0D7139' }} />
+              <span>Top Leave Applicants</span>
+            </Space>
+          } style={{
+            borderRadius: '16px',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.06)'
+          }}>
+            <Table
+              dataSource={analytics.topEmployees}
+              pagination={false}
+              size="middle"
+              columns={[
+                {
+                  title: 'Employee',
+                  key: 'employee',
+                  render: (_, record) => (
+                    <Space>
+                      <Avatar style={{ backgroundColor: '#0D7139' }}>
+                        {record.name?.charAt(0)}
+                      </Avatar>
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{record.name}</div>
+                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                          {record.employeeId} • {record.department}
+                        </Text>
+                      </div>
+                    </Space>
+                  ),
+                },
+                {
+                  title: 'Total Leaves',
+                  dataIndex: 'total',
+                  align: 'center',
+                  render: (value) => (
+                    <Tag color="#0D7139" style={{ fontWeight: 600 }}>{value}</Tag>
+                  ),
+                },
+                {
+                  title: 'Approved',
+                  dataIndex: 'approved',
+                  align: 'center',
+                  render: (value) => (
+                    <Badge count={value} style={{ backgroundColor: '#52c41a' }} />
+                  ),
+                },
+                {
+                  title: 'Pending',
+                  dataIndex: 'pending',
+                  align: 'center',
+                  render: (value) => (
+                    <Badge count={value} style={{ backgroundColor: '#faad14' }} />
+                  ),
+                },
+                {
+                  title: 'Rejected',
+                  dataIndex: 'rejected',
+                  align: 'center',
+                  render: (value) => (
+                    <Badge count={value} style={{ backgroundColor: '#ff4d4f' }} />
+                  ),
+                },
+                {
+                  title: 'Approval Rate',
+                  key: 'approvalRate',
+                  align: 'center',
+                  render: (_, record) => {
+                    const rate = record.total > 0 ? ((record.approved / record.total) * 100).toFixed(1) : 0;
                     return (
-                      <div style={{ padding: '16px', background: '#fafafa' }}>
-                        <Title level={5}>Common Rejection Reasons:</Title>
-                        {reasons.map(([reason, count]) => (
-                          <div key={reason} style={{ marginBottom: '8px' }}>
-                            <Tag color="red">{count}</Tag>
-                            <span>{reason}</span>
-                          </div>
-                        ))}
+                      <div style={{ width: '80px' }}>
+                        <div style={{ marginBottom: '4px' }}>
+                          <Text strong style={{ color: rate >= 80 ? '#52c41a' : rate >= 60 ? '#faad14' : '#ff4d4f' }}>
+                            {rate}%
+                          </Text>
+                        </div>
+                        <Progress 
+                          percent={parseFloat(rate)} 
+                          size="small" 
+                          showInfo={false}
+                          strokeColor={rate >= 80 ? '#52c41a' : rate >= 60 ? '#faad14' : '#ff4d4f'}
+                        />
                       </div>
                     );
                   },
-                  rowExpandable: (record) => Object.keys(record.reasons).length > 0,
-                }}
-              />
-            ) : (
-              <Empty description="No rejections found in the selected period" />
-            )}
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Enhanced Top Users with Rejection Info */}
-      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-        <Col xs={24}>
-          <Card title="Employee Leave Statistics" loading={loading}>
-            <Table
-              columns={topUsersColumns}
-              dataSource={analyticsData.topUsers}
-              rowKey="name"
-              pagination={{ pageSize: 10 }}
+                }
+              ]}
             />
           </Card>
-        </Col>
-      </Row>
+        )}
 
-      {/* Monthly Trends with Status Breakdown */}
-      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-        <Col xs={24}>
-          <Card title="Monthly Leave Trends" loading={loading}>
-            <div style={{ overflowX: 'auto' }}>
-              <div style={{ display: 'flex', gap: '16px', minWidth: '800px', padding: '16px 0' }}>
-                {analyticsData.monthlyTrends.map(trend => (
-                  <div 
-                    key={trend.month} 
-                    style={{ 
-                      flex: '0 0 150px',
-                      textAlign: 'center',
-                      padding: '16px',
-                      border: '1px solid #f0f0f0',
-                      borderRadius: '8px',
-                      background: '#fafafa'
-                    }}
-                  >
-                    <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
-                      {trend.monthName}
-                    </div>
-                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1890ff', marginBottom: '8px' }}>
-                      {trend.total}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#666' }}>
-                      <div style={{ color: '#52c41a' }}>✓ {trend.approved || 0}</div>
-                      <div style={{ color: '#ff4d4f' }}>✗ {trend.rejected || 0}</div>
-                      <div style={{ color: '#faad14' }}>⏳ {trend.pending || 0}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </Card>
-        </Col>
-      </Row>
+        {/* Summary Alert */}
+        {analytics.total === 0 && (
+          <Alert
+            message="No Data Available"
+            description="No leave applications found for the selected criteria. Try adjusting your filters to view analytics."
+            type="info"
+            showIcon
+            style={{
+              borderRadius: '12px',
+              border: '1px solid #d1ecf1'
+            }}
+          />
+        )}
+      </Spin>
     </div>
   );
 };
