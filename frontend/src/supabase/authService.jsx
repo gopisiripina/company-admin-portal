@@ -337,7 +337,7 @@ async changeFirstLoginPassword(userId, newPassword) {
     
     if (userData) {
       const parsedData = JSON.parse(userData);
-      console.log('Retrieved stored user data from localStorage:', parsedData);
+      // console.log('Retrieved stored user data from localStorage:', parsedData);
       return parsedData;
     }
     
