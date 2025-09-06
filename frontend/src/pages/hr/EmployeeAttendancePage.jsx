@@ -66,54 +66,6 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
   const [pageSize, setPageSize] = useState(5);
   const [totalEmployeeCount, setTotalEmployeeCount] = useState(0);
   const [totalEmployees, setTotalEmployees] = useState(0);
-const baseUrl = import.meta.env.VITE_API_BASE_URL;
-
-  // Function to call backend API
-const triggerAutoAbsent = async () => {
-  try {
-    const response = await fetch(`${baseUrl}/trigger-auto-absent`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    const result = await response.json();
-    
-    if (result.success) {
-      console.log('Auto-absent triggered successfully:', result);
-      // Refresh attendance data after marking absent
-      await fetchAttendanceData(
-        selectedDate.startOf('month').format('YYYY-MM-DD'),
-        selectedDate.endOf('month').format('YYYY-MM-DD')
-      );
-    } else {
-      console.error('Auto-absent failed:', result.message);
-    }
-  } catch (error) {
-    console.error('Error triggering auto-absent:', error);
-  }
-};
-
-useEffect(() => {
-  const checkAndTriggerAutoAbsent = () => {
-    const now = dayjs();
-    const targetTime = dayjs().hour(12).minute(30).second(0); // 11:59 PM
-    
-    // Check if current time matches 11:59 PM (within 1-minute window)
-    if (now.isSame(targetTime, 'minute')) {
-      console.log('Triggering auto-absent API call...');
-      triggerAutoAbsent();
-    }
-  };
-
-  // Check every minute
-  const intervalId = setInterval(checkAndTriggerAutoAbsent, 60000);
-
-  // Cleanup interval on unmount
-  return () => clearInterval(intervalId);
-}, [selectedDate]); // Keep selectedDate as dependency for data refresh
-
 
   useEffect(() => {
     const getCurrentUser = async () => {

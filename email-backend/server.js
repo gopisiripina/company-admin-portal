@@ -9,7 +9,7 @@ require('dotenv').config();
 // Import route modules
 const emailRoutes = require('./routes/emailRoutes');
 const generalRoutes = require('./routes/generalRoutes');
-
+const cron = require('node-cron');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -21,7 +21,7 @@ const wss = new WebSocketServer({ server });
 
 // Store active client connections (email -> { ws, imapConnection })
 const clients = new Map();
-
+const { handleAutoMarkAbsent } = require('./utils/autoAbsent');
 // Middleware - UPDATED with increased payload limits
 app.use(cors());
 // Increase the payload size limits for JSON and URL-encoded data
@@ -59,6 +59,18 @@ const getImapConfig = (email, password) => ({
     forceNoop: true
   },
   family: 4 
+});
+
+cron.schedule('26 14 * * *', async () => {
+  console.log('Auto-triggering absent marking at 1:00 PM...');
+  try {
+    const result = await handleAutoMarkAbsent();
+    console.log('Auto-absent job completed:', result);
+  } catch (error) {
+    console.error('Auto-absent cron job failed:', error);
+  }
+}, {
+  timezone: "Asia/Kolkata"
 });
 
 // WebSocket connection handling
