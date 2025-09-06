@@ -2723,7 +2723,7 @@ const handleDelete = useCallback(async (employeeId) => {
       .from('attendance')
       .delete()
       .eq('user_id', employeeId);
-
+      
     if (attendanceError) {
       console.error('Delete attendance error:', attendanceError);
       throw attendanceError;

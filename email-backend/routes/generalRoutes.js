@@ -4,8 +4,172 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
-
+const { createClient } = require('@supabase/supabase-js')
 const router = express.Router();
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY // Use service key for backend operations
+);
+
+
+
+const handleAutoMarkAbsent = async (targetDate = null) => {
+  try {
+    // Use provided date or yesterday if none provided
+    const dateToProcess = targetDate || new Date(Date.now() - 24 * 60 * 60 * 1000)
+      .toISOString().split('T')[0]; // Yesterday's date in YYYY-MM-DD format
+    
+    console.log(`Processing auto-absent for date: ${dateToProcess}`);
+
+    // Get all employees (excluding admins/hr/superadmins)
+    const { data: allUsers, error: usersError } = await supabase
+      .from('users')
+      .select('id, name')
+      .in('employee_type', ['full-time', 'internship', 'temporary'])
+      .not('role', 'in', '(superadmin,admin,hr)');
+
+    if (usersError) {
+      console.error('Error fetching users:', usersError);
+      throw usersError;
+    }
+
+    // Get existing attendance records for the date
+    const { data: existingAttendance, error: attendanceError } = await supabase
+      .from('attendance')
+      .select('user_id')
+      .eq('date', dateToProcess);
+
+    if (attendanceError) {
+      console.error('Error fetching attendance:', attendanceError);
+      throw attendanceError;
+    }
+
+    // Find employees without attendance records
+    const employeesWithRecords = existingAttendance?.map(record => record.user_id) || [];
+    const employeesWithoutRecords = allUsers?.filter(user => 
+      !employeesWithRecords.includes(user.id)
+    ) || [];
+
+    if (employeesWithoutRecords.length === 0) {
+      console.log('All employees already have attendance records for', dateToProcess);
+      return {
+        success: true,
+        message: 'All employees already have attendance records',
+        count: 0,
+        date: dateToProcess
+      };
+    }
+
+    // Create absent records
+    const absentRecords = employeesWithoutRecords.map(employee => ({
+      user_id: employee.id,
+      date: dateToProcess,
+      check_in: null,
+      check_out: null,
+      total_hours: 0,
+      is_present: false
+    }));
+
+    const { error: insertError } = await supabase
+      .from('attendance')
+      .insert(absentRecords);
+
+    if (insertError) {
+      console.error('Error inserting absent records:', insertError);
+      throw insertError;
+    }
+    
+    console.log(`Marked ${employeesWithoutRecords.length} employees as absent for ${dateToProcess}`);
+    
+    return {
+      success: true,
+      message: `Marked ${employeesWithoutRecords.length} employees as absent`,
+      count: employeesWithoutRecords.length,
+      date: dateToProcess,
+      employees: employeesWithoutRecords.map(emp => emp.name)
+    };
+    
+  } catch (error) {
+    console.error('Error in handleAutoMarkAbsent:', error);
+    throw error;
+  }
+};
+
+// Route to manually trigger auto-absent (for testing) - without date (uses yesterday)
+router.post('/trigger-auto-absent', async (req, res) => {
+  try {
+    const result = await handleAutoMarkAbsent();
+    
+    res.status(200).json({
+      success: true,
+      ...result
+    });
+    
+  } catch (error) {
+    console.error('Manual auto-absent trigger failed:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark employees as absent',
+      error: error.message
+    });
+  }
+});
+
+// Route to manually trigger auto-absent with specific date
+router.post('/trigger-auto-absent/:date', async (req, res) => {
+  try {
+    const { date } = req.params;
+    const result = await handleAutoMarkAbsent(date);
+    
+    res.status(200).json({
+      success: true,
+      ...result
+    });
+    
+  } catch (error) {
+    console.error('Manual auto-absent trigger failed:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark employees as absent',
+      error: error.message
+    });
+  }
+});
+
+// Route to get auto-absent status/info
+router.get('/auto-absent-info', async (req, res) => {
+  try {
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
+      .toISOString().split('T')[0];
+    
+    // Check how many employees were auto-marked absent yesterday
+    const { data: absentRecords, error } = await supabase
+      .from('attendance')
+      .select('user_id, users(name)')
+      .eq('date', yesterday)
+      .eq('is_present', false)
+      .is('check_in', null);
+
+    if (error) throw error;
+
+    res.status(200).json({
+      success: true,
+      date: yesterday,
+      autoAbsentCount: absentRecords?.length || 0,
+      employees: absentRecords?.map(record => record.users?.name) || []
+    });
+
+  } catch (error) {
+    console.error('Error getting auto-absent info:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get auto-absent information',
+      error: error.message
+    });
+  }
+});
+
 
 // Create transporter function with Hostinger defaults
 function createTransporter(senderEmail, senderPassword, smtpServer = 'smtp.hostinger.com', smtpPort = 587) {

@@ -174,6 +174,7 @@ const fetchWorkingDays = async (userId, holidays) => {
     console.error('Error fetching working days:', error);
     return 0;
   }
+ 
 };
 const fetchCompensatoryOffDays = async (userId, holidays) => {
   try {
