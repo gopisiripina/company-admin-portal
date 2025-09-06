@@ -672,7 +672,7 @@ const handleDelete = useCallback(async (hrId) => {
       .select('id')
       .eq('user_id', hrId)
       .limit(1);
-
+       
     if (attendanceCheckError) {
       console.error('Attendance check error:', attendanceCheckError);
       throw attendanceCheckError;
@@ -693,7 +693,7 @@ const handleDelete = useCallback(async (hrId) => {
               .from('attendance')
               .delete()
               .eq('user_id', hrId);
-
+              
             if (deleteAttendanceError) {
               console.error('Delete attendance error:', deleteAttendanceError);
               throw deleteAttendanceError;

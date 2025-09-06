@@ -724,7 +724,7 @@ router.post('/send', upload, async (req, res) => {
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const transporter = nodemailer.createTransporter(getSmtpConfig(email, password));      
+      const transporter = nodemailer.createTransport(getSmtpConfig(email, password));      
       
       const verifyPromise = transporter.verify();
       const timeoutPromise = new Promise((_, reject) => 

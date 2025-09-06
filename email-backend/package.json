@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-     "dev": "npx nodemon server.js",
+    "dev": "npx nodemon server.js",
     "start": "pm2 start server.js --name email-backend",
     "stop": "pm2 stop email-backend",
     "restart": "pm2 restart email-backend",
@@ -16,6 +16,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@supabase/supabase-js": "^2.57.2",
     "axios": "^1.10.0",
     "body-parser": "^2.2.0",
     "cors": "^2.8.5",
@@ -25,6 +26,7 @@
     "imap": "^0.8.19",
     "mailparser": "^3.7.4",
     "multer": "^2.0.2",
+    "node-cron": "^4.2.1",
     "nodemailer": "^7.0.5",
     "nodemon": "^3.1.10",
     "pm2": "^6.0.8",

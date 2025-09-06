@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Bell, Users, ShoppingCart,  TrendingUp, Calendar,Camera , Clock, Star, ArrowUpRight, ArrowDownRight, Activity, Zap, Menu,IndianRupee } from 'lucide-react';
-import {Row, Col, Statistic, Button, Card, Space,Typography,  Spin, Alert,Badge, Modal, Flex,DatePicker} from 'antd';
+import {Row, Col, Statistic, Button, Card, Space, Typography, Spin, Alert, Badge, Modal, Flex, DatePicker, Input} from 'antd';
 import {LeftOutlined, RightOutlined, CalendarOutlined,FilePdfOutlined, } from '@ant-design/icons';
 import './Dashboard.css';
 import ProfileSection from '../profile/ProfileSection';
@@ -60,7 +60,15 @@ const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionCh
   const [showPayslipModal, setShowPayslipModal] = useState(false);
   const [selectedPayslipMonth, setSelectedPayslipMonth] = useState(dayjs());
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
-  
+  // Add these new state variables
+const [isOtpVerificationModalVisible, setIsOtpVerificationModalVisible] = useState(false);
+const [phoneNumber, setPhoneNumber] = useState('');
+const [otp, setOtp] = useState('');
+const [clientId, setClientId] = useState('');
+const [isGeneratingOtp, setIsGeneratingOtp] = useState(false);
+const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+const [otpSent, setOtpSent] = useState(false);
+const [pendingPayslipData, setPendingPayslipData] = useState(null);
   const [tabId] = useState(() => Date.now() + Math.random());
     const storageKey = `emailCredentials_${tabId}`;
 useEffect(() => {
@@ -102,6 +110,72 @@ const startCamera = () => {
     setHasStartedDetection(true);
     setTimeout(startFaceDetection, 1000);
   }
+};
+
+const generateOtp = async (phoneNumber) => {
+  setIsGeneratingOtp(true);
+  try {
+    const response = await fetch('https://sandbox.surepass.app/api/v1/telecom/generate-otp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc1NjEwNDUxNCwianRpIjoiYjc0NTMyZDEtMmYwMy00NjFiLWIwNTItOGFjZWI5YzVjYTJjIiwidHlwZSI6ImFjY2VzcyIsImlkZW50aXR5IjoiZGV2Lm15YWNjZXNzaW9Ac3VyZXBhc3MuaW8iLCJuYmYiOjE3NTYxMDQ1MTQsImV4cCI6MTc1ODY5NjUxNCwiZW1haWwiOiJteWFjY2Vzc2lvQHN1cmVwYXNzLmlvIiwidGVuYW50X2lkIjoibWFpbiIsInVzZXJfY2xhaW1zIjp7InNjb3BlcyI6WyJ1c2VyIl19fQ.Y4laOFhDpFJ-gTnapTiUpnSESQ_1imzTya_6BhQlrwM'
+      },
+      body: JSON.stringify({ id_number: phoneNumber })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      setClientId(result.data.client_id);
+      setOtpSent(true);
+      Modal.success({ title: 'OTP Sent', content: 'OTP has been sent to your phone number.' });
+    } else {
+      throw new Error(result.message || 'Failed to send OTP');
+    }
+  } catch (error) {
+    Modal.error({ title: 'Error', content: error.message });
+  } finally {
+    setIsGeneratingOtp(false);
+  }
+};
+
+const submitOtp = async (otp) => {
+  setIsVerifyingOtp(true);
+  try {
+    const response = await fetch('https://sandbox.surepass.app/api/v1/telecom/submit-otp', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc1NjEwNDUxNCwianRpIjoiYjc0NTMyZDEtMmYwMy00NjFiLWIwNTItOGFjZWI5YzVjYTJjIiwidHlwZSI6ImFjY2VzcyIsImlkZW50aXR5IjoiZGV2Lm15YWNjZXNzaW9Ac3VyZXBhc3MuaW8iLCJuYmYiOjE3NTYxMDQ1MTQsImV4cCI6MTc1ODY5NjUxNCwiZW1haWwiOiJteWFjY2Vzc2lvQHN1cmVwYXNzLmlvIiwidGVuYW50X2lkIjoibWFpbiIsInVzZXJfY2xhaW1zIjp7InNjb3BlcyI6WyJ1c2VyIl19fQ.Y4laOFhDpFJ-gTnapTiUpnSESQ_1imzTya_6BhQlrwM'
+      },
+      body: JSON.stringify({ client_id: clientId, otp: otp })
+    });
+    
+    const result = await response.json();
+    if (result.success) {
+      setIsOtpVerificationModalVisible(false);
+      // Now proceed with payslip download
+      if (pendingPayslipData) {
+        await downloadUserPayslip(pendingPayslipData);
+      }
+      // Reset states
+      resetOtpStates();
+    } else {
+      throw new Error(result.message || 'Invalid OTP');
+    }
+  } catch (error) {
+    Modal.error({ title: 'Error', content: error.message });
+  } finally {
+    setIsVerifyingOtp(false);
+  }
+};
+
+const resetOtpStates = () => {
+  setPhoneNumber('');
+  setOtp('');
+  setClientId('');
+  setOtpSent(false);
+  setPendingPayslipData(null);
 };
 
 const stopCamera = () => {
@@ -332,6 +406,11 @@ const downloadUserPayslip = async (payslipData) => {
   }
 };
 
+const initiatePayslipDownload = (payslipData) => {
+  setPendingPayslipData(payslipData);
+  setIsOtpVerificationModalVisible(true);
+};
+
 const startFaceDetection = () => {
   // Prevent multiple calls
   if (faceDetectionInterval || isProcessing) {
@@ -378,18 +457,22 @@ const startFaceDetection = () => {
   setFaceDetectionInterval(interval);
 };
 
-useEffect(() => {
-  if (activeSection === 'dashboard' && userData && userData.id && selectedPayslipMonth) {
-    fetchUserPayslips();
-  }
-}, [activeSection, selectedPayslipMonth, userData]);
+// useEffect(() => {
+//   if (activeSection === 'dashboard' && userData && userData.id && selectedPayslipMonth) {
+//     fetchUserPayslips();
+//   }
+// }, [activeSection, selectedPayslipMonth, userData]);
 
 useEffect(() => {
+  // Only run on dashboard
   if (activeSection === 'dashboard' && userData && userData.id) {
     fetchAttendanceData();
-    fetchUserPayslips();
+    // Don't call fetchUserPayslips here automatically
+  } else {
+    console.log('Skipping fetch - not on dashboard or no user data');
   }
-}, [activeSection, userData, currentMonth]);
+}, [userData, currentMonth]);
+
 useEffect(() => {
   if (isCameraModalVisible && !isModelLoaded) {
     loadFaceDetectionModels();
@@ -468,19 +551,16 @@ const handleVerifyAndCheckIn = async () => {
 }
 };
 
-const fetchAttendanceData = async () => {
+const fetchAttendanceData = async (selectedMonth = currentMonth) => {
   if (!userData || !userData.id) {
-    // This check is important. If there's no user, we can't fetch data.
     return;
   }
 
   const userId = userData.id;
-  const startOfMonth = dayjs(currentMonth).startOf('month').format('YYYY-MM-DD');
-  const endOfMonth = dayjs(currentMonth).endOf('month').format('YYYY-MM-DD');
+  // Use the selectedMonth parameter instead of currentMonth
+  const startOfMonth = dayjs(selectedMonth).startOf('month').format('YYYY-MM-DD');
+  const endOfMonth = dayjs(selectedMonth).endOf('month').format('YYYY-MM-DD');
   
-  // --- MODIFICATION START ---
-  // Added clearer logging to diagnose fetching issues.
- 
   try {
     const { data, error } = await supabase
       .from('attendance')
@@ -491,45 +571,46 @@ const fetchAttendanceData = async () => {
       .order('date', { ascending: true });
 
     if (error) {
-      // This will show you if Supabase itself is returning an error.
       console.error('[FETCHING DATA] Supabase Error:', error);
       return;
     }
-
-    // This is the most critical log. Check your browser console for this output after you check in.
-    // It shows you exactly what the database returned.
-   
 
     setAttendanceData(data || []);
 
   } catch (error) {
     console.error('[FETCHING DATA] An unexpected error occurred:', error);
   }
-  // --- MODIFICATION END ---
 };
 
-const fetchUserPayslips = async () => {
+const fetchUserPayslips = async (selectedMonth = null) => {
   if (!userData || !userData.id) return;
   
   try {
     const { data, error } = await supabase
       .from('payroll')
-      .select('final_payslips') // Only fetch final_payslips column
+      .select('final_payslips')
       .eq('user_id', userData.id)
-      .not('final_payslips', 'is', null) // Only get records with payslips
+      .not('final_payslips', 'is', null)
       .order('created_at', { ascending: false });
     
     if (error) throw error;
     
-    // Transform the data to flatten the final_payslips array
     const transformedPayslips = [];
     data.forEach(record => {
       if (record.final_payslips && Array.isArray(record.final_payslips)) {
         record.final_payslips.forEach(payslip => {
+          // Filter by selected month if provided
+          if (selectedMonth) {
+            const payslipMonth = payslip.month || dayjs(payslip.month + '-01').format('YYYY-MM');
+            if (payslipMonth !== selectedMonth.format('YYYY-MM')) {
+              return; // Skip this payslip
+            }
+          }
+          
           transformedPayslips.push({
             ...payslip,
             employee_name: userData.name || userData.displayName,
-            pay_period: payslip.month + '-01', // Convert to date format
+            pay_period: payslip.month + '-01',
             net_pay: payslip.amount,
             pdf_url: payslip.pdf_url,
             generated_at: payslip.generated_at
@@ -540,7 +621,7 @@ const fetchUserPayslips = async () => {
     
     setUserPayslips(transformedPayslips);
   } catch (error) {
-    
+    console.error('Error fetching payslips:', error);
   }
 };
 
@@ -721,9 +802,12 @@ const fetchWorkingDaysConfig = async () => {
 
 // Call these functions in useEffect
 useEffect(() => {
-  fetchHolidays();
-  fetchWorkingDaysConfig();
-}, []);
+  // Only fetch company calendar data when on dashboard
+  if (activeSection === 'dashboard') {
+    fetchHolidays();
+    fetchWorkingDaysConfig();
+  }
+}, [activeSection]);
 
 // Function to check if a day is a working day
 const isWorkingDay = (date) => {
@@ -859,22 +943,22 @@ const renderAttendanceCalendar = () => {
   
   // Add empty cells for days before month starts
   for (let i = 0; i < firstDayWeekday; i++) {
-    calendarDays.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
-  }
+  calendarDays.push(<div key={`empty-${i}`} className="calendar-day empty"></div>);
+}
+
+// Add days of current month  
+for (let day = 1; day <= daysInMonth; day++) {
+  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const attendanceInfo = attendanceMap[dateStr];
+  const isToday = currentDate.toDateString() === new Date(year, month, day).toDateString();
   
-  // Add days of current month
-  for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const attendanceInfo = attendanceMap[dateStr];
-    const isToday = currentDate.toDateString() === new Date(year, month, day).toDateString();
-    
-    const { dayClass, tooltipText } = getAttendanceStatus(dateStr, attendanceInfo, currentDate);
-    
-    calendarDays.push(
-      <div 
-        key={day}
-        className={`calendar-day ${dayClass} ${isToday ? 'today' : ''}`}
-        title={tooltipText}
+  const { dayClass, tooltipText } = getAttendanceStatus(dateStr, attendanceInfo, currentDate);
+  
+  calendarDays.push(
+    <div 
+      key={`day-${day}`}  // Add this key
+      className={`calendar-day ${dayClass} ${isToday ? 'today' : ''}`}
+      title={tooltipText}
         onMouseEnter={(e) => {
           const tooltip = document.createElement('div');
           tooltip.className = 'calendar-tooltip';
@@ -1947,7 +2031,13 @@ if (activeSection === 'payroll') {
     <div
       key={index}
       className={`stats-card ${stat.isCalendar ? 'calendar-card' : ''} ${stat.isPayslip ? 'payslip-card' : ''} animate-${index + 1}`}
-      onClick={stat.isPayslip ? () => setShowPayslipModal(true) : undefined}
+      onClick={stat.isPayslip ? () => {
+  setShowPayslipModal(true);
+  // Fetch payslips for currently selected month when modal opens
+  if (selectedPayslipMonth) {
+    fetchUserPayslips(selectedPayslipMonth);
+  }
+} : undefined}
       style={{ cursor: stat.isPayslip ? 'pointer' : 'default' }}
     >
       <div 
@@ -2055,7 +2145,7 @@ if (activeSection === 'payroll') {
           type="primary"
           size="small"
           icon={<CalendarOutlined />}
-          onClick={() => setShowCalendarModal(true)}
+          onClick={() =>{ setShowCalendarModal(true); fetchAttendanceData(currentMonth);}}
           style={{
             background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
             border: 'none',
@@ -2216,8 +2306,12 @@ if (activeSection === 'payroll') {
         picker="month"
         value={selectedPayslipMonth}
         onChange={(date) => {
-          setSelectedPayslipMonth(date);
-        }}
+  setSelectedPayslipMonth(date);
+  if (date) {
+    fetchUserPayslips(date); // Fetch payslips for selected month
+  }
+}}
+
         style={{ 
           width: '100%', 
           height: '45px',
@@ -2272,7 +2366,7 @@ if (activeSection === 'payroll') {
             <Col xs={12} sm={5}>
               <Button 
                 type="primary" 
-                onClick={() => downloadUserPayslip(payslip)}
+                onClick={() => initiatePayslipDownload(payslip)}
                 icon={<FilePdfOutlined />}
                 style={{
                   height: '40px',
@@ -2290,6 +2384,81 @@ if (activeSection === 'payroll') {
         </Card>
       ))}
     </div>
+
+    {/* OTP Verification Modal */}
+<Modal
+  title="Phone Verification Required"
+  open={isOtpVerificationModalVisible}
+  onCancel={() => {
+    setIsOtpVerificationModalVisible(false);
+    resetOtpStates();
+  }}
+  footer={null}
+  width={450}
+  centered
+>
+  <div style={{ padding: '20px 0' }}>
+    {!otpSent ? (
+      <div>
+        <Text strong style={{ display: 'block', marginBottom: '8px' }}>
+          Enter your phone number to receive OTP:
+        </Text>
+        <Input
+          placeholder="Enter 10-digit phone number"
+          value={phoneNumber}
+          onChange={(e) => setPhoneNumber(e.target.value)}
+          maxLength={10}
+          style={{ marginBottom: '16px', height: '40px' }}
+        />
+        <Button
+          type="primary"
+          block
+          loading={isGeneratingOtp}
+          onClick={() => generateOtp(phoneNumber)}
+          disabled={phoneNumber.length !== 10}
+          style={{ height: '45px' }}
+        >
+          Send OTP
+        </Button>
+      </div>
+    ) : (
+      <div>
+        <Text strong style={{ display: 'block', marginBottom: '8px' }}>
+          Enter the OTP sent to {phoneNumber}:
+        </Text>
+        <Input
+          placeholder="Enter 4-digit OTP"
+          value={otp}
+          onChange={(e) => setOtp(e.target.value)}
+          maxLength={4}
+          style={{ marginBottom: '16px', height: '40px' }}
+        />
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Button
+            type="primary"
+            block
+            loading={isVerifyingOtp}
+            onClick={() => submitOtp(otp)}
+            disabled={otp.length !== 4}
+            style={{ height: '45px' }}
+          >
+            Verify OTP
+          </Button>
+          <Button
+            type="link"
+            onClick={() => {
+              setOtpSent(false);
+              setOtp('');
+            }}
+            style={{ padding: 0 }}
+          >
+            Change Phone Number
+          </Button>
+        </Space>
+      </div>
+    )}
+  </div>
+</Modal>
     
     {/* Empty State */}
     {userPayslips.filter(payslip => {

@@ -551,7 +551,7 @@ const markAttendance = async () => {
 
     // Check if user already has a record for today
     const { data: existingRecord, error: fetchError } = await supabase
-      .from('attendance')
+      
       .select('*')
       .eq('user_id', userData.id)
       .eq('date', today)
