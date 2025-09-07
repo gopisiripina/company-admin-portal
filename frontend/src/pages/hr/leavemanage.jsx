@@ -207,19 +207,23 @@ const fetchLeaveApplications = async (userId = null) => {
       // This query remains the same for individual employees viewing their own leaves
       query = supabase
         .from('leave_applications')
-        .select(`
-          *,
-          users!user_id (
-            id,
-            name,
-            employee_id,
-            email,
-            employee_type,
-            start_date
-          )
-        `)
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+      .select(`
+    id,
+    employee_name,
+    employee_code,
+    leave_type,
+    start_date,
+    end_date,
+    total_days,
+    status,
+    reason,
+    applied_date,
+    approved_by,
+    approved_date,
+    rejected_by,
+    rejection_reason
+  `)
+  .order('applied_date', { ascending: false });
     } else {
       // FIXED: Changed the query structure to use inner join with proper filter
       query = supabase
