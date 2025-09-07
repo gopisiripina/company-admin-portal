@@ -66,7 +66,6 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
   const [pageSize, setPageSize] = useState(5);
   const [totalEmployeeCount, setTotalEmployeeCount] = useState(0);
   const [totalEmployees, setTotalEmployees] = useState(0);
-  const AUTO_ABSENT_TIME = '10:34'; // 11:59 PM
 
   useEffect(() => {
     const getCurrentUser = async () => {
@@ -83,95 +82,6 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
     getCurrentUser();
   }, []);
 
-  
-  // Auto-mark absent employees at midnight
-  const handleAutoMarkAbsent = async (targetDate = null) => {
-  setLoading(true);
-  
-  try {
-    // Use provided date or yesterday if none provided
-    const dateToProcess = targetDate || dayjs().subtract(1, 'day').format('YYYY-MM-DD');
-    
-    // Get all employees
-    const { data: allUsers, error: usersError } = await supabase
-      .from('users')
-      .select('id, name')
-      .in('employee_type', ['full-time', 'internship', 'temporary'])
-      .not('role', 'in', '(superadmin,admin,hr)');
-
-    if (usersError) throw usersError;
-
-    // Get existing attendance records for the date
-    const { data: existingAttendance, error: attendanceError } = await supabase
-      .from('attendance')
-      .select('user_id')
-      .eq('date', dateToProcess);
-
-    if (attendanceError) throw attendanceError;
-
-    // Find employees without attendance records
-    const employeesWithRecords = existingAttendance?.map(record => record.user_id) || [];
-    const employeesWithoutRecords = allUsers?.filter(user => 
-      !employeesWithRecords.includes(user.id)
-    ) || [];
-
-    if (employeesWithoutRecords.length === 0) {
-      message.info('All employees already have attendance records');
-      return;
-    }
-
-    // Create absent records
-    const absentRecords = employeesWithoutRecords.map(employee => ({
-      user_id: employee.id,
-      date: dateToProcess,
-      check_in: null,
-      check_out: null,
-      total_hours: 0,
-      is_present: false
-    }));
-
-    const { error: insertError } = await supabase
-      .from('attendance')
-      .insert(absentRecords);
-
-    if (insertError) throw insertError;
-    
-    message.success(`Marked ${employeesWithoutRecords.length} employees as absent for ${dayjs(dateToProcess).format('DD/MM/YYYY')}`);
-    
-    // Refresh attendance data
-    await fetchAttendanceData(
-      selectedDate.startOf('month').format('YYYY-MM-DD'),
-      selectedDate.endOf('month').format('YYYY-MM-DD')
-    );
-    
-  } catch (error) {
-    console.error('Error marking absent:', error);
-    message.error('Failed to mark employees as absent');
-  } finally {
-    setLoading(false);
-  }
-};
-
-
-useEffect(() => {
-  const checkAndMarkAbsent = () => {
-    const now = dayjs();
-    const [hours, minutes] = AUTO_ABSENT_TIME.split(':');
-    const targetTime = dayjs().hour(parseInt(hours)).minute(parseInt(minutes)).second(0);
-    
-    // Check if current time matches target time (within 1-minute window)
-    if (now.isSame(targetTime, 'minute')) {
-      console.log('Auto-marking absent employees...');
-      handleAutoMarkAbsent();
-    }
-  };
-
-  // Check every minute
-  const intervalId = setInterval(checkAndMarkAbsent, 60000);
-
-  // Cleanup interval on unmount
-  return () => clearInterval(intervalId);
-}, [handleAutoMarkAbsent]); // Add this dependency
 
   // Fetch employees with pagination and filtering
   const fetchEmployees = async (page = 1, size = 5, search = '', type = 'All') => {

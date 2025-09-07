@@ -17,7 +17,9 @@ import {
   Spin,
   Modal,
   InputNumber,
-  Avatar
+  Avatar,
+  Dropdown,
+  Menu
 } from 'antd';
 import { 
   PlusOutlined, 
@@ -33,7 +35,8 @@ import {
   StarOutlined,
   TrophyOutlined,
   FileTextOutlined,
-  HistoryOutlined
+  HistoryOutlined,
+  MoreOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { supabase } from '../../supabase/config';
@@ -309,73 +312,109 @@ useEffect(() => {
       responsive: ['md'],
     },
     {
-      title: 'Actions',
-      key: 'actions',
-      align: 'right',
-      render: (_, record) => (
-        <Space>
-          {record.pdf_url && (
-            <Button 
-              size="small"
-              icon={<DownloadOutlined />}
-              onClick={() => window.open(record.pdf_url, '_blank')}
-              title="Download PDF"
-            >
-              Download
-            </Button>
-          )}
-          <Button 
-            size="small"
-            icon={<FilePdfOutlined />}
-            onClick={() => generateAppraisalPDF(record)}
-            title="Generate PDF"
-          >
-            Generate PDF
-          </Button>
-          <Button 
-            size="small"
-            icon={<SendOutlined />}
-            onClick={async () => {
-              const pdfBlob = await generateAppraisalPDF(record, true);
+  title: 'Actions',
+  key: 'actions',
+  align: 'right',
+  render: (_, record) => {
+    const menuItems = [
+      {
+        key: 'create',
+        icon: <StarOutlined />,
+        label: 'Create Appraisal',
+        onClick: () => {
+          const formValues = {
+            userId: record.id,
+            employeeName: record.name,
+            employeeId: record.employee_id,
+            emailAddress: record.email,
+            department: record.department,
+            currentSalary: record.pay || 0,
+            newSalary: record.latest_appraisal?.new_salary || (record.pay || 0),
+            effectiveDate: dayjs(),
+            reviewPeriod: `${dayjs().subtract(1, 'year').format('MMM YYYY')} - ${dayjs().format('MMM YYYY')}`,
+            companyName: record.latest_appraisal?.company_name || 'MYACCESS PRIVATE LIMITED',
+            managerName: record.latest_appraisal?.manager_name || 'HR Manager',
+            managerDesignation: record.latest_appraisal?.manager_designation || 'Human Resources',
+            letterContent: record.latest_appraisal?.letter_content || defaultLetterContent
+          };
+          
+          form.setFieldsValue(formValues);
+          setCurrentView('createAppraisal');
+        }
+      }
+    ];
+
+    // Add history option if has appraisal
+    if (record.has_appraisal) {
+      menuItems.push(
+        { type: 'divider' },
+        {
+          key: 'history',
+          icon: <HistoryOutlined />,
+          label: 'View History',
+          onClick: () => {
+            setSelectedEmployeeHistory(record);
+            setShowAppraisalHistory(true);
+          }
+        }
+      );
+
+      if (record.latest_appraisal?.pdf_url) {
+        menuItems.push({
+          key: 'download',
+          icon: <DownloadOutlined />,
+          label: 'Download PDF',
+          onClick: () => window.open(record.latest_appraisal.pdf_url, '_blank')
+        });
+      }
+
+      menuItems.push(
+        {
+          key: 'generate',
+          icon: <FilePdfOutlined />,
+          label: 'Generate PDF',
+          onClick: () => {
+            if (record.latest_appraisal) {
+              generateAppraisalPDF(record.latest_appraisal);
+            }
+          }
+        },
+        {
+          key: 'send',
+          icon: <SendOutlined />,
+          label: 'Send Email',
+          onClick: async () => {
+            if (record.latest_appraisal) {
+              const pdfBlob = await generateAppraisalPDF(record.latest_appraisal, true);
               if (pdfBlob) {
-                await sendAppraisalEmail(record, pdfBlob);
+                await sendAppraisalEmail(record.latest_appraisal, pdfBlob);
               }
-            }}
-            title="Send Email"
-          >
-            Send
-          </Button>
-          <Button 
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => {
-              const formValues = {
-                userId: selectedEmployeeHistory.id,
-                employeeName: record.employee_name,
-                employeeId: record.employee_id,
-                emailAddress: record.email_address,
-                department: record.department,
-                currentSalary: record.current_salary,
-                newSalary: record.new_salary,
-                effectiveDate: dayjs(record.effective_date),
-                reviewPeriod: record.review_period,
-                companyName: record.company_name,
-                managerName: record.manager_name,
-                managerDesignation: record.manager_designation,
-                letterContent: record.letter_content
-              };
-              
-              form.setFieldsValue(formValues);
-              setShowAppraisalHistory(false);
-              setCurrentView('createAppraisal');
-            }}
-            title="Edit/Copy"
-          >
-            Edit
-          </Button>
-        </Space>
-      ),
-    },
+            }
+          }
+        }
+      );
+    }
+
+    return (
+      <Dropdown
+        menu={{ items: menuItems }}
+        trigger={['click']}
+        placement="bottomRight"
+      >
+        <Button 
+          type="text" 
+          icon={<MoreOutlined />} 
+          size="small"
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center' 
+          }}
+        />
+      </Dropdown>
+    );
+  },
+},
   ];
 
   return (
@@ -1172,89 +1211,104 @@ lines.forEach(line => {
               },
             },
             {
-              title: 'Actions',
-              key: 'actions',
-              align: 'right',
-              render: (_, record) => (
-                <Space>
-                  <Button 
-                    size="small"
-                    icon={<StarOutlined />}
-                    onClick={() => {
-                      const formValues = {
-                        userId: record.id,
-                        employeeName: record.name,
-                        employeeId: record.employee_id,
-                        emailAddress: record.email,
-                        department: record.department,
-                        currentSalary: record.pay || 0,
-                        newSalary: record.latest_appraisal?.new_salary || (record.pay || 0),
-                        effectiveDate: dayjs(),
-                        reviewPeriod: `${dayjs().subtract(1, 'year').format('MMM YYYY')} - ${dayjs().format('MMM YYYY')}`,
-                        companyName: record.latest_appraisal?.company_name || 'MYACCESS PRIVATE LIMITED',
-                        managerName: record.latest_appraisal?.manager_name || 'HR Manager',
-                        managerDesignation: record.latest_appraisal?.manager_designation || 'Human Resources',
-                        letterContent: record.latest_appraisal?.letter_content || defaultLetterContent
-                      };
-                      
-                      form.setFieldsValue(formValues);
-                      setCurrentView('createAppraisal');
-                    }}
-                    type="primary"
-                  >
-                    Create Appraisal
-                  </Button>
-                  {record.has_appraisal && (
-                    <>
-                      {record.latest_appraisal?.pdf_url && (
-                        <Button 
-                          size="small"
-                          icon={<DownloadOutlined />}
-                          onClick={() => window.open(record.latest_appraisal.pdf_url, '_blank')}
-                        >
-                          Download
-                        </Button>
-                      )}
-                      <Button 
-                        size="small"
-                        icon={<FilePdfOutlined />}
-                        onClick={() => {
-                          if (record.latest_appraisal) {
-                            generateAppraisalPDF(record.latest_appraisal);
-                          }
-                        }}
-                      >
-                        PDF
-                      </Button>
-                      <Button 
-                        size="small"
-                        icon={<HistoryOutlined />}
-                        onClick={() => {
-                          setSelectedEmployeeHistory(record);
-                          setShowAppraisalHistory(true);
-                        }}
-                      >
-                        History
-                      </Button>
-                      <Button 
-                        size="small"
-                        icon={<SendOutlined />}
-                        onClick={async () => {
-                          if (record.latest_appraisal) {
-                            const pdfBlob = await generateAppraisalPDF(record.latest_appraisal, true);
-                            if (pdfBlob) {
-                              await sendAppraisalEmail(record.latest_appraisal, pdfBlob);
-                            }
-                          }
-                        }}
-                      >
-                        Send
-                      </Button>
-                    </>
-                  )}
-                </Space>
-              ),
-            },
+  title: 'Actions',
+  key: 'actions',
+  align: 'right',
+  render: (_, record) => {
+    const menuItems = [
+      {
+        key: 'create',
+        icon: <StarOutlined />,
+        label: 'Create Appraisal',
+        onClick: () => {
+          const formValues = {
+            userId: record.id,
+            employeeName: record.name,
+            employeeId: record.employee_id,
+            emailAddress: record.email,
+            department: record.department,
+            currentSalary: record.pay || 0,
+            newSalary: record.latest_appraisal?.new_salary || (record.pay || 0),
+            effectiveDate: dayjs(),
+            reviewPeriod: `${dayjs().subtract(1, 'year').format('MMM YYYY')} - ${dayjs().format('MMM YYYY')}`,
+            companyName: record.latest_appraisal?.company_name || 'MYACCESS PRIVATE LIMITED',
+            managerName: record.latest_appraisal?.manager_name || 'HR Manager',
+            managerDesignation: record.latest_appraisal?.manager_designation || 'Human Resources',
+            letterContent: record.latest_appraisal?.letter_content || defaultLetterContent
+          };
+          
+          form.setFieldsValue(formValues);
+          setCurrentView('createAppraisal');
+        }
+      },
+      {
+        key: 'history',
+        icon: <HistoryOutlined />,
+        label: 'View History',
+        onClick: () => {
+          setSelectedEmployeeHistory(record);
+          setShowAppraisalHistory(true);
+        }
+      },
+      {
+        key: 'generate',
+        icon: <FilePdfOutlined />,
+        label: 'Generate PDF',
+        onClick: () => {
+          if (record.latest_appraisal) {
+            generateAppraisalPDF(record.latest_appraisal);
+          } else {
+            message.warning('No appraisal data found. Please create an appraisal first.');
+          }
+        }
+      },
+      {
+        key: 'send',
+        icon: <SendOutlined />,
+        label: 'Send Email',
+        onClick: async () => {
+          if (record.latest_appraisal) {
+            const pdfBlob = await generateAppraisalPDF(record.latest_appraisal, true);
+            if (pdfBlob) {
+              await sendAppraisalEmail(record.latest_appraisal, pdfBlob);
+            }
+          } else {
+            message.warning('No appraisal data found. Please create an appraisal first.');
+          }
+        }
+      }
+    ];
+
+    // Add download option only if PDF URL exists
+    if (record.latest_appraisal?.pdf_url) {
+      menuItems.splice(3, 0, {
+        key: 'download',
+        icon: <DownloadOutlined />,
+        label: 'Download PDF',
+        onClick: () => window.open(record.latest_appraisal.pdf_url, '_blank')
+      });
+    }
+
+    return (
+      <Dropdown
+        menu={{ items: menuItems }}
+        trigger={['click']}
+        placement="bottomRight"
+      >
+        <Button 
+          type="text" 
+          icon={<MoreOutlined />} 
+          size="small"
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center' 
+          }}
+        />
+      </Dropdown>
+    );
+  },
+},
           ]}
         />
       </Card>

@@ -18,7 +18,8 @@ import {
   Descriptions,
   Divider,
   List,
-  Space
+  Space,
+  Spin  
 } from 'antd';
 import {
   UserOutlined,
@@ -400,19 +401,40 @@ const handleViewDocument = async (employeeId, fileName) => {
               </div>
             )}
             
-            <div>
-              <Text>
-                <div >
-                    {salarySlip ? (
-                      <p>
-                      Salary: ₹{salarySlip.amount}
-                      </p>
-                    ) : (
-                      <p>No salary</p>
-                    )}
-                  </div>
-                </Text>
-            </div>
+<div>
+  <Text>
+    <div>
+        {salarySlip ? (
+          <div>
+            <p>Salary: ₹{salarySlip.amount}</p>
+          </div>
+        ) : (
+          <p>No salary data</p>
+        )}
+      </div>
+    </Text>
+</div>
+
+{/* Emergency Contact */}
+{selectedEmployee.emergency_contact && (
+  <div style={{ marginTop: '16px', padding: '12px', backgroundColor: '#f0f2f5', borderRadius: '8px' }}>
+    <Text strong style={{ color: theme.primary, marginBottom: '8px', fontSize: '14px', display: 'block' }}>
+      Emergency Contact:
+    </Text>
+    <div style={{ fontSize: '13px', color: theme.text }}>
+      <div style={{ marginBottom: '4px' }}>
+        <Text strong>{selectedEmployee.emergency_contact.name || 'N/A'}</Text>
+      </div>
+      <div style={{ marginBottom: '4px' }}>
+        <Text type="secondary">{selectedEmployee.emergency_contact.relationship || 'N/A'}</Text>
+      </div>
+      <div>
+        <PhoneOutlined style={{ marginRight: '6px', color: theme.textSecondary }} />
+        <Text>{selectedEmployee.emergency_contact.phone || 'N/A'}</Text>
+      </div>
+    </div>
+  </div>
+)}
           </div>
 
 
@@ -640,11 +662,34 @@ const handleViewDocument = async (employeeId, fileName) => {
           </Row>
         </Card>
         {loading ? (
-          <div style={{ textAlign: 'center', marginTop: '50px' }}>
-            <UserOutlined spin style={{ fontSize: '48px', color: '#0D7139' }} />
-            <p>Loading Employees...</p>
-          </div>
-        ) : (
+  <div style={{ textAlign: 'center', marginTop: '50px', padding: '40px' }}>
+    <Spin 
+      size="large" 
+      style={{ 
+        color: '#0D7139'
+      }}
+      indicator={
+        <div style={{
+          width: '40px',
+          height: '40px',
+          border: '4px solid #f3f3f3',
+          borderTop: '4px solid #0D7139',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }} />
+      }
+    />
+    <p style={{ color: '#0D7139', fontSize: '16px', fontWeight: '500', marginTop: '16px' }}>
+      Loading employee data...
+    </p>
+    <style jsx>{`
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `}</style>
+  </div>
+) : (
           filteredEmployees.length > 0 ? (
             <Row gutter={[24, 24]}>
               {filteredEmployees.map(employee => (

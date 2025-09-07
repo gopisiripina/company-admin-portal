@@ -4,6 +4,7 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const { handleAutoMarkAbsent, getAutoAbsentStats } = require('../utils/autoAbsent');
 
 const router = express.Router();
 
@@ -48,6 +49,25 @@ router.get('/', (req, res) => {
 
 router.get('/test', (req, res) => {
     res.json({ message: 'General routes working!' });
+});
+
+
+router.post('/trigger-auto-absent', async (req, res) => {
+  try {
+    const result = await handleAutoMarkAbsent();
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json(error);
+  }
+});
+
+router.get('/auto-absent-info', async (req, res) => {
+  try {
+    const result = await getAutoAbsentStats();
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json(error);
+  }
 });
 
 // SEND EMAIL ENDPOINT
