@@ -41,13 +41,16 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { supabase } from '../../supabase/config';
-
+import ErrorPage from '../../error/ErrorPage';
 const { Title, Text } = Typography;
 const { Option } = Select;
 const { Search } = Input;
 const { TabPane } = Tabs;
 
 const EmployeeAttendancePage = ({ userRole = 'hr' }) => { 
+  if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
+      return <ErrorPage errorType="403" />;
+    }
   const [employeesData, setEmployeesData] = useState([]);
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const [attendanceData, setAttendanceData] = useState({});

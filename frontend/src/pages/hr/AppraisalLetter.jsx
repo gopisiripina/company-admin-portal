@@ -43,12 +43,16 @@ import { supabase } from '../../supabase/config';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import myaccessRBG from '../../assets/myaccessRBG.png'
+import ErrorPage from '../../error/ErrorPage';
 const { Header, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
 const baseUrl = import.meta.env.VITE_API_BASE_URL;
-const AppraisalLetterManagement = () => {
+const AppraisalLetterManagement = ({userRole}) => {
+  if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
+    return <ErrorPage errorType="403" />;
+  }
   const [currentPage, setCurrentPage] = useState(1);
 const [pageSize, setPageSize] = useState(5);
 const [totalEmployees, setTotalEmployees] = useState(0);

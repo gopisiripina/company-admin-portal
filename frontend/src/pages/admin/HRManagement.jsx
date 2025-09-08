@@ -436,6 +436,10 @@ const hrData = {
 
 // Main HR Management Component
 const HRManagement = ({ userRole }) => {
+  if (userRole !== 'superadmin' && userRole !== 'admin') {
+    return <ErrorPage errorType="403" />;
+  }
+
   const [hrs, setHRs] = useState([]);
   const [allHRs, setAllHRs] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -904,16 +908,7 @@ const handleDelete = useCallback(async (hrId) => {
   ], [isMobile, handleEdit, handleDelete]);
 
   // Permission check - Allow both superadmin and admin
-  if (userRole !== 'superadmin' && userRole !== 'admin') {
-    return (
-      <div className="access-denied">
-        <TeamOutlined className="access-denied-icon" />
-        <Title level={3}>Access Denied</Title>
-        <Text type="secondary">You don't have permission to view HR management.</Text>
-      </div>
-    );
-  }
-
+  
   return (
     <div className="employee-management-wrapper">
       <div className="employee-management-content">
