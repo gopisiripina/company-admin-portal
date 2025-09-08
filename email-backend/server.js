@@ -61,8 +61,8 @@ const getImapConfig = (email, password) => ({
   family: 4 
 });
 
-cron.schedule('26 14 * * *', async () => {
-  console.log('Auto-triggering absent marking at 1:00 PM...');
+cron.schedule('05 11 * * *', async () => {
+  console.log('Auto-triggering absent marking at 11:59 PM...');
   try {
     const result = await handleAutoMarkAbsent();
     console.log('Auto-absent job completed:', result);
