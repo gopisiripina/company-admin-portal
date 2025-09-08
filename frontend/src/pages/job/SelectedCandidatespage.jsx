@@ -389,6 +389,7 @@ const fetchSelectedCandidates = async () => {
     applyFilters();
   }, [searchText, jobTitleFilter, statusFilter, dateRange, candidates]);
 
+// REPLACE the existing sendOfferLetter function with this one
 const sendOfferLetter = async (offerData) => {
   setLoading(true);
   try {
@@ -491,6 +492,7 @@ if (candidateData.id && !candidateData.id.toString().startsWith('manual_')) {
       to_name: candidateData.name,
       to_email: candidateData.email,
       job_title: offerData.jobTitle,
+      candidatePhone: offerData.candidatePhone || candidateData.phone,
       company_name: offerData.companyName,
       salary_amount: offerData.salaryAmount,
       joining_date: formattedJoiningDate,
@@ -504,24 +506,27 @@ if (candidateData.id && !candidateData.id.toString().startsWith('manual_')) {
 
     console.log('Email params:', emailParams);
 
-    // FIXED: Send request with proper structure
-    const response = await fetch(`${baseUrl}send-job-offer`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        recipientEmail: candidateData.email,
-        subject: `Job Offer - ${offerData.jobTitle} Position at ${offerData.companyName}`,
-        templateData: emailParams,
-        attachments: [{
-          filename: `Offer_Letter_${candidateData.name.replace(/\s+/g, '_')}.pdf`,
-          content: base64PDF,
-          contentType: 'application/pdf',
-        }],
-      }),
-    });
-
+const response = await fetch(`${baseUrl}send-job-offer`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    recipientEmail: candidateData.email,
+    subject: `Job Offer - ${offerData.jobTitle} Position at ${offerData.companyName}`,
+    templateData: {
+      ...emailParams,
+      candidatePhone: offerData.candidatePhone || candidateData.phone // Ensure this is set
+    },
+    attachments: [{
+      filename: `Offer_Letter_${candidateData.name.replace(/\s+/g, '_')}.pdf`,
+      content: base64PDF,
+      contentType: 'application/pdf',
+    }],
+    candidateId: selectedCandidate ? selectedCandidate.id : null,
+    isManualOffer: !selectedCandidate 
+  }),
+});
     // Check if response is ok before parsing JSON
     if (!response.ok) {
       const errorText = await response.text();
