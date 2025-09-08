@@ -43,11 +43,11 @@ import axios from 'axios';
 const { Header, Content } = Layout;
 const { Title, Text } = Typography;
 const { Option } = Select;
-import ErrorPage from '../../error/ErrorPage';
+// import ErrorPage from '../../error/ErrorPage';
 export default function CalendarManagement({ userRole = 'employee', currentUserId} ) {
-  if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
-    return <ErrorPage errorType="403" />;
-  }
+  // if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
+  //   return <ErrorPage errorType="403" />;
+  // }
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const [holidayModalVisible, setHolidayModalVisible] = useState(false);
   const [eventModalVisible, setEventModalVisible] = useState(false);
