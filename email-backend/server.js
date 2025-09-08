@@ -61,16 +61,17 @@ const getImapConfig = (email, password) => ({
   family: 4 
 });
 
-cron.schedule('26 14 * * *', async () => {
-  console.log('Auto-triggering absent marking at 1:00 PM...');
+cron.schedule('59 23 * * *', async () => {
+  console.log('[CRON] Auto-absent job started at:', new Date().toLocaleString());
   try {
     const result = await handleAutoMarkAbsent();
-    console.log('Auto-absent job completed:', result);
+    console.log('[CRON] Auto-absent job completed successfully:', result);
   } catch (error) {
-    console.error('Auto-absent cron job failed:', error);
+    console.error('[CRON] Auto-absent cron job failed:', error);
   }
 }, {
-  timezone: "Asia/Kolkata"
+  timezone: "Asia/Kolkata",
+  scheduled: true // Explicitly enable the job
 });
 
 // WebSocket connection handling

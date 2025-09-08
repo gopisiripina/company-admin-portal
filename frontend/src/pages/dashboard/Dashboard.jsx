@@ -2427,10 +2427,9 @@ if (activeSection === 'payroll') {
           Enter the OTP sent to {phoneNumber}:
         </Text>
         <Input
-          placeholder="Enter 4-digit OTP"
+          placeholder="Enter OTP"
           value={otp}
           onChange={(e) => setOtp(e.target.value)}
-          maxLength={4}
           style={{ marginBottom: '16px', height: '40px' }}
         />
         <Space direction="vertical" style={{ width: '100%' }}>
@@ -2439,7 +2438,7 @@ if (activeSection === 'payroll') {
             block
             loading={isVerifyingOtp}
             onClick={() => submitOtp(otp)}
-            disabled={otp.length !== 4}
+            disabled={otp.length === 0}
             style={{ height: '45px' }}
           >
             Verify OTP
