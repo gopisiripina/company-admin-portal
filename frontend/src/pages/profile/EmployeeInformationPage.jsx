@@ -420,26 +420,7 @@ const handleViewDocument = async (employeeId, fileName) => {
     </Text>
 </div>
 
-{/* Emergency Contact */}
-{selectedEmployee.emergency_contact && (
-  <div style={{ marginTop: '16px', padding: '12px', backgroundColor: '#f0f2f5', borderRadius: '8px' }}>
-    <Text strong style={{ color: theme.primary, marginBottom: '8px', fontSize: '14px', display: 'block' }}>
-      Emergency Contact:
-    </Text>
-    <div style={{ fontSize: '13px', color: theme.text }}>
-      <div style={{ marginBottom: '4px' }}>
-        <Text strong>{selectedEmployee.emergency_contact.name || 'N/A'}</Text>
-      </div>
-      <div style={{ marginBottom: '4px' }}>
-        <Text type="secondary">{selectedEmployee.emergency_contact.relationship || 'N/A'}</Text>
-      </div>
-      <div>
-        <PhoneOutlined style={{ marginRight: '6px', color: theme.textSecondary }} />
-        <Text>{selectedEmployee.emergency_contact.phone || 'N/A'}</Text>
-      </div>
-    </div>
-  </div>
-)}
+
           </div>
 
 
