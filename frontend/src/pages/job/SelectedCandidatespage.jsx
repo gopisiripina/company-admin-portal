@@ -180,11 +180,11 @@ const fetchSelectedCandidates = async () => {
       .eq('status', 'selected')
       .order('applied_at', { ascending: false });
 
-    // Fetch manual offers
+    // Fetch manual offers - UPDATED ORDER
     const { data: manualData, error: manualError } = await supabase
       .from('manual_offers')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('sent_date', { ascending: false }); // Changed from created_at to sent_date
 
     if (selectedError) {
       console.error('Error fetching selected candidates:', selectedError);
@@ -229,12 +229,15 @@ const fetchSelectedCandidates = async () => {
       offerSent: candidate.mail_history ? candidate.mail_history.some(mail => mail.type === 'offer') : false,
       offerSentDate: candidate.mail_history ? 
         candidate.mail_history.find(mail => mail.type === 'offer')?.sentDate : null,
-      isManual: false // Flag to identify source
+      isManual: false,
+      sortDate: candidate.mail_history && candidate.mail_history.length > 0 ? 
+        candidate.mail_history.find(mail => mail.type === 'offer')?.sentDate || candidate.applied_at : 
+        candidate.applied_at // Use offer sent date for sorting if available
     }));
 
     // Transform manual offers data
     const transformedManual = manualData.map(manual => ({
-      id: `manual_${manual.id}`, // Prefix to avoid ID conflicts
+      id: `manual_${manual.id}`,
       name: manual.candidate_name,
       email: manual.candidate_email,
       phone: manual.candidate_phone,
@@ -276,13 +279,16 @@ const fetchSelectedCandidates = async () => {
         },
         emailStatus: manual.email_status
       }],
-      offerSent: true, // Manual offers are always sent
+      offerSent: true,
       offerSentDate: manual.sent_date,
-      isManual: true // Flag to identify source
+      isManual: true,
+      sortDate: manual.sent_date // Use sent_date for sorting
     }));
 
-    // Combine both datasets
-    const allCandidates = [...transformedSelected, ...transformedManual];
+    // Combine and sort by most recent activity (offer sent date or application date)
+    const allCandidates = [...transformedSelected, ...transformedManual]
+      .sort((a, b) => new Date(b.sortDate) - new Date(a.sortDate)); // Sort by sortDate descending
+    
     setCandidates(allCandidates);
     
     // Extract unique job titles from both sources
@@ -292,7 +298,7 @@ const fetchSelectedCandidates = async () => {
     const startIndex = (currentPage - 1) * pageSize;
     const endIndex = startIndex + pageSize;
     const paginatedCandidates = allCandidates.slice(startIndex, endIndex);
-    setCandidates(allCandidates); // Keep full data for filtering
+    setCandidates(allCandidates);
     setFilteredCandidates(paginatedCandidates);
 
   } catch (error) {
