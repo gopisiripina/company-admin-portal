@@ -61,7 +61,7 @@ const getImapConfig = (email, password) => ({
   family: 4 
 });
 
-cron.schedule('27 11 * * *', async () => {
+cron.schedule('59 23 * * *', async () => {
   console.log('[CRON] Auto-absent job started at:', new Date().toLocaleString());
   try {
     const result = await handleAutoMarkAbsent();
