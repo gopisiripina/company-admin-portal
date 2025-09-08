@@ -43,6 +43,7 @@ const { Header, Content } = Layout;
 const { Title, Text } = Typography;
 const { Option } = Select;
 import myaccessLogo from '../../assets/myaccessRBG.png';
+import ErrorPage from '../../error/ErrorPage';
 const truncateText = (text, maxLength) => {
   return text && text.length > maxLength ? text.substring(0, maxLength) + '...' : text || '';
 };
@@ -55,7 +56,10 @@ const numberToWords = (amount) => {
   return `Indian Rupee ${Math.abs(amount).toFixed(2)} Only`;
 };
 
-const PayrollManagement = () => {
+const PayrollManagement = ({userRole}) => {
+  if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
+    return <ErrorPage errorType="403" />;
+  }
   const [currentView, setCurrentView] = useState('dashboard');
   const [employees, setEmployees] = useState([]);
   const [form] = Form.useForm();
@@ -1719,6 +1723,8 @@ if (printWindow) {
 
   // NEW: Professional Dashboard Component
   const renderDashboard = () => (
+
+    
     <div style={{ background: '#f7fafc', minHeight: '100vh', padding: '24px' }}>
       <style>
         {`

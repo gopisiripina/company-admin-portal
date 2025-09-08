@@ -34,7 +34,7 @@ import {
 import { supabase } from '../../supabase/config';
 import * as XLSX from 'xlsx';
 import { useMediaQuery } from 'react-responsive';
-
+import ErrorPage from '../../error/ErrorPage';
 
 
 
@@ -43,6 +43,9 @@ const { Option } = Select;
 const { TextArea } = Input;
 
 const ExamConductPage = ({ userRole }) => {
+  if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
+    return <ErrorPage errorType="403" />;
+  }
   const [form] = Form.useForm();
   const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(false);
