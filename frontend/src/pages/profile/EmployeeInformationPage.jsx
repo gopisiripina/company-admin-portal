@@ -40,14 +40,17 @@ import {
   ToolOutlined
 } from '@ant-design/icons';
 import { supabase } from '../../supabase/config';
-
+import ErrorPage from "../../error/ErrorPage"
 
 const { Header, Content } = Layout;
 const { Title, Text } = Typography;
 const { Option } = Select;
 const { useBreakpoint } = Grid;
 
-const EmployeeInformationPage = () => {
+const EmployeeInformationPage = ({ userRole }) => {
+  if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
+    return <ErrorPage errorType="403" />;
+  }
   const [employees, setEmployees] = React.useState([]);
   const [employeeDocuments, setEmployeeDocuments] = React.useState({});
   const [filteredEmployees, setFilteredEmployees] = React.useState([]);
@@ -60,6 +63,8 @@ const EmployeeInformationPage = () => {
   const screens = useBreakpoint();
   const [payrollData, setPayrollData] = useState([]);
    const [salarySlip, setSalarySlip] = useState(null);
+
+   
   
   React.useEffect(() => {
   const fetchEmployees = async () => {
@@ -609,7 +614,10 @@ const handleViewDocument = async (employeeId, fileName) => {
       </Modal>
     );
   };
+
+  
   return (
+    
     <Layout style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f7fcf8ff 0%, #edf1ecff 100%)' }}>
       <Header style={{ background: '#fff', padding: '0 24px', borderBottom: '1px solid #f0f0f0' }}>
         <Title level={3} style={{ color: '#0D7139', margin: '16px 0' }}>

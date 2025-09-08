@@ -59,13 +59,17 @@ import {
 } from '@ant-design/icons';
 import { supabase } from '../../supabase/config';
 const { confirm } = Modal;
-
+import ErrorPage from '../../error/ErrorPage';
 const { TextArea } = Input;
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 const { Step } = Steps;
 
-const DirectRecruitmentPage = () => {
+const DirectRecruitmentPage = ({userRole}) => {
+
+  if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
+    return <ErrorPage errorType="403" />;
+  }
   const [form] = Form.useForm();
   const [jobForm] = Form.useForm();
   
