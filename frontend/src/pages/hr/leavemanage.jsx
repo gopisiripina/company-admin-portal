@@ -76,7 +76,7 @@ import useSWR, { mutate } from 'swr';
 import Analytics from './Analytics'; // Add this line - adjust path as needed
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import { FaIndianRupeeSign } from "react-icons/fa6";
-import ErrorPage from '../../error/ErrorPage';
+// import ErrorPage from '../../error/ErrorPage';
 
 dayjs.extend(relativeTime);
 dayjs.extend(isBetween); // <-- AND ADD THIS LINE
@@ -525,9 +525,9 @@ const LeaveHistoryDrawer = ({ visible, onClose, leaveData, currentUser }) => {
 };
 
 const LeaveManagementPage = ({ userRole = 'hr', currentUserId = '1' }) => {
-  if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
-    return <ErrorPage errorType="403" />;
-  }
+  // if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
+  //   return <ErrorPage errorType="403" />;
+  // }
   const [employees, setEmployees] = useState([]);
   const [leaveData, setLeaveData] = useState([]);
   const [leaveBalanceRaw, setLeaveBalanceRaw] = useState(null);
