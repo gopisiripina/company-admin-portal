@@ -21,6 +21,7 @@ import {
   Space,
   Spin  
 } from 'antd';
+import './EmployeeInformationPage.css';
 import {
   UserOutlined,
   SearchOutlined,
@@ -598,14 +599,9 @@ const handleViewDocument = async (employeeId, fileName) => {
 
   
   return (
+    <Layout className="employee-info-layout">
     
-    <Layout style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f7fcf8ff 0%, #edf1ecff 100%)' }}>
-      <Header style={{ background: '#fff', padding: '0 24px', borderBottom: '1px solid #f0f0f0' }}>
-        <Title level={3} style={{ color: '#0D7139', margin: '16px 0' }}>
-          Employee Information
-        </Title>
-      </Header>
-      <Content style={{ padding: screens.xs ? '16px' : '24px' }}>
+      <Content className="employee-content" style={{ padding: screens.xs ? '16px' : '24px' }}>
         <Breadcrumb
   style={{ marginBottom: '16px' }}
   items={[
@@ -627,10 +623,13 @@ const handleViewDocument = async (employeeId, fileName) => {
           <Row gutter={[16, 16]} align="middle">
             <Col xs={24} md={12}>
               <Input
-                prefix={<SearchOutlined style={{ color: 'rgba(0,0,0,.25)' }} />}
+                prefix={<SearchOutlined />}
                 placeholder="Search by name or email"
                 onChange={(e) => setSearchTerm(e.target.value)}
-                style={{ borderRadius: '8px' }}
+                style={{ 
+                  borderRadius: '8px',
+                  boxShadow: 'none'
+                }}
                 size="large"
               />
             </Col>

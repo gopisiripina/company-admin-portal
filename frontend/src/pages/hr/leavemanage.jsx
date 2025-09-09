@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import './leavemanage.css';
 import {
   Card,
   Button,
@@ -1603,45 +1604,28 @@ const getTableColumns = () => {
     ...(userRole !== 'employee' ? [{
       title: (
         <Space>
-          <UserOutlined style={{ color: '#0D7139' }} />
-          <span style={{ fontWeight: 600 }}>Employee</span>
+          <UserOutlined className="employee-icon" />
+          <span className="column-title">Employee</span>
         </Space>
       ),
       key: 'employee',
       render: (_, record) => (
         <Space direction="horizontal" size={12}>
           <Avatar 
-            style={{ 
-              backgroundColor: '#0D7139',
-              border: '2px solid white',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
-            }}
+            className="employee-avatar"
             size={isMobile ? 36 : 42}
           >
             {(record.users?.name || record.employee_name)?.charAt(0)}
           </Avatar>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ 
-              fontWeight: 600, 
-              fontSize: isMobile ? '13px' : '14px',
-              color: '#1f2937',
-              marginBottom: '2px',
-              lineHeight: '1.2'
-            }}>
+          <div className="employee-info">
+            <div className="employee-name">
               {record.users?.name || record.employee_name}
             </div>
-            <Text type="secondary" style={{ 
-              fontSize: isMobile ? '11px' : '12px',
-              color: '#6b7280'
-            }}>
+            <Text className="employee-id">
               {record.users?.employee_id || record.employee_code}
             </Text>
             {!isMobile && (
-              <div style={{ 
-                fontSize: '10px', 
-                color: '#9ca3af',
-                marginTop: '1px'
-              }}>
+              <div className="employee-department">
                 {record.department}
               </div>
             )}
@@ -1734,12 +1718,7 @@ const getTableColumns = () => {
       key: 'duration',
       render: (_, record) => (
         <div style={{ lineHeight: '1.4' }}>
-          <div style={{
-            fontWeight: 600,
-            fontSize: isMobile ? '11px' : '13px',
-            color: '#1f2937',
-            marginBottom: '2px'
-          }}>
+          <div className="leave-duration-dates">
             {dayjs(record.start_date).format(isMobile ? 'DD/MM' : 'DD MMM')}
             {record.end_date !== record.start_date && 
               ` - ${dayjs(record.end_date).format(isMobile ? 'DD/MM' : 'DD MMM')}`}
@@ -1857,12 +1836,7 @@ const getTableColumns = () => {
       dataIndex: 'created_at',
       render: (date) => (
         <div style={{ textAlign: 'center' }}>
-          <div style={{
-            fontWeight: 600,
-            fontSize: isMobile ? '10px' : '12px',
-            color: '#1f2937',
-            marginBottom: '2px'
-          }}>
+          <div className="leave-duration-dates">
             {dayjs(date).format(isMobile ? 'DD/MM' : 'DD MMM')}
           </div>
           <Text type="secondary" style={{ 
@@ -3002,38 +2976,18 @@ useEffect(() => {
       ...animationStyles.mainCard
     }}>
       {/* Professional Table Header */}
-      <div style={{
-        background: 'linear-gradient(135deg, #fafbfc 0%, #f8f9fa 100%)',
-        padding: '24px 24px 20px 24px',
-        borderBottom: '1px solid #f0f0f0',
-        marginBottom: '0px'
-      }}>
+      <div className="leave-header">
         <Row gutter={[24, 16]} align="middle">
           <Col xs={24} sm={12} md={14}>
             <Space size={16}>
-              <div style={{
-                padding: '12px',
-                background: 'linear-gradient(135deg, #0D7139 0%, #52c41a 100%)',
-                borderRadius: '12px',
-                display: 'inline-flex'
-              }}>
+              <div className="leave-icon-container">
                 <NotificationOutlined style={{ fontSize: '20px', color: 'white' }} />
               </div>
               <div>
-                <Title level={3} style={{
-                  margin: 0,
-                  color: '#1f2937',
-                  fontSize: 'clamp(18px, 4vw, 22px)',
-                  fontWeight: 700,
-                  letterSpacing: '-0.3px'
-                }}>
+                <Title level={3} className="leave-title">
                   Leave Applications
                 </Title>
-                <Text style={{
-                  color: '#6b7280',
-                  fontSize: '14px',
-                  fontWeight: 400
-                }}>
+                <Text className="leave-subtitle">
                   Manage and review employee leave requests
                 </Text>
               </div>

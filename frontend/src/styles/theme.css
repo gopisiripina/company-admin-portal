@@ -1,0 +1,62 @@
+:root[data-theme="light"] {
+  --background-primary: #ffffff;
+  --background-secondary: #f8f9fa;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --accent-color: #0066cc;
+  --border-color: #e0e0e0;
+  --sidebar-bg: #f0f2f5;
+  --card-bg: #ffffff;
+  --hover-bg: #f5f5f5;
+  --shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+:root[data-theme="dark"] {
+  --background-primary: #1a1f2d;
+  --background-secondary: #151922;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --accent-color: #3b82f6;
+  --border-color: #2d3748;
+  --sidebar-bg: #111827;
+  --card-bg: #1e293b;
+  --hover-bg: #2d3748;
+  --shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+/* Base styles that use the theme variables */
+body {
+  background-color: var(--background-primary);
+  color: var(--text-primary);
+  transition: background-color 0.2s ease;
+}
+
+/* Optimized theme transitions */
+.sidebar,
+.ant-layout,
+.ant-card,
+.ant-table,
+.ant-modal,
+.ant-input,
+.ant-select-selector,
+.ant-btn {
+  transition: background-color 0.2s ease;
+}
+
+.ant-typography,
+.ant-table-cell,
+.ant-select-selection-item,
+.ant-breadcrumb,
+.ant-input {
+  transition: color 0.2s ease;
+}
+
+/* Hardware acceleration for heavy components */
+.ant-table,
+.ant-modal,
+.sidebar {
+  transform: translateZ(0);
+  will-change: background-color;
+}
+
+/* Add more base styles as needed */

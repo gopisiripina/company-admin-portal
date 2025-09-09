@@ -1,0 +1,131 @@
+/* Employee Information Page Theming */
+.ant-card {
+  background-color: var(--card-bg) !important;
+  border-color: var(--border-color) !important;
+}
+
+.ant-card-head {
+  background-color: var(--card-bg) !important;
+  border-color: var(--border-color) !important;
+}
+
+.ant-card-body {
+  background-color: var(--card-bg) !important;
+}
+
+.ant-typography {
+  color: var(--text-primary) !important;
+}
+
+.ant-descriptions-item-label {
+  color: var(--text-secondary) !important;
+}
+
+.ant-descriptions-item-content {
+  color: var(--text-primary) !important;
+}
+
+.ant-input, .ant-select-selector {
+  background-color: var(--background-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Search input specific styles */
+.ant-input-affix-wrapper {
+  background-color: var(--background-secondary) !important;
+  border-color: var(--border-color) !important;
+}
+
+.ant-input-affix-wrapper:hover {
+  border-color: var(--accent-color) !important;
+}
+
+.ant-input-affix-wrapper .ant-input {
+  background-color: transparent !important;
+}
+
+.ant-input-affix-wrapper .anticon {
+  color: var(--text-secondary) !important;
+}
+
+/* Placeholder color */
+.ant-input::placeholder {
+  color: var(--text-secondary) !important;
+  opacity: 0.7;
+}
+
+.ant-input:hover, .ant-select-selector:hover {
+  border-color: var(--accent-color) !important;
+}
+
+.ant-select-dropdown {
+  background-color: var(--card-bg) !important;
+  border-color: var(--border-color) !important;
+}
+
+.ant-select-item {
+  color: var(--text-primary) !important;
+}
+
+.ant-select-item-option-active {
+  background-color: var(--hover-bg) !important;
+}
+
+.ant-modal-content,
+.ant-modal-header {
+  background-color: var(--card-bg) !important;
+  border-color: var(--border-color) !important;
+}
+
+.ant-modal-title {
+  color: var(--text-primary) !important;
+}
+
+.ant-modal-close-x {
+  color: var(--text-primary) !important;
+}
+
+.ant-list-item {
+  border-color: var(--border-color) !important;
+}
+
+.ant-divider {
+  border-color: var(--border-color) !important;
+}
+
+.ant-breadcrumb {
+  color: var(--text-secondary) !important;
+}
+
+.ant-breadcrumb a {
+  color: var(--text-primary) !important;
+}
+
+.ant-breadcrumb-separator {
+  color: var(--text-secondary) !important;
+}
+
+.ant-tag {
+  border-color: var(--border-color) !important;
+}
+
+.ant-btn {
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.ant-btn-primary {
+  background-color: var(--accent-color) !important;
+  color: #ffffff !important;
+}
+
+.employee-info-layout {
+  background-color: var(--background-primary);
+  min-height: 100vh;
+}
+
+.employee-content {
+  padding: 24px;
+  background-color: var(--background-primary);
+}

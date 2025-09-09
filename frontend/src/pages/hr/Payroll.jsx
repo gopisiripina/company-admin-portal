@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import './Payroll.css';
 import { 
   Layout, 
   Button, 
@@ -1723,9 +1724,7 @@ if (printWindow) {
 
   // NEW: Professional Dashboard Component
   const renderDashboard = () => (
-
-    
-    <div style={{ background: '#f7fafc', minHeight: '100vh', padding: '24px' }}>
+    <div className="payroll-dashboard">
       <style>
         {`
           .ant-btn-primary { background: #10b981; border-color: #10b981; }
@@ -1750,13 +1749,13 @@ if (printWindow) {
       </style>
 
       {/* Header */}
-      <div style={{ marginBottom: '24px' }}>
+      <div className="payroll-header">
         <Row gutter={[24, 24]} align="middle">
           <Col flex="auto">
-            <Title level={2} style={{ margin: 0, color: '#1e293b' }}>
+            <Title level={2} className="payroll-title">
               Payroll Dashboard
             </Title>
-            <Text type="secondary" style={{ fontSize: '16px' }}>
+            <Text className="payroll-description">
               Manage your employee payroll efficiently.
             </Text>
           </Col>
@@ -1934,9 +1933,9 @@ if (printWindow) {
                 title: 'Employee',
                 key: 'employee',
                 render: (_, record) => (
-                  <div>
-                    <div style={{ fontWeight: '600', color: '#1e293b' }}>{record.name}</div>
-                    <div style={{ fontSize: '12px', color: '#64748b' }}>ID: {record.employee_id}</div>
+                  <div className="employee-cell">
+                    <div className="employee-name">{record.name}</div>
+                    <div className="employee-id">ID: {record.employee_id}</div>
                   </div>
                 ),
               },

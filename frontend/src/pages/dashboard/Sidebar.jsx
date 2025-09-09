@@ -1,5 +1,6 @@
-import React, { useState, useEffect,useMemo  } from 'react';
-import { Home, User, ChevronLeft, ChevronRight, Zap, LogOut, UserCheck, FolderKanban, ChevronDown, ChevronUp, Calendar, IndianRupee , BarChart3, GitBranch, ClipboardList, AlertTriangle, FileText, BookOpen, MessageSquare } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Home, User, ChevronLeft, ChevronRight, Zap, LogOut, UserCheck, FolderKanban, ChevronDown, ChevronUp, Calendar, IndianRupee, BarChart3, GitBranch, ClipboardList, AlertTriangle, FileText, BookOpen, MessageSquare, Sun, Moon } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
 import './Sidebar.css';
 import Myaccesslogo from '../../assets/Myalogobgr.svg'; // Adjust the path as necessary
 import { InboxOutlined, EditOutlined ,SendOutlined,DeleteOutlined} from '@ant-design/icons';
@@ -8,6 +9,16 @@ import authService from '../../supabase/authService';
 const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole, isEmailAuthenticated, userData, onLogout }) => {
   const [hoveredItem, setHoveredItem] = useState(null);
   const [expandedItems, setExpandedItems] = useState({});
+  const { isDarkMode, toggleTheme } = useTheme();
+
+  // Handle item click
+  const handleItemClick = (item) => {
+    if (item.id === 'theme-toggle') {
+      toggleTheme();
+    } else if (onItemClick) {
+      onItemClick(item.id);
+    }
+  };
   
 useEffect(() => {
   const handleResize = () => {
@@ -43,10 +54,14 @@ useEffect(() => {
   }
 };
 
- const sidebarItems = () => [
+  const sidebarItems = () => [
   { icon: Home, label: 'Dashboard', id: 'dashboard', color: '#3b82f6' },
-   
-  {
+  { 
+    icon: isDarkMode ? Sun : Moon, 
+    label: isDarkMode ? 'Light Mode' : 'Dark Mode', 
+    id: 'theme-toggle',
+    color: isDarkMode ? '#BCF49D' : '#6366f1'
+  },  {
     icon: Calendar,
     label: 'Mails',
     id: 'mails',
@@ -209,35 +224,46 @@ useEffect(() => {
   // Separate logout item
   const logoutItem = { icon: LogOut, label: 'Logout', id: 'logout', color: '#ef4444' };
 
-  const handleItemClick = (item) => {
-    if (item.hasChildren) {
-      handleExpandToggle(item.id);
-      // If sidebar is closed, open it when clicking parent items
+  const processItemClick = (item) => {
+    if (item.id === 'theme-toggle') {
+      console.log('Theme toggle clicked, current mode:', isDarkMode);
+      toggleTheme();
+      return true;
+    }
+    return false;
+  };
+
+  const handleChildClick = (childItem) => {
+    if (processItemClick(childItem)) {
+      return;
+    }
+    
+    if (childItem.hasChildren) {
+      handleExpandToggle(childItem.id);
       if (!isOpen) {
         onToggle();
       }
-    } else {
-      if (onItemClick) {
-        onItemClick(item.id);
-      }
+    } else if (onItemClick) {
+      onItemClick(childItem.id);
     }
   };
 
- const handleChildClick = (childItem) => {
-  if (childItem.hasChildren) {
-    handleExpandToggle(childItem.id);
-    // If sidebar is closed, open it when clicking sub-parent items
-    if (!isOpen) {
-      onToggle();
+  const handleMainItemClick = (item) => {
+    if (processItemClick(item)) {
+      return;
     }
-  } else {
-    if (onItemClick) {
-      onItemClick(childItem.id);
-    }
-  }
-};
 
-const renderNavItem = (item, index, isChild = false, parentId = '') => {
+    if (item.hasChildren) {
+      handleExpandToggle(item.id);
+      if (!isOpen) {
+        onToggle();
+      }
+    } else if (onItemClick) {
+      onItemClick(item.id);
+    }
+  };
+
+  const renderNavItem = (item, index, isChild = false, parentId = '') => {
   const isExpanded = expandedItems[item.id];
   const itemKey = isChild ? `${parentId}-${item.id}` : item.id;
   
@@ -245,7 +271,7 @@ const renderNavItem = (item, index, isChild = false, parentId = '') => {
     <div key={itemKey} className={`nav-item-container ${isChild ? 'child-item' : ''}`}>
       <div
         className={`nav-item ${activeItem === item.id ? 'active' : ''} ${item.hasChildren ? 'has-children' : ''}`}
-        onClick={() => isChild ? handleChildClick(item) : handleItemClick(item)}
+        onClick={() => isChild ? handleChildClick(item) : handleMainItemClick(item)}
         onMouseEnter={() => setHoveredItem(isChild ? `child-${parentId}-${index}` : index)}
         onMouseLeave={() => setHoveredItem(null)}
       >
@@ -339,66 +365,7 @@ return (
         {sidebarItems().map((item, index) => renderNavItem(item, index))}
       </nav>
 
-{/* Footer with Logout */}
-<div className="sidebar-footer">
-  <div
-    className={`nav-item ${activeItem === logoutItem.id ? 'active' : ''}`}
-    onClick={async () => {
-      try {
-        
-        
-        // Remove email credentials like ProfileSection does
-        localStorage.removeItem('emailCredentials');
-        
-        // Call authService logout to handle database updates and storage cleanup
-        const logoutSuccess = await authService.logout(userData);
-        
-        if (logoutSuccess) {
-          
-        } else {
-          console.warn('Sidebar logout completed but there may have been issues updating Supabase');
-        }
-        
-        // Call the parent component's logout handler
-        if (onLogout) {
-          onLogout();
-        }
-      } catch (error) {
-        console.error('Error during sidebar logout:', error);
-        // Still proceed with logout even if there's an error
-        if (onLogout) {
-          onLogout();
-        }
-      }
-    }}
-    onMouseEnter={() => setHoveredItem('logout')}
-    onMouseLeave={() => setHoveredItem(null)}
-  >
-    {/* Active indicator */}
-    {activeItem === logoutItem.id && (
-      <div className="active-indicator" />
-    )}
-    
-    {/* Fix: Properly render the LogOut icon */}
-    <LogOut 
-      size={22} 
-      className="nav-item-icon"
-    />
-    
-    {isOpen && (
-      <span className={`nav-item-label ${isOpen ? 'open' : 'closed'}`}>
-        {logoutItem.label}
-      </span>
-    )}
-    
-    {/* Hover effect tooltip for collapsed sidebar */}
-    {hoveredItem === 'logout' && !isOpen && (
-      <div className="nav-tooltip">
-        {logoutItem.label}
-      </div>
-    )}
-  </div>
-</div>
+
     </div>
   </>
 );};

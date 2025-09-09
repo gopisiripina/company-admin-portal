@@ -1,0 +1,350 @@
+/* Payroll Page Theme Styles */
+
+/* Payroll Dashboard Layout */
+.payroll-dashboard {
+  background-color: var(--background-primary) !important;
+  min-height: 100vh !important;
+  padding: 24px !important;
+}
+
+/* Additional Theme Coverage */
+
+/* Layout and Content Areas */
+.ant-layout {
+  background-color: var(--background-primary) !important;
+}
+
+.ant-layout-content {
+  background-color: var(--background-primary) !important;
+}
+
+/* Dashboard Header and Description */
+.payroll-header {
+  margin-bottom: 24px !important;
+}
+
+.payroll-header .ant-typography {
+  color: var(--text-primary) !important;
+}
+
+.payroll-title {
+  font-size: 2.25rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px !important;
+  margin-bottom: 8px !important;
+  color: var(--text-primary) !important;
+}
+
+.payroll-description {
+  font-size: 1.1rem !important;
+  font-weight: 500 !important;
+  color: var(--text-primary) !important;
+  opacity: 0.95 !important;
+}
+
+/* Dark theme specific styles */
+:root[data-theme="dark"] .payroll-title {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+}
+
+:root[data-theme="dark"] .payroll-description {
+  color: #e2e8f0 !important;
+}
+
+/* Dark theme specific enhancements */
+:root[data-theme="dark"] .ant-typography h1,
+:root[data-theme="dark"] .ant-typography h2,
+:root[data-theme="dark"] .dashboard-title {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+}
+
+:root[data-theme="dark"] .ant-typography p,
+:root[data-theme="dark"] .dashboard-description {
+  color: #e2e8f0 !important;
+}
+
+/* Page Header */
+.ant-layout-header {
+  background-color: var(--card-bg) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+/* Table Styles */
+.ant-table {
+  background: var(--card-bg) !important;
+}
+
+/* Table Header Text */
+.ant-table-thead > tr > th {
+  color: var(--text-primary) !important;
+  background-color: var(--background-secondary) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  font-size: 0.95rem !important;
+  letter-spacing: 0.5px !important;
+  opacity: 1 !important;
+}
+
+/* Make sure header text is extra visible in dark theme */
+:root[data-theme="dark"] .ant-table-thead > tr > th {
+  color: #ffffff !important;
+  background-color: var(--card-bg) !important;
+  border-bottom: 2px solid var(--border-color) !important;
+}
+
+/* Table Header hover states */
+.ant-table-thead > tr > th:hover {
+  background-color: var(--hover-bg) !important;
+}
+
+/* Column title text specifically */
+.ant-table-thead > tr > th .ant-table-column-title {
+  color: inherit !important;
+  font-weight: inherit !important;
+}
+
+/* Column headers like Employee, Email, Role, etc. */
+th.ant-table-cell {
+  color: var(--text-primary) !important;
+  font-weight: 600 !important;
+  background-color: var(--background-secondary) !important;
+}
+
+/* Table Cell Content */
+.ant-table-tbody > tr > td {
+  color: var(--text-primary) !important;
+  background-color: var(--card-bg) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+/* Employee Column Specific */
+.employee-name {
+  font-weight: 600 !important;
+  color: var(--text-primary) !important;
+  font-size: 14px !important;
+  margin-bottom: 4px !important;
+}
+
+.employee-id {
+  font-size: 12px !important;
+  color: var(--text-secondary) !important;
+}
+
+/* Dark theme specific styles for employee column */
+:root[data-theme="dark"] .employee-name {
+  color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .employee-id {
+  color: #94a3b8 !important;
+}
+
+/* Hover effect */
+.ant-table-tbody > tr:hover .employee-name {
+  color: var(--accent-color) !important;
+}
+
+.employee-cell {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+
+/* Table Links and Interactive Elements */
+.ant-table-tbody > tr > td a,
+.ant-table-tbody > tr > td .clickable {
+  color: var(--text-primary) !important;
+  transition: color 0.2s ease !important;
+}
+
+.ant-table-tbody > tr > td a:hover,
+.ant-table-tbody > tr > td .clickable:hover {
+  color: var(--accent-color) !important;
+}
+
+/* Row Hover Effect */
+.ant-table-tbody > tr:hover > td {
+  background-color: var(--hover-bg) !important;
+}
+
+/* Specific Column Styling */
+.employee-email,
+.employee-role,
+.last-pay-period,
+.last-net-pay,
+.actions-column {
+  color: var(--text-primary) !important;
+  font-weight: 500 !important;
+}
+
+/* Table Cell Text */
+.ant-table-tbody > tr > td {
+  color: var(--text-primary) !important;
+  background-color: var(--card-bg) !important;
+}
+
+/* Employee Names and Links */
+.ant-table-tbody > tr > td a,
+.ant-table-tbody > tr > td .employee-name {
+  color: var(--text-primary) !important;
+}
+
+/* Hover States */
+.ant-table-tbody > tr:hover > td {
+  background-color: var(--hover-bg) !important;
+}
+
+/* Statistics Cards */
+.stat-card {
+  background-color: var(--card-bg) !important;
+}
+
+.stat-card .ant-statistic-title {
+  color: var(--text-primary) !important;
+  font-size: 1.1rem !important;
+  font-weight: 500 !important;
+}
+
+.stat-card .ant-statistic-content {
+  color: var(--text-primary) !important;
+}
+
+/* Action Buttons and Bulk Actions */
+.action-buttons .ant-btn,
+.bulk-actions .ant-btn,
+button[class*="download"],
+button[class*="export"],
+button[class*="email"] {
+  background-color: var(--card-bg) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+  transition: all 0.2s ease !important;
+}
+
+.action-buttons .ant-btn:hover,
+.bulk-actions .ant-btn:hover,
+button[class*="download"]:hover,
+button[class*="export"]:hover,
+button[class*="email"]:hover {
+  border-color: var(--accent-color) !important;
+  color: var(--accent-color) !important;
+  background-color: var(--background-secondary) !important;
+}
+
+/* Employee Names and Table Content */
+.employee-name,
+.ant-table-cell a,
+td.ant-table-cell,
+.ant-table-row td {
+  color: var(--text-primary) !important;
+  transition: color 0.2s ease !important;
+}
+
+/* Links and Hoverable Elements */
+.employee-name:hover,
+.ant-table-cell a:hover,
+.ant-table-row td.clickable:hover {
+  color: var(--accent-color) !important;
+}
+
+/* Alternating Row Colors */
+.ant-table-tbody > tr:nth-child(odd) > td {
+  background-color: var(--card-bg) !important;
+}
+
+.ant-table-tbody > tr:nth-child(even) > td {
+  background-color: var(--background-secondary) !important;
+}
+
+/* Table Row Content Highlighting */
+.ant-table-row td .highlight,
+.ant-table-row td strong,
+.ant-table-row td .amount,
+.ant-table-row td .date {
+  color: var(--text-primary) !important;
+  font-weight: 500 !important;
+}
+
+/* Status and Tags */
+.ant-tag {
+  background-color: var(--background-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Bulk Action Buttons */
+.bulk-actions .ant-btn {
+  background-color: var(--card-bg) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.bulk-actions .ant-btn-primary {
+  background-color: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+  color: #ffffff !important;
+}
+
+.bulk-actions .ant-btn:hover {
+  border-color: var(--accent-color) !important;
+  color: var(--accent-color) !important;
+}
+
+/* Monthly Statistics */
+.monthly-stats .ant-card {
+  background-color: var(--card-bg) !important;
+  border-color: var(--border-color) !important;
+}
+
+.monthly-stats .ant-card-head-title {
+  color: var(--text-primary) !important;
+}
+
+.monthly-stats .ant-statistic-title {
+  color: var(--text-primary) !important;
+}
+
+.monthly-stats .ant-statistic-content {
+  color: var(--text-primary) !important;
+}
+
+/* Table Column Headers */
+th.ant-table-cell {
+  color: var(--text-primary) !important;
+  font-weight: 600 !important;
+}
+
+/* Employee Column */
+.employee-column {
+  color: var(--text-primary) !important;
+  font-weight: 500 !important;
+}
+
+/* Table Row Alternating Colors */
+.ant-table-tbody > tr:nth-child(even) > td {
+  background-color: var(--background-secondary) !important;
+}
+
+/* Make sure dropdown menus are themed */
+.ant-dropdown-menu {
+  background-color: var(--card-bg) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.ant-dropdown-menu-item {
+  color: var(--text-primary) !important;
+}
+
+.ant-dropdown-menu-item:hover {
+  background-color: var(--hover-bg) !important;
+}
+
+/* Tag colors */
+.ant-tag {
+  border-color: var(--border-color) !important;
+  background-color: var(--background-secondary) !important;
+  color: var(--text-primary) !important;
+}

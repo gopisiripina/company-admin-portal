@@ -1,0 +1,166 @@
+/* Attendance Page Table Styles */
+
+/* Table wrapper */
+.ant-table {
+  background-color: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Table header */
+.ant-table-thead > tr > th {
+  background-color: var(--background-secondary) !important;
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+/* Table cells */
+.ant-table-tbody > tr > td {
+  background-color: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+/* Table row hover */
+.ant-table-tbody > tr:hover > td {
+  background-color: var(--hover-bg) !important;
+}
+
+/* Striped rows */
+.ant-table-tbody > tr.ant-table-row:nth-child(even) > td {
+  background-color: var(--background-secondary) !important;
+}
+
+/* Selected row */
+.ant-table-tbody > tr.ant-table-row-selected > td {
+  background-color: var(--hover-bg) !important;
+}
+
+/* Pagination */
+.ant-pagination {
+  color: var(--text-primary) !important;
+}
+
+.ant-pagination-item {
+  background-color: var(--card-bg) !important;
+  border-color: var(--border-color) !important;
+}
+
+.ant-pagination-item a {
+  color: var(--text-primary) !important;
+}
+
+.ant-pagination-item-active {
+  border-color: var(--accent-color) !important;
+}
+
+.ant-pagination-item-active a {
+  color: var(--accent-color) !important;
+}
+
+/* Empty state */
+.ant-empty {
+  color: var(--text-secondary) !important;
+}
+
+/* Statistics Cards */
+.ant-statistic {
+  color: var(--text-primary) !important;
+}
+
+.ant-statistic-title {
+  color: var(--text-primary) !important;
+}
+
+.ant-statistic-content {
+  color: var(--text-primary) !important;
+}
+
+.ant-card .ant-statistic-title {
+  color: var(--text-primary) !important;
+  font-size: 1.1rem !important;
+  font-weight: 500 !important;
+}
+
+/* Search and filters */
+.ant-input-search .ant-input {
+  background-color: var(--background-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.ant-input-search .ant-input::placeholder {
+  color: var(--text-secondary) !important;
+}
+
+.ant-input-search .ant-btn {
+  background-color: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+  color: #ffffff !important;
+}
+
+/* Dropdown/Select */
+.ant-select-selector {
+  background-color: var(--background-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.ant-select-dropdown {
+  background-color: var(--card-bg) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.ant-select-item {
+  color: var(--text-primary) !important;
+}
+
+.ant-select-item-option-active {
+  background-color: var(--hover-bg) !important;
+}
+
+.ant-select-item-option-selected {
+  background-color: var(--hover-bg) !important;
+  color: var(--accent-color) !important;
+}
+
+/* Status tags */
+.ant-tag {
+  border: 1px solid var(--border-color) !important;
+}
+
+/* Action buttons */
+.ant-btn {
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+.ant-btn:hover {
+  border-color: var(--accent-color) !important;
+  color: var(--accent-color) !important;
+}
+
+.ant-btn-primary {
+  background-color: var(--accent-color) !important;
+  border-color: var(--accent-color) !important;
+  color: #ffffff !important;
+}
+
+/* Table loading state */
+.ant-spin {
+  color: var(--accent-color) !important;
+}
+
+/* Row expand icon */
+.ant-table-row-expand-icon {
+  background-color: var(--card-bg) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* Nested tables */
+.ant-table-expanded-row > td {
+  background-color: var(--background-secondary) !important;
+}
+
+.ant-table-expanded-row .ant-table {
+  background-color: transparent !important;
+}

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { ThemeProvider } from './context/ThemeContext';
 import Login from './pages/auth/login';
 import Dashboard from './pages/dashboard/Dashboard';
 import Sidebar from './pages/dashboard/Sidebar';
 import AnimatedBackground from './pages/dashboard/AnimatedBackground';
+import './styles/theme.css';
 import CampusJobViewPage from './pages/job/CampusJobViewPage';
 import ExamTakePage from './pages/job/ExamTakePage';
 

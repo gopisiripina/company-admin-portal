@@ -1,0 +1,119 @@
+/* Leave Management Page Styles */
+
+/* Header Section */
+.leave-header {
+  margin-bottom: 24px !important;
+}
+
+.leave-title {
+  font-size: 2.25rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px !important;
+  margin-bottom: 8px !important;
+  color: var(--text-primary) !important;
+}
+
+.leave-description {
+  font-size: 1.1rem !important;
+  font-weight: 500 !important;
+  color: var(--text-primary) !important;
+  opacity: 0.95 !important;
+}
+
+/* Dark theme specific enhancements */
+:root[data-theme="dark"] .leave-title {
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
+}
+
+:root[data-theme="dark"] .leave-description {
+  color: #e2e8f0 !important;
+}
+
+/* Employee Column Styles */
+.employee-info-cell {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+}
+
+.employee-info-name {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: var(--text-primary) !important;
+  margin-bottom: 2px !important;
+}
+
+.employee-info-id,
+.employee-info-department {
+  font-size: 12px !important;
+  color: var(--text-secondary) !important;
+  line-height: 1.4 !important;
+}
+
+/* Dark theme specific styles for employee info */
+:root[data-theme="dark"] .employee-info-name {
+  color: #ffffff !important;
+}
+
+:root[data-theme="dark"] .employee-info-id,
+:root[data-theme="dark"] .employee-info-department {
+  color: #94a3b8 !important;
+}
+
+/* Duration column styles */
+.leave-duration-dates {
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  color: var(--text-primary) !important;
+  margin-bottom: 2px !important;
+}
+
+@media (max-width: 768px) {
+  .leave-duration-dates {
+    font-size: 11px !important;
+  }
+}
+
+[data-theme="dark"] .leave-duration-dates {
+  color: #f3f4f6 !important;
+}
+
+/* Form styles */
+.ant-form-item .ant-form-item-label > label {
+  color: var(--text-primary) !important;
+  font-weight: 500 !important;
+}
+
+[data-theme="dark"] .ant-form-item .ant-form-item-label > label {
+  color: #f3f4f6 !important;
+}
+
+/* Table styles */
+.ant-table-thead > tr > th {
+  background-color: var(--background-secondary) !important;
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  font-weight: 600 !important;
+}
+
+.ant-table-tbody > tr > td {
+  background-color: var(--card-bg) !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+
+/* Hover effects */
+.ant-table-tbody > tr:hover > td {
+  background-color: var(--hover-bg) !important;
+}
+
+.ant-table-tbody > tr:hover .employee-info-name {
+  color: var(--accent-color) !important;
+}
+
+/* Layout styles */
+.leave-management-container {
+  background-color: var(--background-primary) !important;
+  min-height: 100vh !important;
+  padding: 24px !important;
+}
