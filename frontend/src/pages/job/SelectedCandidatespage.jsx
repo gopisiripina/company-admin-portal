@@ -37,13 +37,35 @@ const SelectedCandidatesPage = ({ userRole }) => {
   const [offerActionModalVisible, setOfferActionModalVisible] = useState(false);
   const [selectedOfferRecord, setSelectedOfferRecord] = useState(null);
   const [offerLetterModalVisible, setOfferLetterModalVisible] = useState(false);
-
+const [refreshingStatus, setRefreshingStatus] = useState(false);
+  const checkEsignStatus = async (clientId) => {
+  try {
+    const response = await fetch(`https://sandbox.surepass.io/api/v1/esign/status/${clientId}`, {
+      headers: {
+        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc1NjEwNDUxNCwianRpIjoiYjc0NTMyZDEtMmYwMy00NjFiLWIwNTItOGFjZWI5YzVjYTJjIiwidHlwZSI6ImFjY2VzcyIsImlkZW50aXR5IjoiZGV2Lm15YWNjZXNzaW9Ac3VyZXBhc3MuaW8iLCJuYmYiOjE3NTYxMDQ1MTQsImV4cCI6MTc1ODY5NjUxNCwiZW1haWwiOiJteWFjY2Vzc2lvQHN1cmVwYXNzLmlvIiwidGVuYW50X2lkIjoibWFpbiIsInVzZXJfY2xhaW1zIjp7InNjb3BlcyI6WyJ1c2VyIl19fQ.Y4laOFhDpFJ-gTnapTiUpnSESQ_1imzTya_6BhQlrwM',
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (response.status === 200 && data.data.status === 'esign_completed' && data.data.completed) {
+      return 'accepted';
+    } else if (response.status === 200) {
+      return 'pending';
+    }
+    return 'not_accepted';
+  } catch (error) {
+    console.error('Error checking esign status:', error);
+    return 'pending';
+  }
+};
   // Handle updating the candidate offer status
   const handleOfferStatusChange = async (candidateId, newStatus) => {
     try {
       const { error } = await supabase
         .from('job_applications')
-        .update({ candidate_offerstatus: newStatus })
+        .update({ candidate_offerstatus: status  })
         .eq('id', candidateId);
 
       if (error) throw error;
@@ -54,7 +76,7 @@ const SelectedCandidatesPage = ({ userRole }) => {
       setCandidates(prevCandidates => 
         prevCandidates.map(candidate => 
           candidate.id === candidateId 
-            ? { ...candidate, candidateOfferStatus: newStatus }
+            ? { ...candidate, candidateOfferStatus: status  }
             : candidate
         )
       );
@@ -140,7 +162,71 @@ const [screenSize, setScreenSize] = useState({
   isDesktop: window.innerWidth >= 992,
   isLargeDesktop: window.innerWidth >= 1200
 });
+  const getSignedDocument = async (clientId) => {
+  try {
+    // First check status
+    const statusResponse = await fetch(`https://sandbox.surepass.io/api/v1/esign/status/${clientId}`, {
+      headers: {
+        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc1NjEwNDUxNCwianRpIjoiYjc0NTMyZDEtMmYwMy00NjFiLWIwNTItOGFjZWI5YzVjYTJjIiwidHlwZSI6ImFjY2VzcyIsImlkZW50aXR5IjoiZGV2Lm15YWNjZXNzaW9Ac3VyZXBhc3MuaW8iLCJuYmYiOjE3NTYxMDQ1MTQsImV4cCI6MTc1ODY5NjUxNCwiZW1haWwiOiJteWFjY2Vzc2lvQHN1cmVwYXNzLmlvIiwidGVuYW50X2lkIjoibWFpbiIsInVzZXJfY2xhaW1zIjp7InNjb3BlcyI6WyJ1c2VyIl19fQ.Y4laOFhDpFJ-gTnapTiUpnSESQ_1imzTya_6BhQlrwM',
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    const statusData = await statusResponse.json();
+    
+    // Check if document is signed
+    if (statusData.status_code === 200 && statusData.data.status === 'esign_completed' && statusData.data.completed) {
+      // Get the signed document URL
+      const docResponse = await fetch(`https://sandbox.surepass.io/api/v1/esign/get-signed-document/${clientId}`, {
+        headers: {
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc1NjEwNDUxNCwianRpIjoiYjc0NTMyZDEtMmYwMy00NjFiLWIwNTItOGFjZWI5YzVjYTJjIiwidHlwZSI6ImFjY2VzcyIsImlkZW50aXR5IjoiZGV2Lm15YWNjZXNzaW9Ac3VyZXBhc3MuaW8iLCJuYmYiOjE3NTYxMDQ1MTQsImV4cCI6MTc1ODY5NjUxNCwiZW1haWwiOiJteWFjY2Vzc2lvQHN1cmVwYXNzLmlvIiwidGVuYW50X2lkIjoibWFpbiIsInVzZXJfY2xhaW1zIjp7InNjb3BlcyI6WyJ1c2VyIl19fQ.Y4laOFhDpFJ-gTnapTiUpnSESQ_1imzTya_6BhQlrwM',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const docData = await docResponse.json();
+      
+      if (docData.status_code === 200) {
+        return { success: true, url: docData.data.url, status: 'accepted' };
+      }
+    }
+    
+    return { success: false, message: 'Document not signed yet', status: 'pending' };
+    
+  } catch (error) {
+    console.error('Error getting signed document:', error);
+    return { success: false, message: 'Error fetching document', status: 'pending' };
+  }
+};
 
+const handleDownloadSignedDocument = async (record) => {
+  if (!record.surepassClientId) {
+    message.error('No signing client ID found for this candidate');
+    return;
+  }
+
+  setLoading(true);
+  try {
+    const result = await getSignedDocument(record.surepassClientId);
+    
+    if (result.success) {
+      // Open the signed document
+      window.open(result.url, '_blank');
+      
+      // Update candidate status if needed
+      if (result.status !== record.candidateOfferStatus) {
+        handleOfferStatusChange(record.id, result.status);
+      }
+    } else {
+      message.info(result.message);
+    }
+  } catch (error) {
+    console.error('Error downloading signed document:', error);
+    message.error('Failed to download signed document');
+  } finally {
+    setLoading(false);
+  }
+};
 useEffect(() => {
   const handleResize = () => {
     setScreenSize({
@@ -175,7 +261,9 @@ const fetchSelectedCandidates = async () => {
         communication_rating,
         interview_feedback,
         interviewer_name,
-        mail_history
+        mail_history,
+        surepass_client_id,
+        signed_document_url
       `)
       .eq('status', 'selected')
       .order('applied_at', { ascending: false });
@@ -232,7 +320,9 @@ const fetchSelectedCandidates = async () => {
       isManual: false,
       sortDate: candidate.mail_history && candidate.mail_history.length > 0 ? 
         candidate.mail_history.find(mail => mail.type === 'offer')?.sentDate || candidate.applied_at : 
-        candidate.applied_at // Use offer sent date for sorting if available
+        candidate.applied_at,
+        surepassClientId: candidate.surepass_client_id,
+        signedDocumentUrl: candidate.signed_document_url
     }));
 
     // Transform manual offers data
@@ -674,7 +764,68 @@ if (selectedCandidate && selectedCandidate.id && !selectedCandidate.isManual && 
   }
 };
 
+const handleRefreshEsignStatus = async (candidateId, clientId) => {
+  try {
+    setLoading(true);
+    const status = await checkEsignStatus(clientId);
+    
+    let signedUrl = null;
+    
+    // If accepted, get the signed document URL
+    if (status === 'accepted') {
+      try {
+        const docResponse = await fetch(`https://sandbox.surepass.io/api/v1/esign/get-signed-document/${clientId}`, {
+          headers: {
+            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc1NjEwNDUxNCwianRpIjoiYjc0NTMyZDEtMmYwMy00NjFiLWIwNTItOGFjZWI5YzVjYTJjIiwidHlwZSI6ImFjY2VzcyIsImlkZW50aXR5IjoiZGV2Lm15YWNjZXNzaW9Ac3VyZXBhc3MuaW8iLCJuYmYiOjE3NTYxMDQ1MTQsImV4cCI6MTc1ODY5NjUxNCwiZW1haWwiOiJteWFjY2Vzc2lvQHN1cmVwYXNzLmlvIiwidGVuYW50X2lkIjoibWFpbiIsInVzZXJfY2xhaW1zIjp7InNjb3BlcyI6WyJ1c2VyIl19fQ.Y4laOFhDpFJ-gTnapTiUpnSESQ_1imzTya_6BhQlrwM',
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const docData = await docResponse.json();
+        if (docData.status_code === 200) {
+          signedUrl = docData.data.url;
+        }
+      } catch (error) {
+        console.error('Error fetching signed document URL:', error);
+      }
+    }
 
+    // Update the database with status and signed URL
+    const { error } = await supabase
+      .from('job_applications')
+      .update({ 
+        candidate_offerstatus: status,
+        signed_document_url: signedUrl
+      })
+      .eq('id', candidateId);
+
+    if (error) throw error;
+
+    // Update local state
+    setCandidates(prevCandidates => 
+      prevCandidates.map(candidate => 
+        candidate.id === candidateId 
+          ? { ...candidate, candidateOfferStatus: status, signedDocumentUrl: signedUrl }
+          : candidate
+      )
+    );
+    
+    setFilteredCandidates(prevFiltered =>
+      prevFiltered.map(candidate =>
+        candidate.id === candidateId
+          ? { ...candidate, candidateOfferStatus: status, signedDocumentUrl: signedUrl }
+          : candidate
+      )
+    );
+
+    message.success(`Status updated to: ${status.replace('_', ' ').toUpperCase()}`);
+  } catch (error) {
+    console.error('Error refreshing esign status:', error);
+    message.error('Failed to refresh status');
+  } finally {
+    setLoading(false);
+  }
+};
 const generateOfferLetterPDF = (candidateData, offerData) => {
   const doc = new jsPDF();
 
@@ -1152,26 +1303,37 @@ return doc.output('blob', { compress: true });
 {
   title: 'Actions',
   key: 'actions',
-  width: 120,
+  width: 100,
   render: (_, record) => (
     <Space size="small">
-      <Button 
-        size="small"
-        icon={<EyeOutlined />}
-        onClick={() => {
-          setSelectedCandidate(record);
-          setCandidateModalVisible(true);
-        }}
-      />
-      <Button
-        size="small"
-        type="primary"
-        icon={<SendOutlined />}
-        onClick={() => {
-          setSelectedCandidate(record);
-          setOfferTypeModalVisible(true); // Changed from setOfferModalVisible(true)
-        }}
-      />
+      <Tooltip title="View Details">
+        <Button 
+          type="text" 
+          size="small"
+          icon={<EyeOutlined />} 
+          onClick={() => {
+            setSelectedCandidate(record);
+            setCandidateModalVisible(true);
+          }}
+        />
+      </Tooltip>
+      <Tooltip title={record.candidateOfferStatus === 'accepted' ? "Download Signed Document" : "View Original Offer"}>
+        <Button 
+          type="text" 
+          size="small"
+          icon={<DownloadOutlined />}
+          onClick={() => {
+            if (record.candidateOfferStatus === 'accepted' && record.signedDocumentUrl) {
+              // Download signed document
+              window.open(record.signedDocumentUrl, '_blank');
+            } else {
+              // Fallback to original offer letter
+              handleOfferLetterAction(record, 'view');
+            }
+          }}
+          disabled={!record.offerPdfUrl && !record.signedDocumentUrl}
+        />
+      </Tooltip>
     </Space>
   ),
 }
@@ -1247,22 +1409,6 @@ return doc.output('blob', { compress: true });
     ),
   },
   {
-    title: 'Candidate Offer Status',
-    key: 'candidateOfferStatus',
-    width: 150,
-    render: (_, record) => (
-      <Select
-        defaultValue={record.candidateOfferStatus || 'pending'}
-        style={{ width: '100%' }}
-        onChange={(value) => handleOfferStatusChange(record.id, value)}
-      >
-        <Option value="pending">Pending</Option>
-        <Option value="accepted">Accepted</Option>
-        <Option value="rejected">Rejected</Option>
-      </Select>
-    ),
-  },
-  {
     title: 'Selected Date',
     dataIndex: 'selectedDate',
     key: 'selectedDate',
@@ -1277,60 +1423,75 @@ return doc.output('blob', { compress: true });
     ),
   },
   {
-    title: 'Offer Status',
-    key: 'offerStatus',
-    width: 110, // Reduced from 130
-    render: (_, record) => (
-      <div>
-        {record.offerSent ? (
-          <div>
-            <Tag color="green" icon={<CheckCircleOutlined />} size="small">
-              Sent
-            </Tag>
-            <div style={{ fontSize: '9px', color: '#666' }}>
-              {new Date(record.offerSentDate).toLocaleDateString()}
-            </div>
-          </div>
-        ) : (
-          <Tag color="orange" icon={<ClockCircleOutlined />} size="small">
-            Pending
-          </Tag>
-        )}
-      </div>
-    ),
-  },
+  title: 'Offer Status',
+  key: 'candidateOfferStatus',
+  width: 150,
+  render: (_, record) => (
+    <div>
+      <Tag 
+        color={
+          record.candidateOfferStatus === 'accepted' ? 'green' : 
+          record.candidateOfferStatus === 'not_accepted' ? 'red' : 
+          'orange'
+        }
+        style={{ width: '100%', textAlign: 'center', marginBottom: '8px' }}
+      >
+        {record.candidateOfferStatus === 'accepted' ? 'Accepted' :
+         record.candidateOfferStatus === 'not_accepted' ? 'Not Accepted' :
+         'Pending'}
+      </Tag>
+      
+      {record.surepassClientId && (
+        <Button
+          size="small"
+          icon={<ReloadOutlined />}
+          onClick={() => handleRefreshEsignStatus(record.id, record.surepassClientId)}
+          loading={refreshingStatus}
+          style={{ width: '100%' }}
+        >
+          Refresh Status
+        </Button>
+      )}
+    </div>
+  ),
+},
   {
-    title: 'Actions',
-    key: 'actions',
-    width: 100,
-    render: (_, record) => (
-      <Space size="small">
-        <Tooltip title="View Details">
-          <Button 
-            type="text" 
-            size="small"
-            icon={<EyeOutlined />} 
-            onClick={() => {
-              setSelectedCandidate(record);
-              setCandidateModalVisible(true);
-            }}
-          />
-        </Tooltip>
-        <Tooltip title="View/Download Offer Letter">
-          <Button 
-            type="text" 
-            size="small"
-            icon={<DownloadOutlined />}
-            onClick={() => {
-              setSelectedOfferRecord(record);
-              setOfferLetterModalVisible(true);
-            }}
-            disabled={!record.offerPdfUrl}
-          />
-        </Tooltip>
-      </Space>
-    ),
-  },
+  title: 'Actions',
+  key: 'actions',
+  width: 100,
+  render: (_, record) => (
+    <Space size="small">
+      <Tooltip title="View Details">
+        <Button 
+          type="text" 
+          size="small"
+          icon={<EyeOutlined />} 
+          onClick={() => {
+            setSelectedCandidate(record);
+            setCandidateModalVisible(true);
+          }}
+        />
+      </Tooltip>
+      <Tooltip title={record.candidateOfferStatus === 'accepted' ? "Download Signed Document" : "View Original Offer"}>
+        <Button 
+          type="text" 
+          size="small"
+          icon={<DownloadOutlined />}
+          onClick={() => {
+            if (record.candidateOfferStatus === 'accepted' && record.signedDocumentUrl) {
+              // Download signed document
+              window.open(record.signedDocumentUrl, '_blank');
+            } else {
+              // Fallback to original offer letter
+              handleOfferLetterAction(record, 'view');
+            }
+          }}
+          disabled={!record.offerPdfUrl && !record.signedDocumentUrl}
+        />
+      </Tooltip>
+    </Space>
+  ),
+},
 {
   title: 'Send Offer',
   key: 'sendOffer',
@@ -1401,15 +1562,19 @@ return doc.output('blob', { compress: true });
             View in Browser
           </Button>
           <Button
-            block
-            icon={<DownloadOutlined />}
-            onClick={() => {
-              handleOfferLetterAction(selectedOfferRecord, 'download');
-              setOfferLetterModalVisible(false);
-            }}
-          >
-            Download
-          </Button>
+  block
+  icon={<DownloadOutlined />}
+  onClick={() => {
+    if (selectedOfferRecord.candidateOfferStatus === 'accepted' && selectedOfferRecord.signedDocumentUrl) {
+      window.open(selectedOfferRecord.signedDocumentUrl, '_blank');
+    } else {
+      handleOfferLetterAction(selectedOfferRecord, 'download');
+    }
+    setOfferLetterModalVisible(false);
+  }}
+>
+  {selectedOfferRecord?.candidateOfferStatus === 'accepted' ? 'Download Signed Document' : 'Download Original'}
+</Button>
         </Space>
       </Modal>
 
@@ -1606,7 +1771,8 @@ return doc.output('blob', { compress: true });
       <Card>
         <Table
         scroll={{ 
-    x: screenSize.isMobile ? 1200 : screenSize.isTablet ? 900 : 900 // Increased mobile scroll width
+    x: screenSize.isMobile ? 1400 : screenSize.isTablet ? 1200 : 1000, // Increased for mobile
+    y: screenSize.isMobile ? 400 : undefined // Add vertical scroll for mobile
   }}
   columns={getColumns()}
   dataSource={filteredCandidates}
