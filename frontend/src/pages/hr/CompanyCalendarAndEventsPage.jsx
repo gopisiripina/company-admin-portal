@@ -73,6 +73,13 @@ const [workingDaysConfig, setWorkingDaysConfig] = useState({
   saturday: true,
   sunday: false
 });
+const [workingHoursConfig, setWorkingHoursConfig] = useState({
+  startTime: '09:00',
+  endTime: '18:00',
+  breakStart: '12:00',
+  breakEnd: '13:00',
+  timezone: 'UTC'
+});
   // Database state
   const [holidays, setHolidays] = useState([]);
   const [events, setEvents] = useState([]);
@@ -921,39 +928,76 @@ const getSelectedDateEvents = () => {
     setEventModalVisible(true);
   };
 
+  const saveWorkingConfig = async (newWorkingDays = workingDaysConfig, newWorkingHours = workingHoursConfig) => {
+  try {
+    setLoading(true);
+    
+    const { data: existing } = await supabase
+      .from('company_calendar')
+      .select('id')
+      .eq('day_type', 'working_config')
+      .single();
+    
+    const configData = {
+      date: '1970-01-01',
+      day_type: 'working_config',
+      holiday_name: 'Working Configuration',
+      reason: JSON.stringify({
+        workingDays: newWorkingDays,
+        workingHours: newWorkingHours
+      }),
+      created_by: currentUserId || 'system'
+    };
+    
+    if (existing) {
+      const { error } = await supabase
+        .from('company_calendar')
+        .update(configData)
+        .eq('id', existing.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from('company_calendar')
+        .insert([configData]);
+      if (error) throw error;
+    }
+    
+    message.success('Working configuration saved successfully');
+  } catch (error) {
+    console.error('Error saving working config:', error);
+    message.error('Failed to save working configuration');
+  } finally {
+    setLoading(false);
+  }
+};
+
   const fetchWorkingDaysConfig = async () => {
   try {
     const { data, error } = await supabase
       .from('company_calendar')
       .select('*')
-      .eq('day_type', 'working_day_config')
+      .eq('day_type', 'working_config') // Changed from 'working_day_config'
       .single();
     
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+    if (error && error.code !== 'PGRST116') {
       throw error;
     }
     
     if (data && data.reason) {
-      // Parse the JSON stored in reason field
       const config = JSON.parse(data.reason);
-      setWorkingDaysConfig(config);
+      setWorkingDaysConfig(config.workingDays || {
+        monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false, sunday: false
+      });
+      setWorkingHoursConfig(config.workingHours || {
+        startTime: '09:00', endTime: '18:00', breakStart: '12:00', breakEnd: '13:00', timezone: 'UTC'
+      });
     } else {
-      // Create default config if none exists
-      const defaultConfig = {
-        monday: true,
-        tuesday: true,
-        wednesday: true,
-        thursday: true,
-        friday: true,
-        saturday: false,
-        sunday: false
-      };
-      setWorkingDaysConfig(defaultConfig);
-      await saveWorkingDaysConfig(defaultConfig);
+      // Set defaults and save
+      await saveWorkingConfig();
     }
   } catch (error) {
-    
-    message.error('Failed to fetch working days configuration');
+    console.error('Error fetching working config:', error);
+    message.error('Failed to fetch working configuration');
   }
 };
 
@@ -1584,9 +1628,13 @@ const upcomingEvents = [
                 <Text type="secondary">Configure your organization's working schedule</Text>
               </div>
               {permissions.canManageWorkingDays && (
-  <Button type="primary" onClick={() => saveWorkingDaysConfig(workingDaysConfig)}>
-    Save Configuration
-  </Button>
+  <Button 
+  type="primary" 
+  onClick={() => saveWorkingConfig(workingDaysConfig, workingHoursConfig)}
+  disabled={!permissions.canManageWorkingDays}
+>
+  Save Configuration
+</Button>
 )}
             </div>
 
@@ -1629,41 +1677,62 @@ const upcomingEvents = [
                   <Title level={5}>Work Hours</Title>
                   <Form layout="vertical">
                     <Form.Item label="Start Time">
-                      <TimePicker 
-                        defaultValue={dayjs('09:00', 'HH:mm')} 
-                        format="HH:mm" 
-                        style={{ width: '100%' }}
-                        disabled={!permissions.canManageWorkingDays}
-                      />
-                    </Form.Item>
-                    <Form.Item label="End Time">
-                      <TimePicker 
-                        defaultValue={dayjs('18:00', 'HH:mm')} 
-                        format="HH:mm" 
-                        style={{ width: '100%' }}
-                      />
-                    </Form.Item>
+  <TimePicker 
+    value={dayjs(workingHoursConfig.startTime, 'HH:mm')} 
+    format="HH:mm" 
+    style={{ width: '100%' }}
+    disabled={!permissions.canManageWorkingDays}
+    onChange={(time) => setWorkingHoursConfig(prev => ({
+      ...prev,
+      startTime: time ? time.format('HH:mm') : '09:00'  // ✅ CORRECT
+    }))}
+  />
+</Form.Item>
+<Form.Item label="End Time">
+  <TimePicker 
+    value={dayjs(workingHoursConfig.endTime, 'HH:mm')} 
+    format="HH:mm" 
+    style={{ width: '100%' }}
+    disabled={!permissions.canManageWorkingDays}
+    onChange={(time) => setWorkingHoursConfig(prev => ({
+      ...prev,
+      endTime: time ? time.format('HH:mm') : '18:00'  // ✅ CORRECT
+    }))}
+  />
+</Form.Item>  
                   </Form>
                 </Col>
                 
                 <Col span={12}>
                   <Title level={5}>Break Hours</Title>
                   <Form layout="vertical">
-                    <Form.Item label="Break Start">
-                      <TimePicker 
-                        defaultValue={dayjs('12:00', 'HH:mm')} 
-                        format="HH:mm" 
-                        style={{ width: '100%' }}
-                      />
-                    </Form.Item>
-                    <Form.Item label="Break End">
-                      <TimePicker 
-                        defaultValue={dayjs('13:00', 'HH:mm')} 
-                        format="HH:mm" 
-                        style={{ width: '100%' }}
-                      />
-                    </Form.Item>
-                  </Form>
+  <Form.Item label="Start Time">
+    <TimePicker 
+      value={dayjs(workingHoursConfig.startTime, 'HH:mm')} 
+      format="HH:mm" 
+      style={{ width: '100%' }}
+      disabled={!permissions.canManageWorkingDays}
+      onChange={(time) => setWorkingHoursConfig(prev => ({
+        ...prev,
+        startTime: time ? time.format('HH:mm') : '09:00'
+      }))}
+    />
+  </Form.Item>
+  <Form.Item label="End Time">
+    <TimePicker 
+      value={dayjs(workingHoursConfig.endTime, 'HH:mm')} 
+      format="HH:mm" 
+      style={{ width: '100%' }}
+      disabled={!permissions.canManageWorkingDays}
+      onChange={(time) => setWorkingHoursConfig(prev => ({
+        ...prev,
+        endTime: time ? time.format('HH:mm') : '18:00'
+      }))}
+    />
+  </Form.Item>
+</Form>
+
+
                 </Col>
               </Row>
               
@@ -1682,21 +1751,21 @@ const upcomingEvents = [
             </Card>
 
             <Card title="Configuration Summary">
-              <Row gutter={16}>
-                <Col span={6}>
-                  <Text strong>Working Days:</Text> 5 days per week
-                </Col>
-                <Col span={6}>
-                  <Text strong>Daily Hours:</Text> 09:00:00 - 18:00:00
-                </Col>
-                <Col span={6}>
-                  <Text strong>Break Time:</Text> 12:00:00 - 13:00:00
-                </Col>
-                <Col span={6}>
-                  <Text strong>Timezone:</Text> UTC
-                </Col>
-              </Row>
-            </Card>
+  <Row gutter={16}>
+    <Col span={6}>
+      <Text strong>Working Days:</Text> {Object.values(workingDaysConfig).filter(Boolean).length} days per week
+    </Col>
+    <Col span={6}>
+      <Text strong>Daily Hours:</Text> {workingHoursConfig.startTime} - {workingHoursConfig.endTime}
+    </Col>
+    <Col span={6}>
+      <Text strong>Break Time:</Text> {workingHoursConfig.breakStart} - {workingHoursConfig.breakEnd}
+    </Col>
+    <Col span={6}>
+      <Text strong>Timezone:</Text> {workingHoursConfig.timezone}
+    </Col>
+  </Row>
+</Card>
           </div>
         )}
 
