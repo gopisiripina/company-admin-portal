@@ -984,14 +984,18 @@ const getSelectedDateEvents = () => {
     }
     
     if (data && data.reason) {
-      const config = JSON.parse(data.reason);
-      setWorkingDaysConfig(config.workingDays || {
-        monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false, sunday: false
-      });
-      setWorkingHoursConfig(config.workingHours || {
-        startTime: '09:00', endTime: '18:00', breakStart: '12:00', breakEnd: '13:00', timezone: 'UTC'
-      });
-    } else {
+  const config = JSON.parse(data.reason);
+  setWorkingDaysConfig(config.workingDays || {
+    monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false, sunday: false
+  });
+  setWorkingHoursConfig({
+    startTime: config.workingHours?.startTime || '09:00',
+    endTime: config.workingHours?.endTime || '18:00',
+    breakStart: config.workingHours?.breakStart || '12:00',
+    breakEnd: config.workingHours?.breakEnd || '13:00',
+    timezone: config.workingHours?.timezone || 'UTC'
+  });
+} else {
       // Set defaults and save
       await saveWorkingConfig();
     }
@@ -1678,25 +1682,25 @@ const upcomingEvents = [
                   <Form layout="vertical">
                     <Form.Item label="Start Time">
   <TimePicker 
-    value={dayjs(workingHoursConfig.startTime, 'HH:mm')} 
+    value={workingHoursConfig.startTime ? dayjs(workingHoursConfig.startTime, 'HH:mm') : null}
     format="HH:mm" 
     style={{ width: '100%' }}
     disabled={!permissions.canManageWorkingDays}
     onChange={(time) => setWorkingHoursConfig(prev => ({
       ...prev,
-      startTime: time ? time.format('HH:mm') : '09:00'  // ✅ CORRECT
+      startTime: time ? time.format('HH:mm') : '09:00'
     }))}
   />
 </Form.Item>
 <Form.Item label="End Time">
   <TimePicker 
-    value={dayjs(workingHoursConfig.endTime, 'HH:mm')} 
+    value={workingHoursConfig.endTime ? dayjs(workingHoursConfig.endTime, 'HH:mm') : null}
     format="HH:mm" 
     style={{ width: '100%' }}
     disabled={!permissions.canManageWorkingDays}
     onChange={(time) => setWorkingHoursConfig(prev => ({
       ...prev,
-      endTime: time ? time.format('HH:mm') : '18:00'  // ✅ CORRECT
+      endTime: time ? time.format('HH:mm') : '18:00'
     }))}
   />
 </Form.Item>  
@@ -1706,30 +1710,30 @@ const upcomingEvents = [
                 <Col span={12}>
                   <Title level={5}>Break Hours</Title>
                   <Form layout="vertical">
-  <Form.Item label="Start Time">
-    <TimePicker 
-      value={dayjs(workingHoursConfig.startTime, 'HH:mm')} 
-      format="HH:mm" 
-      style={{ width: '100%' }}
-      disabled={!permissions.canManageWorkingDays}
-      onChange={(time) => setWorkingHoursConfig(prev => ({
-        ...prev,
-        startTime: time ? time.format('HH:mm') : '09:00'
-      }))}
-    />
-  </Form.Item>
-  <Form.Item label="End Time">
-    <TimePicker 
-      value={dayjs(workingHoursConfig.endTime, 'HH:mm')} 
-      format="HH:mm" 
-      style={{ width: '100%' }}
-      disabled={!permissions.canManageWorkingDays}
-      onChange={(time) => setWorkingHoursConfig(prev => ({
-        ...prev,
-        endTime: time ? time.format('HH:mm') : '18:00'
-      }))}
-    />
-  </Form.Item>
+  <Form.Item label="Break Start">
+  <TimePicker 
+    value={workingHoursConfig.breakStart ? dayjs(workingHoursConfig.breakStart, 'HH:mm') : null}
+    format="HH:mm" 
+    style={{ width: '100%' }}
+    disabled={!permissions.canManageWorkingDays}
+    onChange={(time) => setWorkingHoursConfig(prev => ({
+      ...prev,
+      breakStart: time ? time.format('HH:mm') : '12:00'
+    }))}
+  />
+</Form.Item>
+<Form.Item label="Break End">
+  <TimePicker 
+    value={workingHoursConfig.breakEnd ? dayjs(workingHoursConfig.breakEnd, 'HH:mm') : null}
+    format="HH:mm" 
+    style={{ width: '100%' }}
+    disabled={!permissions.canManageWorkingDays}
+    onChange={(time) => setWorkingHoursConfig(prev => ({
+      ...prev,
+      breakEnd: time ? time.format('HH:mm') : '13:00'
+    }))}
+  />
+</Form.Item>
 </Form>
 
 
@@ -1740,13 +1744,21 @@ const upcomingEvents = [
               
               <Form layout="vertical">
                 <Form.Item label="Timezone">
-                  <Select defaultValue="UTC" style={{ width: 200 }} disabled={!permissions.canManageWorkingDays}>
-                    <Option value="UTC">UTC</Option>
-                    <Option value="EST">Eastern Time</Option>
-                    <Option value="PST">Pacific Time</Option>
-                    <Option value="IST">Indian Standard Time</Option>
-                  </Select>
-                </Form.Item>
+  <Select 
+    value={workingHoursConfig.timezone} 
+    style={{ width: 200 }} 
+    disabled={!permissions.canManageWorkingDays}
+    onChange={(value) => setWorkingHoursConfig(prev => ({
+      ...prev,
+      timezone: value
+    }))}
+  >
+    <Option value="UTC">UTC</Option>
+    <Option value="EST">Eastern Time</Option>
+    <Option value="PST">Pacific Time</Option>
+    <Option value="IST">Indian Standard Time</Option>
+  </Select>
+</Form.Item>
               </Form>
             </Card>
 
