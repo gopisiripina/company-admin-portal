@@ -40,6 +40,7 @@ const SelectedCandidatesPage = ({ userRole }) => {
 const [refreshingStatus, setRefreshingStatus] = useState(false);
   const checkEsignStatus = async (clientId) => {
   try {
+    console.log('Checking status for client_id:', clientId);
     const response = await fetch(`https://sandbox.surepass.io/api/v1/esign/status/${clientId}`, {
       headers: {
         'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTc1NjEwNDUxNCwianRpIjoiYjc0NTMyZDEtMmYwMy00NjFiLWIwNTItOGFjZWI5YzVjYTJjIiwidHlwZSI6ImFjY2VzcyIsImlkZW50aXR5IjoiZGV2Lm15YWNjZXNzaW9Ac3VyZXBhc3MuaW8iLCJuYmYiOjE3NTYxMDQ1MTQsImV4cCI6MTc1ODY5NjUxNCwiZW1haWwiOiJteWFjY2Vzc2lvQHN1cmVwYXNzLmlvIiwidGVuYW50X2lkIjoibWFpbiIsInVzZXJfY2xhaW1zIjp7InNjb3BlcyI6WyJ1c2VyIl19fQ.Y4laOFhDpFJ-gTnapTiUpnSESQ_1imzTya_6BhQlrwM',
@@ -48,13 +49,21 @@ const [refreshingStatus, setRefreshingStatus] = useState(false);
     });
     
     const data = await response.json();
+    console.log('API Response:', data);
     
-    if (response.status === 200 && data.data.status === 'esign_completed' && data.data.completed) {
-      return 'accepted';
-    } else if (response.status === 200) {
-      return 'pending';
+    if (response.status === 200) {
+      const status = data.data.status;
+      const completed = data.data.completed;
+      
+      if (status === 'esign_completed' && completed === true) {
+        return 'accepted';
+      } else if (status === 'client_initiated') {
+        return 'pending'; // Still waiting for signature
+      } else if (status === 'failed' || status === 'expired') {
+        return 'not_accepted';
+      }
     }
-    return 'not_accepted';
+    return 'pending';
   } catch (error) {
     console.error('Error checking esign status:', error);
     return 'pending';
@@ -65,7 +74,7 @@ const [refreshingStatus, setRefreshingStatus] = useState(false);
     try {
       const { error } = await supabase
         .from('job_applications')
-        .update({ candidate_offerstatus: status  })
+        .update({ esign_status : status  })
         .eq('id', candidateId);
 
       if (error) throw error;
@@ -263,7 +272,7 @@ const fetchSelectedCandidates = async () => {
         interviewer_name,
         mail_history,
         surepass_client_id,
-        signed_document_url
+        surepass_url
       `)
       .eq('status', 'selected')
       .order('applied_at', { ascending: false });
@@ -300,7 +309,7 @@ const fetchSelectedCandidates = async () => {
       status: candidate.status,
       resumeUrl: candidate.resume_url,
       offerPdfUrl: candidate.offer_pdf_url,
-      candidateOfferStatus: candidate.candidate_offerstatus || 'pending',
+      candidateOfferStatus: candidate.esign_status  || 'pending',
       location: candidate.location,
       expectedSalary: candidate.expected_salary,
       currentPosition: candidate.current_position,
@@ -322,7 +331,7 @@ const fetchSelectedCandidates = async () => {
         candidate.mail_history.find(mail => mail.type === 'offer')?.sentDate || candidate.applied_at : 
         candidate.applied_at,
         surepassClientId: candidate.surepass_client_id,
-        signedDocumentUrl: candidate.signed_document_url
+        signedDocumentUrl: candidate.surepass_url
     }));
 
     // Transform manual offers data
@@ -350,6 +359,9 @@ const fetchSelectedCandidates = async () => {
       interviewerName: null,
       interviewDate: null,
       interviewTime: null,
+      surepassClientId: manual.surepass_client_id,  // Add this line
+  signedDocumentUrl: manual.surepass_url, // Add this line if you have it
+  candidateOfferStatus: manual.esign_status  || 'pending',
       mailHistory: [{
         type: 'offer',
         sentDate: manual.sent_date,
@@ -530,7 +542,7 @@ if (candidateData.id && !candidateData.id.toString().startsWith('manual_')) {
     .from('job_applications')
     .update({ 
       offer_pdf_url: pdfFileName,
-      candidate_offerstatus: 'pending'
+      esign_status : 'pending'
     })
     .eq('id', candidateData.id);
       if (updateError) throw new Error(`Failed to update job application: ${updateError.message}`);
@@ -719,7 +731,9 @@ if (selectedCandidate && selectedCandidate.id && !selectedCandidate.isManual && 
               additional_benefits: offerData.additionalBenefits,
               message: offerData.message,
               email_status: 'sent',
-              sent_date: new Date().toISOString()
+              sent_date: new Date().toISOString(),
+              surepass_client_id: result.surepass_client_id,
+              surepass_url: result.surepass_url
             });
 
           if (insertError) {
@@ -764,11 +778,10 @@ if (selectedCandidate && selectedCandidate.id && !selectedCandidate.isManual && 
   }
 };
 
-const handleRefreshEsignStatus = async (candidateId, clientId) => {
+  const handleRefreshEsignStatus = async (candidateId, clientId) => {
   try {
     setLoading(true);
     const status = await checkEsignStatus(clientId);
-    
     let signedUrl = null;
     
     // If accepted, get the signed document URL
@@ -780,28 +793,45 @@ const handleRefreshEsignStatus = async (candidateId, clientId) => {
             'Content-Type': 'application/json'
           }
         });
-        
         const docData = await docResponse.json();
         if (docData.status_code === 200) {
           signedUrl = docData.data.url;
+          
         }
       } catch (error) {
         console.error('Error fetching signed document URL:', error);
       }
     }
 
-    // Update the database with status and signed URL
-    const { error } = await supabase
-      .from('job_applications')
-      .update({ 
-        candidate_offerstatus: status,
-        signed_document_url: signedUrl
-      })
-      .eq('id', candidateId);
+    // Check if this is a manual offer
+    const isManualOffer = candidateId && candidateId.toString().startsWith('manual_');
+    
+    if (isManualOffer) {
+      // Update manual_offers table
+      const manualId = candidateId.replace('manual_', '');
+      const { error } = await supabase
+        .from('manual_offers')
+        .update({ 
+          esign_status : status,
+          surepass_url: signedUrl
+        })
+        .eq('id', manualId);
 
-    if (error) throw error;
+      if (error) throw error;
+    } else {
+      // Update job_applications table for regular candidates
+      const { error } = await supabase
+        .from('job_applications')
+        .update({ 
+          esign_status : status,
+          surepass_url: signedUrl
+        })
+        .eq('id', candidateId);
 
-    // Update local state
+      if (error) throw error;
+    }
+
+    // Update local state (rest of the function remains the same)
     setCandidates(prevCandidates => 
       prevCandidates.map(candidate => 
         candidate.id === candidateId 
@@ -820,9 +850,10 @@ const handleRefreshEsignStatus = async (candidateId, clientId) => {
 
     message.success(`Status updated to: ${status.replace('_', ' ').toUpperCase()}`);
   } catch (error) {
-    console.error('Error refreshing esign status:', error);
-    message.error('Failed to refresh status');
-  } finally {
+  console.error('Error refreshing esign status:', JSON.stringify(error, null, 2));
+  console.error('Error details:', error.message || error.error || error);
+  message.error(`Failed to refresh status: ${error.message || error.error || 'Unknown error'}`);
+} finally {
     setLoading(false);
   }
 };
@@ -1441,17 +1472,20 @@ return doc.output('blob', { compress: true });
          'Pending'}
       </Tag>
       
-      {record.surepassClientId && (
-        <Button
-          size="small"
-          icon={<ReloadOutlined />}
-          onClick={() => handleRefreshEsignStatus(record.id, record.surepassClientId)}
-          loading={refreshingStatus}
-          style={{ width: '100%' }}
-        >
-          Refresh Status
-        </Button>
-      )}
+      {(record.surepassClientId || (record.isManual && record.mailHistory && record.mailHistory[0]?.surepassClientId)) && (
+  <Button
+    size="small"
+    icon={<ReloadOutlined />}
+    onClick={() => handleRefreshEsignStatus(
+      record.id, 
+      record.surepassClientId || record.mailHistory[0]?.surepassClientId
+    )}
+    loading={refreshingStatus}
+    style={{ width: '100%' }}
+  >
+    Refresh Status
+  </Button>
+)}
     </div>
   ),
 },
