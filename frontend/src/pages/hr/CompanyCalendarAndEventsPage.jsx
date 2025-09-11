@@ -1644,7 +1644,7 @@ const upcomingEvents = [
 
             <Card title="Working Days" style={{ marginBottom: 24 }}>
               <Text type="secondary" style={{ marginBottom: 16, display: 'block' }}>
-                Select which days are working days (5 days selected)
+                Select which days are working days ({Object.values(workingDaysConfig).filter(Boolean).length} selected)
               </Text>
               
               <Row gutter={16}>
