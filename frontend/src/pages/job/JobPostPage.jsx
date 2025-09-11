@@ -85,7 +85,7 @@ const postToLinkedIn = async (jobData) => {
       `salary=${encodeURIComponent(jobData.salary_range || 'Competitive')}&` +
       `description=${encodeURIComponent(jobData.job_description || '')}`
     const requestBody = {
-      accessToken: 'AQXRbDwBQ3o1RgOSPhIuWBxML2dsqW9g8AcVZBb-e5A--YBqheu0oHtbjqUkoHAfelpwAnkNWnDczfIk8sGdyidWe_d2ejNlgR8mrQbP3pvif9mBMW-uxp_y7jMfJ3Ry0lQGhe0fcJKcYNvpMyFL5i7QCXmVeYOl1inWJnBOh0qBmnk-iB2nl9p28ctlALbjnuY4FRkf2TB64qgkdALXMFFA7pySUchl9oZ1CJTr1n85o9X4CsTKcCdgXRZ_n2KVoyABGDM3DB-SmqYit9OJnklMMx6T3JgKC7bClH8PPJ5eVzTw_Vt6_VwiBTuhgstnmTD5XY1P9GbdkgtgR9YtRAOMBzvIeQ',
+      accessToken: 'AQXxDBUdd2xLUCiv2uVXJwsMQUe1ZHoCXYmy5pCEOmRVhrWCd5_N6t81zaD2p_NJbXVFUDRgfcwFEH1a09m2TW--VUoNPEmVJvZ9ZvlUEmHykmm5GF888QpSeziepiAkXyHRtWgY8D9s1GZctpst7GTRx6wtgauGfI7nVg-dTBwUxjySCalpU3bF1CVaQFb6ISiEY0IVUdv7ov3WLHmIcr-AfTW7qVsKgyRF9Lyn9Rhwj4HgP5ZHh8Nsh_zGMcj7Z9MqCuPmVrOOCZS-nViv_vu6Ko3lUqEDxO1lNxSM9ZB0QOPOGI2a-9RiDFLrvD9cuW8Gj7ebqByZQYPR9zTS-iW9BDGhXg',
       jobData: jobData,
       applicationUrl: applicationUrl
     };

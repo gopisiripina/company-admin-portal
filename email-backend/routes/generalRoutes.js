@@ -624,7 +624,8 @@ router.post('/send-job-offer', async (req, res) => {
       success: true,
       message: "eSign offer sent successfully!",
       recipient: recipientEmail,
-      surepass_client_id: client_id
+      surepass_client_id: client_id,
+      surepass_url: candidateSignUrl
     });
 
   } catch (error) {
