@@ -481,8 +481,15 @@ router.post('/send-job-offer', async (req, res) => {
   pdf_pre_uploaded: true,
   expiry_minutes: 9000,
   sign_type: "aadhaar",
-  config: {
-    positions: {},
+ config: {
+    positions: {
+      "4": [
+        {
+          "x": 81,
+          "y": 141
+        }
+      ]
+    },
     reason: "offer letter Acceptance",
     accept_virtual_sign: true,
     track_location: true,
@@ -499,9 +506,7 @@ router.post('/send-job-offer', async (req, res) => {
     user_email: recipientEmail,
     mobile_number: templateData.candidatePhone || ''
   },
-   positions: {
-        "1": [{ "x": 75, "y": 75 }]
-      }
+  
 };
 
 

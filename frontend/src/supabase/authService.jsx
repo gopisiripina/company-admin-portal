@@ -1,3 +1,4 @@
+
 import { supabase, supabaseAdmin } from '../supabase/config';
 import CryptoJS from 'crypto-js';
 // Demo credentials as fallback
@@ -96,7 +97,7 @@ async checkSupabaseCredentials(email, password) {
           photoURL: userData.photourl,
           isActive: true,
           employeeId: userData.employee_id,
-          //  portal_access: userData.portal_access,
+          portal_access: userData.portal_access,
           isFirstLogin: userData.isfirstlogin !== undefined ? userData.isfirstlogin : false,
           createdAt: userData.created_at ? new Date(userData.created_at) : new Date(),
           created_at: userData.created_at || userData.createdat || null,
@@ -291,6 +292,7 @@ async changeFirstLoginPassword(userId, newPassword) {
         isActive: user.isActive,
         isFirstLogin: user.isFirstLogin || false,
         employeeId: user.employeeId,
+        portal_access: user.portal_access,
         mobile: user.mobile,
         work_phone: user.work_phone,
         employee_type: user.employee_type,    
