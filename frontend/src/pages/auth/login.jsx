@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Lock, Eye, EyeOff, X } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, X, Sun, Moon } from 'lucide-react';
 import authService from '../../supabase/authService';
 import './login.css';
+import '../../../src/styles/login-themes.css';
 import image1 from '../../assets/image1.svg';
 import image2 from '../../assets/image2.svg';
 import image3 from '../../assets/image3.svg';
-import logo from '../../assets/logo 1.svg'
+import logo from '../../assets/logo 1.svg';
+import { useTheme } from '../../context/ThemeContext';
 const Login = ({ onLoginSuccess }) => {
+  const { isDarkMode, toggleTheme } = useTheme();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -310,6 +313,14 @@ const Login = ({ onLoginSuccess }) => {
 
   return (
     <div className="login-container">
+      <button
+        className="theme-toggle-button"
+        onClick={toggleTheme}
+        aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+      >
+        {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+        {isDarkMode ? 'Light Mode' : 'Dark Mode'}
+      </button>
       <div className="login-card">
         <div className="login-content">
           {/* Left Side - Login Form */}

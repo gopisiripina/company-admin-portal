@@ -1,0 +1,316 @@
+/* Employee Form Modal Dark Theme Styles */
+
+/* Text Elements Override */
+[data-theme="dark"] {
+  --text-light: #e5e7eb;
+  --text-secondary: #9ca3af;
+}
+
+/* Target auto-generated text and permanent position specifically */
+[data-theme="dark"] .ant-form-item-extra,
+[data-theme="dark"] .ant-form-item span[class*="extra"],
+[data-theme="dark"] .ant-form-item div[class*="extra"],
+[data-theme="dark"] .ant-form-item-explain,
+[data-theme="dark"] .ant-form-item small,
+[data-theme="dark"] .ant-form-item .description,
+[data-theme="dark"] .ant-form-item .helper-text,
+[data-theme="dark"] .ant-form-item .permanent-text,
+[data-theme="dark"] .ant-form-item .infinity-icon,
+[data-theme="dark"] .ant-modal-root .ant-form-item-extra {
+  color: #e5e7eb !important;
+}
+
+/* Extra specific targeting for these elements */
+[data-theme="dark"] div:has(> span:contains("Auto-generated")),
+[data-theme="dark"] div:has(> span:contains("Unique identifier")),
+[data-theme="dark"] div:has(> span:contains("Permanent Position")),
+[data-theme="dark"] div:has(> span:contains("No end date")),
+[data-theme="dark"] .ant-form-item-extra:contains("Auto-generated"),
+[data-theme="dark"] .ant-form-item-extra:contains("Unique identifier"),
+[data-theme="dark"] span:contains("∞"),
+[data-theme="dark"] .permanent-position-text,
+[data-theme="dark"] .end-date-note {
+  color: #e5e7eb !important;
+}
+
+/* Specific element targeting */
+[data-theme="dark"] .employee-form-modal .ant-form-item-extra,
+[data-theme="dark"] .employee-form-modal .ant-form-item-explain {
+  color: #e5e7eb !important;
+}
+
+/* Force Light Text for Specific Elements */
+[data-theme="dark"] .employee-form-modal *:not(.anticon):not(.ant-btn):not(.ant-input):not(.ant-select-selector) {
+  color: var(--text-light) !important;
+}
+
+/* Form Section Titles and Text */
+[data-theme="dark"] .ant-modal-content h3,
+[data-theme="dark"] .ant-modal-content h4,
+[data-theme="dark"] .ant-modal-content .ant-typography,
+[data-theme="dark"] .ant-modal-content .section-title,
+[data-theme="dark"] .ant-modal-content .ant-typography-secondary,
+[data-theme="dark"] .ant-modal-content .ant-form-item-extra,
+[data-theme="dark"] .ant-modal-content p,
+[data-theme="dark"] .ant-modal-content span:not(.anticon),
+[data-theme="dark"] .ant-modal-content div:not(.ant-upload):not(.ant-modal-content):not(.ant-modal-body) {
+  color: #e5e7eb !important;
+}
+
+/* Upload Area Text */
+[data-theme="dark"] .ant-upload p.ant-upload-text,
+[data-theme="dark"] .ant-upload p.ant-upload-hint,
+[data-theme="dark"] .ant-upload .ant-upload-drag-icon {
+  color: #e5e7eb !important;
+}
+
+/* Form Labels and Required Mark */
+[data-theme="dark"] .ant-form-item-label > label,
+[data-theme="dark"] .ant-form-item-label > label.ant-form-item-required::before,
+[data-theme="dark"] .ant-form-item-label > label.ant-form-item-required::after {
+  color: #e5e7eb !important;
+}
+
+/* Section Headers */
+[data-theme="dark"] .ant-divider,
+[data-theme="dark"] .ant-divider-inner-text {
+  color: #e5e7eb !important;
+  border-color: #374151 !important;
+}
+
+/* Help Text and Descriptions */
+[data-theme="dark"] .form-help-text,
+[data-theme="dark"] .ant-form-item-extra,
+[data-theme="dark"] .ant-form-item-explain,
+[data-theme="dark"] .description-text {
+  color: #9ca3af !important;
+}
+
+/* Input Group Addons (Currency, Country Code) */
+[data-theme="dark"] .ant-input-group-addon,
+[data-theme="dark"] .ant-input-group-addon span,
+[data-theme="dark"] .phone-input-addon {
+  background-color: #374151 !important;
+  color: #e5e7eb !important;
+  border-color: #4b5563 !important;
+}
+
+/* Specific Text Elements */
+[data-theme="dark"] .permanent-position-text,
+[data-theme="dark"] .end-date-note,
+[data-theme="dark"] .profile-upload-text,
+[data-theme="dark"] .contact-details-header,
+[data-theme="dark"] .employment-details-header {
+  color: #e5e7eb !important;
+}
+
+/* Modal Base */
+[data-theme="dark"] .employee-form-modal .ant-modal-content,
+[data-theme="dark"] .employee-type-selection-modal .ant-modal-content {
+  background-color: #1f2937 !important;
+  border: 1px solid #374151 !important;
+}
+
+/* Modal Header */
+[data-theme="dark"] .employee-form-modal .ant-modal-header,
+[data-theme="dark"] .employee-type-selection-modal .ant-modal-header {
+  background-color: #1f2937 !important;
+  border-bottom: 1px solid #374151 !important;
+}
+
+[data-theme="dark"] .employee-form-modal .ant-modal-title,
+[data-theme="dark"] .employee-type-selection-modal .ant-modal-title {
+  color: #f3f4f6 !important;
+}
+
+/* Form Labels */
+[data-theme="dark"] .employee-form-modal .ant-form-item-label > label,
+[data-theme="dark"] .employee-form-modal .ant-form-item-label > label.ant-form-item-required::before,
+[data-theme="dark"] .employee-form-modal .ant-form label,
+[data-theme="dark"] .employee-form-modal .ant-form-item span,
+[data-theme="dark"] .employee-form-modal .ant-form-item div {
+  color: #e5e7eb !important;
+}
+
+/* Section Headers */
+[data-theme="dark"] .employee-form-modal .section-header,
+[data-theme="dark"] .employee-form-modal h4,
+[data-theme="dark"] .employee-form-modal .ant-typography {
+  color: #e5e7eb !important;
+}
+
+/* Upload Area Text */
+[data-theme="dark"] .employee-form-modal .ant-upload.ant-upload-drag {
+  background-color: #1f2937 !important;
+}
+
+[data-theme="dark"] .employee-form-modal .ant-upload.ant-upload-drag p.ant-upload-text,
+[data-theme="dark"] .employee-form-modal .ant-upload.ant-upload-drag p.ant-upload-hint,
+[data-theme="dark"] .employee-form-modal .ant-upload.ant-upload-drag .anticon {
+  color: #e5e7eb !important;
+}
+
+/* Input Groups (Phone, Currency) */
+[data-theme="dark"] .employee-form-modal .ant-input-group-addon,
+[data-theme="dark"] .employee-form-modal .phone-input .ant-select-selection-item {
+  color: #e5e7eb !important;
+  background-color: #1f2937 !important;
+}
+
+/* Helper Text */
+[data-theme="dark"] .employee-form-modal .ant-form-item-extra,
+[data-theme="dark"] .employee-form-modal .helper-text,
+[data-theme="dark"] .employee-form-modal .description-text,
+[data-theme="dark"] .employee-form-modal .ant-form-item small,
+[data-theme="dark"] .employee-form-modal .ant-form-item .description {
+  color: #9ca3af !important;
+}
+
+/* Auto-generated text and permanent position */
+[data-theme="dark"] .employee-form-modal .auto-generated-text,
+[data-theme="dark"] .employee-form-modal .permanent-position-note,
+[data-theme="dark"] .employee-form-modal .infinity-symbol,
+[data-theme="dark"] .employee-form-modal .ant-form-item-extra span,
+[data-theme="dark"] .employee-form-modal .ant-form-item-extra div {
+  color: #9ca3af !important;
+}
+
+/* Specifically target the auto-generated and permanent position text */
+[data-theme="dark"] .ant-form-item:has(input[placeholder*="Auto-generated"]) .ant-form-item-extra,
+[data-theme="dark"] .ant-form-item:has(input[placeholder*="Unique identifier"]) .ant-form-item-extra,
+[data-theme="dark"] .ant-form-item:has(input[name*="employee_id"]) .ant-form-item-extra,
+[data-theme="dark"] .permanent-position-text,
+[data-theme="dark"] .permanent-position-description {
+  color: #e5e7eb !important;
+}
+
+/* Section Titles */
+[data-theme="dark"] .employee-form-modal .contact-employment-header,
+[data-theme="dark"] .employee-form-modal .profile-info-header {
+  color: #e5e7eb !important;
+  font-weight: 600;
+}
+
+/* Additional specific dark theme overrides */
+[data-theme="dark"] .employee-form-modal {
+  --form-text-color: #e5e7eb;
+}
+
+[data-theme="dark"] .employee-form-modal .ant-form-item-extra *,
+[data-theme="dark"] .employee-form-modal .ant-form-item-explain *,
+[data-theme="dark"] .employee-form-modal .permanent-section *,
+[data-theme="dark"] .employee-form-modal .employee-id-section * {
+  color: var(--form-text-color) !important;
+}
+
+/* Force light text for specific phrases */
+[data-theme="dark"] .employee-form-modal *:not(.anticon):not(.ant-btn):not(.ant-input):not(.ant-select-selector) {
+  color: var(--form-text-color) !important;
+}
+
+/* Target specific text content */
+[data-theme="dark"] .ant-form-item:has(input[id*="employee_id"]) .ant-form-item-extra,
+[data-theme="dark"] .ant-form-item:has(input[id*="end_date"]) .ant-form-item-extra,
+[data-theme="dark"] .ant-form-item-extra:contains("Auto-generated"),
+[data-theme="dark"] .ant-form-item-extra:contains("Permanent Position") {
+  color: var(--form-text-color) !important;
+}
+
+/* Important override for specific text */
+[data-theme="dark"] .employee-form-modal [class*="extra"],
+[data-theme="dark"] .employee-form-modal [class*="explain"],
+[data-theme="dark"] .employee-form-modal [class*="description"],
+[data-theme="dark"] .employee-form-modal [class*="helper"] {
+  color: var(--form-text-color) !important;
+}
+
+/* Direct targeting for problem elements */
+[data-theme="dark"] .ant-form-item div,
+[data-theme="dark"] .ant-form-item span,
+[data-theme="dark"] .ant-form-item p {
+  color: var(--form-text-color) !important;
+}
+
+/* Input Fields */
+[data-theme="dark"] .employee-form-modal .ant-input,
+[data-theme="dark"] .employee-form-modal .ant-input-number,
+[data-theme="dark"] .employee-form-modal .ant-select-selector,
+[data-theme="dark"] .employee-form-modal .ant-picker {
+  background-color: #374151 !important;
+  border-color: #4b5563 !important;
+  color: #f3f4f6 !important;
+}
+
+/* Input Field Placeholders */
+[data-theme="dark"] .employee-form-modal .ant-input::placeholder,
+[data-theme="dark"] .employee-form-modal .ant-select-selection-placeholder {
+  color: #9ca3af !important;
+}
+
+/* Help Text and Descriptions */
+[data-theme="dark"] .employee-form-modal .ant-form-item-extra,
+[data-theme="dark"] .employee-form-modal .ant-typography.ant-typography-secondary {
+  color: #9ca3af !important;
+}
+
+/* Upload Area */
+[data-theme="dark"] .employee-form-modal .ant-upload.ant-upload-drag {
+  background-color: #374151 !important;
+  border-color: #4b5563 !important;
+}
+
+[data-theme="dark"] .employee-form-modal .ant-upload-drag p.ant-upload-text,
+[data-theme="dark"] .employee-form-modal .ant-upload-drag p.ant-upload-hint {
+  color: #e5e7eb !important;
+}
+
+/* Section Headers */
+[data-theme="dark"] .employee-form-modal .section-title {
+  color: #f3f4f6 !important;
+  border-bottom-color: #374151 !important;
+}
+
+/* Select Dropdowns */
+[data-theme="dark"] .ant-select-dropdown {
+  background-color: #1f2937 !important;
+  border: 1px solid #374151 !important;
+}
+
+[data-theme="dark"] .ant-select-item {
+  color: #f3f4f6 !important;
+}
+
+[data-theme="dark"] .ant-select-item-option-active {
+  background-color: #374151 !important;
+}
+
+[data-theme="dark"] .ant-select-item-option-selected {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+}
+
+/* Input Addons (currency symbols, etc) */
+[data-theme="dark"] .employee-form-modal .ant-input-group-addon {
+  background-color: #374151 !important;
+  border-color: #4b5563 !important;
+  color: #e5e7eb !important;
+}
+
+/* Form Sections */
+[data-theme="dark"] .employee-form-modal .form-section {
+  background-color: #1f2937 !important;
+  border-color: #374151 !important;
+}
+
+/* Specific Text Elements */
+[data-theme="dark"] .employee-form-modal .profile-info-text,
+[data-theme="dark"] .employee-form-modal .contact-details-text,
+[data-theme="dark"] .employee-form-modal .employment-details-text {
+  color: #f3f4f6 !important;
+}
+
+/* Modal Footer */
+[data-theme="dark"] .employee-form-modal .ant-modal-footer {
+  background-color: #1f2937 !important;
+  border-top: 1px solid #374151 !important;
+}

@@ -2,18 +2,19 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const ThemeContext = createContext();
 
-export const ThemeProvider = ({ children }) => {
+export const ThemeProvider = ({ children, forceLightTheme = false }) => {
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const savedTheme = localStorage.getItem('theme');
     return savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
 
   useEffect(() => {
-    const theme = isDarkMode ? 'dark' : 'light';
+    // If forceLightTheme is true, always use light theme
+    const theme = forceLightTheme ? 'light' : (isDarkMode ? 'dark' : 'light');
     document.documentElement.setAttribute('data-theme', theme);
+    document.body.style.backgroundColor = forceLightTheme ? '#ffffff' : '';
     localStorage.setItem('theme', theme);
-    console.log('Theme changed to:', theme); // Debug log
-  }, [isDarkMode]);
+  }, [isDarkMode, forceLightTheme]);
 
   const toggleTheme = () => {
     console.log('Toggle theme called. Current mode:', isDarkMode); // Debug log

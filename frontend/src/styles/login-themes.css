@@ -1,0 +1,62 @@
+[data-theme='light'] .login-container {
+  background-color: #ffffff;
+}
+
+[data-theme='dark'] .login-container {
+  background-color: #1a1a1a;
+}
+
+[data-theme='light'] .login-card {
+  background-color: white;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme='dark'] .login-card {
+  background-color: #2d2d2d;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme='dark'] .form-section {
+  background-color: #2d2d2d;
+  color: #ffffff;
+}
+
+[data-theme='dark'] input {
+  background-color: #3d3d3d;
+  color: #ffffff;
+  border-color: #4d4d4d;
+}
+
+[data-theme='dark'] .login-form h2,
+[data-theme='dark'] .login-form label {
+  color: #ffffff;
+}
+
+.theme-toggle-button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  padding: 10px 20px;
+  border-radius: 20px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+[data-theme='light'] .theme-toggle-button {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+[data-theme='dark'] .theme-toggle-button {
+  background-color: #3d3d3d;
+  color: #fff;
+}
+
+.theme-toggle-button:hover {
+  opacity: 0.9;
+  transform: scale(1.05);
+}

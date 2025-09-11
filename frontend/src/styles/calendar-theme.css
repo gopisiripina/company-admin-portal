@@ -1,0 +1,115 @@
+[data-theme='dark'] .login-container {
+  background-color: #1a1a1a;
+}
+
+[data-theme='dark'] .ant-layout {
+  background-color: #141414;
+}
+
+[data-theme='dark'] .ant-layout-header {
+  background-color: #1f1f1f;
+  border-bottom: 1px solid #303030;
+}
+
+[data-theme='dark'] .ant-card {
+  background-color: #1f1f1f;
+  border: 1px solid #303030;
+}
+
+[data-theme='dark'] .ant-typography {
+  color: #ffffff;
+}
+
+[data-theme='dark'] .ant-typography.ant-typography-secondary {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+[data-theme='dark'] .ant-statistic-title {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme='dark'] .ant-list-item {
+  border-bottom: 1px solid #303030;
+}
+
+[data-theme='dark'] .ant-list-item-meta-title {
+  color: #ffffff;
+}
+
+[data-theme='dark'] .ant-list-item-meta-description {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+[data-theme='dark'] .ant-menu {
+  background-color: transparent;
+  color: #ffffff;
+}
+
+[data-theme='dark'] .ant-calendar-date {
+  color: #ffffff;
+}
+
+[data-theme='dark'] .ant-calendar-last-month-cell .ant-calendar-date,
+[data-theme='dark'] .ant-calendar-next-month-btn-day .ant-calendar-date {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+[data-theme='dark'] .ant-select-selection {
+  background-color: #1f1f1f;
+  border-color: #303030;
+}
+
+[data-theme='dark'] .ant-select-selection-item {
+  color: #ffffff;
+}
+
+[data-theme='dark'] .ant-input {
+  background-color: #1f1f1f;
+  border-color: #303030;
+  color: #ffffff;
+}
+
+[data-theme='dark'] .ant-picker {
+  background-color: #1f1f1f;
+  border-color: #303030;
+}
+
+[data-theme='dark'] .ant-picker-input > input {
+  color: #ffffff;
+}
+
+[data-theme='dark'] .ant-modal-content,
+[data-theme='dark'] .ant-modal-header {
+  background-color: #1f1f1f;
+  border-color: #303030;
+}
+
+[data-theme='dark'] .ant-modal-title {
+  color: #ffffff;
+}
+
+[data-theme='dark'] .ant-form-item-label > label {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme='dark'] .ant-calendar-selected-date .ant-calendar-date {
+  background: #177ddc;
+  color: #ffffff;
+}
+
+[data-theme='dark'] .ant-badge-status-text {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+[data-theme='dark'] .ant-calendar-body {
+  background-color: #1f1f1f;
+}
+
+[data-theme='dark'] .ant-calendar-column-header {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme='dark'] .ant-calendar-header {
+  background-color: #1f1f1f;
+  color: #ffffff;
+}

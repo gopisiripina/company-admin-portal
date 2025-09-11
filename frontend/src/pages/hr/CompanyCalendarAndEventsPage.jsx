@@ -8,20 +8,20 @@ import {
   Typography,
   Row,
   Col,
-  Statistic,
-  Button,
   Space,
-  Select,
-  Alert,
+  Button,
   List,
   Tag,
-  Divider,
   Modal,
   Form,
   Input,
+  Select,
   DatePicker,
-  Switch,
   TimePicker,
+  Switch,
+  Alert,
+  Statistic,
+  Divider,
   Dropdown,
   message,
   Spin
@@ -37,6 +37,8 @@ import {
   DeleteOutlined,
   SyncOutlined
 } from '@ant-design/icons';
+import { useTheme } from '../../context/ThemeContext';
+import '../../../src/styles/calendar-theme.css';
 import dayjs from 'dayjs';
 import { supabase } from '../../supabase/config';
 import axios from 'axios';
@@ -45,6 +47,7 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 // import ErrorPage from '../../error/ErrorPage';
 export default function CalendarManagement({ userRole = 'employee', currentUserId} ) {
+  const { isDarkMode } = useTheme();
   // if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
   //   return <ErrorPage errorType="403" />;
   // }
@@ -1047,14 +1050,14 @@ const upcomingEvents = [
   .slice(0, 5);
 
   return (
-    <Layout style={{ minHeight: '100vh', background: '#f5f5f5' }}>
+    <Layout style={{ minHeight: '100vh', background: isDarkMode ? '#141414' : '#f5f5f5' }}>
 
     
       <Header style={{ 
-        background: '#fff', 
+        background: isDarkMode ? '#1f1f1f' : '#fff', 
         padding: '0 24px',
-        boxShadow: '0 1px 4px rgba(0,21,41,.08)',
-        borderBottom: '1px solid #f0f0f0'
+        boxShadow: isDarkMode ? '0 1px 4px rgba(0,0,0,.15)' : '0 1px 4px rgba(0,21,41,.08)',
+        borderBottom: isDarkMode ? '1px solid #303030' : '1px solid #f0f0f0'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', height: '100%' }}>
           <Title level={3} style={{ margin: 0, color: '#262626' }}>

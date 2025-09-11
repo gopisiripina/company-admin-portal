@@ -91,8 +91,8 @@ const [totalApplications, setTotalApplications] = useState(0);
     }
   }, []);
 
-  // Fetch all campus job applications
-  const fetchApplications = async (page = 1, size = 5) => {
+  // Updated fetchApplications function
+const fetchApplications = async (page = 1, size = 5) => {
   setLoading(true);
   try {
     // Calculate offset for pagination
@@ -115,12 +115,32 @@ const [totalApplications, setTotalApplications] = useState(0);
 
     if (error) throw error;
 
-    // ... rest of your transformation logic remains the same
-    
+    // Transform the data if needed
+    const transformedData = data?.map(app => ({
+      id: app.id,
+      studentName: app.student_name || app.studentName,
+      email: app.email,
+      mobile: app.mobile,
+      jobId: app.job_id || app.jobId,
+      collegeName: app.college_name || app.collegeName,
+      linkId: app.link_id || app.linkId,
+      resumeUrl: app.resume_url || app.resumeUrl,
+      appliedDate: app.created_at || app.applied_date,
+      appliedTime: app.created_at ? new Date(app.created_at).toLocaleString() : null,
+      created_at: app.created_at
+    })) || [];
+
+    setApplications(transformedData);
     setTotalApplications(count);
-    // ... rest of the function
+    
+    console.log('Fetched applications:', transformedData);
+    console.log('Total count:', count);
+    
   } catch (error) {
-    // ... error handling
+    console.error('Error fetching applications:', error);
+    message.error('Failed to fetch applications: ' + error.message);
+    setApplications([]);
+    setTotalApplications(0);
   } finally {
     setLoading(false);
   }

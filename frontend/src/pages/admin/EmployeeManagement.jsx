@@ -17,7 +17,7 @@ import {
   Typography,
   Switch,
   Upload,
-  Select, DatePicker
+  Select, DatePicker, Tooltip
 } from 'antd';
 import dayjs from 'dayjs';
 import { 
@@ -28,7 +28,9 @@ import {
   TeamOutlined,
   MailOutlined,
   UploadOutlined, 
-  UserOutlined
+  UserOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined
 } from '@ant-design/icons';
 import CryptoJS from 'crypto-js';
 import { supabase, supabaseAdmin } from '../../supabase/config';
@@ -714,7 +716,7 @@ const updateData = {
       destroyOnHidden
       width={900}
       centered
-      className="employee-form-modal"
+      className={employeeCreationType === null ? 'employee-type-selection-modal' : 'employee-form-modal'}
     >
   
 
@@ -722,9 +724,9 @@ const updateData = {
 
 {!editingEmployee && !employeeCreationType ? (
   // Professional Employee Type Selection Screen
-  <div style={{ 
+  <div className="employee-creation-container"
+    style={{ 
     padding: '32px',
-    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
     minHeight: '500px',
     borderRadius: '16px',
     position: 'relative',
@@ -2890,7 +2892,7 @@ const handleDelete = useCallback(async (employeeId) => {
     const basicEarning = earnings.find(earning => 
       earning.label && earning.label.toLowerCase() === "basic"
     );
-    
+
     if (basicEarning && basicEarning.amount) {
       return `₹${parseFloat(basicEarning.amount).toLocaleString('en-US', { 
         minimumFractionDigits: 2, 
@@ -2900,6 +2902,18 @@ const handleDelete = useCallback(async (employeeId) => {
     
     return 'N/A';
   },
+},
+{
+  title: 'Portal Access',
+  dataIndex: 'portal_access',
+  key: 'portalAccess',
+  width: 120,
+  render: (access) => (
+    <Tag color={access ? 'cyan' : 'volcano'}>
+      {access ? 'Access ✓' : 'Access ✗'}
+    </Tag>
+  ),
+  responsive: ['md'],
 },
     // {
     //   title: 'Created Date',
@@ -2934,6 +2948,19 @@ const handleDelete = useCallback(async (employeeId) => {
         style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: 'white' }}
         title="Send Credentials"
       />
+      <Tooltip title={record.portal_access ? 'Deny Access' : 'Grant Access'}>
+        <Button
+          type={record.portal_access ? "primary" : "default"}
+          size={isMobile ? "small" : "middle"}
+          onClick={() => handleAccessToggle(record.id, !record.portal_access)}
+          style={{ 
+            backgroundColor: record.portal_access ? '#10b981' : '#ef4444', 
+            borderColor: record.portal_access ? '#10b981' : '#ef4444', 
+            color: 'white' 
+          }}
+          icon={record.portal_access ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+        />
+      </Tooltip>
       <Popconfirm
         title="Delete Employee"
         description="Are you sure you want to delete this employee?"
