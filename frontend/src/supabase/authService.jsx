@@ -118,6 +118,7 @@ async checkSupabaseCredentials(email, password) {
           pay: userData.pay,
           department: userData.department,
           documents: userData.documents,
+          start_date: userData.start_date
         };
         
         return user;
@@ -309,7 +310,8 @@ async changeFirstLoginPassword(userId, newPassword) {
          documents: user.documents || [],            
         createdAt: user.createdAt,
         created_at: user.created_at,
-        updatedAt: user.updatedAt
+        updatedAt: user.updatedAt,
+        start_date: user.start_date 
       };
       
       
