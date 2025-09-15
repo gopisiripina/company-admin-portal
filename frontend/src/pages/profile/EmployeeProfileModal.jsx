@@ -437,7 +437,7 @@ const uploadValidation = (file) => {
     mobile: userData?.mobile || 'Not provided',
     workPhone: userData?.work_phone || 'Not provided',
     address: userData?.address || 'Not provided',
-    joinDate: userData?.created_at || userData?.createdAt || userData?.start_date,
+    joinDate: userData?.start_date,
     birthDate: userData?.birth_date || userData?.birthDate,
     employeeType: userData?.employee_type || 'full-time',
     status: userData?.isActive ? 'Active' : 'Inactive',
