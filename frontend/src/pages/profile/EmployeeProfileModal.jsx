@@ -1,4 +1,4 @@
-import React, { useState, useCallback,useEffect  } from 'react';
+import React, { useState, useCallback,useEffect,useRef } from 'react';
 import {
   Card,
   Row,
@@ -88,7 +88,9 @@ export default function EmployeeProfileModal({ isVisible, onClose, userData, isL
 const [documentLoading, setDocumentLoading] = useState(false);
 const [uploadModalVisible, setUploadModalVisible] = useState(false);
 const [uploadForm] = Form.useForm();
-
+const [faceEmbedding, setFaceEmbedding] = useState(null);
+const [uploadedFile, setUploadedFile] = useState(null);
+const faceEmbeddingRef = useRef(null);
 const DOCUMENT_TYPES = [
   { value: 'Certificate', label: 'Certificate', color: '#52c41a' },
   { value: 'Contract', label: 'Employment Contract', color: '#52c41a' },
@@ -99,8 +101,9 @@ const DOCUMENT_TYPES = [
   { value: 'Legal', label: 'Legal Document', color: '#52c41a' },
   { value: 'Other', label: 'Other', color: '#666' }
 ];
-// Load documents from user data
-// Replace the existing useEffect
+
+
+
 useEffect(() => {
   if (userData?.documents) {
     // Handle both array and string cases
@@ -604,94 +607,172 @@ const uploadValidation = (file) => {
   }, [employeeData, form, personalForm]);
 
   const handleImageUpload = useCallback(async (file) => {
-    const isJpgOrPng = file.type === 'image/jpeg' || file.type === 'image/png' || file.type === 'image/jpg';
-    if (!isJpgOrPng) {
-      message.error('You can only upload JPG/PNG files!');
-      return false;
-    }
+  const isJpgOrPng = file.type === 'image/jpeg' || file.type === 'image/png' || file.type === 'image/jpg';
+  if (!isJpgOrPng) {
+    message.error('You can only upload JPG/PNG files!');
+    return false;
+  }
+  
+  const isLt2M = file.size / 1024 / 1024 < 2;
+  if (!isLt2M) {
+    message.error('Image must be smaller than 2MB!');
+    return false;
+  }
+
+  try {
+    // Store the uploaded file for face embedding processing
+    setUploadedFile(file);
     
-    const isLt2M = file.size / 1024 / 1024 < 2;
-    if (!isLt2M) {
-      message.error('Image must be smaller than 2MB!');
-      return false;
-    }
+    // Generate unique filename
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const filePath = `profile-images/${fileName}`;
 
-    try {
-      // Generate unique filename
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `profile-images/${fileName}`;
+    // Upload to Supabase Storage
+    const { data, error } = await supabase.storage
+      .from('profile-images')
+      .upload(filePath, file);
 
-      // Upload to Supabase Storage
-      const { data, error } = await supabase.storage
-        .from('profile-images')
-        .upload(filePath, file);
-
-      if (error) {
-        console.error('Upload error:', error);
-        message.error('Failed to upload image');
-        return false;
-      }
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('profile-images')
-        .getPublicUrl(filePath);
-
-      setProfileImagePreview(publicUrl);
-      message.success('Image uploaded successfully');
-    } catch (error) {
+    if (error) {
       console.error('Upload error:', error);
       message.error('Failed to upload image');
+      return false;
     }
 
-    return false;
-  }, []);
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('profile-images')
+      .getPublicUrl(filePath);
+
+    setProfileImagePreview(publicUrl);
+    
+    // Get face embedding for new image
+    await getFaceEmbedding(file);
+    
+    message.success('Image uploaded successfully');
+  } catch (error) {
+    console.error('Upload error:', error);
+    message.error('Failed to upload image');
+  }
+
+  return false;
+}, []);
+
+  const getFaceEmbedding = async (file) => {
+  try {
+    console.log('Starting face embedding process for file:', file.name);
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    const embeddingResponse = await fetch('https://hrm.myaccess.cloud/api/get-face-embedding/', {
+      method: 'POST',
+      body: formData
+    });
+    
+    console.log('Embedding API response status:', embeddingResponse.status);
+    
+    if (embeddingResponse.ok) {
+      const embeddingData = await embeddingResponse.json();
+      console.log('Raw embedding data received:', embeddingData);
+      
+      if (embeddingData && embeddingData.embedding && Array.isArray(embeddingData.embedding)) {
+  const finalFaceEmbedding = embeddingData.embedding.map(value => parseFloat(value));
+  console.log('Processed face embedding length:', finalFaceEmbedding.length);
+  
+  setFaceEmbedding(finalFaceEmbedding);
+  faceEmbeddingRef.current = finalFaceEmbedding; // ADD THIS LINE
+  
+  console.log('setFaceEmbedding called with:', finalFaceEmbedding.slice(0, 5));
+  
+  message.success('Face embedding generated successfully');
+} else {
+        console.error('Invalid embedding data structure:', embeddingData);
+        setFaceEmbedding(null);
+      }
+    }
+  } catch (error) {
+    console.error('Face embedding API error:', error);
+    setFaceEmbedding(null);
+  }
+};
 
   const handleEditSubmit = async () => {
-    try {
-      const values = await form.validateFields();
-      const updatedFields = {
-        education: values.education,
-        total_experience: values.totalExperience,
-        technical_skills: values.technicalSkills,
-        certifications: values.certifications,
-        languages: values.languages,
-        linkedin_url: values.linkedinUrl,
-        github_url: values.githubUrl,
-        twitter_url: values.twitterUrl,
-        profileimage: profileImagePreview || employeeData.avatar
-      };
-      const { data, error } = await supabase
-        .from('users')
-        .update({
-          education: values.education,
-          total_experience: values.totalExperience,
-          technical_skills: values.technicalSkills,
-          certifications: values.certifications,
-          languages: values.languages,
-          linkedin_url: values.linkedinUrl,
-          github_url: values.githubUrl,
-          twitter_url: values.twitterUrl,
-          profileimage: profileImagePreview || employeeData.avatar
-        })
-        .eq('employee_id', employeeData.id);
+  try {
+    const values = await form.validateFields();
+    
+    // ADD THESE DEBUG LOGS
+    console.log('handleEditSubmit - Current faceEmbedding state:', faceEmbedding);
+    console.log('handleEditSubmit - faceEmbedding is array:', Array.isArray(faceEmbedding));
+    console.log('handleEditSubmit - faceEmbedding length:', faceEmbedding?.length);
+    
+    const updatedFields = {
+      education: values.education,
+      total_experience: values.totalExperience,
+      technical_skills: values.technicalSkills,
+      certifications: values.certifications,
+      languages: values.languages,
+      linkedin_url: values.linkedinUrl,
+      github_url: values.githubUrl,
+      twitter_url: values.twitterUrl,
+      profileimage: profileImagePreview || employeeData.avatar
+    };
 
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
-      }
-      
-      message.success('Skills & Education updated successfully');
-        if (onProfileUpdate) {
-        onProfileUpdate(updatedFields);
-      }
-      setIsEditModalVisible(false);
-    } catch (error) {
-      console.error('Full error:', error);
-      message.error(`Failed to update skills & education: ${error.message}`);
+    
+
+    const { data, error } = await supabase
+      .from('users')
+      .update(updatedFields)
+      .eq('employee_id', employeeData.id);
+
+    if (error) {
+      console.error('Supabase error:', error);
+      throw error;
     }
-  };
+    
+    // Update face embedding if available
+if (faceEmbeddingRef.current && Array.isArray(faceEmbeddingRef.current) && faceEmbeddingRef.current.length === 128) {
+  console.log('Updating face embedding for employee_id:', employeeData.id);
+  
+  const { data: embedData, error: embedError } = await supabase
+    .from('users')
+    .update({ face_embedding: faceEmbeddingRef.current })
+    .eq('employee_id', employeeData.id)
+    .select();
+  
+  console.log('Face embedding update result:', { data: embedData, error: embedError });
+      
+  if (embedError) {
+    console.error('Face embedding update error:', embedError);
+    message.warning('Profile updated but face embedding update failed');
+  } else {
+    console.log('Face embedding updated successfully');
+    message.success('Profile and face embedding updated successfully');
+  }
+} else {
+  console.log('Face embedding not updated - condition check failed:', {
+    exists: !!faceEmbeddingRef.current,
+    isArray: Array.isArray(faceEmbeddingRef.current),
+    length: faceEmbeddingRef.current?.length
+  });
+  message.success('Skills & Education updated successfully');
+}
+    
+    if (onProfileUpdate) {
+      onProfileUpdate(updatedFields);
+    }
+    setIsEditModalVisible(false);
+  } catch (error) {
+    console.error('Full error:', error);
+    message.error(`Failed to update profile: ${error.message}`);
+  }
+};
+  const handleModalClose = () => {
+  setIsEditModalVisible(false);
+  setFaceEmbedding(null);
+  faceEmbeddingRef.current = null;
+  setUploadedFile(null);
+  setProfileImagePreview(null);
+};
 
   const handlePersonalInfoSave = async () => {
     try {
@@ -709,12 +790,15 @@ const updateData = {
 };
 
 
-      
+      console.log('Updating user with employee_id:', employeeData.id);
+console.log('Face embedding to update:', faceEmbedding);
       const { data, error } = await supabase
         .from('users')
         .update(updateData)
-        .eq('employee_id', employeeData.id);
-
+        .eq('employee_id', employeeData.id)
+        .select();
+        console.log('Update result:', data);
+console.log('Update error:', error);
       if (error) throw error;
       
       message.success('Personal information updated successfully');
@@ -773,7 +857,7 @@ const uploadProps = {
     <Button 
       key="upload" 
       type="primary" 
-      onClick={() => uploadForm.submit()}
+      onClick={() => form.submit()}
       loading={documentLoading}
       className="action-button primary"
       size="large"
@@ -2440,7 +2524,7 @@ const uploadProps = {
 <Modal
   title={null}
   open={isEditModalVisible}
-  onCancel={() => setIsEditModalVisible(false)}
+  onCancel={handleModalClose} 
   footer={null}
   width={screens.xs ? '95%' : '85%'}
   destroyOnHidden   // instead of destroyOnClose
