@@ -891,11 +891,22 @@ if (isHol) {
   
   // For past working days without attendance data, mark as absent
   if (isPastDate && isWorkDay) {
+  // Only mark as absent if there's an attendance record with is_present: false
+  // If there's no attendance record at all, show as no-data
+  if (!attendanceInfo) {
     return {
-      dayClass: 'absent',
-      tooltipText: `Absent on ${dateStr} - No attendance recorded`
+      dayClass: 'no-data',
+      tooltipText: `No data for ${dateStr}`
     };
   }
+  // If there's attendance info but marked as not present
+  if (attendanceInfo && attendanceInfo.isPresent === false) {
+    return {
+      dayClass: 'absent',
+      tooltipText: `Absent on ${dateStr}`
+    };
+  }
+}
   
   // For future dates or today without data
   return {
