@@ -142,36 +142,44 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
   };
 
   // Fetch attendance data
-  const fetchAttendanceData = async (startDate, endDate) => {
-    try {
-      const { data, error } = await supabase
-        .from('attendance')
-        .select('*')
-        .gte('date', startDate)
-        .lte('date', endDate);
-      
-      if (error) throw error;
-      
-      const transformedData = {};
-      data.forEach(record => {
-        const dateKey = record.date;
-        if (!transformedData[dateKey]) {
-          transformedData[dateKey] = {};
-        }
-        transformedData[dateKey][record.user_id] = {
-          present: record.is_present,
-          checkIn: record.check_in,
-          checkOut: record.check_out,
-          totalHours: record.total_hours
-        };
-      });
-      
+  const fetchAttendanceData = async (startDate, endDate, shouldMerge = false) => {
+  try {
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('*')
+      .gte('date', startDate)
+      .lte('date', endDate);
+    
+    if (error) throw error;
+    
+    const transformedData = {};
+    data.forEach(record => {
+      const dateKey = record.date;
+      if (!transformedData[dateKey]) {
+        transformedData[dateKey] = {};
+      }
+      transformedData[dateKey][record.user_id] = {
+        present: record.is_present,
+        checkIn: record.check_in,
+        checkOut: record.check_out,
+        totalHours: record.total_hours
+      };
+    });
+    
+    if (shouldMerge) {
+      // Merge with existing data instead of overwriting
+      setAttendanceData(prevData => ({
+        ...prevData,
+        ...transformedData
+      }));
+    } else {
       setAttendanceData(transformedData);
-    } catch (error) {
-      console.error('Error fetching attendance:', error);
-      message.error('Failed to load attendance data');
     }
-  };
+  } catch (error) {
+    console.error('Error fetching attendance:', error);
+    message.error('Failed to load attendance data');
+  }
+};
 
   // Mark individual employee as absent
   const handleMarkIndividualAbsent = async (employee) => {
@@ -193,7 +201,8 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
 
       await fetchAttendanceData(
         selectedDate.startOf('month').format('YYYY-MM-DD'),
-        selectedDate.endOf('month').format('YYYY-MM-DD')
+        selectedDate.endOf('month').format('YYYY-MM-DD'),
+        true
       );
 
       message.success(`${employee.name} marked as absent`);
@@ -236,7 +245,8 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
 
       await fetchAttendanceData(
         selectedDate.startOf('month').format('YYYY-MM-DD'),
-        selectedDate.endOf('month').format('YYYY-MM-DD')
+        selectedDate.endOf('month').format('YYYY-MM-DD'),
+        true
       );
 
       message.success(`Marked ${absentEmployees.length} employees as absent`);
@@ -291,23 +301,23 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
     try {
       const dateKey = selectedDate.format('YYYY-MM-DD');
       const attendanceRecords = selectedEmployees.map(employeeId => {
-        let totalHours = 8;
-        let checkOutValue = null;
-        
-        if (checkInTime && checkOutTime && checkOutTime.isAfter(checkInTime)) {
-          totalHours = checkOutTime.diff(checkInTime, 'hours', true);
-          checkOutValue = checkOutTime.format('HH:mm:ss');
-        }
-        
-        return {
-          user_id: employeeId,
-          date: dateKey,
-          check_in: checkInTime.format('HH:mm:ss'),
-          check_out: checkOutValue,
-          total_hours: totalHours,
-          is_present: true
-        };
-      });
+  let totalHours = null;  // Changed from 8 to null
+  let checkOutValue = null;
+  
+  if (checkInTime && checkOutTime && checkOutTime.isAfter(checkInTime)) {
+    totalHours = checkOutTime.diff(checkInTime, 'hours', true);
+    checkOutValue = checkOutTime.format('HH:mm:ss');
+  }
+  
+  return {
+    user_id: employeeId,
+    date: dateKey,
+    check_in: checkInTime.format('HH:mm:ss'),
+    check_out: checkOutValue,
+    total_hours: totalHours,  // Will be null if no check-out time
+    is_present: true
+  };
+});
 
       const { error } = await supabase
         .from('attendance')
@@ -340,18 +350,28 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
     const attendance = attendanceData[dateKey]?.[employee.id];
     
     const employeeMonthlyData = {};
-    Object.keys(attendanceData).forEach(date => {
-      const month = dayjs(date).format('YYYY-MM');
-      if (!employeeMonthlyData[month]) {
-        employeeMonthlyData[month] = { present: 0, absent: 0 };
-      }
-      
-      if (attendanceData[date][employee.id]?.present) {
-        employeeMonthlyData[month].present++;
+Object.keys(attendanceData).forEach(date => {
+  const month = dayjs(date).format('YYYY-MM');
+  const employeeRecord = attendanceData[date][employee.id];
+  
+  // Only process if there's an actual record for this employee on this date
+  if (employeeRecord) {
+    if (!employeeMonthlyData[month]) {
+      employeeMonthlyData[month] = { present: 0, absent: 0, missing: 0 };  // Add missing: 0
+    }
+    
+    if (employeeRecord.present) {
+      // Check if missing (checked in but not checked out)
+      if (employeeRecord.checkIn && !employeeRecord.checkOut) {
+        employeeMonthlyData[month].missing++;
       } else {
-        employeeMonthlyData[month].absent++;
+        employeeMonthlyData[month].present++;
       }
-    });
+    } else {
+      employeeMonthlyData[month].absent++;
+    }
+  }
+});
     
     Modal.info({
       title: `${employee.name}'s Attendance Details`,
@@ -389,25 +409,60 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                     valueStyle={{ color: '#ff4d4f' }}
                   />
                 </Col>
+                <Col span={12}>
+  <Statistic 
+    title="Days Missing" 
+    value={employeeMonthlyData[selectedDate.format('YYYY-MM')]?.missing || 0} 
+    prefix={<ClockCircleOutlined />}
+    valueStyle={{ color: '#faad14' }}
+  />
+</Col>
               </Row>
             </Card>
 
             <Card title="Attendance Calendar">
               <Calendar
-                fullscreen={false}
-                value={selectedDate}
-                dateCellRender={(date) => {
-                  const dayKey = date.format('YYYY-MM-DD');
-                  const dayAttendance = attendanceData[dayKey]?.[employee.id];
-                  
-                  if (dayAttendance?.present) {
-                    return <Badge status="success" text="P" />;
-                  } else if (date.isBefore(dayjs(), 'day') && dayAttendance) {
-                    return <Badge status="error" text="A" />;
-                  }
-                  return null;
-                }}
-              />
+  fullscreen={false}
+  value={selectedDate}
+  dateFullCellRender={(date) => {
+  const dayKey = date.format('YYYY-MM-DD');
+  const dayAttendance = attendanceData[dayKey]?.[employee.id];
+  const isToday = date.isSame(dayjs(), 'day');
+  
+  let cellStyle = {
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '6px',
+    border: isToday ? '2px solid #1890ff' : '1px solid #d9d9d9'
+  };
+  
+  if (dayAttendance?.present) {
+    // Check if missing (checked in but not checked out)
+    if (dayAttendance.checkIn && !dayAttendance.checkOut) {
+      cellStyle.backgroundColor = '#faad14'; // Yellow for missing
+      cellStyle.color = 'white';
+    } else {
+      cellStyle.backgroundColor = '#52c41a'; // Green for present
+      cellStyle.color = 'white';
+    }
+  } else if (dayAttendance && !dayAttendance.present) {
+    cellStyle.backgroundColor = '#ff4d4f'; // Red for absent
+    cellStyle.color = 'white';
+  } else if (isToday) {
+    cellStyle.backgroundColor = '#e6f7ff';
+    cellStyle.color = '#1890ff';
+  }
+  
+  return (
+    <div style={cellStyle}>
+      {date.date()}
+    </div>
+  );
+}}
+/>
             </Card>
           </Space>
         </div>
@@ -428,26 +483,33 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
 
   // Calculate total statistics
   const calculateTotalStats = () => {
-    const dateKey = selectedDate.format('YYYY-MM-DD');
-    const dayData = attendanceData[dateKey] || {};
-    
-    const totalEmpCount = totalEmployeeCount || 0;
-    let presentCount = 0;
-    
-    Object.values(dayData).forEach(record => {
-      if (record.present) {
+  const dateKey = selectedDate.format('YYYY-MM-DD');
+  const dayData = attendanceData[dateKey] || {};
+  
+  const totalEmpCount = totalEmployeeCount || 0;
+  let presentCount = 0;
+  let missingCount = 0;  // Add this
+  
+  Object.values(dayData).forEach(record => {
+    if (record.present) {
+      // Check if missing (checked in but not checked out)
+      if (record.checkIn && !record.checkOut) {
+        missingCount++;  // Add this
+      } else {
         presentCount++;
       }
-    });
-    
-    const absentCount = totalEmpCount - presentCount;
-    
-    return {
-      present: presentCount,
-      absent: absentCount,
-      total: totalEmpCount
-    };
+    }
+  });
+  
+  const absentCount = totalEmpCount - presentCount - missingCount;  // Modify this
+  
+  return {
+    present: presentCount,
+    absent: absentCount,
+    missing: missingCount,  // Add this
+    total: totalEmpCount
   };
+};
 
   // Fetch employees on component mount and when filters change
   useEffect(() => {
@@ -473,24 +535,29 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
 
   // Calculate monthly statistics
   useEffect(() => {
-    const monthly = {};
-    Object.keys(attendanceData).forEach(date => {
-      const month = dayjs(date).format('YYYY-MM');
-      if (!monthly[month]) {
-        monthly[month] = { present: 0, absent: 0, totalDays: 0 };
-      }
-      
-      Object.values(attendanceData[date]).forEach(record => {
-        monthly[month].totalDays++;
-        if (record.present) {
-          monthly[month].present++;
+  const monthly = {};
+  Object.keys(attendanceData).forEach(date => {
+    const month = dayjs(date).format('YYYY-MM');
+    if (!monthly[month]) {
+      monthly[month] = { present: 0, absent: 0, missing: 0, totalDays: 0 };  // Add missing: 0
+    }
+    
+    Object.values(attendanceData[date]).forEach(record => {
+      monthly[month].totalDays++;
+      if (record.present) {
+        // Check if missing (checked in but not checked out)
+        if (record.checkIn && !record.checkOut) {
+          monthly[month].missing++;  // Add this
         } else {
-          monthly[month].absent++;
+          monthly[month].present++;
         }
-      });
+      } else {
+        monthly[month].absent++;
+      }
     });
-    setMonthlyData(monthly);
-  }, [attendanceData]);
+  });
+  setMonthlyData(monthly);
+}, [attendanceData]);
 
   const filteredEmployees = employeesData;
   const totalStats = calculateTotalStats();
@@ -529,23 +596,27 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
 
     const currentMonth = dayjs().format('YYYY-MM');
     const employeeMonthlyData = {};
-
-    Object.keys(attendanceData).forEach(date => {
-      const month = dayjs(date).format('YYYY-MM');
-      if (month === currentMonth) {
-        if (!employeeMonthlyData[month]) {
-          employeeMonthlyData[month] = { present: 0, absent: 0, totalDays: 0 };
-        }
-        
-        const attendance = attendanceData[date][currentEmployee.id];
-        employeeMonthlyData[month].totalDays++;
-        if (attendance?.present) {
-          employeeMonthlyData[month].present++;
-        } else {
-          employeeMonthlyData[month].absent++;
-        }
+Object.keys(attendanceData).forEach(date => {
+  const month = dayjs(date).format('YYYY-MM');
+  if (month === currentMonth) {
+    if (!employeeMonthlyData[month]) {
+      employeeMonthlyData[month] = { present: 0, absent: 0, missing: 0, totalDays: 0 };
+    }
+    
+    const attendance = attendanceData[date][currentEmployee.id];
+    employeeMonthlyData[month].totalDays++;
+    if (attendance?.present) {
+      // Check if missing (checked in but not checked out)
+      if (attendance.checkIn && !attendance.checkOut) {
+        employeeMonthlyData[month].missing++;
+      } else {
+        employeeMonthlyData[month].present++;
       }
-    });
+    } else {
+      employeeMonthlyData[month].absent++;
+    }
+  }
+});
 
     const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 0, totalDays: 0 };
     
@@ -573,51 +644,67 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
           </Card>
 
           <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
-            <Col xs={24} sm={12} md={6}>
-              <Card style={{ ...animationStyles.statsCard, borderRadius: '12px' }}>
-                <Statistic
-                  title="Days Present"
-                  value={monthlyStats.present}
-                  valueStyle={{ color: '#0D7139' }}
-                  prefix={<CheckCircleOutlined />}
-                />
-                <Text type="secondary" style={{ fontSize: '12px' }}>This Month</Text>
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} md={6}>
-              <Card style={{ ...animationStyles.statsCard, borderRadius: '12px' }}>
-                <Statistic
-                  title="Days Absent"
-                  value={monthlyStats.absent}
-                  valueStyle={{ color: '#ff4d4f' }}
-                  prefix={<CloseCircleOutlined />}
-                />
-                <Text type="secondary" style={{ fontSize: '12px' }}>This Month</Text>
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} md={6}>
-              <Card style={{ ...animationStyles.statsCard, borderRadius: '12px' }}>
-                <Statistic
-                  title="Attendance Rate"
-                  value={monthlyStats.totalDays > 0 ? ((monthlyStats.present / monthlyStats.totalDays) * 100).toFixed(1) : 0}
-                  valueStyle={{ color: '#0D7139' }}
-                  suffix="%"
-                />
-                <Text type="secondary" style={{ fontSize: '12px' }}>This Month</Text>
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} md={6}>
-              <Card style={{ ...animationStyles.statsCard, borderRadius: '12px' }}>
-                <Statistic
-                  title="Total Hours"
-                  value={monthlyStats.present * 8}
-                  valueStyle={{ color: '#0D7139' }}
-                  suffix="h"
-                />
-                <Text type="secondary" style={{ fontSize: '12px' }}>This Month</Text>
-              </Card>
-            </Col>
-          </Row>
+  <Col xs={24} sm={12} md={5}>
+    <Card style={{ ...animationStyles.statsCard, borderRadius: '12px' }}>
+      <Statistic
+        title="Days Present"
+        value={monthlyStats.present}
+        valueStyle={{ color: '#0D7139' }}
+        prefix={<CheckCircleOutlined />}
+      />
+      <Text type="secondary" style={{ fontSize: '12px' }}>This Month</Text>
+    </Card>
+  </Col>
+  <Col xs={24} sm={6}>
+  <Card style={{ borderRadius: '12px', ...animationStyles.statsCard }}>
+    <Statistic
+      title="Missing"
+      value={totalStats.missing}
+      valueStyle={{ color: '#faad14' }}
+      prefix={<ClockCircleOutlined />}
+    />
+    <Progress 
+      percent={totalStats.total > 0 ? (totalStats.missing / totalStats.total) * 100 : 0}
+      strokeColor="#faad14"
+      showInfo={false}
+      size="small"
+    />
+  </Card>
+</Col>
+  <Col xs={24} sm={12} md={5}>
+    <Card style={{ ...animationStyles.statsCard, borderRadius: '12px' }}>
+      <Statistic
+        title="Days Absent"
+        value={monthlyStats.absent}
+        valueStyle={{ color: '#ff4d4f' }}
+        prefix={<CloseCircleOutlined />}
+      />
+      <Text type="secondary" style={{ fontSize: '12px' }}>This Month</Text>
+    </Card>
+  </Col>
+  <Col xs={24} sm={12} md={4}>
+    <Card style={{ ...animationStyles.statsCard, borderRadius: '12px' }}>
+      <Statistic
+        title="Attendance Rate"
+        value={monthlyStats.totalDays > 0 ? (((monthlyStats.present + monthlyStats.missing) / monthlyStats.totalDays) * 100).toFixed(1) : 0}
+        valueStyle={{ color: '#0D7139' }}
+        suffix="%"
+      />
+      <Text type="secondary" style={{ fontSize: '12px' }}>This Month</Text>
+    </Card>
+  </Col>
+  <Col xs={24} sm={12} md={5}>
+    <Card style={{ ...animationStyles.statsCard, borderRadius: '12px' }}>
+      <Statistic
+        title="Total Hours"
+        value={monthlyStats.present * 8}
+        valueStyle={{ color: '#0D7139' }}
+        suffix="h"
+      />
+      <Text type="secondary" style={{ fontSize: '12px' }}>This Month</Text>
+    </Card>
+  </Col>
+</Row>
 
           <Card style={{ 
             background: 'rgba(255, 255, 255, 0.95)',
@@ -683,71 +770,95 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
       ),
     },
     {
-      title: 'Status',
-      key: 'status',
-      render: (_, record) => {
-        const dateKey = selectedDate.format('YYYY-MM-DD');
-        const attendance = attendanceData[dateKey]?.[record.id];
-        
-        if (attendance?.present) {
-          return (
-            <Space direction="vertical" size="small">
-              <Space>
-                <Badge status="success" />
-                <Text style={{ color: '#52c41a' }}>Present</Text>
-              </Space>
-              <div style={{ fontSize: '12px' }}>
-                <Text type="secondary">In: </Text>
-                <Text>{attendance.checkIn || '-'}</Text>
-              </div>
-              <div style={{ fontSize: '12px' }}>
-                <Text type="secondary">Out: </Text>
-                <Text>{attendance.checkOut || '-'}</Text>
-              </div>
-            </Space>
-          );
-        } else {
-          return (
+  title: 'Status',
+  key: 'status',
+  render: (_, record) => {
+    const dateKey = selectedDate.format('YYYY-MM-DD');
+    const attendance = attendanceData[dateKey]?.[record.id];
+    
+    if (attendance?.present) {
+      // Check if employee checked in but not checked out (missing)
+      if (attendance.checkIn && !attendance.checkOut) {
+        return (
+          <Space direction="vertical" size="small">
             <Space>
-              <Badge status="error" />
-              <Text style={{ color: '#ff4d4f' }}>Absent</Text>
+              <Badge status="warning" />
+              <Text style={{ color: '#faad14' }}>Missing</Text>
             </Space>
-          );
-        }
-      },
-    },
+            <div style={{ fontSize: '12px' }}>
+              <Text type="secondary">In: </Text>
+              <Text>{attendance.checkIn || '-'}</Text>
+            </div>
+            <div style={{ fontSize: '12px' }}>
+              <Text type="secondary">Out: </Text>
+              <Text style={{ color: '#faad14' }}>Not checked out</Text>
+            </div>
+          </Space>
+        );
+      } else {
+        return (
+          <Space direction="vertical" size="small">
+            <Space>
+              <Badge status="success" />
+              <Text style={{ color: '#52c41a' }}>Present</Text>
+            </Space>
+            <div style={{ fontSize: '12px' }}>
+              <Text type="secondary">In: </Text>
+              <Text>{attendance.checkIn || '-'}</Text>
+            </div>
+            <div style={{ fontSize: '12px' }}>
+              <Text type="secondary">Out: </Text>
+              <Text>{attendance.checkOut || '-'}</Text>
+            </div>
+          </Space>
+        );
+      }
+    } else {
+      return (
+        <Space>
+          <Badge status="error" />
+          <Text style={{ color: '#ff4d4f' }}>Absent</Text>
+        </Space>
+      );
+    }
+  },
+},
     {
       title: 'Hours',
       key: 'hours',
       render: (_, record) => {
-        const dateKey = selectedDate.format('YYYY-MM-DD');
-        const attendance = attendanceData[dateKey]?.[record.id];
-        
-        if (attendance?.present) {
-          let hours = 0;
-          if (attendance.checkIn && attendance.checkOut) {
-            const checkIn = dayjs(`${dateKey} ${attendance.checkIn}`);
-            const checkOut = dayjs(`${dateKey} ${attendance.checkOut}`);
-            hours = checkOut.diff(checkIn, 'hours', true);
-          } else if (attendance.totalHours) {
-            hours = attendance.totalHours;
-          }
-          
-          return (
-            <div>
-              <Text style={{ fontWeight: 600 }}>{hours.toFixed(1)}h</Text>
-              {hours < 8 && (
-                <div>
-                  <Text type="danger" style={{ fontSize: '10px' }}>
-                    Short by {(8 - hours).toFixed(1)}h
-                  </Text>
-                </div>
-              )}
-            </div>
-          );
-        }
-        return <Text type="secondary">-</Text>;
-      },
+  const dateKey = selectedDate.format('YYYY-MM-DD');
+  const attendance = attendanceData[dateKey]?.[record.id];
+  
+  if (attendance?.present && attendance.totalHours !== null) {  // Add null check
+    let hours = 0;
+    if (attendance.checkIn && attendance.checkOut) {
+      const checkIn = dayjs(`${dateKey} ${attendance.checkIn}`);
+      const checkOut = dayjs(`${dateKey} ${attendance.checkOut}`);
+      hours = checkOut.diff(checkIn, 'hours', true);
+    } else if (attendance.totalHours) {
+      hours = attendance.totalHours;
+    }
+    
+    const displayHours = Math.floor(hours);
+    const displayMinutes = Math.round((hours - displayHours) * 60);
+    const timeString = `${displayHours}:${String(displayMinutes).padStart(2, '0')}`;
+    
+    return (
+      <div>
+        <Text style={{ fontWeight: 600 }}>{timeString}</Text>
+        {hours < 8 && (
+          <div>
+            <Text type="danger" style={{ fontSize: '10px' }}>
+              Short by {Math.floor(8-hours)}:{String(Math.round(((8-hours) - Math.floor(8-hours)) * 60)).padStart(2, '0')}
+            </Text>
+          </div>
+        )}
+      </div>
+    );
+  }
+  return <Text type="secondary">-</Text>;
+},
     },
     {
       title: 'Actions',
@@ -1079,6 +1190,10 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                               <Text style={{ color: '#0D7139', fontWeight: 600 }}>{data.present}</Text>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+  <Text>Missing:</Text>
+  <Text style={{ color: '#faad14', fontWeight: 600 }}>{data.missing}</Text>
+</div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                               <Text>Absent:</Text>
                               <Text style={{ color: '#ff4d4f', fontWeight: 600 }}>{data.absent}</Text>
                             </div>
@@ -1201,17 +1316,22 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
             </div>
 
             {checkInTime && checkOutTime && (
-              <div style={{ 
-                padding: '12px',
-                background: '#f0f9ff',
-                borderRadius: '8px',
-                border: '1px solid #0D7139'
-              }}>
-                <Text strong style={{ color: '#0D7139' }}>
-                  Total Hours: {checkOutTime.diff(checkInTime, 'hours', true).toFixed(1)}h
-                </Text>
-              </div>
-            )}
+  <div style={{ 
+    padding: '12px',
+    background: '#f0f9ff',
+    borderRadius: '8px',
+    border: '1px solid #0D7139'
+  }}>
+    <Text strong style={{ color: '#0D7139' }}>
+      Total Hours: {(() => {
+        const totalMinutes = checkOutTime.diff(checkInTime, 'minutes');
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        return `${hours}:${String(minutes).padStart(2, '0')}`;
+      })()}
+    </Text>
+  </div>
+)}
           </div>
         </Modal>
       </div>

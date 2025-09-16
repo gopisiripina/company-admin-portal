@@ -340,11 +340,11 @@ useEffect(() => {
     await fetchEmployees(currentPage, pageSize);
     const currentMonth = dayjs().format('YYYY-MM');
     await fetchExpenses(currentMonth);
-    fetchStats();
+    await fetchStats(); // Add await here
   };
   
   initializeData();
-}, []);
+}, [currentPage, pageSize]);
 
 const handleEmployeeSelect = async (userId) => {
   const selectedUser = users.find(user => user.id === userId);
@@ -1034,16 +1034,6 @@ const netPay = Number(record.net_pay) || (totalEarnings - totalDeductions);
     }
   };
 
-  useEffect(() => {
-    const initializeData = async () => {
-      await loadUsers();
-      await fetchEmployees(currentPage, pageSize);
-      fetchStats();
-    };
-    
-    initializeData();
-  }, []);
-
   const loadUsers = async () => {
     try {
       setLoading(true);
@@ -1065,16 +1055,24 @@ const netPay = Number(record.net_pay) || (totalEarnings - totalDeductions);
   const fetchEmployees = async (page = 1, size = 5) => {
   try {
     setLoading(true);
-    const offset = (page - 1) * size;
     
-    const { data, error, count } = await supabase
+    // Fetch ALL payroll records (not paginated) for current month calculation
+    const { data: allPayrollData, error: payrollError } = await supabase
       .from('payroll')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range(offset, offset + size - 1);
+      .select('*')
+      .order('created_at', { ascending: false });
     
-    if (error) throw error;
-    setEmployees(data || []);
+    if (payrollError) throw payrollError;
+    
+    // Set all employees data for calculations
+    setEmployees(allPayrollData || []);
+    
+    // Get count for pagination display
+    const { count } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .in('role', ['employee']);
+    
     setTotalEmployees(count || 0);
   } catch (error) {
     message.error('Error fetching employees: ' + error.message);
@@ -1692,31 +1690,58 @@ if (printWindow) {
 
 
   const getMergedEmployeeData = () => {
+  const currentMonth = dayjs().format('YYYY-MM');
+  
+  if (!users || !Array.isArray(users) || !employees || !Array.isArray(employees)) {
+    return [];
+  }
+  
   return users.map(user => {
-    const latestPayroll = employees
-      .filter(emp => emp.user_id === user.id)
+    // Find ALL payroll records for this user first
+    const userPayrolls = employees.filter(emp => emp.user_id === user.id);
+    
+    // Then filter for current month
+    const currentMonthPayroll = userPayrolls
+      .filter(emp => {
+        if (!emp.pay_period) return false;
+        const empMonth = dayjs(emp.pay_period).format('YYYY-MM');
+        return empMonth === currentMonth;
+      })
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
     
     let netPay = 0;
-    if (latestPayroll) {
-      if (latestPayroll.final_payslips && Array.isArray(latestPayroll.final_payslips) && latestPayroll.final_payslips.length > 0) {
-        const sortedPayslips = latestPayroll.final_payslips.sort((a, b) => 
-          new Date(b.generated_at || b.month) - new Date(a.generated_at || a.month)
-        );
-        netPay = sortedPayslips[0].amount || 0;
-      } else {
-        const earnings = Array.isArray(latestPayroll.earnings) ? latestPayroll.earnings : [];
-        netPay = earnings.reduce((sum, earning) => sum + (earning.amount || 0), 0);
-      }
+    let hasPayrollData = false;
+    
+    if (currentMonthPayroll) {
+      // Debug log to see what data structure we have
+      console.log('Payroll data for', user.name, ':', currentMonthPayroll);
+      
+      const earningsArray = currentMonthPayroll.earnings || [];
+      const deductionsArray = currentMonthPayroll.deductions || [];
+      
+      const totalEarnings = earningsArray.reduce((sum, item) => {
+        return sum + (parseFloat(item?.amount) || 0);
+      }, 0);
+      
+      const totalDeductions = deductionsArray.reduce((sum, item) => {
+        return sum + (parseFloat(item?.amount) || 0);
+      }, 0);
+      
+      netPay = totalEarnings - totalDeductions;
+      hasPayrollData = totalEarnings > 0 || totalDeductions > 0 || userPayrolls.length > 0;
     }
     
     return {
-      key: user.id, // ADD THIS LINE - ensures unique key
+      key: user.id,
       ...user,
-      pay_period: latestPayroll?.pay_period || null,
+      pay_period: currentMonthPayroll?.pay_period || null,
       net_pay: netPay,
-      pay_date: latestPayroll?.pay_date || null,
-      hasPayroll: !!latestPayroll
+      pay_date: currentMonthPayroll?.pay_date || null,
+      hasPayroll: !!currentMonthPayroll,
+      hasPayrollData: hasPayrollData,
+      // Add debug info
+      totalUserPayrolls: userPayrolls.length,
+      currentMonthRecord: !!currentMonthPayroll
     };
   });
 };
@@ -1971,15 +1996,24 @@ if (printWindow) {
                 responsive: ['lg'],
               },
               {
-                title: 'Last Net Pay',
-                dataIndex: 'net_pay',
-                key: 'net_pay',
-                render: (amount) => (
-                  <span style={{ fontWeight: '600', color: '#059669' }}>
-                    ₹{amount?.toLocaleString() || 0}
-                  </span>
-                ),
-              },
+  title: 'Last Month Pay',
+  dataIndex: 'net_pay',
+  key: 'net_pay',
+  render: (amount, record) => {
+    // Add debug logging
+    console.log(`Employee: ${record.name}, HasPayrollData: ${record.hasPayrollData}, NetPay: ${amount}, TotalPayrolls: ${record.totalUserPayrolls}`);
+    
+    if (!record.hasPayrollData) {
+      return <span style={{ color: '#999', fontStyle: 'italic' }}>No payroll</span>;
+    }
+    
+    return (
+      <span style={{ fontWeight: '600', color: '#059669' }}>
+        ₹{(amount || 0).toLocaleString()}
+      </span>
+    );
+  },
+},
               {
                 title: 'Actions',
                 key: 'actions',
