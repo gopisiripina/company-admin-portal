@@ -101,7 +101,7 @@ const JobApplicationPage = ({ userRole, jobId }) => {
           jobInfo = {
             id: jobPosting.id,
             title: jobPosting.title || jobPosting.job_title,
-            company: jobPosting.company || jobPosting.company_name || "My Access",
+            company: jobPosting.company || jobPosting.company_name || "MyAccess",
             location: jobPosting.location || "Location TBD",
             type: jobPosting.type || jobPosting.employment_type || "Full-time",
             salary: jobPosting.salary || jobPosting.salary_range || "Competitive",
@@ -138,7 +138,7 @@ const JobApplicationPage = ({ userRole, jobId }) => {
     return {
       id: searchParams.get('job_id') || searchParams.get('id'),
       title: searchParams.get('title'),
-      company: searchParams.get('company') || "My Access",
+      company: searchParams.get('company') || "MyAccess",
       location: searchParams.get('location') || "Location TBD",
       type: searchParams.get('type') || "Full-time",
       salary: searchParams.get('salary') || "Competitive",
@@ -151,7 +151,7 @@ const JobApplicationPage = ({ userRole, jobId }) => {
     return {
       id: null,
       title: "General Application",
-      company: "My Access",
+      company: "MyAccess",
       location: "Various Locations",
       type: "Multiple Types",
       salary: "Competitive",

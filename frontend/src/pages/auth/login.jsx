@@ -168,14 +168,14 @@ const Login = ({ onLoginSuccess }) => {
       
       if (authResult.success) {
         
-        // --- START OF ADDED CODE ---
+        // --- START OF MODIFIED CODE ---
         // Check if the user has portal access before proceeding
         if (authResult.user && authResult.user.portal_access === false) {
           setError('Your portal access has been denied. Please contact an administrator.');
           setLoading(false);
           return; // Stop the login process
         }
-        // --- END OF ADDED CODE ---
+        // --- END OF MODIFIED CODE ---
         
         // Check if this is first time login
         if (authResult.isFirstLogin) {

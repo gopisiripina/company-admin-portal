@@ -251,6 +251,7 @@ useEffect(() => {
 }, []);
 
 
+
 const fetchSelectedCandidates = async () => {
   setLoading(true);
   try {
@@ -1267,28 +1268,54 @@ if (selectedOfferType === 'internship') {
   
   // Update main yPosition to be below the signature block
   yPosition = textY + 15;
+// Create a professional signature box with increased space
+const boxY = yPosition;
+const boxHeight = 80; // Increased from 50 to 80
+const boxPadding = 8;
 
-  // --- Candidate Acceptance Section ---
-  doc.setFillColor(lightGrayColor);
-  doc.roundedRect(leftMargin, yPosition, contentWidth, 40, 3, 3, 'F');
-  yPosition += 10;
-  
-  // Use the addText helper to handle word wrapping for the acceptance paragraph
-  const originalY = yPosition; // Save current Y
-  addText('I accept the offer of employment and agree to the terms and conditions outlined in this letter.', { x: leftMargin + 5, maxWidth: contentWidth - 10 });
-  yPosition = originalY + 15; // Reset Y to a predictable position after the text
+// Draw rounded rectangle background
+doc.setFillColor(250, 250, 250); // Very light gray
+doc.setDrawColor(200, 200, 200); // Light gray border
+doc.setLineWidth(0.5);
+doc.roundedRect(leftMargin, boxY, contentWidth, boxHeight, 3, 3, 'FD');
 
-  const acceptSigX = leftMargin + 5;
-  const dateSigX = leftMargin + contentWidth / 2;
-  
-  doc.line(acceptSigX, yPosition, acceptSigX + sigWidth, yPosition);
-  doc.line(dateSigX, yPosition, dateSigX + sigWidth, yPosition);
+// Add acceptance text at the top of the box
+yPosition = boxY + 12;
+doc.setFontSize(11);
+doc.setFont(primaryFont, 'normal');
+doc.setTextColor(textColor);
+doc.text('I accept the offer of employment and agree to the terms and conditions outlined in this letter.', 
+         leftMargin + boxPadding, yPosition);
 
-  yPosition += 5;
-  addText('Candidate Signature', { x: acceptSigX, maxWidth: sigWidth });
-  
-  yPosition -= 5; // Align date text with signature line
-  addText('Date', { x: dateSigX, maxWidth: sigWidth });
+// Position signature line in the center-bottom of the box with more space
+const signatureY = boxY + boxHeight - 18;
+const signatureStartX = leftMargin + boxPadding;
+const signatureWidth = contentWidth - (boxPadding * 2);
+
+// Additional space for third-party signature description
+// You can add the third-party signature description text here
+// Example:
+// yPosition = boxY + 30; // Position for additional text
+// doc.setFontSize(9);
+// doc.setFont(primaryFont, 'italic');
+// doc.setTextColor(120, 120, 120);
+// doc.text('Third-party signature description text goes here...', 
+//          leftMargin + boxPadding, yPosition);
+
+// Draw signature line
+doc.setDrawColor(100, 100, 100);
+doc.setLineWidth(0.8);
+doc.line(signatureStartX, signatureY, signatureStartX + signatureWidth, signatureY);
+
+// Add signature label below the line
+doc.setFontSize(10);
+doc.setFont(primaryFont, 'normal');
+doc.setTextColor(headerFooterColor);
+doc.text('Candidate Signature', signatureStartX, signatureY + 8);
+
+// Update yPosition to after the signature box
+yPosition = boxY + boxHeight + 10;
+
     doc.setProperties({
   title: 'Job Offer Letter',
   creator: 'MyAccess'
