@@ -776,7 +776,7 @@ const HRMedicalLeaveModal = ({ visible, onCancel, employees, onAllocate, loading
           />
         </Form.Item>
 
-        <Form.Item
+        {/* <Form.Item
           name="medicalCertificate"
           label="Medical Certificate (Required)"
           rules={[{ required: true, message: 'Medical certificate is required' }]}
@@ -794,7 +794,7 @@ const HRMedicalLeaveModal = ({ visible, onCancel, employees, onAllocate, loading
               <div style={{ marginTop: 8 }}>Upload Certificate</div>
             </div>
           </Upload>
-        </Form.Item>
+        </Form.Item> */}
 
         <Form.Item
           name="reason"
@@ -890,52 +890,69 @@ const handleAllocateMedicalLeave = async (values) => {
     }
   };
 // Helper to count only working days (exclude weekends + holidays)
-const countDeductibleDays = async (startDate, endDate) => {
-  const holidays = await fetchCompanyCalendar(); // red days
+// In leavemanage.jsx, replace the existing countDeductibleDays function
 
-  const { data: configData } = await supabase
+const countDeductibleDays = async (startDate, endDate) => {
+  // 1. Fetch all public holidays
+  const holidays = await fetchCompanyCalendar(); // Fetches all dates marked as 'holiday'
+
+  // 2. Fetch the dynamic working day configuration set by HR
+  const { data: configData, error: configError } = await supabase
     .from('company_calendar')
-    .select('*')
-    .eq('day_type', 'working_day_config')
+    .select('reason') // We only need the JSON data from the 'reason' column
+    .eq('day_type', 'working_config') // Fetch the correct configuration type
     .single();
 
-  const workingDaysConfig = configData?.reason ? JSON.parse(configData.reason) : {
+  // Handle potential errors while fetching the configuration
+  if (configError && configError.code !== 'PGRST116') { // PGRST116 means no row was found, which is okay
+    console.error('Error fetching working day configuration:', configError);
+    // Fallback to a simple day count if the configuration is unavailable
+    return dayjs(endDate).diff(dayjs(startDate), 'day') + 1;
+  }
+
+  // 3. Define a default schedule in case no configuration is set in the database yet
+  const defaultConfig = {
     monday: true, tuesday: true, wednesday: true,
     thursday: true, friday: true, saturday: false, sunday: false
   };
 
-  let days = 0;
+  // 4. Safely parse the configuration from the database, or use the default
+  // This now correctly looks inside the nested JSON for the "workingDays" object
+  const workingDaysConfig = configData?.reason
+    ? JSON.parse(configData.reason).workingDays || defaultConfig
+    : defaultConfig;
+
+  // 5. Iterate through the date range to count only the deductible days
+  let deductibleDays = 0;
   let current = dayjs(startDate);
 
   while (current.isSameOrBefore(endDate, 'day')) {
-    const dayOfWeek = current.day(); // 0=Sun ... 6=Sat
-    const dayName = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][dayOfWeek];
+    const dayName = current.format('dddd').toLowerCase(); // e.g., 'monday', 'tuesday'
     const isHoliday = holidays.has(current.format('YYYY-MM-DD'));
-    const isWeekend = !workingDaysConfig[dayName];
+    
+    // Check if the current day is marked as a working day in the fetched configuration
+    const isWorkingDay = workingDaysConfig[dayName];
 
-    if (!isHoliday && !isWeekend) {
-      days++;
+    // A day is only deducted if it is a configured working day AND not a public holiday
+    if (isWorkingDay && !isHoliday) {
+      deductibleDays++;
     }
+
     current = current.add(1, 'day');
   }
-  return days;
+
+  return deductibleDays;
 };
 
 
 // In leavemanage.jsx, replace the existing calculateLeaveDays function
-
 // In leavemanage.jsx, replace the existing calculateLeaveDays function
-
-// In leavemanage.jsx, replace the existing calculateLeaveDays function
-
-// In leavemanage.jsx
-// Replace the existing calculateLeaveDays function
 
 const calculateLeaveDays = async () => {
   const startDate = form.getFieldValue('startDate');
   const endDate = form.getFieldValue('endDate');
   const leaveType = form.getFieldValue('leaveType');
-  const subType = form.getFieldValue('subType');
+  const subType = form.getFieldValue('subType'); // This will be 'HDL' or 'FDL'
 
   if (!startDate || !leaveType) {
     setCalculatedDays(0);
@@ -945,16 +962,21 @@ const calculateLeaveDays = async () => {
 
   let days = 0;
 
-  // --- FIX: Added specific logic for 'Excuses' ---
   if (leaveType === 'Permission') {
     days = 0; // Permissions are in hours.
   } else if (leaveType === 'Excuses') {
     days = 1; // An excuse is always treated as 1 unit/day for deduction.
   } else if (leaveType === 'Casual Leave' && subType === 'HDL') {
+    // FIX: A half-day leave is always 0.5 days.
     days = 0.5;
-  } else if (leaveType === 'Casual Leave' || leaveType === 'Medical Leave') {
+  } else if (leaveType === 'Casual Leave' && subType === 'FDL') {
+    // Use the working day counter for Full Day Casual Leave
+    days = await countDeductibleDays(startDate, endDate || startDate);
+  }
+   else if (leaveType === 'Medical Leave') {
     days = await countDeductibleDays(startDate, endDate || startDate);
   } else {
+    // Default calculation for other leave types
     const start = dayjs(startDate);
     const end = dayjs(endDate || startDate);
     days = end.diff(start, 'days') + 1;
@@ -963,7 +985,7 @@ const calculateLeaveDays = async () => {
   setCalculatedDays(days);
 
   const currentBalance = getCurrentBalance(leaveType);
-  if (days > currentBalance && leaveType !== 'On Duty' && leaveType !== 'Overtime') {
+  if (days > 0 && days > currentBalance && leaveType !== 'On Duty' && leaveType !== 'Overtime') {
     setBalanceWarning(`❌ You don’t have enough balance for ${leaveType}. Only ${currentBalance} available.`);
   } else if (days > 0) {
     setBalanceWarning(`✅ This will deduct ${days} day(s) from your ${leaveType} balance.`);
@@ -974,13 +996,13 @@ const calculateLeaveDays = async () => {
 // Helper function to get current balance
 const getCurrentBalance = (leaveType) => {
   switch (leaveType) {
-    case 'Permission': return 2; // Permissions are handled by count, not days
+    case 'Permission': return leaveBalances.permission?.remaining || 0;
     case 'Casual Leave': return leaveBalances.casualLeave?.remaining || 0;
     case 'Earned Leave': return leaveBalances.earnedLeave?.remaining || 0;
     case 'Medical Leave': return leaveBalances.medicalLeave?.remaining || 0;
     case 'Maternity Leave': return leaveBalances.maternityLeave?.remaining || 0;
     case 'Compensatory Leave': return leaveBalances.compensatoryLeave?.remaining || 0;
-    case 'Excuses': return leaveBalances.excuses?.remaining || 0; // <-- ADD THIS LINE
+    case 'Excuses': return leaveBalances.excuses?.remaining || 0;
     default: return 999; // For leaves without balance like 'On Duty'
   }
 };
@@ -992,14 +1014,11 @@ useEffect(() => {
 
 
 // In leavemanage.jsx, replace the existing handleApplyLeave function
-
-// In leavemanage.jsx
-
-
 const handleApplyLeave = async (values) => {
   setLoading(true);
   try {
-    const { startDate, endDate, leaveType, subType, startTime, endTime } = values;
+    // Destructure all relevant values from the form
+    const { startDate, endDate, leaveType, subType, startTime, endTime, reason, session } = values;
 
     if (leaveType === 'Permission' && startTime && endTime) {
       const hours = endTime.diff(startTime, 'hours');
@@ -1012,12 +1031,13 @@ const handleApplyLeave = async (values) => {
 
     let totalDays = 0;
 
-    // --- FIX: Added specific logic for 'Excuses' ---
+    // --- UPDATED LOGIC ---
     if (leaveType === 'Permission') {
       totalDays = 0;
     } else if (leaveType === 'Excuses') {
-        totalDays = 1; // An excuse always counts as 1 day for deduction.
+      totalDays = 1;
     } else if (leaveType === 'Casual Leave' && subType === 'HDL') {
+      // Correctly assign 0.5 for half-day leave
       totalDays = 0.5;
     } else if (leaveType === 'Casual Leave' || leaveType === 'Medical Leave') {
       totalDays = await countDeductibleDays(startDate, endDate || startDate);
@@ -1027,14 +1047,22 @@ const handleApplyLeave = async (values) => {
       totalDays = end.diff(start, 'days') + 1;
     }
 
-    const currentBalance = getCurrentBalance(leaveType);
-    const isValidationRequired = !['On Duty', 'Overtime'].includes(leaveType);
+   // In handleApplyLeave function, replace the validation section with:
+const currentBalance = getCurrentBalance(leaveType);
+const isValidationRequired = !['On Duty', 'Overtime'].includes(leaveType);
 
-    if (isValidationRequired && totalDays > currentBalance) {
-      message.error(`❌ You don’t have ${totalDays} ${leaveType}(s). Only ${currentBalance} available.`);
-      setLoading(false);
-      return;
-    }
+// FIX: For HDL, check if balance is at least 0.5
+if (isValidationRequired) {
+  if (leaveType === 'Casual Leave' && subType === 'HDL' && currentBalance < 0.5) {
+    message.error(`You don't have enough ${leaveType}. Need 0.5 days, but only ${currentBalance} available.`);
+    setLoading(false);
+    return;
+  } else if (totalDays > currentBalance && !(leaveType === 'Casual Leave' && subType === 'HDL')) {
+    message.error(`You don't have enough ${leaveType}. Only ${currentBalance} available.`);
+    setLoading(false);
+    return;
+  }
+}
     
      const { data: userData } = await supabase
       .from('users')
@@ -1069,10 +1097,11 @@ const handleApplyLeave = async (values) => {
       join_date: userData.start_date,
       employee_type: userData.employee_type,
       leave_type: values.leaveType,
-      sub_type: values.subType,
-      // Use start_date for both if end_date is not present (for Excuses)
+      // Store 'HDL - Morning' or 'HDL - Afternoon' for clarity
+      sub_type: subType === 'HDL' ? `${subType} - ${session}` : subType,
       start_date: values.startDate.format('YYYY-MM-DD'),
-      end_date: (values.endDate || values.startDate).format('YYYY-MM-DD'),
+      // For HDL, end_date is the same as start_date
+      end_date: subType === 'HDL' ? values.startDate.format('YYYY-MM-DD') : (values.endDate || values.startDate).format('YYYY-MM-DD'),
       start_time: values.startTime ? values.startTime.format('HH:mm') : null,
       end_time: values.endTime ? values.endTime.format('HH:mm') : null,
       total_days: totalDays,
@@ -1125,7 +1154,7 @@ const handleApplyLeave = async (values) => {
     style={{ marginBottom: '16px' }}
   />
 )}
-const updateLeaveBalance = async (userId, leaveType, days) => {
+const updateLeaveBalance = async (userId, leaveType, days, subType = null) => {
   try {
     // First ensure user has a balance record
     await initializeUserLeaveBalance(userId);
@@ -1150,13 +1179,17 @@ const updateLeaveBalance = async (userId, leaveType, days) => {
         break;
         
       case 'Casual Leave':
-        updates.casual_used = (currentBalances.casual_used || 0) + days;
-        updates.casual_remaining = Math.max(0, (currentBalances.casual_remaining || 12) - days);
+        // FIX: Use the actual days value for HDL (0.5) or FDL (varies)
+        const actualDays = subType && subType.includes('HDL') ? 0.5 : days;
+        updates.casual_used = (currentBalances.casual_used || 0) + actualDays;
+        updates.casual_remaining = Math.max(0, (currentBalances.casual_remaining || 12) - actualDays);
         break;
         
       case 'Earned Leave':
         updates.earned_used = (currentBalances.earned_used || 0) + days;
-        updates.earned_remaining = Math.max(0, (currentBalances.earned_remaining || 0) - days);
+        // FIX: Calculate remaining based on current earned leave total
+        const currentEarnedTotal = await calculateEarnedLeaveTotal(userId);
+        updates.earned_remaining = Math.max(0, currentEarnedTotal - ((currentBalances.earned_used || 0) + days));
         break;
         
       case 'Medical Leave':
@@ -1171,7 +1204,9 @@ const updateLeaveBalance = async (userId, leaveType, days) => {
         
       case 'Compensatory Leave':
         updates.compensatory_used = (currentBalances.compensatory_used || 0) + days;
-        updates.compensatory_remaining = Math.max(0, (currentBalances.compensatory_remaining || 0) - days);
+        // FIX: Calculate remaining based on current compensatory leave total
+        const currentCompTotal = await calculateCompensatoryLeaveTotal(userId);
+        updates.compensatory_remaining = Math.max(0, currentCompTotal - ((currentBalances.compensatory_used || 0) + days));
         break;
         
       case 'Excuses':
@@ -1191,12 +1226,32 @@ const updateLeaveBalance = async (userId, leaveType, days) => {
     if (updateError) {
       console.error('Error updating leave balances:', updateError.message);
     } else {
-      console.log('Leave balance updated successfully for user:', userId);
+      console.log(`Leave balance updated: ${actualDays || days} days deducted for user:`, userId);
     }
 
   } catch (error) {
     console.error('Error in updateLeaveBalance:', error);
   }
+};
+const calculateEarnedLeaveTotal = async (userId) => {
+  // Cache holidays to prevent repeated fetching
+  if (!window.holidayCache) {
+    window.holidayCache = await fetchCompanyCalendar();
+  }
+  const holidays = window.holidayCache;
+  
+  const totalWorkingDaysPresent = await fetchWorkingDays(userId, holidays);
+  return Math.floor(totalWorkingDaysPresent / 20);
+};
+
+const calculateCompensatoryLeaveTotal = async (userId) => {
+  // Cache holidays to prevent repeated fetching
+  if (!window.holidayCache) {
+    window.holidayCache = await fetchCompanyCalendar();
+  }
+  const holidays = window.holidayCache;
+  
+  return await fetchCompensatoryOffDays(userId, holidays);
 };
 // 7. Add function to get available leave types:
   const getAvailableLeaveTypes = () => {
@@ -1325,10 +1380,25 @@ const handleLeaveAction = async (leaveId, action, reason = null) => {
     if (error) throw error;
     
     // Update balance if approved
-    if (action === 'approve') {
-      const totalDays = leaveDetails.leave_type === 'Permission' ? 0 : leaveDetails.total_days;
-      await updateLeaveBalance(leaveDetails.user_id, leaveDetails.leave_type, totalDays);
-    }
+  // In handleLeaveAction function, after updating balance:
+if (action === 'approve') {
+  // FIX: Pass the sub_type to handle HDL correctly
+  const totalDays = leaveDetails.leave_type === 'Permission' ? 0 : leaveDetails.total_days;
+  await updateLeaveBalance(
+    leaveDetails.user_id, 
+    leaveDetails.leave_type, 
+    totalDays, 
+    leaveDetails.sub_type // Pass sub_type for HDL detection
+  );
+  
+  // Force refresh balances for the affected user
+  if (leaveDetails.user_id === currentUserId) {
+    // Clear cache to ensure fresh calculation
+    clearCache();
+    const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
+    setLeaveBalances(updatedBalances);
+  }
+}
     
     // Force immediate UI refresh (backup to realtime)
     setTimeout(async () => {
@@ -2043,17 +2113,19 @@ const actionButtonStyles = `
 
 // 5. Export the complete updated styles to be added to your component
 const completeStyles = professionalStyles + actionButtonStyles;
-  // Apply Leave Form Component
-  const ApplyLeaveForm = () => {
+   // Apply Leave Form Component
+ const ApplyLeaveForm = () => {
     const [selectedLeaveType, setSelectedLeaveType] = useState('');
+    // State to track if Casual Leave is HDL or FDL
+    const [casualLeaveDuration, setCasualLeaveDuration] = useState('FDL');
     const availableLeaveTypes = getAvailableLeaveTypes();
-const isMedicalDisabled = !leaveBalances.medicalLeave || leaveBalances.medicalLeave.remaining <= 0;
+    const isMedicalDisabled = !leaveBalances.medicalLeave || leaveBalances.medicalLeave.remaining <= 0;
     const isPermissionDisabled = leaveBalances.permission?.remaining <= 0;
-    const isCasualDisabled = leaveBalances.casualLeave?.remaining <= 0 || leaveBalances.casualLeave?.monthlyUsed >= 1;
-    // UPDATED: More robust check for earned and compensatory leave
+    const isCasualDisabled = !leaveBalances.casualLeave || leaveBalances.casualLeave.remaining < 0.5;
     const isEarnedDisabled = !leaveBalances.earnedLeave || leaveBalances.earnedLeave.remaining <= 0;
     const isCompensatoryDisabled = !leaveBalances.compensatoryLeave || leaveBalances.compensatoryLeave.remaining <= 0;
     const isExcusesDisabled = leaveBalances.excuses?.remaining <= 0;
+
      useEffect(() => {
       const validatePermissionTime = () => {
         if (selectedLeaveType === 'Permission') {
@@ -2088,6 +2160,7 @@ const isMedicalDisabled = !leaveBalances.medicalLeave || leaveBalances.medicalLe
         initialValues={{
           startDate: dayjs(),
           endDate: dayjs(),
+          subType: 'FDL', // Default to Full Day Leave
         }}
       >
         <Row gutter={16}>
@@ -2101,11 +2174,16 @@ const isMedicalDisabled = !leaveBalances.medicalLeave || leaveBalances.medicalLe
                 placeholder="Select leave type"
                 onChange={(value) => {
                   setSelectedLeaveType(value);
-                  form.resetFields(['subType', 'startTime', 'endTime', 'endDate']);
+                  // Reset sub-fields when leave type changes
+                  form.resetFields(['subType', 'startTime', 'endTime', 'endDate', 'session']);
+                  if (value === 'Casual Leave') {
+                     setCasualLeaveDuration('FDL'); // Default back to FDL
+                     form.setFieldsValue({ subType: 'FDL' });
+                  }
                 }}
                 size="large"
               >
-             {/* Options remain the same, but ensure 'Excuses' option has the disabled logic */}
+                {/* --- Your Leave Type Options --- */}
                  <Option value="Permission" disabled={isPermissionDisabled}>
                   <Space>
                     <ClockCircleOutlined style={{ color: '#1890ff' }} />
@@ -2163,6 +2241,44 @@ const isMedicalDisabled = !leaveBalances.medicalLeave || leaveBalances.medicalLe
               </Select>
             </Form.Item>
           </Col>
+
+          {/* --- UPDATED CONDITIONAL RENDERING FOR CASUAL LEAVE --- */}
+          {selectedLeaveType === 'Casual Leave' && (
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="subType"
+                label="Leave Duration"
+                rules={[{ required: true, message: 'Please select duration' }]}
+              >
+                <Radio.Group 
+                  onChange={(e) => setCasualLeaveDuration(e.target.value)} 
+                  size="large"
+                  optionType="button"
+                  buttonStyle="solid"
+                >
+                  <Radio.Button value="FDL">Full Day</Radio.Button>
+                  <Radio.Button value="HDL">Half Day</Radio.Button>
+                </Radio.Group>
+              </Form.Item>
+            </Col>
+          )}
+
+          {/* This will now show only for HDL */}
+          {selectedLeaveType === 'Casual Leave' && casualLeaveDuration === 'HDL' && (
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="session"
+                label="Select Session"
+                rules={[{ required: true, message: 'Please select a session' }]}
+              >
+                <Select placeholder="Select morning or afternoon" size="large">
+                  <Option value="Morning">Morning</Option>
+                  <Option value="Afternoon">Afternoon</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          )}
+          
           {selectedLeaveType === 'Permission' && (
             <Col xs={24} md={12}>
               <Form.Item
@@ -2210,91 +2326,84 @@ const isMedicalDisabled = !leaveBalances.medicalLeave || leaveBalances.medicalLe
             </Col>
           )}
 
-          {selectedLeaveType === 'Casual Leave' && (
-            <Col xs={24} md={12}>
-              <Form.Item
-                name="subType"
-                label="Leave Duration"
-                rules={[{ required: true, message: 'Please select duration' }]}
-              >
-                <Radio.Group onChange={(e) => setCasualSubType(e.target.value)} size="large">
-                  <Radio.Button value="HDL">Half Day Leave (HDL)</Radio.Button>
-                  <Radio.Button value="FDL">Full Day Leave (FDL)</Radio.Button>
-                </Radio.Group>
-              </Form.Item>
-            </Col>
-          )}
         </Row>
-
-   <Row gutter={16}>
-        <Col xs={24} md={selectedLeaveType === 'Permission' ? 8 : (selectedLeaveType !== 'Excuses' && selectedLeaveType ? 12 : 24)}>
-          <Form.Item
-            name="startDate"
-            label={selectedLeaveType === 'Excuses' ? 'Date of Excuse' : 'Start Date'}
-            rules={[{ required: true, message: 'Please select a date' }]}
-          >
-            <DatePicker 
-              style={{ width: '100%' }}
-              size="large"
-              format="DD/MM/YYYY"
-              // No future dates for excuses
-              disabledDate={(current) => selectedLeaveType === 'Excuses' ? current && current > dayjs().endOf('day') : false}
-            />
-          </Form.Item>
-        </Col>
-
-        {/* --- FIX: Conditionally hide End Date for Excuses --- */}
-        {selectedLeaveType !== 'Permission' && selectedLeaveType !== 'Excuses' && (
-          <Col xs={24} md={12}>
+        
+        {/* --- ROW FOR DATES & TIMES --- */}
+        <Row gutter={16}>
+            <Col xs={24} md={
+              (selectedLeaveType === 'Casual Leave' && casualLeaveDuration === 'HDL') || selectedLeaveType === 'Excuses' || selectedLeaveType === 'Permission' 
+              ? 24 
+              : 12
+            }>
             <Form.Item
-              name="endDate"
-              label="End Date"
-              rules={[{ required: true, message: 'Please select end date' }]}
+                name="startDate"
+                label={
+                    selectedLeaveType === 'Casual Leave' && casualLeaveDuration === 'HDL' ? 'Date' :
+                    selectedLeaveType === 'Excuses' ? 'Date of Excuse' : 'Start Date'
+                }
+                rules={[{ required: true, message: 'Please select a date' }]}
             >
-              <DatePicker 
+                <DatePicker 
                 style={{ width: '100%' }}
                 size="large"
                 format="DD/MM/YYYY"
-                disabledDate={(current) => {
-                  const startDate = form.getFieldValue('startDate');
-                  return current && startDate && current < startDate;
-                }}
-              />
+                disabledDate={(current) => selectedLeaveType === 'Excuses' ? current && current > dayjs().endOf('day') : false}
+                />
             </Form.Item>
-          </Col>
-        )}
+            </Col>
 
-        {selectedLeaveType === 'Permission' && (
-            <>
-              <Col xs={12} md={8}>
+            {/* Conditionally hide End Date for various types */}
+            {selectedLeaveType !== 'Permission' && selectedLeaveType !== 'Excuses' && !(selectedLeaveType === 'Casual Leave' && casualLeaveDuration === 'HDL') && (
+            <Col xs={24} md={12}>
                 <Form.Item
-                  name="startTime"
-                  label="Start Time"
-                  rules={[{ required: true, message: 'Please select start time' }]}
+                name="endDate"
+                label="End Date"
+                rules={[{ required: true, message: 'Please select end date' }]}
                 >
-                  <TimePicker 
-                    format="HH:mm"
+                <DatePicker 
                     style={{ width: '100%' }}
                     size="large"
-                  />
+                    format="DD/MM/YYYY"
+                    disabledDate={(current) => {
+                    const startDate = form.getFieldValue('startDate');
+                    return current && startDate && current < startDate;
+                    }}
+                />
                 </Form.Item>
-              </Col>
-              <Col xs={12} md={8}>
-                <Form.Item
-                  name="endTime"
-                  label="End Time"
-                  rules={[{ required: true, message: 'Please select end time' }]}
-                >
-                  <TimePicker 
-                    format="HH:mm"
-                    style={{ width: '100%' }}
-                    size="large"
-                  />
-                </Form.Item>
-              </Col>
-            </>
-          )}
-      </Row>
+            </Col>
+            )}
+
+            {selectedLeaveType === 'Permission' && (
+                <>
+                <Col xs={12} md={8}>
+                    <Form.Item
+                    name="startTime"
+                    label="Start Time"
+                    rules={[{ required: true, message: 'Please select start time' }]}
+                    >
+                    <TimePicker 
+                        format="HH:mm"
+                        style={{ width: '100%' }}
+                        size="large"
+                    />
+                    </Form.Item>
+                </Col>
+                <Col xs={12} md={8}>
+                    <Form.Item
+                    name="endTime"
+                    label="End Time"
+                    rules={[{ required: true, message: 'Please select end time' }]}
+                    >
+                    <TimePicker 
+                        format="HH:mm"
+                        style={{ width: '100%' }}
+                        size="large"
+                    />
+                    </Form.Item>
+                </Col>
+                </>
+            )}
+        </Row>
 
 
         <Form.Item
@@ -2353,8 +2462,7 @@ const isMedicalDisabled = !leaveBalances.medicalLeave || leaveBalances.medicalLe
             </div>
           </Upload>
         </Form.Item>
-        {/* Leave Balance Warning */}
-        {selectedLeaveType && (
+         {selectedLeaveType && (
           <Alert
             message={`Available Balance: ${
               selectedLeaveType === 'Permission' ? leaveBalances.permission.remaining + ' permissions' :
@@ -2367,7 +2475,7 @@ const isMedicalDisabled = !leaveBalances.medicalLeave || leaveBalances.medicalLe
             }`}
             type={
               (selectedLeaveType === 'Permission' && leaveBalances.permission.remaining <= 0) ||
-              (selectedLeaveType === 'Casual Leave' && leaveBalances.casualLeave.remaining <= 0) ||
+              (selectedLeaveType === 'Casual Leave' && leaveBalances.casualLeave.remaining < 0.5) ||
               (selectedLeaveType === 'Earned Leave' && leaveBalances.earnedLeave.remaining <= 0) ||
               (selectedLeaveType === 'Medical Leave' && leaveBalances.medicalLeave.remaining <= 0) ||
               (selectedLeaveType === 'Excuses' && leaveBalances.excuses.remaining <= 0)
@@ -2380,6 +2488,7 @@ const isMedicalDisabled = !leaveBalances.medicalLeave || leaveBalances.medicalLe
       </Form>
     );
   };
+
 
     // Leave Details Modal Component
   const LeaveDetailsModal = () => {
