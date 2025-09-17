@@ -72,6 +72,11 @@ const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 const [otpSent, setOtpSent] = useState(false);
 const [pendingPayslipData, setPendingPayslipData] = useState(null);
 const [workingConfig, setWorkingConfig] = useState(null);
+const [isCheckingLocation, setIsCheckingLocation] = useState(false);
+const [isLocationMismatchModalVisible, setIsLocationMismatchModalVisible] = useState(false);
+const [manualReason, setManualReason] = useState('');
+const [isSubmittingReason, setIsSubmittingReason] = useState(false);
+const [userLocation, setUserLocation] = useState(null);
 
   const [tabId] = useState(() => Date.now() + Math.random());
     const storageKey = `emailCredentials_${tabId}`;
@@ -80,12 +85,147 @@ useEffect(() => {
   
   
 }, [userData]);
+const handleTakeAttendanceClick = () => {
+  setIsCheckingLocation(true);
+  setVerificationError('');
+  console.log('DEBUG: "Take Attendance" clicked. Starting location check...'); // DEBUGGING
+
+  if (!navigator.geolocation) {
+    setVerificationError('Geolocation is not supported by your browser.');
+    setIsCheckingLocation(false);
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const { latitude, longitude } = position.coords;
+      setUserLocation({ latitude, longitude });
+
+      // --- DEBUGGING LOGS ---
+      console.log('DEBUG: Successfully got your location:', { latitude, longitude });
+      console.log('DEBUG: Company location is:', COMPANY_LOCATION);
+      // --- END DEBUGGING LOGS ---
+
+      const distance = getDistanceInMeters(
+        latitude,
+        longitude,
+        COMPANY_LOCATION.latitude,
+        COMPANY_LOCATION.longitude
+      );
+      
+      // --- MORE DEBUGGING LOGS ---
+      console.log(`DEBUG: Calculated distance: ${distance.toFixed(2)} meters.`);
+      console.log(`DEBUG: Max allowed distance: ${MAX_ALLOWED_DISTANCE_METERS} meters.`);
+      console.log(`DEBUG: Is user within range? ${distance <= MAX_ALLOWED_DISTANCE_METERS}`);
+      // --- END MORE DEBUGGING LOGS ---
+
+      setIsCheckingLocation(false);
+
+      if (distance <= MAX_ALLOWED_DISTANCE_METERS) {
+        console.log('DEBUG: Location matched! Opening camera...'); // DEBUGGING
+        openCameraModal();
+      } else {
+        console.log('DEBUG: Location mismatch! Opening manual reason modal...'); // DEBUGGING
+        setIsLocationMismatchModalVisible(true);
+      }
+    },
+    (error) => {
+      setIsCheckingLocation(false);
+      let errorMessage = 'Could not get your location. ';
+      // ... (error handling switch statement remains the same)
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage += 'Please allow location access and try again.';
+          break;
+        case error.POSITION_UNAVAILABLE:
+          errorMessage += 'Location information is unavailable.';
+          break;
+        case error.TIMEOUT:
+          errorMessage += 'The request to get user location timed out.';
+          break;
+        default:
+          errorMessage += 'An unknown error occurred.';
+          break;
+      }
+      Modal.error({ title: 'Location Error', content: errorMessage });
+      console.error("DEBUG: Geolocation error:", error); // DEBUGGING
+    }
+  );
+};
+
+const openCameraModal = () => {
+    // This function contains the logic you previously had in the onClick
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayRecord = attendanceData.find(d => d.date === todayStr);
+
+    if (todayRecord && todayRecord.check_in && todayRecord.check_out) {
+        Modal.info({
+            title: 'Attendance Complete',
+            content: `You have already completed both check-in (${todayRecord.check_in}) and check-out (${todayRecord.check_out}) for today.`,
+        });
+        return;
+    }
+
+    setAttendanceType((todayRecord && todayRecord.check_in) ? 'check-out' : 'check-in');
+    
+    setHasStartedDetection(false);
+    setIsCameraModalVisible(true);
+    setVerificationError('');
+    setShowRetryButton(false);
+    setIsProcessing(false);
+    setIsVerifying(false);
+    setIsFaceDetected(false);
+};
+
+const handleManualReasonSubmit = () => {
+    if (!manualReason.trim()) {
+        Modal.error({ title: 'Reason Required', content: 'Please provide a reason for checking in remotely.' });
+        return;
+    }
+    setIsSubmittingReason(true);
+    // The reason is stored in state. Now, open the camera.
+    setIsLocationMismatchModalVisible(false);
+    openCameraModal(); 
+    setIsSubmittingReason(false);
+};
 const handleProfileClick = () => {
   
   onSectionChange('employee-profile'); // Change this line
 };
 {/* Add this before the closing </div> */}
 
+// ...inside the Dashboard component
+
+// --- START: LOCATION CONFIGURATION ---
+
+// This is your specific company location.
+const COMPANY_LOCATION = {
+  latitude: 17.818394523489374,
+  longitude: 83.21551417161353,
+};
+
+// This creates a "virtual fence". Adjust the number as needed.
+// 100 meters is a good starting point for a standard office building.
+const MAX_ALLOWED_DISTANCE_METERS = 500;
+
+// --- END: LOCATION CONFIGURATION ---
+
+
+// Haversine formula to calculate distance between two lat/lng points
+const getDistanceInMeters = (lat1, lon1, lat2, lon2) => {
+  const R = 6371e3; // metres
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c; // in metres
+};
 // Add this handler to close the modal
 const handleCloseProfileModal = () => {
   setIsProfileModalVisible(false);
@@ -674,78 +814,70 @@ const markAttendance = async () => {
       throw new Error('Failed to check existing attendance record');
     }
 
-    let attendanceData;
+    let attendancePayload; // FIX: Corrected variable name from 'attendanceData'
     let message;
+
+     // Base data for the record
+    const baseData = {
+      user_id: userData.id,
+      date: today,
+      is_present: true,
+    };
+
+    // Add manual check-in details if they exist
+    if (manualReason && userLocation) {
+        baseData.manual_checkin_reason = manualReason;
+        baseData.location_coordinates = userLocation;
+    }
 
     if (!existingRecord) {
       // First time today - Check In
-      attendanceData = {
-        user_id: userData.id,
-        date: today,
+      attendancePayload = {
+        ...baseData,
         check_in: currentTime,
-        is_present: true,
       };
       message = 'Check-in successful! Your attendance has been recorded.';
     } else if (existingRecord.check_in && !existingRecord.check_out) {
-  // Already checked in - Check Out
-  const checkInTime = new Date(`${today}T${existingRecord.check_in}`);
-const checkOutTime = new Date(`${today}T${currentTime}`);
+      // Already checked in - Check Out
+      const checkInTime = new Date(`${today}T${existingRecord.check_in}`);
+      const checkOutTime = new Date(`${today}T${currentTime}`);
+      const totalHours = (checkOutTime - checkInTime) / (1000 * 60 * 60);
 
-// Add validation to ensure valid dates
-if (isNaN(checkInTime.getTime()) || isNaN(checkOutTime.getTime())) {
-  throw new Error('Invalid time format for attendance calculation.');
-}
+      // (keep your existing time formatting logic)
+      const hours = Math.floor(totalHours);
+      const minutes = Math.round((totalHours - hours) * 60);
+      const formattedTotalHours = `${hours}:${minutes.toString().padStart(2, '0')}`;
 
-const totalHours = (checkOutTime - checkInTime) / (1000 * 60 * 60);
 
-// Format total hours as HH:MM instead of decimal
-const hours = Math.floor(totalHours);
-const minutes = Math.round((totalHours - hours) * 60);
-const formatTotalHours = (decimalHours) => {
-  if (!decimalHours) return '0:00';
-  const hours = Math.floor(decimalHours);
-  const minutes = Math.round((decimalHours - hours) * 60);
-  return `${hours}:${minutes.toString().padStart(2, '0')}`;
-};
-
-  attendanceData = {
-    ...existingRecord,
-    check_out: currentTime,
-    total_hours: formattedTotalHours
-  };
+      attendancePayload = {
+        ...existingRecord,
+        ...baseData, // Add base data again in case it's a manual check-out
+        check_out: currentTime,
+        total_hours: formattedTotalHours
+      };
       message = `Check-out successful! Total hours worked: ${totalHours.toFixed(2)} hours`;
     } else {
-      // Already completed both actions
       throw new Error('You have already completed check-in and check-out for today.');
     }
 
     const { error: attendanceError } = await supabase
       .from('attendance')
-      .upsert(attendanceData, { onConflict: 'user_id,date' });
+      .upsert(attendancePayload, { onConflict: 'user_id,date' });
 
-    if (attendanceError) {
-      throw new Error(attendanceError.message || 'Failed to save attendance record.');
-    }
+    if (attendanceError) throw attendanceError;
+    
+    // Reset manual reason state after successful submission
+    setManualReason(''); 
+    setUserLocation(null);
+
     await fetchAttendanceData();
-    stopCamera(); // This will handle all cleanup
-    setIsCameraModalVisible(false); 
+    stopCamera();
+    setIsCameraModalVisible(false);
 
-//     // Success - Always close modal after action
-//     if (cameraStream) {
-//   cameraStream.getTracks().forEach(track => track.stop());
-//   setCameraStream(null);
-// }
-
-// stopCamera();
-
-// Success - Always close modal after action
-Modal.success({
-  title: 'Attendance Marked!',
-  content: message,
-});
-
-// Close modal and reset all states
-// setIsCameraModalVisible(false);
+    Modal.success({
+      title: 'Attendance Marked!',
+      content: message,
+    });
 
   } catch (error) {
     console.error('Attendance marking error:', error);
@@ -1081,9 +1213,9 @@ for (let day = 1; day <= daysInMonth; day++) {
       }
     }
   
-  console.log('Working Days in Month:', workingDaysInMonth.length, workingDaysInMonth);
+ 
   const totalWorkingDays = workingDaysInMonth.length;
-  console.log('Total Working Days:', totalWorkingDays);
+ 
   return (
     <Card 
       size="small"
@@ -2327,56 +2459,28 @@ if (activeSection === 'payroll') {
             </h2>
             <div className="quick-actions-grid">
               {!['superadmin', 'admin', 'hr'].includes(userData?.role?.toLowerCase()) && (
-                  <div
-      key="take-attendance"
-      className="quick-action-card animate-1"
-      onClick={() => {
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todayRecord = attendanceData.find(d => d.date === todayStr);
-  
-  // Check current status and show appropriate message
-  if (todayRecord && todayRecord.check_in && todayRecord.check_out) {
-    Modal.info({
-      title: 'Attendance Complete',
-      content: `You have already completed both check-in (${todayRecord.check_in}) and check-out (${todayRecord.check_out}) for today.`,
-    });
-    return; // Don't open camera modal
-  }
-  
-  // Set attendance type based on current status
-  if (todayRecord && todayRecord.check_in && !todayRecord.check_out) {
-    setAttendanceType('check-out');
-  } else {
-    setAttendanceType('check-in');
-  }
-  
-  // Reset all states and open modal
-  setHasStartedDetection(false);
-  setIsCameraModalVisible(true);
-  setVerificationError('');
-  setShowRetryButton(false);
-  setIsProcessing(false);
-  setIsVerifying(false);
-  setIsFaceDetected(false);
-  setAlreadyCheckedIn(false);
-}}
-
+    <div
+        key="take-attendance"
+        className="quick-action-card animate-1"
+        onClick={handleTakeAttendanceClick} // <-- It now calls your location-checking function
     >
-      <div className="quick-action-content">
-        <div
-          className="quick-action-icon"
-          style={{
-            backgroundColor: '#3b82f6',
-            boxShadow: `0 4px 15px #3b82f630`
-          }}
-        >
-          <Camera size={22} color="white" />
+        <div className="quick-action-content">
+            <div
+                className="quick-action-icon"
+                style={{
+                    backgroundColor: '#3b82f6',
+                    boxShadow: `0 4px 15px #3b82f630`
+                }}
+            >
+                <Camera size={22} color="white" />
+            </div>
+            <span className="quick-action-title">
+                {/* Show a spinner while checking location */}
+                Take Attendance {isCheckingLocation && <Spin style={{ marginLeft: 8 }}/>}
+            </span>
         </div>
-        <span className="quick-action-title">
-          Take Attendance
-        </span>
-      </div>
-    </div> )}
+    </div>
+)}
 
               {quickActions.map((action, index) => (
                 <div
@@ -2644,6 +2748,39 @@ if (activeSection === 'payroll') {
           </div>
         </div>
       </main>
+       <Modal
+        title="Manual Attendance Entry"
+        open={isLocationMismatchModalVisible}
+        onCancel={() => setIsLocationMismatchModalVisible(false)}
+        centered
+        footer={[
+          <Button key="back" onClick={() => setIsLocationMismatchModalVisible(false)}>
+            Cancel
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            loading={isSubmittingReason}
+            onClick={handleManualReasonSubmit}
+          >
+            Submit Reason & Open Camera
+          </Button>,
+        ]}
+      >
+        <Alert
+          message="You are not at the designated work location."
+          description="Please provide a reason to continue with a manual attendance entry. Your current location will be recorded."
+          type="warning"
+          showIcon
+          style={{ marginBottom: 20 }}
+        />
+        <Input.TextArea
+          rows={4}
+          placeholder="e.g., Working from home due to appointment, On-site client meeting at..."
+          value={manualReason}
+          onChange={(e) => setManualReason(e.target.value)}
+        />
+      </Modal>
 <Modal
   title={`Take Attendance via Face Recognition - ${
     attendanceType === 'check-in' ? 'Check In' : 
