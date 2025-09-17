@@ -60,6 +60,8 @@ const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionCh
   const [showPayslipModal, setShowPayslipModal] = useState(false);
   const [selectedPayslipMonth, setSelectedPayslipMonth] = useState(dayjs());
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
+  const [actualWorkingHours, setActualWorkingHours] = useState(0);
+const [expectedWorkingHours, setExpectedWorkingHours] = useState(0);
   // Add these new state variables
 const [isOtpVerificationModalVisible, setIsOtpVerificationModalVisible] = useState(false);
 const [phoneNumber, setPhoneNumber] = useState('');
@@ -69,6 +71,8 @@ const [isGeneratingOtp, setIsGeneratingOtp] = useState(false);
 const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 const [otpSent, setOtpSent] = useState(false);
 const [pendingPayslipData, setPendingPayslipData] = useState(null);
+const [workingConfig, setWorkingConfig] = useState(null);
+
   const [tabId] = useState(() => Date.now() + Math.random());
     const storageKey = `emailCredentials_${tabId}`;
 useEffect(() => {
@@ -551,6 +555,34 @@ const handleVerifyAndCheckIn = async () => {
 }
 };
 
+// Add this function (similar to PayCalculator)
+const fetchWorkingConfig = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('company_calendar')
+      .select('*')
+      .eq('holiday_name', 'Working Configuration')
+      .limit(1)
+      .single();
+
+    if (error) throw error;
+    
+    if (data && data.reason) {
+      const config = typeof data.reason === 'string' ? JSON.parse(data.reason) : data.reason;
+      setWorkingConfig(config);
+    }
+  } catch (error) {
+    console.error('Error fetching working config:', error);
+    // Set default config
+  }
+};
+
+// Call this in useEffect
+useEffect(() => {
+  if (activeSection === 'dashboard') {
+    fetchWorkingConfig();
+  }
+}, [activeSection]);
 const fetchAttendanceData = async (selectedMonth = currentMonth) => {
   if (!userData || !userData.id) {
     return;
@@ -657,22 +689,29 @@ const markAttendance = async () => {
     } else if (existingRecord.check_in && !existingRecord.check_out) {
   // Already checked in - Check Out
   const checkInTime = new Date(`${today}T${existingRecord.check_in}`);
-  const checkOutTime = new Date(`${today}T${currentTime}`);
-  
-  // Add validation to ensure valid dates
-  if (isNaN(checkInTime.getTime()) || isNaN(checkOutTime.getTime())) {
-    throw new Error('Invalid time format for attendance calculation.');
-  }
-  
-  const totalHours = (checkOutTime - checkInTime) / (1000 * 60 * 60);
-  
-  // Ensure totalHours is a valid number
-  const validTotalHours = isNaN(totalHours) ? 0 : Math.max(0, totalHours);
+const checkOutTime = new Date(`${today}T${currentTime}`);
+
+// Add validation to ensure valid dates
+if (isNaN(checkInTime.getTime()) || isNaN(checkOutTime.getTime())) {
+  throw new Error('Invalid time format for attendance calculation.');
+}
+
+const totalHours = (checkOutTime - checkInTime) / (1000 * 60 * 60);
+
+// Format total hours as HH:MM instead of decimal
+const hours = Math.floor(totalHours);
+const minutes = Math.round((totalHours - hours) * 60);
+const formatTotalHours = (decimalHours) => {
+  if (!decimalHours) return '0:00';
+  const hours = Math.floor(decimalHours);
+  const minutes = Math.round((decimalHours - hours) * 60);
+  return `${hours}:${minutes.toString().padStart(2, '0')}`;
+};
 
   attendanceData = {
     ...existingRecord,
     check_out: currentTime,
-    total_hours: validTotalHours.toFixed(2)
+    total_hours: formattedTotalHours
   };
       message = `Check-out successful! Total hours worked: ${totalHours.toFixed(2)} hours`;
     } else {
@@ -784,7 +823,7 @@ const fetchWorkingDaysConfig = async () => {
     const { data, error } = await supabase
       .from('company_calendar')
       .select('*')
-      .eq('day_type', 'working_day_config')
+      .eq('day_type', 'working_config')  // Changed from 'working_day_config'
       .single();
     
     if (error && error.code !== 'PGRST116') {
@@ -793,10 +832,10 @@ const fetchWorkingDaysConfig = async () => {
     
     if (data && data.reason) {
       const config = JSON.parse(data.reason);
-      setWorkingDaysConfig(config);
+      setWorkingDaysConfig(config.workingDays);  // Access nested workingDays object
     }
   } catch (error) {
-    
+    // error handling
   }
 };
 
@@ -1032,19 +1071,19 @@ for (let day = 1; day <= daysInMonth; day++) {
   ];
 
   // Calculate attendance summary (exclude holidays and non-working days from calculations)
-  const workingDaysInMonth = [];
-  for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const targetDate = new Date(year, month, day);
-    
-    if (isWorkingDay(targetDate) && !isHoliday(dateStr)) {
-      workingDaysInMonth.push(dateStr);
+    const workingDaysInMonth = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const targetDate = new Date(year, month, day);
+      
+      if (isWorkingDay(targetDate) && !isHoliday(dateStr)) {
+        workingDaysInMonth.push(dateStr);
+      }
     }
-  }
   
-  
+  console.log('Working Days in Month:', workingDaysInMonth.length, workingDaysInMonth);
   const totalWorkingDays = workingDaysInMonth.length;
-
+  console.log('Total Working Days:', totalWorkingDays);
   return (
     <Card 
       size="small"
@@ -1319,6 +1358,74 @@ for (let day = 1; day <= daysInMonth; day++) {
     </Card>
   );
 };
+
+const calculateUserWorkingHours = async (selectedMonth = currentMonth) => {
+  if (!userData || !userData.id) return;
+  
+  try {
+    // Fetch user's attendance for the month
+    const startOfMonth = dayjs(selectedMonth).startOf('month').format('YYYY-MM-DD');
+    const endOfMonth = dayjs(selectedMonth).endOf('month').format('YYYY-MM-DD');
+    
+    const { data: attendanceData, error } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('user_id', userData.id)
+      .gte('date', startOfMonth)
+      .lte('date', endOfMonth);
+    
+    if (error) throw error;
+    
+    // Calculate actual working hours
+    const totalActualHours = (attendanceData || []).reduce((total, att) => {
+      return total + (parseFloat(att.total_hours) || 0);
+    }, 0);
+    
+    // Calculate expected working hours
+    const year = dayjs(selectedMonth).year();
+const month = dayjs(selectedMonth).month();
+const daysInMonth = dayjs(selectedMonth).daysInMonth();
+
+const actualWorkingDaysInMonth = [];
+for (let day = 1; day <= daysInMonth; day++) {
+  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const targetDate = new Date(year, month, day);
+  
+  if (isWorkingDay(targetDate) && !isHoliday(dateStr)) {
+    actualWorkingDaysInMonth.push(dateStr);
+  }
+}
+
+const workingDaysInMonth = actualWorkingDaysInMonth.length;
+    const hoursPerDay = workingConfig?.workingHours ? 
+      (() => {
+        const { startTime, endTime, breakStart, breakEnd } = workingConfig.workingHours;
+        const baseDate = '2000-01-01';
+        const start = dayjs(`${baseDate} ${startTime}`);
+        const end = dayjs(`${baseDate} ${endTime}`);
+        const breakStartTime = dayjs(`${baseDate} ${breakStart}`);
+        const breakEndTime = dayjs(`${baseDate} ${breakEnd}`);
+        const totalHours = end.diff(start, 'hour', true);
+        const breakHours = breakEndTime.diff(breakStartTime, 'hour', true);
+        return totalHours + breakHours;
+      })() : 8;
+    
+    const expectedHours = workingDaysInMonth * hoursPerDay;
+    
+    setActualWorkingHours(totalActualHours);
+    setExpectedWorkingHours(expectedHours);
+    
+  } catch (error) {
+    console.error('Error calculating working hours:', error);
+  }
+};
+
+useEffect(() => {
+  if (activeSection === 'dashboard' && userData && userData.id) {
+    fetchAttendanceData();
+    calculateUserWorkingHours(); // Add this line
+  }
+}, [userData, currentMonth, workingDaysConfig]);
 
 const handleEmailFolderChange = (folder) => {
   if (onSectionChange) {
@@ -1654,33 +1761,43 @@ const handleEmailFolderChange = (folder) => {
       change: '-2.3%', 
       trend: 'down', 
       icon: TrendingUp, 
-      color: '#ef4444',
+      color: '#282626ff',
       bgGradient: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
     },
     { 
-  title: 'Attendance Calendar', 
-  value: `${presentDays}/${totalDays}`, // Show present/total instead of empty
-  change: `${((presentDays/totalDays) * 100 || 0).toFixed(1)}%`, // Show percentage
-  trend: 'calendar', 
-  icon: Calendar, 
-  color: '#8b5cf6',
-  bgGradient: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-  isCalendar: true,
-  showOverview: false // Add this state flag
-},
-{ 
-    title: 'Pay Slips', 
-    value: 'Download', // or show count of available payslips
-    change: 'Select Month', 
-    trend: 'payslip', 
-    icon: FilePdfOutlined, // Import this icon
-    color: '#f59e0b',
-    bgGradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-    isPayslip: true
-  }
-  ].filter(stat => {
-  // Hide attendance calendar for admin roles
-  if (stat.isCalendar && ['superadmin', 'admin', 'hr'].includes(userData?.role?.toLowerCase())) {
+      title: 'Total Working Hours', 
+      value: `${actualWorkingHours}/${expectedWorkingHours}h`, 
+      change: `${((actualWorkingHours/expectedWorkingHours) * 100 || 0).toFixed(1)}%`, 
+      trend: actualWorkingHours >= expectedWorkingHours ? 'up' : 'down', 
+      icon: Clock, 
+      color: '#06b6d4',
+      bgGradient: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+      isWorkingHours: true
+    },
+    { 
+      title: 'Attendance Calendar', 
+      value: `${presentDays}/${totalDays}`, 
+      change: `${((presentDays/totalDays) * 100 || 0).toFixed(1)}%`, 
+      trend: 'calendar', 
+      icon: Calendar, 
+      color: '#8b5cf6',
+      bgGradient: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+      isCalendar: true,
+      showOverview: false
+    },
+    { 
+      title: 'Pay Slips', 
+      value: 'Download', 
+      change: 'Select Month', 
+      trend: 'payslip', 
+      icon: FilePdfOutlined, 
+      color: '#f59e0b',
+      bgGradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+      isPayslip: true
+    }
+].filter(stat => {
+  // Hide attendance calendar and working hours for admin roles
+  if ((stat.isCalendar || stat.isWorkingHours) && ['superadmin', 'admin', 'hr'].includes(userData?.role?.toLowerCase())) {
     return false;
   }
   return true;
