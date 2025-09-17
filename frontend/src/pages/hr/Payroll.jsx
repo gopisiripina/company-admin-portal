@@ -32,7 +32,7 @@ import {
   DownloadOutlined,
   SendOutlined,
   BankOutlined,
-  EditOutlined 
+  EditOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { supabase } from '../../supabase/config';
@@ -45,6 +45,8 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 import myaccessLogo from '../../assets/myaccessRBG.png';
 import ErrorPage from '../../error/ErrorPage';
+import PayCalculator from './PayCalculator';
+import {IndianRupee} from 'lucide-react';
 const truncateText = (text, maxLength) => {
   return text && text.length > maxLength ? text.substring(0, maxLength) + '...' : text || '';
 };
@@ -61,6 +63,7 @@ const PayrollManagement = ({userRole}) => {
   if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
     return <ErrorPage errorType="403" />;
   }
+  const [showPayCalculator, setShowPayCalculator] = useState(false);
   const [currentView, setCurrentView] = useState('dashboard');
   const [employees, setEmployees] = useState([]);
   const [form] = Form.useForm();
@@ -91,7 +94,7 @@ const [bulkActionType, setBulkActionType] = useState('');
 const [selectedExpenseMonth, setSelectedExpenseMonth] = useState(dayjs().format('YYYY-MM'));
 const ExpensesList = ({ expenses, onChange }) => {
   const [localExpenses, setLocalExpenses] = useState(expenses || [{ label: '', amount: 0 }]);
-
+const [showPayCalculator, setShowPayCalculator] = useState(false);
 
 
   // Only sync when expenses prop actually changes from parent
@@ -1850,6 +1853,37 @@ if (printWindow) {
         </Col>
         
       </Row>
+
+      {showPayCalculator && (
+  <PayCalculator 
+    onPayCalculated={(calculations) => {
+      console.log('Pay calculations:', calculations);
+    }}
+    onClose={() => setShowPayCalculator(false)}
+  />
+)}
+
+<Col xs={24} sm={8}>
+  <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => setShowPayCalculator(true)}>
+    <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }}>
+      <div style={{ 
+        background: '#fff1f0', 
+        color: '#ff4d4f',
+        padding: '12px',
+        borderRadius: '8px',
+        fontSize: '24px'
+      }}>
+        <IndianRupee />
+      </div>
+      <div>
+        <Text type="secondary">Monthly Pay Calculator</Text>
+        <Title level={3} style={{ margin: 0 }}>
+          Calculate
+        </Title>
+      </div>
+    </Space>
+  </div>
+</Col>
 
       {/* Main Content */}
       {employees.length === 0 ? (
