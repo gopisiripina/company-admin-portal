@@ -206,7 +206,7 @@ const COMPANY_LOCATION = {
 
 // This creates a "virtual fence". Adjust the number as needed.
 // 100 meters is a good starting point for a standard office building.
-const MAX_ALLOWED_DISTANCE_METERS = 400;
+const MAX_ALLOWED_DISTANCE_METERS = 580;
 
 // --- END: LOCATION CONFIGURATION ---
 
