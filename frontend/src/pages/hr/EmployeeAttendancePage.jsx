@@ -42,11 +42,13 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { supabase } from '../../supabase/config';
+import isBetween from 'dayjs/plugin/isBetween';
 import ErrorPage from '../../error/ErrorPage';
 const { Title, Text } = Typography;
 const { Option } = Select;
 const { Search } = Input;
 const { TabPane } = Tabs;
+dayjs.extend(isBetween); 
 
 const EmployeeAttendancePage = ({ userRole = 'hr' }) => { 
   if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
@@ -70,6 +72,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
   const [pageSize, setPageSize] = useState(5);
   const [totalEmployeeCount, setTotalEmployeeCount] = useState(0);
   const [totalEmployees, setTotalEmployees] = useState(0);
+  const [leaveData, setLeaveData] = useState([]);
 
   useEffect(() => {
     const getCurrentUser = async () => {
@@ -86,7 +89,25 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
     getCurrentUser();
   }, []);
 
+  const fetchLeaveData = async (date) => {
+    try {
+      const startDate = dayjs(date).startOf('month').format('YYYY-MM-DD');
+      const endDate = dayjs(date).endOf('month').format('YYYY-MM-DD');
 
+      const { data, error } = await supabase
+        .from('leave_applications')
+        .select('user_id, leave_type, start_date, end_date')
+        .eq('status', 'Approved')
+        .gte('end_date', startDate)
+        .lte('start_date', endDate);
+
+      if (error) throw error;
+      setLeaveData(data || []);
+    } catch (error) {
+      console.error('Error fetching leave data:', error);
+      message.error('Failed to load leave data');
+    }
+  };
   // Fetch employees with pagination and filtering
   const fetchEmployees = async (page = 1, size = 5, search = '', type = 'All') => {
     try {
@@ -481,35 +502,43 @@ Object.keys(attendanceData).forEach(date => {
     setTimeModalVisible(true);
   };
 
-  // Calculate total statistics
+    // --- UPDATED: Replace the entire calculateTotalStats function ---
   const calculateTotalStats = () => {
-  const dateKey = selectedDate.format('YYYY-MM-DD');
-  const dayData = attendanceData[dateKey] || {};
-  
-  const totalEmpCount = totalEmployeeCount || 0;
-  let presentCount = 0;
-  let missingCount = 0;  // Add this
-  
-  Object.values(dayData).forEach(record => {
-    if (record.present) {
-      // Check if missing (checked in but not checked out)
-      if (record.checkIn && !record.checkOut) {
-        missingCount++;  // Add this
-      } else {
-        presentCount++;
+    const dateKey = selectedDate.format('YYYY-MM-DD');
+    const dayData = attendanceData[dateKey] || {};
+
+    const totalEmpCount = totalEmployeeCount || 0;
+    let presentCount = 0;
+    let missingCount = 0;
+
+    Object.values(dayData).forEach(record => {
+      if (record.present) {
+        if (record.checkIn && !record.checkOut) {
+          missingCount++;
+        } else {
+          presentCount++;
+        }
       }
-    }
-  });
-  
-  const absentCount = totalEmpCount - presentCount - missingCount;  // Modify this
-  
-  return {
-    present: presentCount,
-    absent: absentCount,
-    missing: missingCount,  // Add this
-    total: totalEmpCount
+    });
+
+    // NEW: Calculate employees on leave for the selected day
+    const onLeaveCount = employeesData.filter(emp =>
+        leaveData.some(leave =>
+            leave.user_id === emp.id &&
+            selectedDate.isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
+        )
+    ).length;
+
+    const absentCount = totalEmpCount - presentCount - missingCount - onLeaveCount;
+
+    return {
+      present: presentCount,
+      absent: Math.max(0, absentCount), // Ensure it's not negative
+      missing: missingCount,
+      onLeave: onLeaveCount, // NEW: Add onLeave to the result
+      total: totalEmpCount
+    };
   };
-};
 
   // Fetch employees on component mount and when filters change
   useEffect(() => {
@@ -521,10 +550,11 @@ Object.keys(attendanceData).forEach(date => {
   }, [currentPage, pageSize, searchText, filterType]);
 
   // Fetch attendance data when date changes
-  useEffect(() => {
+   useEffect(() => {
     const startDate = selectedDate.startOf('month').format('YYYY-MM-DD');
     const endDate = selectedDate.endOf('month').format('YYYY-MM-DD');
     fetchAttendanceData(startDate, endDate);
+    fetchLeaveData(selectedDate); // <-- NEW: Call fetchLeaveData
   }, [selectedDate]);
 
   // Animation effect
@@ -769,13 +799,32 @@ Object.keys(attendanceData).forEach(date => {
         </Tag>
       ),
     },
-    {
+  {
   title: 'Status',
   key: 'status',
+  // --- UPDATED: Replace the entire render function for the 'Status' column ---
   render: (_, record) => {
     const dateKey = selectedDate.format('YYYY-MM-DD');
     const attendance = attendanceData[dateKey]?.[record.id];
-    
+
+    // Check for approved leave first
+    const approvedLeave = leaveData.find(leave =>
+      leave.user_id === record.id &&
+      selectedDate.isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
+    );
+
+    if (approvedLeave) {
+      return (
+        <Space>
+          <Badge status="processing" />
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <Text style={{ color: '#1890ff' }}>On Leave</Text>
+            <Text type="secondary" style={{ fontSize: '11px' }}>({approvedLeave.leave_type})</Text>
+          </div>
+        </Space>
+      );
+    }
+
     if (attendance?.present) {
       // Check if employee checked in but not checked out (missing)
       if (attendance.checkIn && !attendance.checkOut) {
@@ -814,6 +863,7 @@ Object.keys(attendanceData).forEach(date => {
         );
       }
     } else {
+      // Only show Absent if no attendance and no leave
       return (
         <Space>
           <Badge status="error" />
@@ -1007,19 +1057,22 @@ Object.keys(attendanceData).forEach(date => {
                         />
                       </Card>
                     </Col>
-                    <Col xs={24} sm={8}>
-                      <Card style={{ borderRadius: '12px', ...animationStyles.statsCard }}>
-                        <Statistic
-                          title="Total"
-                          value={totalStats.total}
-                          valueStyle={{ color: '#0D7139' }}
-                          prefix={<TeamOutlined />}
-                        />
-                        <Text type="secondary" style={{ fontSize: '12px' }}>
-                          Attendance Rate: {totalStats.total > 0 ? ((totalStats.present / totalStats.total) * 100).toFixed(1) : 0}%
-                        </Text>
-                      </Card>
-                    </Col>
+                      <Col xs={12} sm={6}> {/* Adjusted grid size */}
+      <Card style={{ borderRadius: '12px', ...animationStyles.statsCard }}>
+        <Statistic
+          title="On Leave"
+          value={totalStats.onLeave}
+          valueStyle={{ color: '#1890ff' }}
+          prefix={<CalendarOutlined />}
+        />
+        <Progress
+          percent={totalStats.total > 0 ? (totalStats.onLeave / totalStats.total) * 100 : 0}
+          strokeColor="#1890ff"
+          showInfo={false}
+          size="small"
+        />
+      </Card>
+    </Col>
                   </Row>
                 </Col>
               </Row>

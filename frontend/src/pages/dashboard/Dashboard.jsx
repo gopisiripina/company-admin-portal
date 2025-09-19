@@ -33,6 +33,8 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import dayjs from 'dayjs';
 import PayrollManagement from '../hr/Payroll';
+import isBetween from 'dayjs/plugin/isBetween'; 
+dayjs.extend(isBetween);
 const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionChange,activeEmailFolder, onToggleSidebar, isEmailAuthenticated, setIsEmailAuthenticated, onUserUpdate = () => {} }) => {  const { Text, Title } = Typography;
 
   const [currentJobId, setCurrentJobId] = useState(2);
@@ -77,6 +79,7 @@ const [isLocationMismatchModalVisible, setIsLocationMismatchModalVisible] = useS
 const [manualReason, setManualReason] = useState('');
 const [isSubmittingReason, setIsSubmittingReason] = useState(false);
 const [userLocation, setUserLocation] = useState(null);
+const [leaveData, setLeaveData] = useState([]);
 
   const [tabId] = useState(() => Date.now() + Math.random());
     const storageKey = `emailCredentials_${tabId}`;
@@ -152,7 +155,21 @@ const handleTakeAttendanceClick = () => {
     }
   );
 };
+ const fetchEmployeeLeaves = async () => {
+    if (!userData || !userData.id) return;
+    try {
+      const { data, error } = await supabase
+        .from('leave_applications')
+        .select('leave_type, start_date, end_date')
+        .eq('user_id', userData.id)
+        .eq('status', 'Approved');
 
+      if (error) throw error;
+      setLeaveData(data || []);
+    } catch (error) {
+      console.error('Error fetching employee leaves:', error);
+    }
+  };
 const openCameraModal = () => {
     // This function contains the logic you previously had in the onClick
     const todayStr = new Date().toISOString().split('T')[0];
@@ -607,15 +624,14 @@ const startFaceDetection = () => {
 //   }
 // }, [activeSection, selectedPayslipMonth, userData]);
 
-useEffect(() => {
-  // Only run on dashboard
-  if (activeSection === 'dashboard' && userData && userData.id) {
-    fetchAttendanceData();
-    // Don't call fetchUserPayslips here automatically
-  } else {
-    console.log('Skipping fetch - not on dashboard or no user data');
-  }
-}, [userData, currentMonth]);
+ useEffect(() => {
+    if (activeSection === 'dashboard' && userData && userData.id) {
+      fetchAttendanceData();
+      fetchEmployeeLeaves(); // <-- NEW: Call fetchEmployeeLeaves
+    } else {
+      console.log('Skipping fetch - not on dashboard or no user data');
+    }
+  }, [userData, currentMonth]); // Ensure this runs when userData is available
 
 useEffect(() => {
   if (isCameraModalVisible && !isModelLoaded) {
@@ -914,8 +930,21 @@ useEffect(() => {
 // Move these calculations here, after the useEffect hooks
 const presentDays = activeSection === 'dashboard' ? 
   (attendanceData.filter(record => record.is_present === true).length || 0) : 0;
-const absentDays = activeSection === 'dashboard' ? 
-  (attendanceData.filter(record => record.is_present === false).length || 0) : 0;
+
+const absentDays = activeSection === 'dashboard'
+  ? attendanceData.reduce((count, record) => {
+      // Check if this day had an approved leave
+      const isOnLeave = leaveData.some(leave =>
+        dayjs(record.date).isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
+      );
+      // Only count as absent if is_present is false AND the user was not on leave
+      if (record.is_present === false && !isOnLeave) {
+        return count + 1;
+      }
+      return count;
+    }, 0)
+  : 0;
+  const onLeaveDays = leaveData.length;
 const totalDays = attendanceData.length || 0;
 const missingDays = attendanceData.filter(record => 
   record.check_in && !record.check_out && 
@@ -1001,6 +1030,16 @@ const getAttendanceStatus = (dateStr, attendanceInfo, currentDate) => {
   const isWorkDay = isWorkingDay(targetDate);
   const isHol = isHoliday(dateStr);
   
+  const approvedLeave = leaveData.find(leave =>
+    dayjs(dateStr).isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
+  );
+
+  if (approvedLeave) {
+    return {
+      dayClass: 'on-leave', // A new CSS class for styling
+      tooltipText: `On Leave: ${approvedLeave.leave_type}`
+    };
+  }
   // If it's a holiday, mark as holiday
   // If it's a holiday, check if there's attendance data first
 if (isHol) {
@@ -1060,26 +1099,14 @@ if (isHol) {
     }
   }
   
-  // For past working days without attendance data, mark as absent
-  if (isPastDate && isWorkDay) {
-  // Only mark as absent if there's an attendance record with is_present: false
-  // If there's no attendance record at all, show as no-data
-  if (!attendanceInfo) {
-    return {
-      dayClass: 'no-data',
-      tooltipText: `No data for ${dateStr}`
-    };
-  }
-  // If there's attendance info but marked as not present
-  if (attendanceInfo && attendanceInfo.isPresent === false) {
+  // For past working days without attendance OR leave data, mark as absent
+  if (isPastDate && isWorkDay && !attendanceInfo) {
     return {
       dayClass: 'absent',
       tooltipText: `Absent on ${dateStr}`
     };
   }
-}
-  
-  // For future dates or today without data
+
   return {
     dayClass: 'no-data',
     tooltipText: `No data for ${dateStr}`
@@ -1476,6 +1503,17 @@ for (let day = 1; day <= daysInMonth; day++) {
           <Text style={{ fontSize: '12px' }}>Non-Working</Text>
         </Flex>
         <Flex align="center" gap={5}>
+            <Flex align="center" gap={5}>
+          <Badge
+            color="#1890ff" // Blue color for leave
+            style={{
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%'
+            }}
+          />
+          <Text style={{ fontSize: '12px' }}>On Leave</Text>
+        </Flex>
   <Badge 
     color="#fbbf24" 
     style={{ 

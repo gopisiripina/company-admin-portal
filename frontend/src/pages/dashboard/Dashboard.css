@@ -274,7 +274,12 @@
   top: 0;
   z-index: 100;
 }
-
+.calendar-day.on-leave {
+  background-color: #e6f7ff;
+  border: 1px solid #91d5ff;
+  color: #1890ff;
+  font-weight: bold;
+}
 /* Search */
 .search-container {
   position: relative;
