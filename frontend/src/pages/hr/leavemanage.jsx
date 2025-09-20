@@ -1014,11 +1014,31 @@ useEffect(() => {
 
 
 // In leavemanage.jsx, replace the existing handleApplyLeave function
+
 const handleApplyLeave = async (values) => {
   setLoading(true);
   try {
-    // Destructure all relevant values from the form
     const { startDate, endDate, leaveType, subType, startTime, endTime, reason, session } = values;
+
+    // --- START: NEW VALIDATION LOGIC FOR SAME-DAY LEAVE ---
+    const { data: existingLeavesOnDate } = await supabase
+      .from('leave_applications')
+      .select('total_days')
+      .eq('user_id', currentUserId)
+      .eq('start_date', startDate.format('YYYY-MM-DD'))
+      .eq('status', 'Approved');
+
+    let alreadyApprovedDays = 0;
+    if (existingLeavesOnDate) {
+      alreadyApprovedDays = existingLeavesOnDate.reduce((sum, leave) => sum + leave.total_days, 0);
+    }
+
+    if (alreadyApprovedDays >= 1) {
+      message.error(`You already have a full day of approved leave on ${startDate.format('DD/MM/YYYY')}.`);
+      setLoading(false);
+      return;
+    }
+    // --- END: NEW VALIDATION LOGIC ---
 
     if (leaveType === 'Permission' && startTime && endTime) {
       const hours = endTime.diff(startTime, 'hours');
@@ -1031,13 +1051,11 @@ const handleApplyLeave = async (values) => {
 
     let totalDays = 0;
 
-    // --- UPDATED LOGIC ---
     if (leaveType === 'Permission') {
       totalDays = 0;
     } else if (leaveType === 'Excuses') {
       totalDays = 1;
     } else if (leaveType === 'Casual Leave' && subType === 'HDL') {
-      // Correctly assign 0.5 for half-day leave
       totalDays = 0.5;
     } else if (leaveType === 'Casual Leave' || leaveType === 'Medical Leave') {
       totalDays = await countDeductibleDays(startDate, endDate || startDate);
@@ -1046,25 +1064,30 @@ const handleApplyLeave = async (values) => {
       const end = dayjs(endDate || startDate);
       totalDays = end.diff(start, 'days') + 1;
     }
-
-   // In handleApplyLeave function, replace the validation section with:
-const currentBalance = getCurrentBalance(leaveType);
-const isValidationRequired = !['On Duty', 'Overtime'].includes(leaveType);
-
-// FIX: For HDL, check if balance is at least 0.5
-if (isValidationRequired) {
-  if (leaveType === 'Casual Leave' && subType === 'HDL' && currentBalance < 0.5) {
-    message.error(`You don't have enough ${leaveType}. Need 0.5 days, but only ${currentBalance} available.`);
-    setLoading(false);
-    return;
-  } else if (totalDays > currentBalance && !(leaveType === 'Casual Leave' && subType === 'HDL')) {
-    message.error(`You don't have enough ${leaveType}. Only ${currentBalance} available.`);
-    setLoading(false);
-    return;
-  }
-}
     
-     const { data: userData } = await supabase
+    // --- ADJUST DEDUCTION AMOUNT BASED ON EXISTING LEAVE ---
+    const finalDeductionDays = Math.max(0, totalDays - alreadyApprovedDays);
+    if (totalDays > 0 && finalDeductionDays < totalDays) {
+        message.info(`Adjusted deduction: Only ${finalDeductionDays} day(s) will be deducted as you already have approved leave on this day.`);
+    }
+
+
+    const currentBalance = getCurrentBalance(leaveType);
+    const isValidationRequired = !['On Duty', 'Overtime'].includes(leaveType);
+
+    if (isValidationRequired) {
+      if (leaveType === 'Casual Leave' && subType === 'HDL' && currentBalance < 0.5) {
+        message.error(`You don't have enough ${leaveType}. Need 0.5 days, but only ${currentBalance} available.`);
+        setLoading(false);
+        return;
+      } else if (finalDeductionDays > currentBalance && !(leaveType === 'Casual Leave' && subType === 'HDL')) {
+        message.error(`You don't have enough ${leaveType}. Only ${currentBalance} available.`);
+        setLoading(false);
+        return;
+      }
+    }
+    
+    const { data: userData } = await supabase
       .from('users')
       .select('*')
       .eq('id', currentUserId)
@@ -1097,14 +1120,12 @@ if (isValidationRequired) {
       join_date: userData.start_date,
       employee_type: userData.employee_type,
       leave_type: values.leaveType,
-      // Store 'HDL - Morning' or 'HDL - Afternoon' for clarity
       sub_type: subType === 'HDL' ? `${subType} - ${session}` : subType,
       start_date: values.startDate.format('YYYY-MM-DD'),
-      // For HDL, end_date is the same as start_date
       end_date: subType === 'HDL' ? values.startDate.format('YYYY-MM-DD') : (values.endDate || values.startDate).format('YYYY-MM-DD'),
       start_time: values.startTime ? values.startTime.format('HH:mm') : null,
       end_time: values.endTime ? values.endTime.format('HH:mm') : null,
-      total_days: totalDays,
+      total_days: finalDeductionDays, // Use the final adjusted days
       total_hours: values.leaveType === 'Permission' && values.startTime && values.endTime ? 
                   values.endTime.diff(values.startTime, 'hours', true) : 0,
       reason: values.reason,
@@ -2113,10 +2134,10 @@ const actionButtonStyles = `
 
 // 5. Export the complete updated styles to be added to your component
 const completeStyles = professionalStyles + actionButtonStyles;
-   // Apply Leave Form Component
+ // In leavemanage.jsx, replace the existing ApplyLeaveForm component
+
  const ApplyLeaveForm = () => {
     const [selectedLeaveType, setSelectedLeaveType] = useState('');
-    // State to track if Casual Leave is HDL or FDL
     const [casualLeaveDuration, setCasualLeaveDuration] = useState('FDL');
     const availableLeaveTypes = getAvailableLeaveTypes();
     const isMedicalDisabled = !leaveBalances.medicalLeave || leaveBalances.medicalLeave.remaining <= 0;
@@ -2142,7 +2163,6 @@ const completeStyles = professionalStyles + actionButtonStyles;
                 },
               ]);
             } else {
-              // Clear the error if valid
               form.setFields([{ name: 'endTime', errors: [] }]);
             }
           }
@@ -2160,8 +2180,19 @@ const completeStyles = professionalStyles + actionButtonStyles;
         initialValues={{
           startDate: dayjs(),
           endDate: dayjs(),
-          subType: 'FDL', // Default to Full Day Leave
+          subType: 'FDL',
         }}
+        // --- START: NEW onFieldsChange HANDLER ---
+        onFieldsChange={(changedFields, allFields) => {
+          if (changedFields.length > 0 && changedFields[0].name[0] === 'startDate') {
+            const newStartDate = changedFields[0].value;
+            if (newStartDate) {
+              // Automatically set the end date to be the same as the start date
+              form.setFieldsValue({ endDate: newStartDate });
+            }
+          }
+        }}
+        // --- END: NEW onFieldsChange HANDLER ---
       >
         <Row gutter={16}>
           <Col xs={24} md={12}>
@@ -2174,16 +2205,14 @@ const completeStyles = professionalStyles + actionButtonStyles;
                 placeholder="Select leave type"
                 onChange={(value) => {
                   setSelectedLeaveType(value);
-                  // Reset sub-fields when leave type changes
                   form.resetFields(['subType', 'startTime', 'endTime', 'endDate', 'session']);
                   if (value === 'Casual Leave') {
-                     setCasualLeaveDuration('FDL'); // Default back to FDL
+                     setCasualLeaveDuration('FDL');
                      form.setFieldsValue({ subType: 'FDL' });
                   }
                 }}
                 size="large"
               >
-                {/* --- Your Leave Type Options --- */}
                  <Option value="Permission" disabled={isPermissionDisabled}>
                   <Space>
                     <ClockCircleOutlined style={{ color: '#1890ff' }} />
@@ -2242,7 +2271,6 @@ const completeStyles = professionalStyles + actionButtonStyles;
             </Form.Item>
           </Col>
 
-          {/* --- UPDATED CONDITIONAL RENDERING FOR CASUAL LEAVE --- */}
           {selectedLeaveType === 'Casual Leave' && (
             <Col xs={24} md={12}>
               <Form.Item
@@ -2263,7 +2291,6 @@ const completeStyles = professionalStyles + actionButtonStyles;
             </Col>
           )}
 
-          {/* This will now show only for HDL */}
           {selectedLeaveType === 'Casual Leave' && casualLeaveDuration === 'HDL' && (
             <Col xs={24} md={12}>
               <Form.Item
@@ -2328,7 +2355,6 @@ const completeStyles = professionalStyles + actionButtonStyles;
 
         </Row>
         
-        {/* --- ROW FOR DATES & TIMES --- */}
         <Row gutter={16}>
             <Col xs={24} md={
               (selectedLeaveType === 'Casual Leave' && casualLeaveDuration === 'HDL') || selectedLeaveType === 'Excuses' || selectedLeaveType === 'Permission' 
@@ -2352,7 +2378,6 @@ const completeStyles = professionalStyles + actionButtonStyles;
             </Form.Item>
             </Col>
 
-            {/* Conditionally hide End Date for various types */}
             {selectedLeaveType !== 'Permission' && selectedLeaveType !== 'Excuses' && !(selectedLeaveType === 'Casual Leave' && casualLeaveDuration === 'HDL') && (
             <Col xs={24} md={12}>
                 <Form.Item
@@ -2366,6 +2391,7 @@ const completeStyles = professionalStyles + actionButtonStyles;
                     format="DD/MM/YYYY"
                     disabledDate={(current) => {
                     const startDate = form.getFieldValue('startDate');
+                    // Prevent selecting a date before the start date
                     return current && startDate && current < startDate;
                     }}
                 />
@@ -2419,22 +2445,21 @@ const completeStyles = professionalStyles + actionButtonStyles;
           />
         </Form.Item>
 
-{(selectedLeaveType === 'Medical Leave' || selectedLeaveType === 'Maternity Leave') && (
+        {(selectedLeaveType === 'Medical Leave' || selectedLeaveType === 'Maternity Leave') && (
           <Form.Item
             name="medicalCertificate"
             label="Medical Certificate"
             rules={[{ required: false, message: 'Please upload medical certificate' }]}
-            // ADDED: Props to correctly handle file list with AntD Form
             valuePropName="fileList"
             getValueFromEvent={(e) => Array.isArray(e) ? e : e && e.fileList}
           >
             <Upload
-  listType="picture-card"
-  maxCount={3}
-  beforeUpload={() => false} // Keep this
-  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-  showUploadList={{ showPreviewIcon: false }} // Add this
->
+              listType="picture-card"
+              maxCount={3}
+              beforeUpload={() => false}
+              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+              showUploadList={{ showPreviewIcon: false }}
+            >
               <div>
                 <UploadOutlined />
                 <div style={{ marginTop: 8 }}>Upload</div>
@@ -2446,7 +2471,6 @@ const completeStyles = professionalStyles + actionButtonStyles;
         <Form.Item 
           name="attachment" 
           label="Additional Documents (Optional)"
-          // ADDED: Props to correctly handle file list with AntD Form
           valuePropName="fileList"
           getValueFromEvent={(e) => Array.isArray(e) ? e : e && e.fileList}
         >
