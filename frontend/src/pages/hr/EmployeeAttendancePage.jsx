@@ -73,7 +73,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
   const [totalEmployeeCount, setTotalEmployeeCount] = useState(0);
   const [totalEmployees, setTotalEmployees] = useState(0);
   const [leaveData, setLeaveData] = useState([]);
-  
+  const [onLeaveCount, setOnLeaveCount] = useState(0);
 
   useEffect(() => {
     const getCurrentUser = async () => {
@@ -89,7 +89,57 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
     };
     getCurrentUser();
   }, []);
+  const fetchOnLeaveCount = async (date, search, type) => {
+    try {
+      const dateKey = date.format('YYYY-MM-DD');
 
+      // First, get the IDs of all users on approved leave for the selected date
+      const { data: leaveUsers, error: leaveError } = await supabase
+        .from('leave_applications')
+        .select('user_id')
+        .eq('status', 'Approved')
+        .lte('start_date', dateKey)
+        .gte('end_date', dateKey);
+
+      if (leaveError) throw leaveError;
+      
+      const onLeaveUserIds = leaveUsers.map(l => l.user_id);
+
+      if (onLeaveUserIds.length === 0) {
+        setOnLeaveCount(0); // No one is on leave, so no need for another query
+        return;
+      }
+
+      // Next, count how many of those users match the current page filters
+      let userQuery = supabase
+        .from('users')
+        .select('id', { count: 'exact', head: true })
+        .in('id', onLeaveUserIds); // Only count users from the on-leave list
+
+      if (search) {
+        userQuery = userQuery.or(`name.ilike.%${search}%,employee_id.ilike.%${search}%,department.ilike.%${search}%`);
+      }
+      
+      if (type !== 'All') {
+        const typeMapping = {
+          'Full-time': 'full-time',
+          'Intern': 'internship', 
+          'Temporary': 'temporary'
+        };
+        userQuery = userQuery.eq('employee_type', typeMapping[type]);
+      }
+
+      const { count, error: userError } = await userQuery;
+
+      if (userError) throw userError;
+
+      setOnLeaveCount(count || 0);
+
+    } catch (error) {
+      console.error('Error fetching on-leave count:', error);
+      setOnLeaveCount(0); // Reset to 0 in case of an error
+    }
+  };
 const fetchLeaveData = async (date) => {
     try {
       const startDate = dayjs(date).startOf('month').format('YYYY-MM-DD');
@@ -529,7 +579,6 @@ const fetchLeaveData = async (date) => {
     setTimeModalVisible(true);
   };
 
-/// --- UPDATED: Replace the entire calculateTotalStats function ---
   const calculateTotalStats = () => {
     const dateKey = selectedDate.format('YYYY-MM-DD');
     const dayData = attendanceData[dateKey] || {};
@@ -538,43 +587,38 @@ const fetchLeaveData = async (date) => {
     let presentCount = 0;
     let missingCount = 0;
 
-    // NEW: First, calculate how many employees are on leave for the selected day.
-    // This is the highest priority status.
-    const onLeaveCount = employeesData.filter(emp =>
-        leaveData.some(leave =>
-            leave.user_id === emp.id &&
-            selectedDate.isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
-        )
-    ).length;
-    
-    // Now, iterate through attendance records to find present/missing employees.
-    Object.values(dayData).forEach(record => {
+    // Use the accurate count from the state, which represents the entire filtered employee list
+    const totalOnLeaveCount = onLeaveCount;
+
+    // Iterate through today's attendance records
+    Object.keys(dayData).forEach(userId => {
+      const record = dayData[userId];
+      
       if (record.present) {
-        // We only count present/missing if they are not also on leave.
-        // Although this is a rare edge case, checking leave status first is safer.
-        const employeeIsOnLeave = leaveData.some(leave => 
-            leave.user_id === record.user_id &&
-            selectedDate.isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
+        // Ensure the employee isn't on leave, to prioritize leave status over an attendance entry
+        const isUserOnLeave = leaveData.some(leave =>
+          leave.user_id === userId &&
+          selectedDate.isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
         );
 
-        if (!employeeIsOnLeave) {
-            if (record.checkIn && !record.checkOut) {
-                missingCount++;
-            } else {
-                presentCount++;
-            }
+        if (!isUserOnLeave) {
+          if (record.checkIn && !record.checkOut) {
+            missingCount++;
+          } else {
+            presentCount++;
+          }
         }
       }
     });
 
-    // An employee is only absent if they are not present, not missing, AND not on leave.
-    const absentCount = totalEmpCount - presentCount - missingCount - onLeaveCount;
+    // The remaining employees are absent
+    const absentCount = totalEmpCount - presentCount - missingCount - totalOnLeaveCount;
 
     return {
       present: presentCount,
-      absent: Math.max(0, absentCount), // Ensure it's not negative
+      absent: Math.max(0, absentCount), // Prevent negative numbers
       missing: missingCount,
-      onLeave: onLeaveCount,
+      onLeave: totalOnLeaveCount,
       total: totalEmpCount
     };
   };
@@ -582,6 +626,7 @@ const fetchLeaveData = async (date) => {
   // Fetch employees on component mount and when filters change
   useEffect(() => {
     fetchEmployees(currentPage, pageSize, searchText, filterType);
+    fetchOnLeaveCount(selectedDate, searchText, filterType); // Add this line
     
     const startDate = dayjs().startOf('month').format('YYYY-MM-DD');
     const endDate = dayjs().endOf('month').format('YYYY-MM-DD');
@@ -589,12 +634,14 @@ const fetchLeaveData = async (date) => {
   }, [currentPage, pageSize, searchText, filterType]);
 
   // Fetch attendance data when date changes
-useEffect(() => {
+  // Fetch attendance data when date changes
+  useEffect(() => {
     const startDate = selectedDate.startOf('month').format('YYYY-MM-DD');
     const endDate = selectedDate.endOf('month').format('YYYY-MM-DD');
     fetchAttendanceData(startDate, endDate);
-    fetchLeaveData(selectedDate); // <-- NEW: Call fetchLeaveData
-}, [selectedDate]);
+    fetchLeaveData(selectedDate);
+    fetchOnLeaveCount(selectedDate, searchText, filterType); // Add this line
+  }, [selectedDate]);
 
   // Animation effect
   useEffect(() => {
