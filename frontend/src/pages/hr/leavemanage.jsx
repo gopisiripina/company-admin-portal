@@ -179,21 +179,60 @@ const fetchWorkingDays = async (userId, holidays) => {
 };
 const fetchCompensatoryOffDays = async (userId, holidays) => {
   try {
-    const { data, error } = await supabase
+    // 1. Fetch the dynamic working day configuration set by HR
+    const { data: configData, error: configError } = await supabase
+      .from('company_calendar')
+      .select('reason') // We only need the JSON data from the 'reason' column
+      .eq('day_type', 'working_config') // Fetch the correct configuration type
+      .single();
+
+    if (configError && configError.code !== 'PGRST116') {
+      throw configError;
+    }
+
+    // Define a default schedule in case no configuration is set
+    const defaultConfig = {
+      monday: true, tuesday: true, wednesday: true,
+      thursday: true, friday: true, saturday: false, sunday: false
+    };
+    
+    // Safely parse the configuration from the database, or use the default
+    const workingDaysConfig = configData?.reason
+      ? JSON.parse(configData.reason).workingDays || defaultConfig
+      : defaultConfig;
+
+    // 2. Fetch all attendance records where the user was present
+    const { data: attendanceData, error: attendanceError } = await supabase
       .from('attendance')
       .select('date')
       .eq('user_id', userId)
       .eq('is_present', true);
 
-    if (error) throw error;
+    if (attendanceError) throw attendanceError;
 
-    // Filter for days worked ON a holiday
-    const compensatoryDays = data.filter(attendance => holidays.has(attendance.date));
+    if (!attendanceData) return 0;
+
+    // 3. Filter for days worked on a public holiday OR a configured non-working day
+    const compensatoryDays = attendanceData.filter(attendance => {
+      const attendanceDate = dayjs(attendance.date);
+      const dayName = attendanceDate.format('dddd').toLowerCase(); // e.g., 'sunday'
+
+      // Condition 1: Was the day a public holiday?
+      const isPublicHoliday = holidays.has(attendance.date);
+
+      // Condition 2: Was the day a configured non-working day (weekend)?
+      // This checks if the day (like 'sunday') is set to 'false' in the config.
+      const isConfiguredNonWorkingDay = workingDaysConfig[dayName] === false;
+
+      // The employee earns comp-off if they worked on a public holiday OR a weekend/non-working day
+      return isPublicHoliday || isConfiguredNonWorkingDay;
+    });
+
     return compensatoryDays.length;
-  } catch (error)
-   {
+  } catch (error) {
     console.error('Error fetching compensatory off days:', error);
-    return 0;
+    message.error('Could not calculate compensatory days.');
+    return 0; // Return 0 on error
   }
 };
 // Generate dummy leave data
