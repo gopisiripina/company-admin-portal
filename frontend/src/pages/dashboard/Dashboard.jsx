@@ -33,6 +33,8 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import dayjs from 'dayjs';
 import PayrollManagement from '../hr/Payroll';
+import isBetween from 'dayjs/plugin/isBetween'; 
+dayjs.extend(isBetween);
 const Dashboard = ({ sidebarOpen, activeSection, userData, onLogout, onSectionChange,activeEmailFolder, onToggleSidebar, isEmailAuthenticated, setIsEmailAuthenticated, onUserUpdate = () => {} }) => {  const { Text, Title } = Typography;
 
   const [currentJobId, setCurrentJobId] = useState(2);
@@ -72,6 +74,13 @@ const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 const [otpSent, setOtpSent] = useState(false);
 const [pendingPayslipData, setPendingPayslipData] = useState(null);
 const [workingConfig, setWorkingConfig] = useState(null);
+const [isCheckingLocation, setIsCheckingLocation] = useState(false);
+const [isLocationMismatchModalVisible, setIsLocationMismatchModalVisible] = useState(false);
+const [manualReason, setManualReason] = useState('');
+const [isSubmittingReason, setIsSubmittingReason] = useState(false);
+const [userLocation, setUserLocation] = useState(null);
+const [leaveData, setLeaveData] = useState([]);
+
 
   const [tabId] = useState(() => Date.now() + Math.random());
     const storageKey = `emailCredentials_${tabId}`;
@@ -80,12 +89,161 @@ useEffect(() => {
   
   
 }, [userData]);
+const handleTakeAttendanceClick = () => {
+  setIsCheckingLocation(true);
+  setVerificationError('');
+  console.log('DEBUG: "Take Attendance" clicked. Starting location check...'); // DEBUGGING
+
+  if (!navigator.geolocation) {
+    setVerificationError('Geolocation is not supported by your browser.');
+    setIsCheckingLocation(false);
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const { latitude, longitude } = position.coords;
+      setUserLocation({ latitude, longitude });
+
+      // --- DEBUGGING LOGS ---
+      console.log('DEBUG: Successfully got your location:', { latitude, longitude });
+      console.log('DEBUG: Company location is:', COMPANY_LOCATION);
+      // --- END DEBUGGING LOGS ---
+
+      const distance = getDistanceInMeters(
+        latitude,
+        longitude,
+        COMPANY_LOCATION.latitude,
+        COMPANY_LOCATION.longitude
+      );
+      
+      // --- MORE DEBUGGING LOGS ---
+      console.log(`DEBUG: Calculated distance: ${distance.toFixed(2)} meters.`);
+      console.log(`DEBUG: Max allowed distance: ${MAX_ALLOWED_DISTANCE_METERS} meters.`);
+      console.log(`DEBUG: Is user within range? ${distance <= MAX_ALLOWED_DISTANCE_METERS}`);
+      // --- END MORE DEBUGGING LOGS ---
+
+      setIsCheckingLocation(false);
+
+      if (distance <= MAX_ALLOWED_DISTANCE_METERS) {
+        console.log('DEBUG: Location matched! Opening camera...'); // DEBUGGING
+        openCameraModal();
+      } else {
+        console.log('DEBUG: Location mismatch! Opening manual reason modal...'); // DEBUGGING
+        setIsLocationMismatchModalVisible(true);
+      }
+    },
+    (error) => {
+      setIsCheckingLocation(false);
+      let errorMessage = 'Could not get your location. ';
+      // ... (error handling switch statement remains the same)
+      switch (error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage += 'Please allow location access and try again.';
+          break;
+        case error.POSITION_UNAVAILABLE:
+          errorMessage += 'Location information is unavailable.';
+          break;
+        case error.TIMEOUT:
+          errorMessage += 'The request to get user location timed out.';
+          break;
+        default:
+          errorMessage += 'An unknown error occurred.';
+          break;
+      }
+      Modal.error({ title: 'Location Error', content: errorMessage });
+      console.error("DEBUG: Geolocation error:", error); // DEBUGGING
+    }
+  );
+};
+ const fetchEmployeeLeaves = async () => {
+    if (!userData || !userData.id) return;
+    try {
+      const { data, error } = await supabase
+        .from('leave_applications')
+        .select('leave_type, start_date, end_date')
+        .eq('user_id', userData.id)
+        .eq('status', 'Approved');
+
+      if (error) throw error;
+      setLeaveData(data || []);
+    } catch (error) {
+      console.error('Error fetching employee leaves:', error);
+    }
+  };
+const openCameraModal = () => {
+    // This function contains the logic you previously had in the onClick
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayRecord = attendanceData.find(d => d.date === todayStr);
+
+    if (todayRecord && todayRecord.check_in && todayRecord.check_out) {
+        Modal.info({
+            title: 'Attendance Complete',
+            content: `You have already completed both check-in (${todayRecord.check_in}) and check-out (${todayRecord.check_out}) for today.`,
+        });
+        return;
+    }
+
+    setAttendanceType((todayRecord && todayRecord.check_in) ? 'check-out' : 'check-in');
+    
+    setHasStartedDetection(false);
+    setIsCameraModalVisible(true);
+    setVerificationError('');
+    setShowRetryButton(false);
+    setIsProcessing(false);
+    setIsVerifying(false);
+    setIsFaceDetected(false);
+};
+
+const handleManualReasonSubmit = () => {
+    if (!manualReason.trim()) {
+        Modal.error({ title: 'Reason Required', content: 'Please provide a reason for checking in remotely.' });
+        return;
+    }
+    setIsSubmittingReason(true);
+    // The reason is stored in state. Now, open the camera.
+    setIsLocationMismatchModalVisible(false);
+    openCameraModal(); 
+    setIsSubmittingReason(false);
+};
 const handleProfileClick = () => {
   
   onSectionChange('employee-profile'); // Change this line
 };
 {/* Add this before the closing </div> */}
 
+// ...inside the Dashboard component
+
+// --- START: LOCATION CONFIGURATION ---
+
+// This is your specific company location.
+const COMPANY_LOCATION = {
+  latitude: 17.818394523489374,
+  longitude: 83.21551417161353,
+};
+
+// This creates a "virtual fence". Adjust the number as needed.
+// 100 meters is a good starting point for a standard office building.
+const MAX_ALLOWED_DISTANCE_METERS = 580;
+
+// --- END: LOCATION CONFIGURATION ---
+
+
+// Haversine formula to calculate distance between two lat/lng points
+const getDistanceInMeters = (lat1, lon1, lat2, lon2) => {
+  const R = 6371e3; // metres
+  const φ1 = lat1 * Math.PI / 180;
+  const φ2 = lat2 * Math.PI / 180;
+  const Δφ = (lat2 - lat1) * Math.PI / 180;
+  const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c; // in metres
+};
 // Add this handler to close the modal
 const handleCloseProfileModal = () => {
   setIsProfileModalVisible(false);
@@ -468,14 +626,13 @@ const startFaceDetection = () => {
 // }, [activeSection, selectedPayslipMonth, userData]);
 
 useEffect(() => {
-  // Only run on dashboard
-  if (activeSection === 'dashboard' && userData && userData.id) {
-    fetchAttendanceData();
-    // Don't call fetchUserPayslips here automatically
-  } else {
-    console.log('Skipping fetch - not on dashboard or no user data');
-  }
-}, [userData, currentMonth]);
+    if (activeSection === 'dashboard' && userData && userData.id) {
+      fetchAttendanceData();
+      fetchEmployeeLeaves(); // <-- NEW: Call fetchEmployeeLeaves
+    } else {
+      console.log('Skipping fetch - not on dashboard or no user data');
+    }
+  }, [userData, currentMonth]);
 
 useEffect(() => {
   if (isCameraModalVisible && !isModelLoaded) {
@@ -674,78 +831,70 @@ const markAttendance = async () => {
       throw new Error('Failed to check existing attendance record');
     }
 
-    let attendanceData;
+    let attendancePayload; // FIX: Corrected variable name from 'attendanceData'
     let message;
+
+     // Base data for the record
+    const baseData = {
+      user_id: userData.id,
+      date: today,
+      is_present: true,
+    };
+
+    // Add manual check-in details if they exist
+    if (manualReason && userLocation) {
+        baseData.manual_checkin_reason = manualReason;
+        baseData.location_coordinates = userLocation;
+    }
 
     if (!existingRecord) {
       // First time today - Check In
-      attendanceData = {
-        user_id: userData.id,
-        date: today,
+      attendancePayload = {
+        ...baseData,
         check_in: currentTime,
-        is_present: true,
       };
       message = 'Check-in successful! Your attendance has been recorded.';
     } else if (existingRecord.check_in && !existingRecord.check_out) {
-  // Already checked in - Check Out
-  const checkInTime = new Date(`${today}T${existingRecord.check_in}`);
-const checkOutTime = new Date(`${today}T${currentTime}`);
+      // Already checked in - Check Out
+      const checkInTime = new Date(`${today}T${existingRecord.check_in}`);
+      const checkOutTime = new Date(`${today}T${currentTime}`);
+      const totalHours = (checkOutTime - checkInTime) / (1000 * 60 * 60);
 
-// Add validation to ensure valid dates
-if (isNaN(checkInTime.getTime()) || isNaN(checkOutTime.getTime())) {
-  throw new Error('Invalid time format for attendance calculation.');
-}
+      // (keep your existing time formatting logic)
+      const hours = Math.floor(totalHours);
+      const minutes = Math.round((totalHours - hours) * 60);
+      const formattedTotalHours = `${hours}:${minutes.toString().padStart(2, '0')}`;
 
-const totalHours = (checkOutTime - checkInTime) / (1000 * 60 * 60);
 
-// Format total hours as HH:MM instead of decimal
-const hours = Math.floor(totalHours);
-const minutes = Math.round((totalHours - hours) * 60);
-const formatTotalHours = (decimalHours) => {
-  if (!decimalHours) return '0:00';
-  const hours = Math.floor(decimalHours);
-  const minutes = Math.round((decimalHours - hours) * 60);
-  return `${hours}:${minutes.toString().padStart(2, '0')}`;
-};
-
-  attendanceData = {
-    ...existingRecord,
-    check_out: currentTime,
-    total_hours: formattedTotalHours
-  };
+      attendancePayload = {
+        ...existingRecord,
+        ...baseData, // Add base data again in case it's a manual check-out
+        check_out: currentTime,
+        total_hours: formattedTotalHours
+      };
       message = `Check-out successful! Total hours worked: ${totalHours.toFixed(2)} hours`;
     } else {
-      // Already completed both actions
       throw new Error('You have already completed check-in and check-out for today.');
     }
 
     const { error: attendanceError } = await supabase
       .from('attendance')
-      .upsert(attendanceData, { onConflict: 'user_id,date' });
+      .upsert(attendancePayload, { onConflict: 'user_id,date' });
 
-    if (attendanceError) {
-      throw new Error(attendanceError.message || 'Failed to save attendance record.');
-    }
+    if (attendanceError) throw attendanceError;
+    
+    // Reset manual reason state after successful submission
+    setManualReason(''); 
+    setUserLocation(null);
+
     await fetchAttendanceData();
-    stopCamera(); // This will handle all cleanup
-    setIsCameraModalVisible(false); 
+    stopCamera();
+    setIsCameraModalVisible(false);
 
-//     // Success - Always close modal after action
-//     if (cameraStream) {
-//   cameraStream.getTracks().forEach(track => track.stop());
-//   setCameraStream(null);
-// }
-
-// stopCamera();
-
-// Success - Always close modal after action
-Modal.success({
-  title: 'Attendance Marked!',
-  content: message,
-});
-
-// Close modal and reset all states
-// setIsCameraModalVisible(false);
+    Modal.success({
+      title: 'Attendance Marked!',
+      content: message,
+    });
 
   } catch (error) {
     console.error('Attendance marking error:', error);
@@ -782,8 +931,25 @@ useEffect(() => {
 // Move these calculations here, after the useEffect hooks
 const presentDays = activeSection === 'dashboard' ? 
   (attendanceData.filter(record => record.is_present === true).length || 0) : 0;
-const absentDays = activeSection === 'dashboard' ? 
-  (attendanceData.filter(record => record.is_present === false).length || 0) : 0;
+
+// In Dashboard.jsx
+// In Dashboard.jsx
+// --- UPDATED: Replace the absentDays constant calculation ---
+const absentDays = activeSection === 'dashboard'
+  ? attendanceData.reduce((count, record) => {
+      // First, check if this day had an approved leave.
+      const isOnLeave = leaveData.some(leave =>
+        dayjs(record.date).isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
+      );
+      
+      // IMPORTANT: Only count as absent if is_present is false AND the user was NOT on leave.
+      if (record.is_present === false && !isOnLeave) {
+        return count + 1;
+      }
+      return count;
+    }, 0)
+  : 0;
+  const onLeaveDays = leaveData.length;
 const totalDays = attendanceData.length || 0;
 const missingDays = attendanceData.filter(record => 
   record.check_in && !record.check_out && 
@@ -861,97 +1027,67 @@ const isHoliday = (dateStr) => {
   return holidays.some(holiday => holiday.date === dateStr);
 };
 
-// Function to determine attendance status
+// In Dashboard.jsx
+// --- UPDATED: Replace the entire getAttendanceStatus function ---
+// In Dashboard.jsx
+// --- UPDATED: Replace the entire getAttendanceStatus function ---
 const getAttendanceStatus = (dateStr, attendanceInfo, currentDate) => {
   const targetDate = new Date(dateStr);
   const isToday = currentDate.toDateString() === targetDate.toDateString();
   const isPastDate = targetDate < currentDate && !isToday;
   const isWorkDay = isWorkingDay(targetDate);
   const isHol = isHoliday(dateStr);
-  
-  // If it's a holiday, mark as holiday
-  // If it's a holiday, check if there's attendance data first
-if (isHol) {
-  // If employee worked on holiday, prioritize attendance status
-  if (attendanceInfo) {
-    if (attendanceInfo.hasCheckedIn && !attendanceInfo.hasCheckedOut && isPastDate) {
+
+  // --- PRIORITY #1: Check for an approved leave first. This overrides everything. ---
+  const approvedLeave = leaveData.find(leave =>
+    dayjs(dateStr).isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
+  );
+
+  if (approvedLeave) {
     return {
-      dayClass: 'missing',
-      tooltipText: `Missing Check Out - Checked In at ${attendanceInfo.checkIn} but didn't check out`
+      dayClass: 'on-leave', // Use the blue "on-leave" style
+      tooltipText: `On Leave: ${approvedLeave.leave_type}`
     };
   }
-  
-    if (attendanceInfo.hasCheckedIn && !attendanceInfo.hasCheckedOut) {
-      return {
-        dayClass: 'checked-in', // Orange color #f97316
-        tooltipText: `Holiday Work - Checked In at ${attendanceInfo.checkIn} (${holidays.find(h => h.date === dateStr)?.holiday_name || 'Holiday'})`
-      };
-    } else if (attendanceInfo.hasCheckedIn && attendanceInfo.hasCheckedOut) {
-      return {
-        dayClass: 'present', // Green color #22c55e
-        tooltipText: `Holiday Work - Check in: ${attendanceInfo.checkIn}, Check out: ${attendanceInfo.checkOut} (${holidays.find(h => h.date === dateStr)?.holiday_name || 'Holiday'})`
-      };
-    }
-  }
-  // Default holiday appearance when no attendance
-  return {
-    dayClass: 'holiday',
-    tooltipText: `Holiday: ${holidays.find(h => h.date === dateStr)?.holiday_name || 'Holiday'}`
-  };
-}
-  
-  // If it's not a working day (weekend), mark accordingly
-  if (!isWorkDay) {
-    return {
-      dayClass: 'non-working',
-      tooltipText: 'Non-working day'
-    };
-  }
-  
-  // If there's attendance info
-  if (attendanceInfo) {
-    if (attendanceInfo.hasCheckedIn && !attendanceInfo.hasCheckedOut) {
-      return {
-        dayClass: 'checked-in',
-        tooltipText: `Checked In at ${attendanceInfo.checkIn} - Not checked out yet`
-      };
-    } else if (attendanceInfo.hasCheckedIn && attendanceInfo.hasCheckedOut) {
-      return {
+  // --- If the code proceeds past this point, the employee is NOT on leave for this day. ---
+
+  if (isHol) {
+    if (attendanceInfo?.is_present) {
+       return {
         dayClass: 'present',
-        tooltipText: `Present - Check in: ${attendanceInfo.checkIn}, Check out: ${attendanceInfo.checkOut}`
+        tooltipText: `Holiday Work - Check in: ${attendanceInfo.checkIn}, Check out: ${attendanceInfo.checkOut}`
       };
-    } else if (attendanceInfo.isPresent === false) {
-      return {
-        dayClass: 'absent',
-        tooltipText: `Absent on ${dateStr}`
-      };
+    }
+    return {
+      dayClass: 'holiday',
+      tooltipText: `Holiday: ${holidays.find(h => h.date === dateStr)?.holiday_name || 'Holiday'}`
+    };
+  }
+  
+  if (!isWorkDay) {
+    return { dayClass: 'non-working', tooltipText: 'Non-working day' };
+  }
+  
+  // Now, check attendance records ONLY IF the employee was not on leave.
+  if (attendanceInfo) {
+    if (attendanceInfo.isPresent) { // Use isPresent from the mapped data
+        if (attendanceInfo.hasCheckedIn && !attendanceInfo.hasCheckedOut) {
+          return { dayClass: 'checked-in', tooltipText: `Checked In at ${attendanceInfo.checkIn}` };
+        }
+        return { dayClass: 'present', tooltipText: `Present - Check in: ${attendanceInfo.checkIn}, Check out: ${attendanceInfo.checkOut}` };
+    }
+    else { // The record exists but is_present is false. It's a true absent day.
+        return { dayClass: 'absent', tooltipText: `Absent on ${dateStr}` };
     }
   }
   
-  // For past working days without attendance data, mark as absent
-  if (isPastDate && isWorkDay) {
-  // Only mark as absent if there's an attendance record with is_present: false
-  // If there's no attendance record at all, show as no-data
-  if (!attendanceInfo) {
-    return {
-      dayClass: 'no-data',
-      tooltipText: `No data for ${dateStr}`
-    };
+  // If it's a past working day with no attendance record and no leave, it's absent.
+  if (isPastDate) {
+    return { dayClass: 'absent', tooltipText: `Absent on ${dateStr}` };
   }
-  // If there's attendance info but marked as not present
-  if (attendanceInfo && attendanceInfo.isPresent === false) {
-    return {
-      dayClass: 'absent',
-      tooltipText: `Absent on ${dateStr}`
-    };
-  }
-}
-  
-  // For future dates or today without data
-  return {
-    dayClass: 'no-data',
-    tooltipText: `No data for ${dateStr}`
-  };
+
+  // Otherwise, it's a future day with no data yet.
+  return { dayClass: 'no-data', tooltipText: `No data for ${dateStr}` };
 };
 
 // Enhanced renderAttendanceCalendar function
@@ -1081,9 +1217,9 @@ for (let day = 1; day <= daysInMonth; day++) {
       }
     }
   
-  console.log('Working Days in Month:', workingDaysInMonth.length, workingDaysInMonth);
+ 
   const totalWorkingDays = workingDaysInMonth.length;
-  console.log('Total Working Days:', totalWorkingDays);
+ 
   return (
     <Card 
       size="small"
@@ -1344,6 +1480,17 @@ for (let day = 1; day <= daysInMonth; day++) {
           <Text style={{ fontSize: '12px' }}>Non-Working</Text>
         </Flex>
         <Flex align="center" gap={5}>
+            <Flex align="center" gap={5}>
+          <Badge
+            color="#1890ff" // Blue color for leave
+            style={{
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%'
+            }}
+          />
+          <Text style={{ fontSize: '12px' }}>On Leave</Text>
+        </Flex>
   <Badge 
     color="#fbbf24" 
     style={{ 
@@ -2329,56 +2476,28 @@ if (activeSection === 'payroll') {
             </h2>
             <div className="quick-actions-grid">
               {!['superadmin', 'admin', 'hr'].includes(userData?.role?.toLowerCase()) && (
-                  <div
-      key="take-attendance"
-      className="quick-action-card animate-1"
-      onClick={() => {
-  const todayStr = new Date().toISOString().split('T')[0];
-  const todayRecord = attendanceData.find(d => d.date === todayStr);
-  
-  // Check current status and show appropriate message
-  if (todayRecord && todayRecord.check_in && todayRecord.check_out) {
-    Modal.info({
-      title: 'Attendance Complete',
-      content: `You have already completed both check-in (${todayRecord.check_in}) and check-out (${todayRecord.check_out}) for today.`,
-    });
-    return; // Don't open camera modal
-  }
-  
-  // Set attendance type based on current status
-  if (todayRecord && todayRecord.check_in && !todayRecord.check_out) {
-    setAttendanceType('check-out');
-  } else {
-    setAttendanceType('check-in');
-  }
-  
-  // Reset all states and open modal
-  setHasStartedDetection(false);
-  setIsCameraModalVisible(true);
-  setVerificationError('');
-  setShowRetryButton(false);
-  setIsProcessing(false);
-  setIsVerifying(false);
-  setIsFaceDetected(false);
-  setAlreadyCheckedIn(false);
-}}
-
+    <div
+        key="take-attendance"
+        className="quick-action-card animate-1"
+        onClick={handleTakeAttendanceClick} // <-- It now calls your location-checking function
     >
-      <div className="quick-action-content">
-        <div
-          className="quick-action-icon"
-          style={{
-            backgroundColor: '#3b82f6',
-            boxShadow: `0 4px 15px #3b82f630`
-          }}
-        >
-          <Camera size={22} color="white" />
+        <div className="quick-action-content">
+            <div
+                className="quick-action-icon"
+                style={{
+                    backgroundColor: '#3b82f6',
+                    boxShadow: `0 4px 15px #3b82f630`
+                }}
+            >
+                <Camera size={22} color="white" />
+            </div>
+            <span className="quick-action-title">
+                {/* Show a spinner while checking location */}
+                Take Attendance {isCheckingLocation && <Spin style={{ marginLeft: 8 }}/>}
+            </span>
         </div>
-        <span className="quick-action-title">
-          Take Attendance
-        </span>
-      </div>
-    </div> )}
+    </div>
+)}
 
               {quickActions.map((action, index) => (
                 <div
@@ -2646,6 +2765,39 @@ if (activeSection === 'payroll') {
           </div>
         </div>
       </main>
+       <Modal
+        title="Manual Attendance Entry"
+        open={isLocationMismatchModalVisible}
+        onCancel={() => setIsLocationMismatchModalVisible(false)}
+        centered
+        footer={[
+          <Button key="back" onClick={() => setIsLocationMismatchModalVisible(false)}>
+            Cancel
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            loading={isSubmittingReason}
+            onClick={handleManualReasonSubmit}
+          >
+            Submit Reason & Open Camera
+          </Button>,
+        ]}
+      >
+        <Alert
+          message="You are not at the designated work location."
+          description="Please provide a reason to continue with a manual attendance entry. Your current location will be recorded."
+          type="warning"
+          showIcon
+          style={{ marginBottom: 20 }}
+        />
+        <Input.TextArea
+          rows={4}
+          placeholder="e.g., Working from home due to appointment, On-site client meeting at..."
+          value={manualReason}
+          onChange={(e) => setManualReason(e.target.value)}
+        />
+      </Modal>
 <Modal
   title={`Take Attendance via Face Recognition - ${
     attendanceType === 'check-in' ? 'Check In' : 

@@ -110,7 +110,7 @@ useEffect(() => {
     hasChildren: true,
     children: [
       // For superadmin, admin, and hr - show all options
-      ...(userRole === 'superadmin' || userRole === 'admin' || userRole === 'hr' ? [
+      ...(userRole === 'superadmin' || userRole === 'admin' ? [
         { icon: IndianRupee , label: 'Employee Attendance', id: 'employee-attendance' },
         { icon: AlertTriangle, label: 'Payroll', id: 'payroll' },
         { icon: IndianRupee , label: 'Leaves Approval', id: 'leave-manage' },
@@ -118,6 +118,15 @@ useEffect(() => {
         { icon: IndianRupee , label: 'AppraisalLetter', id: 'appraisalLetter' },
         
       ] : []),
+ ...( userRole === 'hr' ? [
+       
+        { icon: AlertTriangle, label: 'Payroll', id: 'payroll' },
+        { icon: IndianRupee , label: 'Leaves Approval', id: 'leave-manage' },
+        { icon: IndianRupee , label: 'Calender And Events', id: 'company-calender' },
+        { icon: IndianRupee , label: 'AppraisalLetter', id: 'appraisalLetter' },
+        
+      ] : []),
+
       
       // For employee - show only leave and calendar events
       ...(userRole === 'employee' ? [

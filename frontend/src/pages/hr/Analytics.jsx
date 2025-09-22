@@ -37,9 +37,6 @@ import {
   Legend
 } from 'recharts';
 import {
-  
-  
-
   TeamOutlined,
   CalendarOutlined,
   ClockCircleOutlined,
@@ -70,9 +67,10 @@ const Analytics = ({ currentUserId, userRole = 'hr', leaveData = [] }) => {
   const [customDateRange, setCustomDateRange] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [allLeaveBalances, setAllLeaveBalances] = useState([]);
 
   // Fetch additional data for analytics
-  useEffect(() => {
+ useEffect(() => {
     const fetchAnalyticsData = async () => {
       setLoading(true);
       try {
@@ -87,6 +85,14 @@ const Analytics = ({ currentUserId, userRole = 'hr', leaveData = [] }) => {
         // Extract unique departments
         const uniqueDepartments = [...new Set(employeesData?.map(emp => emp.department).filter(Boolean))];
         setDepartments(uniqueDepartments);
+
+        // --- NEW: Fetch all leave balances ---
+        const { data: balancesData, error: balancesError } = await supabase
+          .from('leave_balances')
+          .select('*');
+
+        if (balancesError) throw balancesError;
+        setAllLeaveBalances(balancesData || []);
         
       } catch (error) {
         console.error('Error fetching analytics data:', error);
@@ -97,7 +103,55 @@ const Analytics = ({ currentUserId, userRole = 'hr', leaveData = [] }) => {
 
     fetchAnalyticsData();
   }, []);
+  useEffect(() => {
+    console.log('Setting up real-time subscription for analytics balances...');
 
+    const balanceChannel = supabase
+      .channel('realtime-analytics-leave-balances')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen for INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'leave_balances',
+        },
+        (payload) => {
+          console.log('Analytics Realtime: Balance change detected!', payload);
+
+          // Use a functional update to safely modify the state
+          setAllLeaveBalances((currentBalances) => {
+            const { eventType, new: newRecord, old: oldRecord } = payload;
+            
+            if (eventType === 'UPDATE') {
+              // Find and replace the updated record
+              return currentBalances.map((balance) =>
+                balance.id === newRecord.id ? newRecord : balance
+              );
+            }
+            
+            if (eventType === 'INSERT') {
+              // Add the new record to the list
+              return [...currentBalances, newRecord];
+            }
+
+            if (eventType === 'DELETE') {
+              // Filter out the deleted record
+              return currentBalances.filter((balance) => balance.id !== oldRecord.id);
+            }
+            
+            // If event type is not handled, return the current state
+            return currentBalances;
+          });
+        }
+      )
+      .subscribe();
+
+    // Cleanup function to remove the subscription when the component unmounts
+    return () => {
+      console.log('Cleaning up analytics balance subscription.');
+      supabase.removeChannel(balanceChannel);
+    };
+  }, []);
   // Filter data based on selected criteria
   const filteredData = useMemo(() => {
     let filtered = [...leaveData];
@@ -182,12 +236,17 @@ const Analytics = ({ currentUserId, userRole = 'hr', leaveData = [] }) => {
     });
     
     // Top employees by leave count
-    const employeeStats = {};
+  const employeeStats = {};
     filteredData.forEach(leave => {
       const empName = leave.users?.name || leave.employee_name;
+      const empId = leave.users?.id; // <-- Get the user ID
+
+      if (!empId) return; // Skip if no user ID is present
+
       if (!employeeStats[empName]) {
         employeeStats[empName] = {
           name: empName,
+          userId: empId, // <-- STORE THE USER ID
           employeeId: leave.users?.employee_id || leave.employee_code,
           department: leave.department,
           total: 0,
@@ -557,6 +616,7 @@ const Analytics = ({ currentUserId, userRole = 'hr', leaveData = [] }) => {
               dataSource={analytics.topEmployees}
               pagination={false}
               size="middle"
+              rowKey="userId"
               columns={[
                 {
                   title: 'Employee',
@@ -631,10 +691,49 @@ const Analytics = ({ currentUserId, userRole = 'hr', leaveData = [] }) => {
                   },
                 }
               ]}
+               expandable={{
+                expandedRowRender: (record) => {
+                  const balance = allLeaveBalances.find(b => b.user_id === record.userId);
+                  if (!balance) {
+                    return <Text type="secondary">No detailed balance information available.</Text>;
+                  }
+
+                  const balanceDetails = [
+                    { type: 'Casual Leave', used: balance.casual_used, remaining: balance.casual_remaining, total: balance.casual_total, color: '#52c41a'},
+                    { type: 'Medical Leave', used: balance.medical_used, remaining: balance.medical_remaining, total: balance.medical_total, color: '#ff4d4f'},
+                    { type: 'Earned Leave', used: balance.earned_used, remaining: balance.earned_remaining, total: balance.earned_total, color: '#0D7139' },
+                    { type: 'Permission', used: balance.permission_used, remaining: balance.permission_remaining, total: balance.permission_total, color: '#1890ff'},
+                    { type: 'Excuses', used: balance.excuses_used, remaining: balance.excuses_remaining, total: balance.excuses_total, color: '#fa8c16'},
+                    { type: 'Compensatory', used: balance.compensatory_used, remaining: balance.compensatory_remaining, total: balance.compensatory_total, color: '#722ed1'},
+                  ];
+                  
+                  return (
+                    <Card size="small" style={{ background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: '8px' }}>
+                      <Title level={5} style={{ marginTop: 0, marginBottom: '16px' }}>{record.name}'s Leave Balance Summary</Title>
+                      <Row gutter={[24, 16]}>
+                        {balanceDetails.map(item => (
+                           <Col xs={24} sm={12} md={8} key={item.type}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Text strong style={{ color: item.color }}>{item.type}</Text>
+                                <Tag color={item.color}>{`${item.remaining} / ${item.total}`}</Tag>
+                            </div>
+                            <Progress 
+                                percent={item.total > 0 ? (item.used / item.total) * 100 : 0} 
+                                size="small"
+                                strokeColor={item.color}
+                                format={() => `${item.used} Used`}
+                            />
+                           </Col>
+                        ))}
+                      </Row>
+                    </Card>
+                  );
+                },
+                rowExpandable: (record) => true,
+              }}
             />
           </Card>
         )}
-
         {/* Summary Alert */}
         {analytics.total === 0 && (
           <Alert
