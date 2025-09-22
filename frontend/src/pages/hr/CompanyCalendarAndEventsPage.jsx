@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect } from 'react';
 import {
   Layout,
@@ -35,7 +37,8 @@ import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  SyncOutlined
+  SyncOutlined,
+  MenuOutlined
 } from '@ant-design/icons';
 import { useTheme } from '../../context/ThemeContext';
 import '../../../src/styles/calendar-theme.css';
@@ -66,7 +69,7 @@ const [permissions, setPermissions] = useState({});
 const [editingDisaster, setEditingDisaster] = useState(null);
 const [workingDaysConfig, setWorkingDaysConfig] = useState({
   monday: true,
-  tuesday: true, 
+  tuesday: true,
   wednesday: true,
   thursday: true,
   friday: true,
@@ -87,7 +90,7 @@ const [workingHoursConfig, setWorkingHoursConfig] = useState({
   const [editingHoliday, setEditingHoliday] = useState(null);
   const [editingEvent, setEditingEvent] = useState(null);
 
-  
+
 useEffect(() => {
   const actualUserRole = typeof userRole === 'object' ? userRole.userRole : userRole;
   if (!actualUserRole) return;
@@ -103,7 +106,7 @@ useEffect(() => {
     canViewWorkingDays: true,
     canViewEvents: true
   };
-  
+
   console.log('Setting permissions for role:', userRole, 'isPrivileged:', isPrivilegedRole, newPermissions);
   setPermissions(newPermissions);
 }, [userRole]);
@@ -115,7 +118,7 @@ const fetchDisasters = async () => {
       .select('*')
       .eq('day_type', 'disaster')
       .order('date', { ascending: false });
-    
+
     if (error) throw error;
     setDisasters(data || []);
   } catch (error) {
@@ -154,7 +157,7 @@ const createDisaster = async (values) => {
       .insert([disasterData]);
 
     if (error) throw error;
-    
+
     message.success('Disaster event created successfully');
     await fetchDisasters();
     setDisasterModalVisible(false);
@@ -169,18 +172,18 @@ const createDisaster = async (values) => {
   const syncGovernmentHolidays = async (year = selectedYear) => {
   try {
     setLoading(true);
-    
+
     const proxyUrl = 'https://api.allorigins.win/get?url=';
     const targetUrl = encodeURIComponent(`https://api.11holidays.com/v1/holidays?country=IN&year=${year}`);
-    
+
     const response = await axios({
       method: 'GET',
       url: proxyUrl + targetUrl,
       timeout: 15000
     });
-    
+
     const indianHolidays = JSON.parse(response.data.contents);
-    
+
     if (!Array.isArray(indianHolidays)) {
       throw new Error('Invalid API response format');
     }
@@ -208,12 +211,12 @@ const createDisaster = async (values) => {
     let successCount = 0;
     const holidaysToInsert = [];
     const processedDates = new Set(); // Track dates we've already processed in this sync
-    
+
     // Process each holiday and prepare for batch insert
     for (const holiday of indianHolidays) {
       try {
         const holidayName = holiday.localName || holiday.name;
-        
+
         if (!holidayName || !holiday.date) {
           console.warn('Skipping holiday with missing name or date:', holiday);
           continue;
@@ -239,10 +242,10 @@ const createDisaster = async (values) => {
           is_mandatory: true,
           created_by: 'system'
         });
-        
+
         // Mark this date as processed
         processedDates.add(holiday.date);
-        
+
       } catch (error) {
         console.error('Error processing holiday:', holiday, error);
       }
@@ -261,10 +264,10 @@ const createDisaster = async (values) => {
 
       successCount = holidaysToInsert.length;
     }
-    
+
     message.success(`${successCount} government holidays synced for ${year}`);
     await fetchHolidays();
-    
+
   } catch (error) {
     console.error('Error syncing holidays:', error);
     message.error(`Failed to sync government holidays for ${year}: ${error.message}`);
@@ -329,7 +332,7 @@ const updateDisaster = async (values) => {
       .eq('id', editingDisaster.id);
 
     if (error) throw error;
-    
+
     message.success('Disaster event updated successfully');
     await fetchDisasters();
     setDisasterModalVisible(false);
@@ -351,7 +354,7 @@ const deleteDisaster = async (id) => {
       .eq('id', id);
 
     if (error) throw error;
-    
+
     message.success('Disaster event deleted successfully');
     await fetchDisasters();
   } catch (error) {
@@ -392,16 +395,16 @@ const deleteDisaster = async (id) => {
       .select('*')
       .eq('day_type', 'holiday')
       .order('date', { ascending: true });
-    
+
     if (error) {
       console.error('Supabase error:', error);
       throw error;
     }
-    
-    
+
+
     setHolidays(data || []);
   } catch (error) {
-    
+
     message.error('Failed to fetch holidays');
   }
 };
@@ -412,7 +415,7 @@ const deleteDisaster = async (id) => {
         .from('events')
         .select('*')
         .order('start_date', { ascending: true });
-      
+
       if (error) throw error;
       setEvents(data || []);
     } catch (error) {
@@ -453,7 +456,7 @@ const { data, error } = await supabase
   .select();
 
       if (error) throw error;
-      
+
       message.success('Holiday created successfully');
       await fetchHolidays();
       setHolidayModalVisible(false);
@@ -471,13 +474,13 @@ const { data, error } = await supabase
     message.error('You do not have permission to manage holidays');
     return;
   }
-  
+
   try {
     setLoading(true);
-    
+
     // First, we need to handle the complexity of updating a holiday that might span multiple dates
     // The approach is to delete the old holiday record(s) and create new ones
-    
+
     // Delete the existing holiday record
     const { error: deleteError } = await supabase
       .from('company_calendar')
@@ -513,7 +516,7 @@ const { data, error } = await supabase
       .select();
 
     if (error) throw error;
-    
+
     const dayCount = holidayRecords.length;
     message.success(`Holiday updated successfully${dayCount > 1 ? ` for ${dayCount} days` : ''}`);
     await fetchHolidays();
@@ -535,7 +538,7 @@ const { data, error } = await supabase
       .eq('id', id);
 
     if (error) throw error;
-    
+
     message.success('Holiday deleted successfully');
     await fetchHolidays();
   } catch (error) {
@@ -572,7 +575,7 @@ const { data, error } = await supabase
         .select();
 
       if (error) throw error;
-      
+
       message.success('Event created successfully');
       await fetchEvents();
       setEventModalVisible(false);
@@ -614,7 +617,7 @@ const { data, error } = await supabase
         .select();
 
       if (error) throw error;
-      
+
       message.success('Event updated successfully');
       await fetchEvents();
       setEventModalVisible(false);
@@ -636,7 +639,7 @@ const { data, error } = await supabase
         .eq('id', id);
 
       if (error) throw error;
-      
+
       message.success('Event deleted successfully');
       await fetchEvents();
     } catch (error) {
@@ -661,7 +664,7 @@ useEffect(() => {
           .select('id')
           .eq('created_by', 'system')
           .limit(1);
-        
+
         if (!data || data.length === 0) {
           await syncGovernmentHolidays();
         }
@@ -670,16 +673,16 @@ useEffect(() => {
       }
     }
   };
-  
+
   initializeData();
 }, [permissions.canManageHolidays,userRole]);
 
 // Calculate statistics for the current view month
 const currentMonth = currentViewDate.format('YYYY-MM');
-const currentMonthHolidays = holidays.filter(holiday => 
+const currentMonthHolidays = holidays.filter(holiday =>
   dayjs(holiday.date).format('YYYY-MM') === currentMonth
 );
-const currentMonthEvents = events.filter(event => 
+const currentMonthEvents = events.filter(event =>
   dayjs(event.start_date).format('YYYY-MM') === currentMonth
 );
 
@@ -694,11 +697,11 @@ for (let i = 0; i < daysInCurrentMonth; i++) {
   const dayOfWeek = currentDay.day();
   const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   const dayName = dayNames[dayOfWeek];
-  
+
   // Check if this day has a holiday
   const currentDateStr = currentDay.format('YYYY-MM-DD');
   const hasHoliday = currentMonthHolidays.some(holiday => holiday.date === currentDateStr);
-  
+
   if (workingDaysConfig[dayName] && !hasHoliday) {
     workingDaysCount++;
   } else {
@@ -728,7 +731,7 @@ const remainingMonthlyMinutes = monthlyMinutes % 60;
 useEffect(() => {
   fetchHolidays();
   fetchEvents();
-  
+
   // Auto-sync government holidays if none exist
   const autoSyncHolidays = async () => {
     const { data } = await supabase
@@ -736,12 +739,12 @@ useEffect(() => {
       .select('id')
       .eq('created_by', 'system')
       .limit(1);
-    
+
     if (!data || data.length === 0) {
       await syncGovernmentHolidays();
     }
   };
-  
+
   if (permissions.canManageHolidays) {
     autoSyncHolidays();
   }
@@ -754,7 +757,7 @@ const getListData = (value) => {
   holidays.forEach(holiday => {
     if (holiday.date === valueDateStr) {
       let badgeType = 'error'; // Default for holidays
-      
+
       // Map holiday types from API
       if (holiday.is_mandatory) {
         badgeType = 'error'; // National/Public holidays - red
@@ -763,9 +766,9 @@ const getListData = (value) => {
       } else {
         badgeType = 'processing'; // Company holidays - blue
       }
-      
-      listData.push({ 
-        type: badgeType, 
+
+      listData.push({
+        type: badgeType,
         content: holiday.is_mandatory ? 'National Holiday' : 'Holiday'
       });
     }
@@ -774,7 +777,7 @@ const getListData = (value) => {
     events.forEach(event => {
       const startDateStr = dayjs(event.start_date).format('YYYY-MM-DD');
       const endDateStr = event.end_date ? dayjs(event.end_date).format('YYYY-MM-DD') : startDateStr;
-      
+
       // Simple string comparison for dates
       if (valueDateStr >= startDateStr && valueDateStr <= endDateStr) {
         listData.push({ type: 'success', content: 'Event/Meeting' });
@@ -795,18 +798,18 @@ if (!workingDaysConfig[dayName]) {
 
   const dateCellRender = (value) => {
   const listData = getListData(value);
-  
+
   const hasHoliday = listData.some(item => item.content.includes('Holiday'));
   const hasEvent = listData.some(item => item.content === 'Event/Meeting');
   const isNonWorking = listData.some(item => item.content === 'Non-working Day');
-  
+
   // Apply CSS classes for styling
   setTimeout(() => {
     const cellElement = document.querySelector(`[title="${value.format('YYYY-MM-DD')}"]`)?.closest('.ant-picker-cell');
     if (cellElement) {
       // Remove existing classes
       cellElement.classList.remove('holiday-day', 'event-day', 'holiday-event-day', 'non-working-day');
-      
+
       // Add appropriate class
       if (hasHoliday && hasEvent) {
         cellElement.classList.add('holiday-event-day');
@@ -819,7 +822,7 @@ if (!workingDaysConfig[dayName]) {
       }
     }
   }, 0);
-  
+
   return null;
 };
 
@@ -831,29 +834,29 @@ useEffect(() => {
     .ant-picker-cell {
       position: relative;
     }
-    
+
     .ant-picker-cell.holiday-day .ant-picker-cell-inner {
       background-color: #ff4d4f !important;
       color: white !important;
     }
-    
+
     .ant-picker-cell.event-day .ant-picker-cell-inner {
       background-color: #52c41a !important;
       color: white !important;
     }
-    
+
     .ant-picker-cell.holiday-event-day .ant-picker-cell-inner {
       background: linear-gradient(45deg, #ff4d4f 50%, #52c41a 50%) !important;
       color: white !important;
     }
-    
+
     .ant-picker-cell.non-working-day .ant-picker-cell-inner {
       background-color: #faad14 !important;
       color: white !important;
     }
   `;
   document.head.appendChild(style);
-  
+
   return () => document.head.removeChild(style);
 }, []);
 
@@ -902,7 +905,7 @@ const getSelectedDateEvents = () => {
   events.forEach(event => {
     const startDateStr = dayjs(event.start_date).format('YYYY-MM-DD');
     const endDateStr = event.end_date ? dayjs(event.end_date).format('YYYY-MM-DD') : startDateStr;
-    
+
     if (selectedDateStr >= startDateStr && selectedDateStr <= endDateStr) {
       dateEvents.push({
         type: 'event',
@@ -951,13 +954,13 @@ const getSelectedDateEvents = () => {
   const saveWorkingConfig = async (newWorkingDays = workingDaysConfig, newWorkingHours = workingHoursConfig) => {
   try {
     setLoading(true);
-    
+
     const { data: existing } = await supabase
       .from('company_calendar')
       .select('id')
       .eq('day_type', 'working_config')
       .single();
-    
+
     const configData = {
       date: '1970-01-01',
       day_type: 'working_config',
@@ -968,7 +971,7 @@ const getSelectedDateEvents = () => {
       }),
       created_by: currentUserId || 'system'
     };
-    
+
     if (existing) {
       const { error } = await supabase
         .from('company_calendar')
@@ -981,7 +984,7 @@ const getSelectedDateEvents = () => {
         .insert([configData]);
       if (error) throw error;
     }
-    
+
     message.success('Working configuration saved successfully');
   } catch (error) {
     console.error('Error saving working config:', error);
@@ -998,11 +1001,11 @@ const getSelectedDateEvents = () => {
       .select('*')
       .eq('day_type', 'working_config') // Changed from 'working_day_config'
       .single();
-    
+
     if (error && error.code !== 'PGRST116') {
       throw error;
     }
-    
+
     if (data && data.reason) {
   const config = JSON.parse(data.reason);
   setWorkingDaysConfig(config.workingDays || {
@@ -1028,14 +1031,14 @@ const getSelectedDateEvents = () => {
 const saveWorkingDaysConfig = async (config) => {
   try {
     setLoading(true);
-    
+
     // Check if config record exists
     const { data: existing } = await supabase
       .from('company_calendar')
       .select('id')
       .eq('day_type', 'working_day_config')
       .single();
-    
+
     const configData = {
       date: '1970-01-01', // Dummy date for config record
       day_type: 'working_day_config',
@@ -1043,24 +1046,24 @@ const saveWorkingDaysConfig = async (config) => {
       reason: JSON.stringify(config), // Store config as JSON in reason field
       created_by: 'current_user'
     };
-    
+
     if (existing) {
       // Update existing config
       const { error } = await supabase
         .from('company_calendar')
         .update(configData)
         .eq('id', existing.id);
-      
+
       if (error) throw error;
     } else {
       // Insert new config
       const { error } = await supabase
         .from('company_calendar')
         .insert([configData]);
-      
+
       if (error) throw error;
     }
-    
+
     message.success('Working days configuration saved successfully');
   } catch (error) {
     console.error('Error saving working days config:', error);
@@ -1120,21 +1123,23 @@ const upcomingEvents = [
   return (
     <Layout style={{ minHeight: '100vh', background: isDarkMode ? '#141414' : '#f5f5f5' }}>
 
-    
-      <Header style={{ 
-        background: isDarkMode ? '#1f1f1f' : '#fff', 
+
+      <Header style={{
+        background: isDarkMode ? '#1f1f1f' : '#fff',
         padding: '0 24px',
         boxShadow: isDarkMode ? '0 1px 4px rgba(0,0,0,.15)' : '0 1px 4px rgba(0,21,41,.08)',
         borderBottom: isDarkMode ? '1px solid #303030' : '1px solid #f0f0f0'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', height: '100%' }}>
-          <Title level={3} style={{ margin: 0, color: '#262626' }}>
-            Calendar Management
-          </Title>
-          <Text type="secondary" style={{ marginLeft: 16 }}>
-            Manage holidays, working days, events, and emergency planning
-          </Text>
-        </div>
+        <Row align="middle" style={{ height: '100%' }}>
+          <Col xs={24} sm={12}>
+            <Title level={3} style={{ margin: 0, color: '#262626' }}>
+              Calendar Management
+            </Title>
+          </Col>
+          <Col xs={24} sm={12} style={{ textAlign: 'right' }}>
+            
+          </Col>
+        </Row>
       </Header>
 
       <Content style={{ padding: 24 }}>
@@ -1144,11 +1149,12 @@ const upcomingEvents = [
             mode="horizontal"
             selectedKeys={[selectedTab]}
             onClick={({ key }) => setSelectedTab(key)}
-            style={{ 
+            style={{
               borderBottom: 'none',
               backgroundColor: 'transparent'
             }}
             items={menuItems}
+            overflowedIndicator={<Button type="text" icon={<MenuOutlined />} />}
           />
         </Card>
 
@@ -1165,7 +1171,7 @@ const upcomingEvents = [
 </div>
 
             <Row gutter={[16, 16]} style={{ marginBottom: 32 }}>
-  <Col span={4}>
+  <Col xs={12} sm={8} md={6} lg={4}>
     <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f6ffed', border: '1px solid #b7eb8f' }}>
       <Statistic
         title="Total Days"
@@ -1174,7 +1180,7 @@ const upcomingEvents = [
       />
     </Card>
   </Col>
-  <Col span={4}>
+  <Col xs={12} sm={8} md={6} lg={4}>
     <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f6ffed', border: '1px solid #b7eb8f' }}>
       <Statistic
         title="Working Days"
@@ -1183,7 +1189,7 @@ const upcomingEvents = [
       />
     </Card>
   </Col>
-  <Col span={4}>
+  <Col xs={12} sm={8} md={6} lg={4}>
     <Card size="small" style={{ textAlign: 'center', backgroundColor: '#fff7e6', border: '1px solid #ffd591' }}>
       <Statistic
         title="Weekends/Offs"
@@ -1192,7 +1198,7 @@ const upcomingEvents = [
       />
     </Card>
   </Col>
-  <Col span={4}>
+  <Col xs={12} sm={8} md={6} lg={4}>
     <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f0f5ff', border: '1px solid #91d5ff' }}>
       <Statistic
         title="Holidays"
@@ -1201,7 +1207,7 @@ const upcomingEvents = [
       />
     </Card>
   </Col>
-  <Col span={4}>
+  <Col xs={12} sm={8} md={6} lg={4}>
     <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f9f0ff', border: '1px solid #d3adf7' }}>
       <Statistic
         title="Events"
@@ -1210,7 +1216,7 @@ const upcomingEvents = [
       />
     </Card>
   </Col>
-  <Col span={4}>
+  <Col xs={12} sm={8} md={6} lg={4}>
   <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f6ffed', border: '1px solid #b7eb8f' }}>
     <Statistic
       title="Daily Hours"
@@ -1222,7 +1228,7 @@ const upcomingEvents = [
 </Row>
 
 <Row gutter={16} style={{ marginBottom: 32 }}>
-  <Col span={4}>
+  <Col xs={12} sm={8} md={6} lg={4}>
   <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f6ffed', border: '1px solid #b7eb8f' }}>
     <Statistic
       title="Monthly Hours"
@@ -1236,19 +1242,19 @@ const upcomingEvents = [
 
 
             <Row style={{ marginBottom: 24 }}>
-  <Col span={8}>
+  <Col xs={24} sm={8}>
     <Space>
       <Text>Break Time:</Text>
       <Text strong>{Math.floor(breakMinutes / 60)}h {breakMinutes % 60}m</Text>
     </Space>
   </Col>
-  <Col span={8}>
+  <Col xs={24} sm={8}>
     <Space>
       <Text>Timezone:</Text>
       <Text strong>{workingHoursConfig.timezone}</Text>
     </Space>
   </Col>
-  <Col span={8}>
+  <Col xs={24} sm={8}>
     <Space>
       <Text>Work Schedule:</Text>
       <Text strong>
@@ -1262,14 +1268,14 @@ const upcomingEvents = [
 </Row>
 
             <Row gutter={24}>
-              <Col span={16}>
-                <Card 
+              <Col xs={24} lg={16}>
+                <Card
   title={
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <span>Calendar View</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+      <span style={{ marginBottom: '8px' }}>Calendar View</span>
       <div style={{ display: 'flex', alignItems: 'center' }}>
-        <Button 
-          type="text" 
+        <Button
+          type="text"
           onClick={() => setCurrentViewDate(prev => prev.subtract(1, 'month'))}
           style={{ marginRight: 8 }}
         >
@@ -1278,8 +1284,8 @@ const upcomingEvents = [
         <Text strong style={{ minWidth: '120px', textAlign: 'center' }}>
           {currentViewDate.format('MMMM YYYY')}
         </Text>
-        <Button 
-          type="text" 
+        <Button
+          type="text"
           onClick={() => setCurrentViewDate(prev => prev.add(1, 'month'))}
           style={{ marginLeft: 8 }}
         >
@@ -1290,13 +1296,13 @@ const upcomingEvents = [
   }
   size="small"
   extra={
-    <Space>
+    <Space direction="vertical" align="start" style={{ width: '100%' }}>
       <Text type="secondary">Click on a date to view events</Text>
     </Space>
   }
 >
                   <div style={{ marginBottom: 16 }}>
-                    <Space>
+                    <Space wrap>
                       <Badge status="default" text="Today" />
                       <Badge status="error" text="Holiday" />
                       <Badge status="success" text="Event/Meeting" />
@@ -1313,8 +1319,8 @@ const upcomingEvents = [
 
                 </Card>
               </Col>
-              
-              <Col span={8}>
+
+              <Col xs={24} lg={8} style={{ marginTop: '24px' }}>
                 <Card title={`${selectedDate.format('MMM DD, YYYY')}`} size="small">
                   <div style={{ marginBottom: 16 }}>
                     <Text type="secondary">Today's events</Text>
@@ -1326,13 +1332,13 @@ const upcomingEvents = [
     renderItem={(item) => (
       <List.Item>
         <div>
-          <div style={{ 
+          <div style={{
             fontWeight: 500,
             color: item.type === 'holiday' ? '#cf1322' : '#389e0d'
           }}>
             {item.title}
             {item.type === 'holiday' && (
-              <Tag 
+              <Tag
                 color={
                   item.holidayType === 'National' ? 'red' :
                   item.holidayType === 'Regional' ? 'orange' :
@@ -1342,12 +1348,12 @@ const upcomingEvents = [
                 size="small"
                 style={{ marginLeft: 8 }}
               >
-                {item.holiday_type || (item.is_mandatory ? 'National' : 
+                {item.holiday_type || (item.is_mandatory ? 'National' :
  item.created_by === 'system' ? 'Restricted' : 'Company')} Holiday
               </Tag>
             )}
             {item.type === 'event' && (
-              <Tag 
+              <Tag
                 color="green"
                 size="small"
                 style={{ marginLeft: 8 }}
@@ -1360,10 +1366,10 @@ const upcomingEvents = [
           {item.location && <div><Text type="secondary">Location: {item.location}</Text></div>}
           {item.priority && (
             <div>
-              <Tag 
+              <Tag
                 color={
-                  item.priority === 'Critical' ? 'red' : 
-                  item.priority === 'High' ? 'orange' : 
+                  item.priority === 'Critical' ? 'red' :
+                  item.priority === 'High' ? 'orange' :
                   item.priority === 'Medium' ? 'yellow' : 'blue'
                 }
                 size="small"
@@ -1392,9 +1398,9 @@ const upcomingEvents = [
               </Col>
             </Row>
 
-            <Card 
-              title="Upcoming Events" 
-              size="small" 
+            <Card
+              title="Upcoming Events"
+              size="small"
               style={{ marginTop: 24 }}
               extra={<Text type="secondary">Next 5 upcoming events across all categories</Text>}
             >
@@ -1415,14 +1421,14 @@ const upcomingEvents = [
           )}
         </Text>
         {item.itemType === 'holiday' && (
-  <Tag 
+  <Tag
     color={
       item.is_mandatory ? 'red' :
       item.created_by === 'system' ? 'gold' : 'blue'
     }
     style={{ marginLeft: 8 }}
   >
-    {item.is_mandatory ? 'National' : 
+    {item.is_mandatory ? 'National' :
      item.created_by === 'system' ? 'Restricted' : 'Company'} Holiday
   </Tag>
 )}
@@ -1446,10 +1452,10 @@ const upcomingEvents = [
 
         {selectedTab === 'holidays' && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-  <Title level={4}>Holidays Management</Title>
-  <Space>
-  {permissions.canManageHolidays && (<Select 
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+  <Title level={4} style={{ marginBottom: '8px' }}>Holidays Management</Title>
+  <Space wrap>
+  {permissions.canManageHolidays && (<Select
     value={selectedYear}
     onChange={setSelectedYear}
     style={{ width: 100 }}
@@ -1460,7 +1466,7 @@ const upcomingEvents = [
     })}
   </Select>)}
   {permissions.canManageHolidays && (
-  <Button 
+  <Button
     icon={<SyncOutlined spin={loading} />}
     onClick={() => syncGovernmentHolidays(selectedYear)}
     loading={loading}
@@ -1469,8 +1475,8 @@ const upcomingEvents = [
   </Button>
 )}
   {permissions.canManageHolidays && (
-    <Button 
-      type="primary" 
+    <Button
+      type="primary"
       icon={<PlusOutlined />}
       onClick={() => {
         setEditingHoliday(null);
@@ -1483,65 +1489,72 @@ const upcomingEvents = [
   )}
 </Space>
 </div>
-           
+
             <Card>
               {holidays.length > 0 ? (
                 <List
   dataSource={holidays}
   renderItem={(holiday) => (
-    <List.Item
-  actions={permissions.canManageHolidays ? [
-  <Button 
-    type="text" 
-    icon={<EditOutlined />}
-    onClick={() => handleEditHoliday(holiday)}
-  >
-    Edit
-  </Button>,
-  <Button 
-    type="text" 
-    icon={<DeleteOutlined />}
-    danger
-    onClick={() => {
-      Modal.confirm({
-        title: 'Delete Holiday',
-        content: 'Are you sure you want to delete this holiday?',
-        okText: 'Delete',
-        okType: 'danger',
-        onOk: () => deleteHoliday(holiday.id)
-      });
-    }}
-  >
-    Delete
-  </Button>
-] : []}
->
-                      <List.Item.Meta
-  title={holiday.holiday_name}
-  description={
-    <div>
-      <Text type="secondary">
-        {dayjs(holiday.date).format('MMM DD, YYYY')}
-      </Text>
-      <div>
-        <Tag color={
-  holiday.holiday_type === 'National' ? 'red' :
-  holiday.holiday_type === 'Regional' ? 'orange' :
-  holiday.holiday_type === 'Religious' ? 'purple' :
-  holiday.holiday_type === 'Company' ? 'blue' : 'gold'
-}>
-  {holiday.holiday_type || (holiday.is_mandatory ? 'National' : 'Company')}
-</Tag>
-      </div>
-      {holiday.reason && (
-        <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
-          {holiday.reason}
-        </Text>
-      )}
-    </div>
-  }
-/>
-                    </List.Item>
+  <List.Item>
+  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', flexWrap: 'wrap', gap: '16px' }}>
+    {/* Main Content */}
+    <List.Item.Meta
+      style={{ flex: '1 1 300px', minWidth: '250px' }}
+      title={holiday.holiday_name}
+      description={
+        <div>
+          <Text type="secondary">
+            {dayjs(holiday.date).format('MMM DD, YYYY')}
+          </Text>
+          <div>
+            <Tag color={
+              holiday.holiday_type === 'National' ? 'red' :
+              holiday.holiday_type === 'Regional' ? 'orange' :
+              holiday.holiday_type === 'Religious' ? 'purple' :
+              holiday.holiday_type === 'Company' ? 'blue' : 'gold'
+            }>
+              {holiday.holiday_type || (holiday.is_mandatory ? 'National' : 'Company')}
+            </Tag>
+          </div>
+          {holiday.reason && (
+            <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
+              {holiday.reason}
+            </Text>
+          )}
+        </div>
+      }
+    />
+    
+    {/* Action Buttons */}
+    {permissions.canManageHolidays && (
+      <Space>
+        <Button 
+          type="text" 
+          icon={<EditOutlined />}
+          onClick={() => handleEditHoliday(holiday)}
+        >
+          Edit
+        </Button>
+        <Button 
+          type="text" 
+          icon={<DeleteOutlined />}
+          danger
+          onClick={() => {
+            Modal.confirm({
+              title: 'Delete Holiday',
+              content: 'Are you sure you want to delete this holiday?',
+              okText: 'Delete',
+              okType: 'danger',
+              onOk: () => deleteHoliday(holiday.id)
+            });
+          }}
+        >
+          Delete
+        </Button>
+      </Space>
+    )}
+  </div>
+</List.Item>
                   )}
                 />
               ) : (
@@ -1574,9 +1587,9 @@ const upcomingEvents = [
     }}>
       Cancel
     </Button>,
-    <Button 
-      key="create" 
-      type="primary" 
+    <Button
+      key="create"
+      type="primary"
       loading={loading}
       onClick={handleHolidaySubmit}
     >
@@ -1588,7 +1601,7 @@ const upcomingEvents = [
   <Text type="secondary" style={{ marginBottom: 24, display: 'block' }}>
     {editingHoliday ? 'Update holiday type (National holidays can be changed to Regional/Company)' : 'Create a new holiday entry'}
   </Text>
-              
+
               <Form
                 form={holidayForm}
                 layout="vertical"
@@ -1617,8 +1630,8 @@ const upcomingEvents = [
                   name="endDate"
                   label="End Date (Optional)"
                 >
-                  <DatePicker 
-                    style={{ width: '100%' }} 
+                  <DatePicker
+                    style={{ width: '100%' }}
                     placeholder="Pick an end date (for multi-day holidays)"
                   />
                 </Form.Item>
@@ -1639,8 +1652,8 @@ const upcomingEvents = [
                   name="description"
                   label="Description"
                 >
-                  <Input.TextArea 
-                    rows={4} 
+                  <Input.TextArea
+                    rows={4}
                     placeholder="Optional description"
                   />
                 </Form.Item>
@@ -1652,14 +1665,14 @@ const upcomingEvents = [
 
         {selectedTab === 'working-days' && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+              <div style={{ marginBottom: '8px' }}>
                 <Title level={4}>Working Days Configuration</Title>
                 <Text type="secondary">Configure your organization's working schedule</Text>
               </div>
               {permissions.canManageWorkingDays && (
-  <Button 
-  type="primary" 
+  <Button
+  type="primary"
   onClick={() => saveWorkingConfig(workingDaysConfig, workingHoursConfig)}
   disabled={!permissions.canManageWorkingDays}
 >
@@ -1672,16 +1685,16 @@ const upcomingEvents = [
               <Text type="secondary" style={{ marginBottom: 16, display: 'block' }}>
                 Select which days are working days ({Object.values(workingDaysConfig).filter(Boolean).length} selected)
               </Text>
-              
-              <Row gutter={16}>
+
+              <Row gutter={[16, 8]}>
                 {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day, index) => (
-                  <Col key={day} span={3}>
+                  <Col key={day} xs={12} sm={8} md={6} lg={4} xl={3}>
                     <Card size="small" style={{ textAlign: 'center', marginBottom: 8 }}>
                       <div style={{ marginBottom: 8 }}>
                         <Text strong>{day}</Text>
                       </div>
-                      <Switch 
-  checked={workingDaysConfig[day.toLowerCase()]} 
+                      <Switch
+  checked={workingDaysConfig[day.toLowerCase()]}
   onChange={(checked) => {
     setWorkingDaysConfig(prev => ({
       ...prev,
@@ -1701,15 +1714,15 @@ const upcomingEvents = [
               <Text type="secondary" style={{ marginBottom: 16, display: 'block' }}>
                 Set the standard working hours and break times
               </Text>
-              
+
               <Row gutter={24}>
-                <Col span={12}>
+                <Col xs={24} md={12}>
                   <Title level={5}>Work Hours</Title>
                   <Form layout="vertical">
                     <Form.Item label="Start Time">
-  <TimePicker 
+  <TimePicker
     value={workingHoursConfig.startTime ? dayjs(workingHoursConfig.startTime, 'HH:mm') : null}
-    format="HH:mm" 
+    format="HH:mm"
     style={{ width: '100%' }}
     disabled={!permissions.canManageWorkingDays}
     onChange={(time) => setWorkingHoursConfig(prev => ({
@@ -1719,9 +1732,9 @@ const upcomingEvents = [
   />
 </Form.Item>
 <Form.Item label="End Time">
-  <TimePicker 
+  <TimePicker
     value={workingHoursConfig.endTime ? dayjs(workingHoursConfig.endTime, 'HH:mm') : null}
-    format="HH:mm" 
+    format="HH:mm"
     style={{ width: '100%' }}
     disabled={!permissions.canManageWorkingDays}
     onChange={(time) => setWorkingHoursConfig(prev => ({
@@ -1729,17 +1742,17 @@ const upcomingEvents = [
       endTime: time ? time.format('HH:mm') : '18:00'
     }))}
   />
-</Form.Item>  
+</Form.Item>
                   </Form>
                 </Col>
-                
-                <Col span={12}>
+
+                <Col xs={24} md={12}>
                   <Title level={5}>Break Hours</Title>
                   <Form layout="vertical">
   <Form.Item label="Break Start">
-  <TimePicker 
+  <TimePicker
     value={workingHoursConfig.breakStart ? dayjs(workingHoursConfig.breakStart, 'HH:mm') : null}
-    format="HH:mm" 
+    format="HH:mm"
     style={{ width: '100%' }}
     disabled={!permissions.canManageWorkingDays}
     onChange={(time) => setWorkingHoursConfig(prev => ({
@@ -1749,9 +1762,9 @@ const upcomingEvents = [
   />
 </Form.Item>
 <Form.Item label="Break End">
-  <TimePicker 
+  <TimePicker
     value={workingHoursConfig.breakEnd ? dayjs(workingHoursConfig.breakEnd, 'HH:mm') : null}
-    format="HH:mm" 
+    format="HH:mm"
     style={{ width: '100%' }}
     disabled={!permissions.canManageWorkingDays}
     onChange={(time) => setWorkingHoursConfig(prev => ({
@@ -1765,14 +1778,14 @@ const upcomingEvents = [
 
                 </Col>
               </Row>
-              
+
               <Divider />
-              
+
               <Form layout="vertical">
                 <Form.Item label="Timezone">
-  <Select 
-    value={workingHoursConfig.timezone} 
-    style={{ width: 200 }} 
+  <Select
+    value={workingHoursConfig.timezone}
+    style={{ width: 200 }}
     disabled={!permissions.canManageWorkingDays}
     onChange={(value) => setWorkingHoursConfig(prev => ({
       ...prev,
@@ -1789,17 +1802,17 @@ const upcomingEvents = [
             </Card>
 
             <Card title="Configuration Summary">
-  <Row gutter={16}>
-    <Col span={6}>
+  <Row gutter={[16, 16]}>
+    <Col xs={24} sm={12} md={6}>
       <Text strong>Working Days:</Text> {Object.values(workingDaysConfig).filter(Boolean).length} days per week
     </Col>
-    <Col span={6}>
+    <Col xs={24} sm={12} md={6}>
       <Text strong>Daily Hours:</Text> {workingHoursConfig.startTime} - {workingHoursConfig.endTime}
     </Col>
-    <Col span={6}>
+    <Col xs={24} sm={12} md={6}>
       <Text strong>Break Time:</Text> {workingHoursConfig.breakStart} - {workingHoursConfig.breakEnd}
     </Col>
-    <Col span={6}>
+    <Col xs={24} sm={12} md={6}>
       <Text strong>Timezone:</Text> {workingHoursConfig.timezone}
     </Col>
   </Row>
@@ -1809,11 +1822,11 @@ const upcomingEvents = [
 
         {selectedTab === 'events' && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Title level={4}>Events Management</Title>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+              <Title level={4} style={{ marginBottom: '8px' }}>Events Management</Title>
               {permissions.canManageEvents && (
-  <Button 
-    type="primary" 
+  <Button
+    type="primary"
     icon={<PlusOutlined />}
     onClick={() => {
       setEditingEvent(null);
@@ -1837,73 +1850,80 @@ const upcomingEvents = [
                 <List
                   dataSource={events}
                   renderItem={(event) => (
-                    <List.Item
-                      actions={permissions.canManageEvents ? [
-  <Button 
-    type="text" 
-    icon={<EditOutlined />}
-    onClick={() => handleEditEvent(event)}
-  >
-    Edit
-  </Button>,
-  <Button 
-    type="text" 
-    icon={<DeleteOutlined />}
-    danger
-    onClick={() => {
-      Modal.confirm({
-        title: 'Delete Event',
-        content: 'Are you sure you want to delete this event?',
-        okText: 'Delete',
-        okType: 'danger',
-        onOk: () => deleteEvent(event.id)
-      });
-    }}
-  >
-    Delete
-  </Button>
-] : []}
-                    >
-                      <List.Item.Meta
-                        title={event.event_title}
-                        description={
-                          <div>
-                            <Text type="secondary">
-                              {dayjs(event.start_date).format('MMM DD, YYYY')}
-                              {event.end_date && ` - ${dayjs(event.end_date).format('MMM DD, YYYY')}`}
-                              {event.start_time && ` at ${dayjs(event.start_time, 'HH:mm:ss').format('HH:mm')}`}
-                            </Text>
-                            <div style={{ marginTop: 4 }}>
-                              <Tag color="blue">{event.event_type}</Tag>
-                              <Tag color={
-                                event.priority === 'Critical' ? 'red' :
-                                event.priority === 'High' ? 'orange' :
-                                event.priority === 'Medium' ? 'yellow' : 'green'
-                              }>
-                                {event.priority}
-                              </Tag>
-                              <Tag color={
-                                event.status === 'Completed' ? 'green' :
-                                event.status === 'In Progress' ? 'blue' :
-                                event.status === 'Cancelled' ? 'red' : 'default'
-                              }>
-                                {event.status}
-                              </Tag>
-                            </div>
-                            {event.location && (
-                              <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
-                                📍 {event.location}
-                              </Text>
-                            )}
-                            {event.description && (
-                              <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
-                                {event.description}
-                              </Text>
-                            )}
-                          </div>
-                        }
-                      />
-                    </List.Item>
+                  <List.Item>
+  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', flexWrap: 'wrap', gap: '16px' }}>
+    {/* Main Content */}
+    <List.Item.Meta
+      style={{ flex: '1 1 300px', minWidth: '250px' }}
+      title={event.event_title}
+      description={
+        <div>
+          <Text type="secondary">
+            {dayjs(event.start_date).format('MMM DD, YYYY')}
+            {event.end_date && ` - ${dayjs(event.end_date).format('MMM DD, YYYY')}`}
+            {event.start_time && ` at ${dayjs(event.start_time, 'HH:mm:ss').format('HH:mm')}`}
+          </Text>
+          <div style={{ marginTop: 4 }}>
+            <Tag color="blue">{event.event_type}</Tag>
+            <Tag color={
+              event.priority === 'Critical' ? 'red' :
+              event.priority === 'High' ? 'orange' :
+              event.priority === 'Medium' ? 'yellow' : 'green'
+            }>
+              {event.priority}
+            </Tag>
+            <Tag color={
+              event.status === 'Completed' ? 'green' :
+              event.status === 'In Progress' ? 'blue' :
+              event.status === 'Cancelled' ? 'red' : 'default'
+            }>
+              {event.status}
+            </Tag>
+          </div>
+          {event.location && (
+            <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
+              📍 {event.location}
+            </Text>
+          )}
+          {event.description && (
+            <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
+              {event.description}
+            </Text>
+          )}
+        </div>
+      }
+    />
+
+    {/* Action Buttons */}
+    {permissions.canManageEvents && (
+      <Space>
+        <Button 
+          type="text" 
+          icon={<EditOutlined />}
+          onClick={() => handleEditEvent(event)}
+        >
+          Edit
+        </Button>
+        <Button 
+          type="text" 
+          icon={<DeleteOutlined />}
+          danger
+          onClick={() => {
+            Modal.confirm({
+              title: 'Delete Event',
+              content: 'Are you sure you want to delete this event?',
+              okText: 'Delete',
+              okType: 'danger',
+              onOk: () => deleteEvent(event.id)
+            });
+          }}
+        >
+          Delete
+        </Button>
+      </Space>
+    )}
+  </div>
+</List.Item>
                   )}
                 />
               ) : (
@@ -1930,9 +1950,9 @@ const upcomingEvents = [
                 }}>
                   Cancel
                 </Button>,
-                <Button 
-                  key="create" 
-                  type="primary" 
+                <Button
+                  key="create"
+                  type="primary"
                   loading={loading}
                   onClick={handleEventSubmit}
                 >
@@ -1944,7 +1964,7 @@ const upcomingEvents = [
               <Text type="secondary" style={{ marginBottom: 24, display: 'block' }}>
                 {editingEvent ? 'Update event details' : 'Create a new event'}
               </Text>
-              
+
               <Form
                 form={eventForm}
                 layout="vertical"
@@ -1968,14 +1988,14 @@ const upcomingEvents = [
                   name="description"
                   label="Description"
                 >
-                  <Input.TextArea 
-                    rows={4} 
+                  <Input.TextArea
+                    rows={4}
                     placeholder="Event description"
                   />
                 </Form.Item>
 
                 <Row gutter={16}>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item
                       name="startDate"
                       label="Start Date *"
@@ -1984,13 +2004,13 @@ const upcomingEvents = [
                       <DatePicker style={{ width: '100%' }} />
                     </Form.Item>
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item
                       name="endDate"
                       label="End Date"
                     >
-                      <DatePicker 
-                        style={{ width: '100%' }} 
+                      <DatePicker
+                        style={{ width: '100%' }}
                         placeholder="Pick end date"
                       />
                     </Form.Item>
@@ -1998,7 +2018,7 @@ const upcomingEvents = [
                 </Row>
 
                 <Row gutter={16}>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item
                       name="startTime"
                       label="Start Time"
@@ -2006,7 +2026,7 @@ const upcomingEvents = [
                       <TimePicker style={{ width: '100%' }} placeholder="--:--" />
                     </Form.Item>
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item
                       name="endTime"
                       label="End Time"
@@ -2017,7 +2037,7 @@ const upcomingEvents = [
                 </Row>
 
                 <Row gutter={16}>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item
                       name="eventType"
                       label="Event Type"
@@ -2031,7 +2051,7 @@ const upcomingEvents = [
                       </Select>
                     </Form.Item>
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item
                       name="priority"
                       label="Priority"
@@ -2061,7 +2081,7 @@ const upcomingEvents = [
                 </Form.Item>
 
                 <Row gutter={16}>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item
                       name="status"
                       label="Status"
@@ -2074,7 +2094,7 @@ const upcomingEvents = [
                       </Select>
                     </Form.Item>
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item
                       name="enableReminder"
                       valuePropName="checked"
@@ -2094,13 +2114,13 @@ const upcomingEvents = [
 
         {selectedTab === 'emergency' && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+              <div style={{ marginBottom: '8px' }}>
                 <Title level={4}>Emergency & Disaster Management</Title>
                 <Text type="secondary">Track and manage emergency situations, disasters, and recovery plans</Text>
               </div>
-              <Button 
-                type="primary" 
+              <Button
+                type="primary"
                 icon={<PlusOutlined />}
                 onClick={() => setDisasterModalVisible(true)}
               >
@@ -2119,15 +2139,15 @@ const upcomingEvents = [
       const disasterInfo = disaster.reason ? JSON.parse(disaster.reason) : {};
       return (
         <List.Item actions={[
-  <Button 
-    type="text" 
+  <Button
+    type="text"
     icon={<EditOutlined />}
     onClick={() => handleEditDisaster(disaster)}
   >
     Edit
   </Button>,
-  <Button 
-    type="text" 
+  <Button
+    type="text"
     icon={<DeleteOutlined />}
     danger
     onClick={() => {
@@ -2171,7 +2191,7 @@ const upcomingEvents = [
             }
           />
         </List.Item>
-        
+
       );
     }}
   />
@@ -2197,9 +2217,9 @@ const upcomingEvents = [
                 }}>
                   Cancel
                 </Button>,
-                <Button 
-  key="create" 
-  type="primary" 
+                <Button
+  key="create"
+  type="primary"
   loading={loading}
   onClick={async () => {
   try {
@@ -2222,7 +2242,7 @@ const upcomingEvents = [
               <Text type="secondary" style={{ marginBottom: 24, display: 'block' }}>
                 Record a new emergency or disaster event
               </Text>
-              
+
               <Form
                 form={disasterForm}
                 layout="vertical"
@@ -2242,7 +2262,7 @@ const upcomingEvents = [
                 </Form.Item>
 
                 <Row gutter={16}>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item
                       name="disasterType"
                       label="Disaster Type"
@@ -2257,7 +2277,7 @@ const upcomingEvents = [
                       </Select>
                     </Form.Item>
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item
                       name="severityLevel"
                       label="Severity Level"
@@ -2273,7 +2293,7 @@ const upcomingEvents = [
                 </Row>
 
                 <Row gutter={16}>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item
                       name="startDate"
                       label="Start Date *"
@@ -2282,13 +2302,13 @@ const upcomingEvents = [
                       <DatePicker style={{ width: '100%' }} />
                     </Form.Item>
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item
                       name="endDate"
                       label="End Date"
                     >
-                      <DatePicker 
-                        style={{ width: '100%' }} 
+                      <DatePicker
+                        style={{ width: '100%' }}
                         placeholder="Pick end date"
                       />
                     </Form.Item>
@@ -2306,8 +2326,8 @@ const upcomingEvents = [
                   name="impactDescription"
                   label="Impact Description"
                 >
-                  <Input.TextArea 
-                    rows={4} 
+                  <Input.TextArea
+                    rows={4}
                     placeholder="Describe the impact of this event"
                   />
                 </Form.Item>
@@ -2316,14 +2336,14 @@ const upcomingEvents = [
                   name="responsePlan"
                   label="Response Plan"
                 >
-                  <Input.TextArea 
-                    rows={4} 
+                  <Input.TextArea
+                    rows={4}
                     placeholder="Describe the response plan and actions taken"
                   />
                 </Form.Item>
 
                 <Row gutter={16}>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item
                       name="assignedTeam"
                       label="Assigned Team"
@@ -2331,13 +2351,13 @@ const upcomingEvents = [
                       <Input placeholder="e.g., IT Team, Security Team" />
                     </Form.Item>
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item
                       name="emergencyContact"
                       label="Emergency Contact"
                     >
-                      <Input 
-                        placeholder="Phone number or email" 
+                      <Input
+                        placeholder="Phone number or email"
                         suffix={<Button type="text" size="small" style={{ color: '#1890ff' }}>📧</Button>}
                       />
                     </Form.Item>
@@ -2345,7 +2365,7 @@ const upcomingEvents = [
                 </Row>
 
                 <Row gutter={16}>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item
                       name="estimatedCost"
                       label="Estimated Cost"
@@ -2353,7 +2373,7 @@ const upcomingEvents = [
                       <Input placeholder="0.00" />
                     </Form.Item>
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item
                       name="actualCost"
                       label="Actual Cost"
@@ -2364,7 +2384,7 @@ const upcomingEvents = [
                 </Row>
 
                 <Row gutter={16}>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item
                       name="recoveryTimeline"
                       label="Recovery Timeline"
@@ -2372,7 +2392,7 @@ const upcomingEvents = [
                       <Input placeholder="e.g., 2 weeks, 1 month" />
                     </Form.Item>
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item
                       name="status"
                       label="Status"
@@ -2391,8 +2411,8 @@ const upcomingEvents = [
                   name="lessonsLearned"
                   label="Lessons Learned"
                 >
-                  <Input.TextArea 
-                    rows={4} 
+                  <Input.TextArea
+                    rows={4}
                     placeholder="Document what was learned from this event"
                   />
                 </Form.Item>
