@@ -15,7 +15,7 @@ const PayCalculator = ({ onPayCalculated, onClose }) => {
   const [payCalculations, setPayCalculations] = useState([]);
   const [workingConfig, setWorkingConfig] = useState(null);
   const [monthlyWorkingDays, setMonthlyWorkingDays] = useState(0);
-  const [includeBreakHours, setIncludeBreakHours] = useState(false);
+  const [includeBreakHours, setIncludeBreakHours] = useState(true);
   
   useEffect(() => {
     fetchUsersAndPay();

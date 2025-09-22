@@ -1550,11 +1550,13 @@ const workingDaysInMonth = actualWorkingDaysInMonth.length;
         const baseDate = '2000-01-01';
         const start = dayjs(`${baseDate} ${startTime}`);
         const end = dayjs(`${baseDate} ${endTime}`);
-        const breakStartTime = dayjs(`${baseDate} ${breakStart}`);
-        const breakEndTime = dayjs(`${baseDate} ${breakEnd}`);
+        // const breakStartTime = dayjs(`${baseDate} ${breakStart}`);
+        // const breakEndTime = dayjs(`${baseDate} ${breakEnd}`);
         const totalHours = end.diff(start, 'hour', true);
-        const breakHours = breakEndTime.diff(breakStartTime, 'hour', true);
-        return totalHours + breakHours;
+        // const breakHours = breakEndTime.diff(breakStartTime, 'hour', true);
+        
+        return totalHours;
+        
       })() : 8;
     
     const expectedHours = workingDaysInMonth * hoursPerDay;
