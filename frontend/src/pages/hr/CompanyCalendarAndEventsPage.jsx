@@ -674,7 +674,7 @@ useEffect(() => {
   initializeData();
 }, [permissions.canManageHolidays,userRole]);
 
- // Calculate statistics for the current view month
+// Calculate statistics for the current view month
 const currentMonth = currentViewDate.format('YYYY-MM');
 const currentMonthHolidays = holidays.filter(holiday => 
   dayjs(holiday.date).format('YYYY-MM') === currentMonth
@@ -683,7 +683,7 @@ const currentMonthEvents = events.filter(event =>
   dayjs(event.start_date).format('YYYY-MM') === currentMonth
 );
 
-// Calculate working days for the specific month
+// Calculate working days for the specific month using fetched config
 const daysInCurrentMonth = currentViewDate.daysInMonth();
 const startOfMonth = currentViewDate.startOf('month');
 let workingDaysCount = 0;
@@ -695,15 +695,35 @@ for (let i = 0; i < daysInCurrentMonth; i++) {
   const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   const dayName = dayNames[dayOfWeek];
   
-  if (workingDaysConfig[dayName]) {
+  // Check if this day has a holiday
+  const currentDateStr = currentDay.format('YYYY-MM-DD');
+  const hasHoliday = currentMonthHolidays.some(holiday => holiday.date === currentDateStr);
+  
+  if (workingDaysConfig[dayName] && !hasHoliday) {
     workingDaysCount++;
   } else {
     weekendDaysCount++;
   }
 }
 
-// Subtract holidays from working days
-const actualWorkingDays = workingDaysCount - currentMonthHolidays.length;
+const actualWorkingDays = workingDaysCount;
+
+// Calculate daily hours from working config
+const startTime = dayjs(workingHoursConfig.startTime, 'HH:mm');
+const endTime = dayjs(workingHoursConfig.endTime, 'HH:mm');
+const breakStart = dayjs(workingHoursConfig.breakStart, 'HH:mm');
+const breakEnd = dayjs(workingHoursConfig.breakEnd, 'HH:mm');
+
+const totalMinutes = endTime.diff(startTime, 'minute');
+const breakMinutes = breakEnd.diff(breakStart, 'minute');
+const workingMinutes = totalMinutes;
+
+const dailyHours = Math.floor(workingMinutes / 60);
+const dailyMinutes = workingMinutes % 60;
+const monthlyHours = actualWorkingDays * dailyHours;
+const monthlyMinutes = actualWorkingDays * dailyMinutes;
+const totalMonthlyHours = monthlyHours + Math.floor(monthlyMinutes / 60);
+const remainingMonthlyMinutes = monthlyMinutes % 60;
 
 useEffect(() => {
   fetchHolidays();
@@ -1191,49 +1211,55 @@ const upcomingEvents = [
     </Card>
   </Col>
   <Col span={4}>
-    <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f6ffed', border: '1px solid #b7eb8f' }}>
-      <Statistic
-        title="Daily Hours"
-        value="8h 0m"
-        valueStyle={{ color: '#52c41a', fontSize: '20px', fontWeight: 'bold' }}
-      />
-    </Card>
-  </Col>
+  <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f6ffed', border: '1px solid #b7eb8f' }}>
+    <Statistic
+      title="Daily Hours"
+      value={`${dailyHours}h ${dailyMinutes}m`}
+      valueStyle={{ color: '#52c41a', fontSize: '20px', fontWeight: 'bold' }}
+    />
+  </Card>
+</Col>
 </Row>
 
 <Row gutter={16} style={{ marginBottom: 32 }}>
   <Col span={4}>
-    <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f6ffed', border: '1px solid #b7eb8f' }}>
-      <Statistic
-        title="Monthly Hours"
-        value={`${actualWorkingDays * 8}h 0m`}
-        valueStyle={{ color: '#52c41a', fontSize: '20px', fontWeight: 'bold' }}
-      />
-    </Card>
-  </Col>
+  <Card size="small" style={{ textAlign: 'center', backgroundColor: '#f6ffed', border: '1px solid #b7eb8f' }}>
+    <Statistic
+      title="Monthly Hours"
+      value={`${totalMonthlyHours}h ${remainingMonthlyMinutes}m`}
+      valueStyle={{ color: '#52c41a', fontSize: '20px', fontWeight: 'bold' }}
+    />
+  </Card>
+</Col>
+
 </Row>
 
 
             <Row style={{ marginBottom: 24 }}>
-              <Col span={8}>
-                <Space>
-                  <Text>Break Time:</Text>
-                  <Text strong>1h 0m</Text>
-                </Space>
-              </Col>
-              <Col span={8}>
-                <Space>
-                  <Text>Timezone:</Text>
-                  <Text strong>UTC</Text>
-                </Space>
-              </Col>
-              <Col span={8}>
-                <Space>
-                  <Text>Work Schedule:</Text>
-                  <Text strong>Mon-Fri</Text>
-                </Space>
-              </Col>
-            </Row>
+  <Col span={8}>
+    <Space>
+      <Text>Break Time:</Text>
+      <Text strong>{Math.floor(breakMinutes / 60)}h {breakMinutes % 60}m</Text>
+    </Space>
+  </Col>
+  <Col span={8}>
+    <Space>
+      <Text>Timezone:</Text>
+      <Text strong>{workingHoursConfig.timezone}</Text>
+    </Space>
+  </Col>
+  <Col span={8}>
+    <Space>
+      <Text>Work Schedule:</Text>
+      <Text strong>
+        {Object.entries(workingDaysConfig)
+          .filter(([day, isWorking]) => isWorking)
+          .map(([day]) => day.substring(0, 3).toUpperCase())
+          .join('-')}
+      </Text>
+    </Space>
+  </Col>
+</Row>
 
             <Row gutter={24}>
               <Col span={16}>

@@ -7,8 +7,65 @@ const supabase = createClient(
 );
 
 /**
+ * Check if a given date is a working day based on company calendar
+ * @param {string} date - Date in YYYY-MM-DD format
+ * @returns {boolean} True if it's a working day, false otherwise
+ */
+const isWorkingDay = async (date) => {
+  try {
+    // Get the day of the week (0 = Sunday, 1 = Monday, etc.)
+    const dateObj = new Date(date + 'T00:00:00'); // Add time to avoid timezone issues
+    const dayOfWeek = dateObj.getDay();
+    
+    // Map day numbers to day names
+    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const currentDayName = dayNames[dayOfWeek];
+    
+    console.log(`[AUTO-ABSENT] Checking if ${date} (${currentDayName}) is a working day`);
+
+    // Get company calendar configuration
+    const { data: calendarConfig, error } = await supabase
+      .from('company_calendar')
+      .select('day_type, reason')
+      .eq('day_type', 'working_config')
+      .single();
+
+    if (error) {
+      console.error('[AUTO-ABSENT] Error fetching company calendar:', error);
+      // If we can't fetch the config, assume it's a working day (fail-safe)
+      console.log('[AUTO-ABSENT] Defaulting to working day due to config fetch error');
+      return true;
+    }
+
+    if (!calendarConfig || !calendarConfig.reason) {
+      console.log('[AUTO-ABSENT] No working config found, defaulting to working day');
+      return true;
+    }
+
+    // Parse the working days configuration
+    const workingConfig = calendarConfig.reason;
+    const workingDays = workingConfig.workingDays || {};
+    
+    console.log('[AUTO-ABSENT] Working days config:', workingDays);
+    
+    // Check if the current day is a working day
+    const isWorking = workingDays[currentDayName] === true;
+    
+    console.log(`[AUTO-ABSENT] ${currentDayName} is ${isWorking ? 'a working day' : 'NOT a working day'}`);
+    
+    return isWorking;
+    
+  } catch (error) {
+    console.error('[AUTO-ABSENT] Error checking working day:', error);
+    // If there's an error, assume it's a working day (fail-safe)
+    return true;
+  }
+};
+
+/**
  * Auto mark absent function
  * Marks employees as absent if they don't have attendance records for the target date
+ * Only processes working days based on company calendar
  * @param {string} targetDate - Optional date in YYYY-MM-DD format. If not provided, uses yesterday's date
  * @returns {Object} Result object with success status, message, count, and employee details
  */
@@ -19,6 +76,23 @@ const handleAutoMarkAbsent = async (targetDate = null) => {
       .toISOString().split('T')[0]; // Yesterday's date in YYYY-MM-DD format
     
     console.log(`[AUTO-ABSENT] Processing auto-absent for date: ${dateToProcess}`);
+
+    // Check if the date is a working day
+    const isWorking = await isWorkingDay(dateToProcess);
+    
+    if (!isWorking) {
+      console.log(`[AUTO-ABSENT] Skipping auto-absent for ${dateToProcess} - Non-working day`);
+      return {
+        success: true,
+        message: `Skipped auto-absent marking for ${dateToProcess} - Non-working day`,
+        count: 0,
+        date: dateToProcess,
+        isWorkingDay: false,
+        totalEmployees: 0,
+        employeesWithRecords: 0,
+        employees: []
+      };
+    }
 
     // Get all employees (excluding admins/hr/superadmins)
     const { data: allUsers, error: usersError } = await supabase
@@ -60,6 +134,7 @@ const handleAutoMarkAbsent = async (targetDate = null) => {
         message: 'All employees already have attendance records',
         count: 0,
         date: dateToProcess,
+        isWorkingDay: true,
         totalEmployees: allUsers?.length || 0,
         employeesWithRecords: employeesWithRecords.length,
         employees: []
@@ -98,6 +173,7 @@ const handleAutoMarkAbsent = async (targetDate = null) => {
       message: `Marked ${employeesWithoutRecords.length} employees as absent for ${dateToProcess}`,
       count: employeesWithoutRecords.length,
       date: dateToProcess,
+      isWorkingDay: true,
       totalEmployees: allUsers?.length || 0,
       employeesWithRecords: employeesWithRecords.length,
       employees: employeesWithoutRecords.map(emp => ({
@@ -129,6 +205,9 @@ const getAutoAbsentStats = async (date = null) => {
     const targetDate = date || new Date(Date.now() - 24 * 60 * 60 * 1000)
       .toISOString().split('T')[0];
 
+    // Check if the date was a working day
+    const isWorking = await isWorkingDay(targetDate);
+
     // Get absent records for the date
     const { data: absentRecords, error } = await supabase
       .from('attendance')
@@ -155,6 +234,7 @@ const getAutoAbsentStats = async (date = null) => {
     return {
       success: true,
       date: targetDate,
+      isWorkingDay: isWorking,
       autoAbsentCount: absentRecords?.length || 0,
       employees: absentRecords?.map(record => ({
         id: record.users.id,
@@ -175,9 +255,8 @@ const getAutoAbsentStats = async (date = null) => {
   }
 };
 
-
-
 module.exports = {
   handleAutoMarkAbsent,
-  getAutoAbsentStats
+  getAutoAbsentStats,
+  isWorkingDay
 };
