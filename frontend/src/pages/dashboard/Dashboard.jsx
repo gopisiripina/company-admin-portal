@@ -81,6 +81,7 @@ const [isSubmittingReason, setIsSubmittingReason] = useState(false);
 const [userLocation, setUserLocation] = useState(null);
 const [leaveData, setLeaveData] = useState([]);
 
+
   const [tabId] = useState(() => Date.now() + Math.random());
     const storageKey = `emailCredentials_${tabId}`;
 useEffect(() => {
@@ -624,14 +625,14 @@ const startFaceDetection = () => {
 //   }
 // }, [activeSection, selectedPayslipMonth, userData]);
 
- useEffect(() => {
+useEffect(() => {
     if (activeSection === 'dashboard' && userData && userData.id) {
       fetchAttendanceData();
       fetchEmployeeLeaves(); // <-- NEW: Call fetchEmployeeLeaves
     } else {
       console.log('Skipping fetch - not on dashboard or no user data');
     }
-  }, [userData, currentMonth]); // Ensure this runs when userData is available
+  }, [userData, currentMonth]);
 
 useEffect(() => {
   if (isCameraModalVisible && !isModelLoaded) {
@@ -931,13 +932,17 @@ useEffect(() => {
 const presentDays = activeSection === 'dashboard' ? 
   (attendanceData.filter(record => record.is_present === true).length || 0) : 0;
 
+// In Dashboard.jsx
+// In Dashboard.jsx
+// --- UPDATED: Replace the absentDays constant calculation ---
 const absentDays = activeSection === 'dashboard'
   ? attendanceData.reduce((count, record) => {
-      // Check if this day had an approved leave
+      // First, check if this day had an approved leave.
       const isOnLeave = leaveData.some(leave =>
         dayjs(record.date).isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
       );
-      // Only count as absent if is_present is false AND the user was not on leave
+      
+      // IMPORTANT: Only count as absent if is_present is false AND the user was NOT on leave.
       if (record.is_present === false && !isOnLeave) {
         return count + 1;
       }
@@ -1022,95 +1027,67 @@ const isHoliday = (dateStr) => {
   return holidays.some(holiday => holiday.date === dateStr);
 };
 
-// Function to determine attendance status
+// In Dashboard.jsx
+// --- UPDATED: Replace the entire getAttendanceStatus function ---
+// In Dashboard.jsx
+// --- UPDATED: Replace the entire getAttendanceStatus function ---
 const getAttendanceStatus = (dateStr, attendanceInfo, currentDate) => {
   const targetDate = new Date(dateStr);
   const isToday = currentDate.toDateString() === targetDate.toDateString();
   const isPastDate = targetDate < currentDate && !isToday;
   const isWorkDay = isWorkingDay(targetDate);
   const isHol = isHoliday(dateStr);
-  
+
+  // --- PRIORITY #1: Check for an approved leave first. This overrides everything. ---
   const approvedLeave = leaveData.find(leave =>
     dayjs(dateStr).isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
   );
 
   if (approvedLeave) {
     return {
-      dayClass: 'on-leave', // A new CSS class for styling
+      dayClass: 'on-leave', // Use the blue "on-leave" style
       tooltipText: `On Leave: ${approvedLeave.leave_type}`
     };
   }
-  // If it's a holiday, mark as holiday
-  // If it's a holiday, check if there's attendance data first
-if (isHol) {
-  // If employee worked on holiday, prioritize attendance status
-  if (attendanceInfo) {
-    if (attendanceInfo.hasCheckedIn && !attendanceInfo.hasCheckedOut && isPastDate) {
-    return {
-      dayClass: 'missing',
-      tooltipText: `Missing Check Out - Checked In at ${attendanceInfo.checkIn} but didn't check out`
-    };
-  }
-  
-    if (attendanceInfo.hasCheckedIn && !attendanceInfo.hasCheckedOut) {
-      return {
-        dayClass: 'checked-in', // Orange color #f97316
-        tooltipText: `Holiday Work - Checked In at ${attendanceInfo.checkIn} (${holidays.find(h => h.date === dateStr)?.holiday_name || 'Holiday'})`
-      };
-    } else if (attendanceInfo.hasCheckedIn && attendanceInfo.hasCheckedOut) {
-      return {
-        dayClass: 'present', // Green color #22c55e
-        tooltipText: `Holiday Work - Check in: ${attendanceInfo.checkIn}, Check out: ${attendanceInfo.checkOut} (${holidays.find(h => h.date === dateStr)?.holiday_name || 'Holiday'})`
-      };
-    }
-  }
-  // Default holiday appearance when no attendance
-  return {
-    dayClass: 'holiday',
-    tooltipText: `Holiday: ${holidays.find(h => h.date === dateStr)?.holiday_name || 'Holiday'}`
-  };
-}
-  
-  // If it's not a working day (weekend), mark accordingly
-  if (!isWorkDay) {
-    return {
-      dayClass: 'non-working',
-      tooltipText: 'Non-working day'
-    };
-  }
-  
-  // If there's attendance info
-  if (attendanceInfo) {
-    if (attendanceInfo.hasCheckedIn && !attendanceInfo.hasCheckedOut) {
-      return {
-        dayClass: 'checked-in',
-        tooltipText: `Checked In at ${attendanceInfo.checkIn} - Not checked out yet`
-      };
-    } else if (attendanceInfo.hasCheckedIn && attendanceInfo.hasCheckedOut) {
-      return {
+  // --- If the code proceeds past this point, the employee is NOT on leave for this day. ---
+
+  if (isHol) {
+    if (attendanceInfo?.is_present) {
+       return {
         dayClass: 'present',
-        tooltipText: `Present - Check in: ${attendanceInfo.checkIn}, Check out: ${attendanceInfo.checkOut}`
+        tooltipText: `Holiday Work - Check in: ${attendanceInfo.checkIn}, Check out: ${attendanceInfo.checkOut}`
       };
-    } else if (attendanceInfo.isPresent === false) {
-      return {
-        dayClass: 'absent',
-        tooltipText: `Absent on ${dateStr}`
-      };
+    }
+    return {
+      dayClass: 'holiday',
+      tooltipText: `Holiday: ${holidays.find(h => h.date === dateStr)?.holiday_name || 'Holiday'}`
+    };
+  }
+  
+  if (!isWorkDay) {
+    return { dayClass: 'non-working', tooltipText: 'Non-working day' };
+  }
+  
+  // Now, check attendance records ONLY IF the employee was not on leave.
+  if (attendanceInfo) {
+    if (attendanceInfo.isPresent) { // Use isPresent from the mapped data
+        if (attendanceInfo.hasCheckedIn && !attendanceInfo.hasCheckedOut) {
+          return { dayClass: 'checked-in', tooltipText: `Checked In at ${attendanceInfo.checkIn}` };
+        }
+        return { dayClass: 'present', tooltipText: `Present - Check in: ${attendanceInfo.checkIn}, Check out: ${attendanceInfo.checkOut}` };
+    }
+    else { // The record exists but is_present is false. It's a true absent day.
+        return { dayClass: 'absent', tooltipText: `Absent on ${dateStr}` };
     }
   }
   
-  // For past working days without attendance OR leave data, mark as absent
-  if (isPastDate && isWorkDay && !attendanceInfo) {
-    return {
-      dayClass: 'absent',
-      tooltipText: `Absent on ${dateStr}`
-    };
+  // If it's a past working day with no attendance record and no leave, it's absent.
+  if (isPastDate) {
+    return { dayClass: 'absent', tooltipText: `Absent on ${dateStr}` };
   }
 
-  return {
-    dayClass: 'no-data',
-    tooltipText: `No data for ${dateStr}`
-  };
+  // Otherwise, it's a future day with no data yet.
+  return { dayClass: 'no-data', tooltipText: `No data for ${dateStr}` };
 };
 
 // Enhanced renderAttendanceCalendar function

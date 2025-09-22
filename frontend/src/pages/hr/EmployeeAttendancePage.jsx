@@ -73,6 +73,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
   const [totalEmployeeCount, setTotalEmployeeCount] = useState(0);
   const [totalEmployees, setTotalEmployees] = useState(0);
   const [leaveData, setLeaveData] = useState([]);
+  
 
   useEffect(() => {
     const getCurrentUser = async () => {
@@ -89,7 +90,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
     getCurrentUser();
   }, []);
 
-  const fetchLeaveData = async (date) => {
+const fetchLeaveData = async (date) => {
     try {
       const startDate = dayjs(date).startOf('month').format('YYYY-MM-DD');
       const endDate = dayjs(date).endOf('month').format('YYYY-MM-DD');
@@ -108,6 +109,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
       message.error('Failed to load leave data');
     }
   };
+
   // Fetch employees with pagination and filtering
   const fetchEmployees = async (page = 1, size = 5, search = '', type = 'All') => {
     try {
@@ -364,42 +366,53 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
       setLoading(false);
     }
   };
-
-  // View attendance details
-  const handleViewAttendance = (employee) => {
+ const handleViewAttendance = (employee) => {
     const dateKey = selectedDate.format('YYYY-MM-DD');
     const attendance = attendanceData[dateKey]?.[employee.id];
     
     const employeeMonthlyData = {};
-Object.keys(attendanceData).forEach(date => {
-  const month = dayjs(date).format('YYYY-MM');
-  const employeeRecord = attendanceData[date][employee.id];
-  
-  // Only process if there's an actual record for this employee on this date
-  if (employeeRecord) {
-    if (!employeeMonthlyData[month]) {
-      employeeMonthlyData[month] = { present: 0, absent: 0, missing: 0 };  // Add missing: 0
-    }
-    
-    if (employeeRecord.present) {
-      // Check if missing (checked in but not checked out)
-      if (employeeRecord.checkIn && !employeeRecord.checkOut) {
-        employeeMonthlyData[month].missing++;
-      } else {
-        employeeMonthlyData[month].present++;
+    Object.keys(attendanceData).forEach(date => {
+      const month = dayjs(date).format('YYYY-MM');
+      const employeeRecord = attendanceData[date][employee.id];
+      
+      // --- START OF FIX ---
+      // PRIORITY #1: Check if the employee was on approved leave for this date.
+      const isOnLeave = leaveData.some(leave => 
+          leave.user_id === employee.id &&
+          dayjs(date).isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
+      );
+
+      // If the employee is on leave, we do not process this day for absence/presence counts.
+      if (isOnLeave) {
+        return; // Skip to the next date
       }
-    } else {
-      employeeMonthlyData[month].absent++;
-    }
-  }
-});
-    
+      // --- END OF FIX ---
+
+      if (employeeRecord) {
+        if (!employeeMonthlyData[month]) {
+          employeeMonthlyData[month] = { present: 0, absent: 0, missing: 0 };
+        }
+        
+        if (employeeRecord.present) {
+          if (employeeRecord.checkIn && !employeeRecord.checkOut) {
+            employeeMonthlyData[month].missing++;
+          } else {
+            employeeMonthlyData[month].present++;
+          }
+        } else {
+          // This 'else' block is now only reached if the employee was NOT on leave
+          // and has an attendance record marked as not present.
+          employeeMonthlyData[month].absent++;
+        }
+      }
+    });
     Modal.info({
       title: `${employee.name}'s Attendance Details`,
       width: 800,
       content: (
         <div style={{ padding: '16px 0' }}>
           <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            {/* ... The top Cards for Status and Monthly Summary remain the same ... */}
             <Card>
               <Text strong>Status for {selectedDate.format('DD/MM/YYYY')}: </Text>
               <Tag color={attendance?.present ? 'success' : 'error'}>
@@ -431,59 +444,73 @@ Object.keys(attendanceData).forEach(date => {
                   />
                 </Col>
                 <Col span={12}>
-  <Statistic 
-    title="Days Missing" 
-    value={employeeMonthlyData[selectedDate.format('YYYY-MM')]?.missing || 0} 
-    prefix={<ClockCircleOutlined />}
-    valueStyle={{ color: '#faad14' }}
-  />
-</Col>
+                  <Statistic 
+                    title="Days Missing" 
+                    value={employeeMonthlyData[selectedDate.format('YYYY-MM')]?.missing || 0} 
+                    prefix={<ClockCircleOutlined />}
+                    valueStyle={{ color: '#faad14' }}
+                  />
+                </Col>
               </Row>
             </Card>
 
+            {/* --- THIS IS THE CORRECTED CALENDAR LOGIC --- */}
             <Card title="Attendance Calendar">
               <Calendar
-  fullscreen={false}
-  value={selectedDate}
-  dateFullCellRender={(date) => {
-  const dayKey = date.format('YYYY-MM-DD');
-  const dayAttendance = attendanceData[dayKey]?.[employee.id];
-  const isToday = date.isSame(dayjs(), 'day');
-  
-  let cellStyle = {
-    width: '100%',
-    height: '100%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '6px',
-    border: isToday ? '2px solid #1890ff' : '1px solid #d9d9d9'
-  };
-  
-  if (dayAttendance?.present) {
-    // Check if missing (checked in but not checked out)
-    if (dayAttendance.checkIn && !dayAttendance.checkOut) {
-      cellStyle.backgroundColor = '#faad14'; // Yellow for missing
-      cellStyle.color = 'white';
-    } else {
-      cellStyle.backgroundColor = '#52c41a'; // Green for present
-      cellStyle.color = 'white';
-    }
-  } else if (dayAttendance && !dayAttendance.present) {
-    cellStyle.backgroundColor = '#ff4d4f'; // Red for absent
-    cellStyle.color = 'white';
-  } else if (isToday) {
-    cellStyle.backgroundColor = '#e6f7ff';
-    cellStyle.color = '#1890ff';
-  }
-  
-  return (
-    <div style={cellStyle}>
-      {date.date()}
-    </div>
-  );
-}}
-/>
+                fullscreen={false}
+                value={selectedDate}
+                dateFullCellRender={(date) => {
+                  const dayKey = date.format('YYYY-MM-DD');
+                  const dayAttendance = attendanceData[dayKey]?.[employee.id];
+                  const isToday = date.isSame(dayjs(), 'day');
+
+                  // PRIORITY #1: Check for an approved leave for this specific employee and date.
+                  const approvedLeave = leaveData.find(leave =>
+                    leave.user_id === employee.id &&
+                    date.isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
+                  );
+
+                  let cellStyle = {
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '6px',
+                    border: isToday ? '2px solid #1890ff' : '1px solid #d9d9d9',
+                    color: 'black' // Default text color
+                  };
+                  
+                  // If a leave is found, it overrides any attendance record.
+                  if (approvedLeave) {
+                    cellStyle.backgroundColor = '#e6f7ff'; // Light blue for On Leave
+                    cellStyle.color = '#1890ff';
+                    cellStyle.border = `1px solid #91d5ff`;
+                  } 
+                  // If no leave, THEN check attendance data.
+                  else if (dayAttendance?.present) {
+                    if (dayAttendance.checkIn && !dayAttendance.checkOut) {
+                      cellStyle.backgroundColor = '#fffbe6'; // Yellow for missing
+                      cellStyle.color = '#faad14';
+                    } else {
+                      cellStyle.backgroundColor = '#f6ffed'; // Green for present
+                      cellStyle.color = '#52c41a';
+                    }
+                  } else if (dayAttendance && !dayAttendance.present) {
+                    cellStyle.backgroundColor = '#fff1f0'; // Red for absent
+                    cellStyle.color = '#ff4d4f';
+                  } else if (isToday) {
+                    cellStyle.backgroundColor = '#e6f7ff';
+                    cellStyle.color = '#1890ff';
+                  }
+                  
+                  return (
+                    <div style={cellStyle}>
+                      {date.date()}
+                    </div>
+                  );
+                }}
+              />
             </Card>
           </Space>
         </div>
@@ -502,7 +529,7 @@ Object.keys(attendanceData).forEach(date => {
     setTimeModalVisible(true);
   };
 
-    // --- UPDATED: Replace the entire calculateTotalStats function ---
+/// --- UPDATED: Replace the entire calculateTotalStats function ---
   const calculateTotalStats = () => {
     const dateKey = selectedDate.format('YYYY-MM-DD');
     const dayData = attendanceData[dateKey] || {};
@@ -511,31 +538,43 @@ Object.keys(attendanceData).forEach(date => {
     let presentCount = 0;
     let missingCount = 0;
 
-    Object.values(dayData).forEach(record => {
-      if (record.present) {
-        if (record.checkIn && !record.checkOut) {
-          missingCount++;
-        } else {
-          presentCount++;
-        }
-      }
-    });
-
-    // NEW: Calculate employees on leave for the selected day
+    // NEW: First, calculate how many employees are on leave for the selected day.
+    // This is the highest priority status.
     const onLeaveCount = employeesData.filter(emp =>
         leaveData.some(leave =>
             leave.user_id === emp.id &&
             selectedDate.isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
         )
     ).length;
+    
+    // Now, iterate through attendance records to find present/missing employees.
+    Object.values(dayData).forEach(record => {
+      if (record.present) {
+        // We only count present/missing if they are not also on leave.
+        // Although this is a rare edge case, checking leave status first is safer.
+        const employeeIsOnLeave = leaveData.some(leave => 
+            leave.user_id === record.user_id &&
+            selectedDate.isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
+        );
 
+        if (!employeeIsOnLeave) {
+            if (record.checkIn && !record.checkOut) {
+                missingCount++;
+            } else {
+                presentCount++;
+            }
+        }
+      }
+    });
+
+    // An employee is only absent if they are not present, not missing, AND not on leave.
     const absentCount = totalEmpCount - presentCount - missingCount - onLeaveCount;
 
     return {
       present: presentCount,
       absent: Math.max(0, absentCount), // Ensure it's not negative
       missing: missingCount,
-      onLeave: onLeaveCount, // NEW: Add onLeave to the result
+      onLeave: onLeaveCount,
       total: totalEmpCount
     };
   };
@@ -550,12 +589,12 @@ Object.keys(attendanceData).forEach(date => {
   }, [currentPage, pageSize, searchText, filterType]);
 
   // Fetch attendance data when date changes
-   useEffect(() => {
+useEffect(() => {
     const startDate = selectedDate.startOf('month').format('YYYY-MM-DD');
     const endDate = selectedDate.endOf('month').format('YYYY-MM-DD');
     fetchAttendanceData(startDate, endDate);
     fetchLeaveData(selectedDate); // <-- NEW: Call fetchLeaveData
-  }, [selectedDate]);
+}, [selectedDate]);
 
   // Animation effect
   useEffect(() => {
@@ -802,12 +841,11 @@ Object.keys(attendanceData).forEach(date => {
   {
   title: 'Status',
   key: 'status',
-  // --- UPDATED: Replace the entire render function for the 'Status' column ---
   render: (_, record) => {
     const dateKey = selectedDate.format('YYYY-MM-DD');
     const attendance = attendanceData[dateKey]?.[record.id];
 
-    // Check for approved leave first
+    // --- PRIORITY #1: Check for an approved leave first. ---
     const approvedLeave = leaveData.find(leave =>
       leave.user_id === record.id &&
       selectedDate.isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
@@ -830,40 +868,22 @@ Object.keys(attendanceData).forEach(date => {
       if (attendance.checkIn && !attendance.checkOut) {
         return (
           <Space direction="vertical" size="small">
-            <Space>
-              <Badge status="warning" />
-              <Text style={{ color: '#faad14' }}>Missing</Text>
-            </Space>
-            <div style={{ fontSize: '12px' }}>
-              <Text type="secondary">In: </Text>
-              <Text>{attendance.checkIn || '-'}</Text>
-            </div>
-            <div style={{ fontSize: '12px' }}>
-              <Text type="secondary">Out: </Text>
-              <Text style={{ color: '#faad14' }}>Not checked out</Text>
-            </div>
+            <Space><Badge status="warning" /><Text style={{ color: '#faad14' }}>Missing</Text></Space>
+            <div style={{ fontSize: '12px' }}><Text type="secondary">In: </Text><Text>{attendance.checkIn || '-'}</Text></div>
+            <div style={{ fontSize: '12px' }}><Text type="secondary">Out: </Text><Text style={{ color: '#faad14' }}>Not checked out</Text></div>
           </Space>
         );
       } else {
         return (
           <Space direction="vertical" size="small">
-            <Space>
-              <Badge status="success" />
-              <Text style={{ color: '#52c41a' }}>Present</Text>
-            </Space>
-            <div style={{ fontSize: '12px' }}>
-              <Text type="secondary">In: </Text>
-              <Text>{attendance.checkIn || '-'}</Text>
-            </div>
-            <div style={{ fontSize: '12px' }}>
-              <Text type="secondary">Out: </Text>
-              <Text>{attendance.checkOut || '-'}</Text>
-            </div>
+            <Space><Badge status="success" /><Text style={{ color: '#52c41a' }}>Present</Text></Space>
+            <div style={{ fontSize: '12px' }}><Text type="secondary">In: </Text><Text>{attendance.checkIn || '-'}</Text></div>
+            <div style={{ fontSize: '12px' }}><Text type="secondary">Out: </Text><Text>{attendance.checkOut || '-'}</Text></div>
           </Space>
         );
       }
     } else {
-      // Only show Absent if no attendance and no leave
+      // Only show Absent if no attendance record exists AND they are not on leave.
       return (
         <Space>
           <Badge status="error" />

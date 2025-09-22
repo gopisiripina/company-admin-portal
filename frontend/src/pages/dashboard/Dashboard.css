@@ -795,7 +795,13 @@
   color: #1F4842;
   cursor: pointer;
 }
-
+/* Add this to your Dashboard.css file */
+.calendar-day.on-leave {
+  background-color: #e6f7ff; /* Light blue */
+  color: #1890ff; /* Darker blue text */
+  border: 1px solid #91d5ff;
+  font-weight: bold;
+}
 @media (max-width: 768px) {
   .mobile-menu-button {
     display: block;
