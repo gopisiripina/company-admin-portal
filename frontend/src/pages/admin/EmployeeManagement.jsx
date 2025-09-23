@@ -291,7 +291,7 @@ useEffect(() => {
           employeeType: editingEmployee.employee_type || 'full-time',
           startDate: editingEmployee.start_date ? dayjs(editingEmployee.start_date) : null,
           endDate: editingEmployee.end_date ? dayjs(editingEmployee.end_date) : null,
-          pay: editingEmployee.payroll?.[0]?.net_pay || editingEmployee.payroll?.net_pay
+          pay: editingEmployee.pay || editingEmployee.payroll?.[0]?.earnings?.find(e => e.label?.toLowerCase() === 'basic')?.amount || ''
         });
         setProfileImage(editingEmployee.profileimage || null);
         setFaceEmbedding(editingEmployee.face_embedding || null);
@@ -489,6 +489,12 @@ const handleSubmit = useCallback(async (values) => {
   // If there's a new image file, get its embedding
   if (uploadedFile && profileImage !== editingEmployee?.profileimage) {
     try {
+
+      if (!editingEmployee && !profileImage) {
+  message.error('Profile image is required for new employees');
+  setLoading(false);
+  return;
+}
       console.log('Getting face embedding for new image...');
       const formData = new FormData();
       formData.append('image', uploadedFile);
@@ -548,7 +554,8 @@ const updateData = {
   start_date: values.startDate ? values.startDate.format('YYYY-MM-DD') : null,
   end_date: values.employeeType === 'full-time' ? null : (values.endDate ? values.endDate.format('YYYY-MM-DD') : null),
   face_embedding: finalFaceEmbedding,
-  pay: values.pay ? parseFloat(values.pay) : null,
+  pay: values.pay ? parseFloat(values.pay) : editingEmployee.pay || null,
+
 };
 
       // Generate new password when email is updated
@@ -599,7 +606,6 @@ const updateData = {
       const encryptedPassword = CryptoJS.AES.encrypt(password, ENCRYPTION_KEY).toString();
       const newEmployeeId = await generateEmployeeId(values.employeeType);
       const payAmount = values.pay ? parseFloat(values.pay) : null;
-
      const employeeData = {
   name: values.name,
   email: values.email,
@@ -1167,21 +1173,28 @@ const updateData = {
 
             {/* Enhanced Profile Image Upload */}
             <Form.Item
-              label={
-                <span style={{ 
-                  fontWeight: '600', 
-                  color: '#374151',
-                  fontSize: '14px'
-                }}>
-                  Profile Image
-                </span>
-              }
-              extra={
-                <span style={{ color: '#6b7280', fontSize: '12px' }}>
-                  JPG/PNG files, max 2MB • High quality images improve face recognition accuracy
-                </span>
-              }
-            >
+  name="profileImage"
+  label={
+    <span style={{ 
+      fontWeight: '600', 
+      color: '#374151',
+      fontSize: '14px'
+    }}>
+      Profile Image *
+    </span>
+  }
+  rules={[
+    { 
+      required: !editingEmployee, 
+      message: 'Please upload a profile image' 
+    }
+  ]}
+  extra={
+    <span style={{ color: '#6b7280', fontSize: '12px' }}>
+      JPG/PNG files, max 2MB • High quality images improve face recognition accuracy
+    </span>
+  }
+>
                          <div style={{ 
                 display: 'flex', 
                 flexDirection: isMobile ? 'column' : 'row', // This is the key change
@@ -2873,34 +2886,34 @@ const handleDelete = useCallback(async (employeeId) => {
 {
   title: 'Pay',
   render: (text, record) => {
-    
-    
-    // Check if employee has payroll records
-    if (!record.payroll || !Array.isArray(record.payroll) || record.payroll.length === 0) {
-      return 'No Payroll';
-    }
-    
-    // Get the first payroll record
-    const payrollRecord = record.payroll[0];
-    const earnings = payrollRecord.earnings;
-    
-    if (!earnings || !Array.isArray(earnings)) {
-      return 'N/A';
-    }
-    
-    // Find the earning with label "basic" or "Basic" (case-insensitive)
-    const basicEarning = earnings.find(earning => 
-      earning.label && earning.label.toLowerCase() === "basic"
-    );
-
-    if (basicEarning && basicEarning.amount) {
-      return `₹${parseFloat(basicEarning.amount).toLocaleString('en-US', { 
+    // First check if there's a direct pay field
+    if (record.pay && record.pay > 0) {
+      return `₹${parseFloat(record.pay).toLocaleString('en-US', { 
         minimumFractionDigits: 2, 
         maximumFractionDigits: 2 
       })}`;
     }
     
-    return 'N/A';
+    // Then check payroll records as fallback
+    if (record.payroll && Array.isArray(record.payroll) && record.payroll.length > 0) {
+      const payrollRecord = record.payroll[0];
+      const earnings = payrollRecord.earnings;
+      
+      if (earnings && Array.isArray(earnings)) {
+        const basicEarning = earnings.find(earning => 
+          earning.label && earning.label.toLowerCase() === "basic"
+        );
+
+        if (basicEarning && basicEarning.amount) {
+          return `₹${parseFloat(basicEarning.amount).toLocaleString('en-US', { 
+            minimumFractionDigits: 2, 
+            maximumFractionDigits: 2 
+          })}`;
+        }
+      }
+    }
+    
+    return 'Not Set';
   },
 },
 {
