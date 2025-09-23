@@ -172,7 +172,6 @@ const handleTakeAttendanceClick = () => {
     }
   };
 const openCameraModal = () => {
-    // This function contains the logic you previously had in the onClick
     const todayStr = new Date().toISOString().split('T')[0];
     const todayRecord = attendanceData.find(d => d.date === todayStr);
 
@@ -184,8 +183,27 @@ const openCameraModal = () => {
         return;
     }
 
-    setAttendanceType((todayRecord && todayRecord.check_in) ? 'check-out' : 'check-in');
+    const isCheckingOut = todayRecord && todayRecord.check_in;
     
+    // Add confirmation for checkout
+    if (isCheckingOut) {
+        Modal.confirm({
+            title: 'Confirm Check-Out',
+            content: 'Are you sure you want to check out now?',
+            okText: 'Yes, Check Out',
+            cancelText: 'Cancel',
+            onOk: () => {
+                proceedWithCamera('check-out');
+            }
+        });
+    } else {
+        proceedWithCamera('check-in');
+    }
+};
+
+// Add this new helper function
+const proceedWithCamera = (type) => {
+    setAttendanceType(type);
     setHasStartedDetection(false);
     setIsCameraModalVisible(true);
     setVerificationError('');
@@ -267,12 +285,15 @@ const loadFaceDetectionModels = async () => {
 };
 
 const startCamera = () => {
+  if (isCameraOn) return; // Prevent multiple calls
+  
   setIsCameraOn(true);
-  if (isModelLoaded && !hasStartedDetection) {
+  if (isModelLoaded && !hasStartedDetection && !isProcessing) {
     setHasStartedDetection(true);
     setTimeout(startFaceDetection, 1000);
   }
 };
+
 
 const generateOtp = async (phoneNumber) => {
   setIsGeneratingOtp(true);
@@ -574,7 +595,7 @@ const initiatePayslipDownload = (payslipData) => {
 };
 
 const startFaceDetection = () => {
-  // Prevent multiple calls
+  // Add this check at the beginning
   if (faceDetectionInterval || isProcessing) {
     console.log('Detection already running or processing');
     return;
@@ -602,11 +623,17 @@ const startFaceDetection = () => {
         
         if (detection && detection.score > 0.5 && !isProcessing) {
           setIsFaceDetected(true);
+          
+          // Clear interval IMMEDIATELY before calling verification
           clearInterval(interval);
           setFaceDetectionInterval(null);
           
-          // Call only once
-          handleVerifyAndCheckIn();
+          // Add a small delay and additional check
+          setTimeout(() => {
+            if (!isProcessing) {
+              handleVerifyAndCheckIn();
+            }
+          }, 100);
         } else {
           setIsFaceDetected(false);
         }
@@ -646,14 +673,23 @@ const handleVerifyAndCheckIn = async () => {
     return;
   }
 
+  // Add this additional guard to prevent double execution
+  if (window.attendanceProcessing) {
+    console.log('Global processing flag set, ignoring');
+    return;
+  }
+  
+  // Set global flag immediately
+  window.attendanceProcessing = true;
+
   const todayStr = new Date().toISOString().split('T')[0];
   const todayRecord = attendanceData.find(d => d.date === todayStr);
   
   if (todayRecord && todayRecord.check_in && todayRecord.check_out) {
     setVerificationError('You have already completed both check-in and check-out for today.');
+    window.attendanceProcessing = false; // Clear flag
     return;
   }
-
 
   setVerificationError('');
   setIsProcessing(true);
@@ -709,6 +745,7 @@ const handleVerifyAndCheckIn = async () => {
 } finally {
   setIsVerifying(false);
   setIsProcessing(false);
+  window.attendanceProcessing = false;
 }
 };
 
@@ -896,10 +933,19 @@ const markAttendance = async () => {
       content: message,
     });
 
+    // Clear the global flag at the end
+    window.attendanceProcessing = false;
+
   } catch (error) {
     console.error('Attendance marking error:', error);
     setVerificationError(error.message);
     setShowRetryButton(true);
+    
+    // Clear flag on error too
+    window.attendanceProcessing = false;
+  } finally {
+    setIsVerifying(false);
+    setIsProcessing(false);
   }
 };
 const handleRetry = () => {
@@ -2810,6 +2856,7 @@ if (activeSection === 'payroll') {
     setIsProcessing(false);
     setIsVerifying(false);
     setAttendanceType('check-in');
+     window.attendanceProcessing = false;
     if (faceDetectionInterval) {
       clearInterval(faceDetectionInterval);
       setFaceDetectionInterval(null);
