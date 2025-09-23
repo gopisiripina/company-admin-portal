@@ -80,8 +80,8 @@ const Login = ({ onLoginSuccess }) => {
     if (!/(?=.*\d)/.test(password)) {
       return 'Password must contain at least one number';
     }
-    if (!/(?=.*[@$!%*?&])/.test(password)) {
-      return 'Password must contain at least one special character (@$!%*?&)';
+    if (!/(?=.*[@$!%*?&#])/.test(password)) {
+      return 'Password must contain at least one special character (@#$!%*?&)';
     }
     return null;
   };
@@ -755,7 +755,7 @@ const Login = ({ onLoginSuccess }) => {
                   <li>One uppercase letter (A-Z)</li>
                   <li>One lowercase letter (a-z)</li>
                   <li>One number (0-9)</li>
-                  <li>One special character (@$!%*?&)</li>
+                  <li>One special character (@#$!%*?&)</li>
                 </ul>
               </div>
 

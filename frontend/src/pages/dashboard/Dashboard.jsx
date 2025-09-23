@@ -80,8 +80,8 @@ const [manualReason, setManualReason] = useState('');
 const [isSubmittingReason, setIsSubmittingReason] = useState(false);
 const [userLocation, setUserLocation] = useState(null);
 const [leaveData, setLeaveData] = useState([]);
-
-
+const [attendanceMode, setAttendanceMode] = useState('auto');
+const [capturedImage, setCapturedImage] = useState(null);
   const [tabId] = useState(() => Date.now() + Math.random());
     const storageKey = `emailCredentials_${tabId}`;
 useEffect(() => {
@@ -285,15 +285,76 @@ const loadFaceDetectionModels = async () => {
 };
 
 const startCamera = () => {
-  if (isCameraOn) return; // Prevent multiple calls
+  if (isCameraOn) return;
   
   setIsCameraOn(true);
-  if (isModelLoaded && !hasStartedDetection && !isProcessing) {
+  
+  // Only start automatic detection if in auto mode
+  if (attendanceMode === 'auto' && isModelLoaded && !hasStartedDetection) {
     setHasStartedDetection(true);
     setTimeout(startFaceDetection, 1000);
   }
 };
 
+const captureImage = () => {
+  if (!webcamRef.current) return;
+  
+  const imageSrc = webcamRef.current.getScreenshot();
+  setCapturedImage(imageSrc);
+};
+
+const handleManualVerify = async () => {
+  if (!capturedImage) {
+    Modal.error({
+      title: 'No Image',
+      content: 'Please capture an image first.'
+    });
+    return;
+  }
+
+  if (isProcessing || isVerifying) return;
+  if (window.attendanceProcessing) return;
+  
+  window.attendanceProcessing = true;
+  setIsProcessing(true);
+  setIsVerifying(true);
+  setVerificationError('');
+
+  try {
+    const fetchRes = await fetch(capturedImage);
+    const blob = await fetchRes.blob();
+    const imageFile = new File([blob], "snapshot.jpg", { type: "image/jpeg" });
+
+    const formData = new FormData();
+    formData.append('email', userData.email);
+    formData.append('image', imageFile);
+
+    const apiResponse = await fetch('https://hrm.myaccess.cloud/api/verify-face/', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const result = await apiResponse.json();
+
+    if (!apiResponse.ok) {
+      throw new Error(result.error || 'Verification failed. Please try again.');
+    }
+
+    await markAttendance();
+    await fetchAttendanceData();
+
+  } catch (error) {
+    console.error('Verification Error:', error);
+    let errorMessage = 'Verification failed. Please try again.';
+    if (error.message) errorMessage = error.message;
+    setVerificationError(errorMessage);
+    setCapturedImage(null);
+  } finally {
+    setIsVerifying(false);
+    setIsProcessing(false);
+    window.attendanceProcessing = false;
+  }
+};
 
 const generateOtp = async (phoneNumber) => {
   setIsGeneratingOtp(true);
@@ -2905,101 +2966,176 @@ if (activeSection === 'payroll') {
   )}
   
   {!isCameraOn ? (
-    // Camera OFF state - show button to turn on
-    <div style={{ 
-      width: '100%', 
-      height: '100%', 
-      display: 'flex', 
-      flexDirection: 'column',
-      alignItems: 'center', 
-      justifyContent: 'center',
-      color: 'white',
-      background: '#1f1f1f'
-    }}>
-      <Camera size={64} style={{ marginBottom: '20px' }} />
-      <Button 
-        type="primary" 
-        size="large"
-        onClick={startCamera}
-        icon={<Camera />}
-        style={{ 
-          height: '50px',
-          fontSize: '16px',
-          borderRadius: '8px'
-        }}
-      >
-        Turn On Camera
-      </Button>
-    </div>
-  ) : (
-    // Camera ON state - show webcam
-    <Webcam
-  audio={false}
-  ref={webcamRef}
-  screenshotFormat="image/jpeg"
-  width="100%" // Changed from fixed width
-  height="100%" // Changed from fixed height
-  onUserMedia={(stream) => {
-    console.log('Camera initialized');
-    setCameraStream(stream);
-    if (hasStartedDetection || isProcessing) {
-      return;
-    }
+  <div style={{ 
+    width: '100%', 
+    height: '100%', 
+    display: 'flex', 
+    flexDirection: 'column',
+    alignItems: 'center', 
+    justifyContent: 'center',
+    color: 'white',
+    background: '#1f1f1f'
+  }}>
+    <Camera size={64} style={{ marginBottom: '20px' }} />
     
-    const checkAndStart = () => {
-      if (isModelLoaded && webcamRef.current?.video?.readyState === 4 && !hasStartedDetection) {
-        setHasStartedDetection(true);
-        setTimeout(startFaceDetection, 1000);
-      } else if (!hasStartedDetection) {
-        setTimeout(checkAndStart, 500);
-      }
-    };
-    checkAndStart();
-  }}
-  videoConstraints={{ 
-    width: { ideal: 1280, min: 640 }, // Add min width
-    height: { ideal: 720, min: 480 }, // Add min height
-    facingMode: "user" 
-  }}
-  style={{ 
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover' 
-  }}
-/>
-  )}
+    {/* Mode Selection */}
+    <div style={{ marginBottom: '20px' }}>
+      <Button.Group>
+        <Button 
+          type={attendanceMode === 'auto' ? 'primary' : 'default'}
+          onClick={() => setAttendanceMode('auto')}
+        >
+          Auto Detection
+        </Button>
+        <Button 
+          type={attendanceMode === 'manual' ? 'primary' : 'default'}
+          onClick={() => setAttendanceMode('manual')}
+        >
+          Manual Capture
+        </Button>
+      </Button.Group>
+    </div>
+    
+    <Button 
+      type="primary" 
+      size="large"
+      onClick={startCamera}
+      icon={<Camera />}
+      style={{ 
+        height: '50px',
+        fontSize: '16px',
+        borderRadius: '8px'
+      }}
+    >
+      Turn On Camera ({attendanceMode === 'auto' ? 'Auto' : 'Manual'})
+    </Button>
+  </div>
+) : (
+  <>
+    <Webcam
+      audio={false}
+      ref={webcamRef}
+      screenshotFormat="image/jpeg"
+      width="100%"
+      height="100%"
+      onUserMedia={(stream) => {
+        console.log('Camera initialized');
+        setCameraStream(stream);
+        
+        // Only start auto detection if in auto mode
+        if (attendanceMode === 'auto' && hasStartedDetection || isProcessing) {
+          return;
+        }
+        
+        if (attendanceMode === 'auto') {
+          const checkAndStart = () => {
+            if (isModelLoaded && webcamRef.current?.video?.readyState === 4 && !hasStartedDetection) {
+              setHasStartedDetection(true);
+              setTimeout(startFaceDetection, 1000);
+            } else if (!hasStartedDetection) {
+              setTimeout(checkAndStart, 500);
+            }
+          };
+          checkAndStart();
+        }
+      }}
+      videoConstraints={{ 
+        width: { ideal: 1280, min: 640 },
+        height: { ideal: 720, min: 480 },
+        facingMode: "user" 
+      }}
+      style={{ 
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover' 
+      }}
+    />
+    
+    {/* Show captured image preview for manual mode */}
+    {attendanceMode === 'manual' && capturedImage && (
+      <div style={{
+        position: 'absolute',
+        top: '10px',
+        right: '10px',
+        width: '120px',
+        height: '90px',
+        border: '2px solid #52c41a',
+        borderRadius: '4px',
+        overflow: 'hidden',
+        background: 'white'
+      }}>
+        <img 
+          src={capturedImage} 
+          alt="Captured" 
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
+      </div>
+    )}
+  </>
+)}
 </div>
 
 {/* Camera Controls - Show only when camera is on */}
 {isCameraOn && (
   <Row gutter={[8, 8]} justify="center" style={{ marginTop: '15px' }}>
-    <Col xs={24} sm={12} style={{ textAlign: 'center' }}>
+    <Col xs={12} sm={8}>
       <Button 
         danger
         onClick={stopCamera}
         icon={<Camera />}
         size="large"
-        block // Make button full width on mobile
+        block
       >
         Turn Off Camera
       </Button>
     </Col>
-    <Col xs={24} sm={12} style={{ textAlign: 'center' }}>
-      <span style={{ 
-        fontSize: '14px', // Slightly smaller for mobile
-        color: isFaceDetected ? '#52c41a' : '#ff4d4f',
-        fontWeight: '500',
-        display: 'block', // Stack on mobile
-        marginTop: '8px'
-      }}>
-        {attendanceType === 'completed' ? 
-          '✅ Attendance Complete for Today' :
-          isFaceDetected ? 
+    
+    {attendanceMode === 'manual' && (
+      <>
+        <Col xs={12} sm={8}>
+          <Button 
+            type="default"
+            onClick={captureImage}
+            icon={<Camera />}
+            size="large"
+            block
+            disabled={isProcessing}
+          >
+            Take Picture
+          </Button>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Button 
+            type="primary"
+            onClick={handleManualVerify}
+            loading={isVerifying}
+            size="large"
+            block
+            disabled={!capturedImage || isProcessing}
+          >
+            Verify & {attendanceType === 'check-in' ? 'Check In' : 'Check Out'}
+          </Button>
+        </Col>
+      </>
+    )}
+    
+    {attendanceMode === 'auto' && (
+      <Col xs={12} sm={16}>
+        <span style={{ 
+          fontSize: '14px',
+          color: isFaceDetected ? '#52c41a' : '#ff4d4f',
+          fontWeight: '500',
+          display: 'block',
+          textAlign: 'center',
+          marginTop: '8px'
+        }}>
+          {isFaceDetected ? 
             `✅ Face Detected - ${attendanceType === 'check-in' ? 'Checking In' : 'Checking Out'}...` : 
-            `❌ Please position your face for ${attendanceType === 'check-in' ? 'Check In' : 'Check Out'}`
-        }
-      </span>
-    </Col>
+            `⌛ Please position your face for ${attendanceType === 'check-in' ? 'Check In' : 'Check Out'}`
+          }
+        </span>
+      </Col>
+    )}
   </Row>
 )}
 
