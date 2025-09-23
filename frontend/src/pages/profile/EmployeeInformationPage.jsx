@@ -96,11 +96,13 @@ const EmployeeInformationPage = ({ userRole }) => {
   }, []);
 
 
-const handleViewDocument = async (employeeId, fileName) => {
+const handleViewDocument = async (employeeId, fileName, folder) => {
   try {
+    const filePath = folder ? `${folder}/${fileName}` : `${employeeId}/${fileName}`;
+    
     const { data, error } = await supabase.storage
       .from('employee-documents')
-      .download(`${employeeId}/${fileName}`);
+      .download(filePath);
     
     if (error) throw error;
     
@@ -163,70 +165,116 @@ const handleViewDocument = async (employeeId, fileName) => {
   setSelectedEmployee(employee);
   setModalVisible(true);
 
-  // Fetch documents...
-  setDocumentsLoading(true);
-  const docs = await fetchEmployeeDocuments(employee.employee_id);
-  setEmployeeDocuments(docs);
-  setDocumentsLoading(false);
-
-  // ✅ Fetch payroll (salary)
+ // Fetch documents from storage bucket
+setDocumentsLoading(true);
+const docs = await fetchEmployeeDocuments(employee.employee_id, employee.name); // Pass employee name too
+setEmployeeDocuments(prev => ({
+  ...prev,
+  [employee.employee_id]: docs
+}));
+setDocumentsLoading(false);
   try {
-    const { data, error } = await supabase
-      .from('payroll')
-      .select('final_payslips, pay_period')
-      .eq('employee_id', employee.employee_id)
-      .order('pay_period', { ascending: false })
-      .limit(2); // current + previous month
+  console.log('Fetching payroll for employee_id:', employee.employee_id);
+  
+  const { data, error } = await supabase
+    .from('payroll')
+    .select('earnings, deductions, pay_period, basic, hra') // Add earnings, deductions, and other fields
+    .eq('employee_id', employee.employee_id)
+    .order('pay_period', { ascending: false })
+    .limit(1); // Get the latest payroll record
 
-    if (error) throw error;
+  console.log('Payroll data:', data);
+  console.log('Payroll error:', error);
 
-    let slip = null;
+  if (error) throw error;
 
-    // Get current month
-    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
-    const prevMonth = new Date(new Date().setMonth(new Date().getMonth() - 1))
-      .toISOString()
-      .slice(0, 7);
+  let salaryData = null;
 
-    for (let row of data) {
-      if (row.final_payslips && Array.isArray(row.final_payslips)) {
-        const foundCurrent = row.final_payslips.find((s) => s.month === currentMonth);
-        const foundPrev = row.final_payslips.find((s) => s.month === prevMonth);
-        if (foundCurrent) {
-          slip = foundCurrent;
-          break;
-        } else if (!slip && foundPrev) {
-          slip = foundPrev;
-        }
-      }
-    }
-
-    setSalarySlip(slip);
-  } catch (err) {
-    console.error("Error fetching payroll:", err);
-    setSalarySlip(null);
+  if (data && data.length > 0) {
+    const latestPayroll = data[0];
+    
+    // Calculate total earnings
+    const totalEarnings = (latestPayroll.earnings || []).reduce((sum, earning) => {
+      return sum + (earning.amount || 0);
+    }, 0);
+    
+    // Calculate total deductions
+    const totalDeductions = (latestPayroll.deductions || []).reduce((sum, deduction) => {
+      return sum + (deduction.amount || 0);
+    }, 0);
+    
+    // Calculate net salary
+    const netSalary = totalEarnings - totalDeductions;
+    
+    salaryData = {
+      earnings: latestPayroll.earnings || [],
+      deductions: latestPayroll.deductions || [],
+      totalEarnings,
+      totalDeductions,
+      netSalary,
+      payPeriod: latestPayroll.pay_period,
+      basic: latestPayroll.basic || 0,
+      hra: latestPayroll.hra || 0
+    };
+    
+    console.log('Calculated salary data:', salaryData);
   }
+
+  setSalarySlip(salaryData);
+} catch (err) {
+  console.error("Error fetching payroll:", err);
+  setSalarySlip(null);
+}
+
 };
   const fetchEmployeeDocuments = async (employeeId) => {
   try {
-    const { data, error } = await supabase.storage
+    // Fetch from individual employee folder
+    const { data: employeeDocs, error: empError } = await supabase.storage
       .from('employee-documents')
       .list(employeeId, {
         limit: 100,
         offset: 0
       });
     
-    if (error) {
-      console.error('Error fetching documents:', error);
+    // Fetch from offer-letters folder
+    const { data: offerDocs, error: offerError } = await supabase.storage
+      .from('employee-documents')
+      .list('offer-letters', {
+        limit: 100,
+        offset: 0
+      });
+    
+    if (empError && offerError) {
+      console.error('Error fetching documents:', { empError, offerError });
       return [];
     }
     
-    return data || [];
+    // Filter offer letters for this specific employee
+    const filteredOfferDocs = (offerDocs || []).filter(doc => {
+      // Check if the filename contains the employee ID or employee name
+      const fileName = doc.name.toLowerCase();
+      return fileName.includes(employeeId.toLowerCase()) || 
+             fileName.includes(`-${employeeId}-`) || 
+             fileName.includes(`_${employeeId}_`) ||
+             fileName.includes(`${employeeId}.`);
+    });
+    
+    // Combine both arrays and add folder info
+    const allDocs = [
+      ...(employeeDocs || []).map(doc => ({ ...doc, folder: employeeId })),
+      ...filteredOfferDocs.map(doc => ({ ...doc, folder: 'offer-letters' }))
+    ];
+    
+    console.log('Filtered documents for employee:', employeeId, allDocs);
+    return allDocs;
+    
   } catch (error) {
     console.error('Error:', error);
     return [];
   }
 };
+
 
 
   const socialLinks = (employee) => (
@@ -372,9 +420,13 @@ const handleViewDocument = async (employeeId, fileName) => {
       <Modal
         open={modalVisible}
         onCancel={() => {
-    setModalVisible(false);
-    setEmployeeDocuments([]); // Reset documents when closing
-  }}
+  setModalVisible(false);
+  setEmployeeDocuments(prev => ({
+    ...prev,
+    [selectedEmployee?.employee_id]: [] // Clear documents for this employee
+  }));
+  setSalarySlip(null); // Also reset salary slip
+}}
         width={screens.xs ? '95%' : screens.md ? 800 : 950}
         footer={null}
         closable={false} // We will use a custom close button
@@ -412,7 +464,7 @@ const handleViewDocument = async (employeeId, fileName) => {
     <div>
         {salarySlip ? (
           <div>
-            <p>Salary: ₹{salarySlip.amount}</p>
+            <p>Salary: ₹{salarySlip.totalEarnings}</p>
           </div>
         ) : (
           <p>No salary data</p>
@@ -539,32 +591,32 @@ const handleViewDocument = async (employeeId, fileName) => {
   <h3 style={styles.cardTitle}>Documents</h3>
   {documentsLoading ? (
     <div style={{ textAlign: 'center', padding: '20px' }}>
-      <BookOutlined spin style={{ fontSize: '24px', color: theme.primary }} />
+      <Spin size="large" />
       <p style={{ marginTop: '8px', color: theme.textSecondary }}>Loading documents...</p>
     </div>
-  ) : employeeDocuments.length > 0 ? (
+  ) : (employeeDocuments[selectedEmployee.employee_id]?.length > 0) ? ( // Fix: use employee_id
     <List
-      dataSource={employeeDocuments}
-      renderItem={doc => (
-        <List.Item
-          actions={[
-            <Button 
-              type="link" 
-              onClick={() => handleViewDocument(selectedEmployee.employee_id, doc.name)}
-              style={{ color: theme.primary }}
-            >
-              View PDF
-            </Button>
-          ]}
+  dataSource={employeeDocuments[selectedEmployee.employee_id] || []}
+  renderItem={doc => (
+    <List.Item
+      actions={[
+        <Button 
+          type="link" 
+          onClick={() => handleViewDocument(selectedEmployee.employee_id, doc.name, doc.folder)}
+          style={{ color: theme.primary }}
         >
-          <List.Item.Meta
-            avatar={<BookOutlined style={{ color: theme.primary }} />}
-            title={doc.name}
-            description={`Size: ${(doc.metadata?.size ? (doc.metadata.size / 1024).toFixed(2) + ' KB' : 'Unknown')} • Modified: ${formatDate(doc.updated_at)}`}
-          />
-        </List.Item>
-      )}
-    />
+          View PDF
+        </Button>
+      ]}
+    >
+      <List.Item.Meta
+        avatar={<BookOutlined style={{ color: theme.primary }} />}
+        title={doc.name}
+        description={`Folder: ${doc.folder} • Size: ${(doc.metadata?.size ? (doc.metadata.size / 1024).toFixed(2) + ' KB' : 'Unknown')} • Modified: ${formatDate(doc.updated_at)}`}
+      />
+    </List.Item>
+  )}
+/>
   ) : (
     <Empty
       image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -572,8 +624,9 @@ const handleViewDocument = async (employeeId, fileName) => {
       style={{ padding: '20px 0' }}
     />
   )}
-  
-</div> {/* Emergency Contact Section */}
+</div>
+
+{/* Emergency Contact Section */}
   {selectedEmployee.emergency_contact && (
     <div style={{...styles.contactItem, flexDirection: 'column', alignItems: 'flex-start', marginTop: '16px', padding: '12px', backgroundColor: '#f0f2f5', borderRadius: '8px'}}>
       <Text strong style={{color: theme.primary, marginBottom: '8px', fontSize: '14px'}}>Emergency Contact:</Text>
