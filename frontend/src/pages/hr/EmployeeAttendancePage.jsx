@@ -215,8 +215,9 @@ const fetchLeaveData = async (date) => {
   };
 
   // Fetch attendance data
-  const fetchAttendanceData = async (startDate, endDate, shouldMerge = false) => {
+ const fetchAttendanceData = async (startDate, endDate, shouldMerge = false) => {
   try {
+    setLoading(true); // Add this
     const { data, error } = await supabase
       .from('attendance')
       .select('*')
@@ -224,6 +225,11 @@ const fetchLeaveData = async (date) => {
       .lte('date', endDate);
     
     if (error) throw error;
+    
+    // Add null check here
+    if (!data || data.length === 0) {
+      console.log('No attendance data found for the date range');
+    }
     
     const transformedData = {};
     data.forEach(record => {
@@ -417,8 +423,23 @@ const fetchLeaveData = async (date) => {
     }
   };
  const handleViewAttendance = (employee) => {
-    const dateKey = selectedDate.format('YYYY-MM-DD');
-    const attendance = attendanceData[dateKey]?.[employee.id];
+     if (!employee || !employee.id) {
+    message.error('Employee data not available');
+    return;
+  }
+
+  if (!attendanceData || Object.keys(attendanceData).length === 0) {
+    message.error('Attendance data is still loading. Please try again.');
+    return;
+  }
+
+  if (!leaveData) {
+    message.error('Leave data is still loading. Please try again.');
+    return;
+  }
+
+  const dateKey = selectedDate.format('YYYY-MM-DD');
+  const attendance = attendanceData[dateKey]?.[employee.id];
     
     const employeeMonthlyData = {};
     Object.keys(attendanceData).forEach(date => {
@@ -636,12 +657,21 @@ const fetchLeaveData = async (date) => {
   // Fetch attendance data when date changes
   // Fetch attendance data when date changes
   useEffect(() => {
-    const startDate = selectedDate.startOf('month').format('YYYY-MM-DD');
-    const endDate = selectedDate.endOf('month').format('YYYY-MM-DD');
-    fetchAttendanceData(startDate, endDate);
-    fetchLeaveData(selectedDate);
-    fetchOnLeaveCount(selectedDate, searchText, filterType); // Add this line
-  }, [selectedDate]);
+  const startDate = selectedDate.startOf('month').format('YYYY-MM-DD');
+  const endDate = selectedDate.endOf('month').format('YYYY-MM-DD');
+  
+  // Ensure all data is loaded before allowing interactions
+  Promise.all([
+    fetchAttendanceData(startDate, endDate),
+    fetchLeaveData(selectedDate),
+    fetchOnLeaveCount(selectedDate, searchText, filterType)
+  ]).then(() => {
+    setIsLoaded(true); // Only set loaded after all data is fetched
+  }).catch(error => {
+    console.error('Error loading data:', error);
+    message.error('Failed to load attendance data');
+  });
+}, [selectedDate, searchText, filterType]);
 
   // Animation effect
   useEffect(() => {
@@ -978,23 +1008,28 @@ Object.keys(attendanceData).forEach(date => {
 },
     },
     {
-      title: 'Actions',
-      key: 'actions',
-      render: (_, record) => {
-        const dateKey = selectedDate.format('YYYY-MM-DD');
-        const attendance = attendanceData[dateKey]?.[record.id];
-        const isToday = selectedDate.isSame(dayjs(), 'day');
-        
-        return (
-          <Space>
-            <Tooltip title="View Details">
-              <Button
-                type="text"
-                size="small"
-                icon={<EyeOutlined />}
-                onClick={() => handleViewAttendance(record)}
-              />
-            </Tooltip>
+  title: 'Actions',
+  key: 'actions',
+  render: (_, record) => {
+    // Add loading state check
+    if (loading || !isLoaded) {
+      return <Spin size="small" />;
+    }
+    
+    const dateKey = selectedDate.format('YYYY-MM-DD');
+    const attendance = attendanceData[dateKey]?.[record.id];
+    
+    return (
+      <Space>
+        <Tooltip title="View Details">
+          <Button
+            type="text"
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => handleViewAttendance(record)}
+            disabled={loading || !record.id} // Add disabled state
+          />
+        </Tooltip>
             {attendance?.present && (
               <Tooltip title="Update Times">
                 <Button
