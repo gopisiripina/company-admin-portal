@@ -33,7 +33,8 @@ import {
   Descriptions,
   Timeline,
   Drawer,
-  Popconfirm
+  Popconfirm,
+  Calendar
 } from 'antd';
 import {
   UserOutlined,
@@ -77,6 +78,7 @@ import useSWR, { mutate } from 'swr';
 import Analytics from './Analytics'; // Add this line - adjust path as needed
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import { FaIndianRupeeSign } from "react-icons/fa6";
+
 // import ErrorPage from '../../error/ErrorPage';
 
 dayjs.extend(relativeTime);
@@ -179,21 +181,60 @@ const fetchWorkingDays = async (userId, holidays) => {
 };
 const fetchCompensatoryOffDays = async (userId, holidays) => {
   try {
-    const { data, error } = await supabase
+    // 1. Fetch the dynamic working day configuration set by HR
+    const { data: configData, error: configError } = await supabase
+      .from('company_calendar')
+      .select('reason') // We only need the JSON data from the 'reason' column
+      .eq('day_type', 'working_config') // Fetch the correct configuration type
+      .single();
+
+    if (configError && configError.code !== 'PGRST116') {
+      throw configError;
+    }
+
+    // Define a default schedule in case no configuration is set
+    const defaultConfig = {
+      monday: true, tuesday: true, wednesday: true,
+      thursday: true, friday: true, saturday: false, sunday: false
+    };
+    
+    // Safely parse the configuration from the database, or use the default
+    const workingDaysConfig = configData?.reason
+      ? JSON.parse(configData.reason).workingDays || defaultConfig
+      : defaultConfig;
+
+    // 2. Fetch all attendance records where the user was present
+    const { data: attendanceData, error: attendanceError } = await supabase
       .from('attendance')
       .select('date')
       .eq('user_id', userId)
       .eq('is_present', true);
 
-    if (error) throw error;
+    if (attendanceError) throw attendanceError;
 
-    // Filter for days worked ON a holiday
-    const compensatoryDays = data.filter(attendance => holidays.has(attendance.date));
+    if (!attendanceData) return 0;
+
+    // 3. Filter for days worked on a public holiday OR a configured non-working day
+    const compensatoryDays = attendanceData.filter(attendance => {
+      const attendanceDate = dayjs(attendance.date);
+      const dayName = attendanceDate.format('dddd').toLowerCase(); // e.g., 'sunday'
+
+      // Condition 1: Was the day a public holiday?
+      const isPublicHoliday = holidays.has(attendance.date);
+
+      // Condition 2: Was the day a configured non-working day (weekend)?
+      // This checks if the day (like 'sunday') is set to 'false' in the config.
+      const isConfiguredNonWorkingDay = workingDaysConfig[dayName] === false;
+
+      // The employee earns comp-off if they worked on a public holiday OR a weekend/non-working day
+      return isPublicHoliday || isConfiguredNonWorkingDay;
+    });
+
     return compensatoryDays.length;
-  } catch (error)
-   {
+  } catch (error) {
     console.error('Error fetching compensatory off days:', error);
-    return 0;
+    message.error('Could not calculate compensatory days.');
+    return 0; // Return 0 on error
   }
 };
 // Generate dummy leave data
@@ -380,17 +421,21 @@ const calculateLeaveBalances = async (userId, currentUser) => {
         totalAvailable: 12
       },
       maternityLeave: { total: 84, used: 0, remaining: 84 },
+      // --- MODIFICATION START ---
+      // Compensatory leave now defaults to 0 and is only added manually by HR.
+      // The `eligible` property is new, for HR to see, but isn't part of the employee's balance.
       compensatoryLeave: { 
-        total: totalCompensatoryDaysEarned, 
+        total: 0, 
         used: 0, 
-        remaining: totalCompensatoryDaysEarned 
+        remaining: 0,
+        eligible: totalCompensatoryDaysEarned
       },
+      // --- MODIFICATION END ---
       excuses: { total: 1, used: 0, remaining: 1, monthlyLimit: 1 }
     };
   }
 
-  // 4. If a user has an existing record, calculate their current balances.
-  const totalMedicalAvailable =  (balanceData.medical_total || 0)+ (balanceData.medical_extra_granted || 0);
+    const totalMedicalAvailable =  (balanceData.medical_total || 0)+ (balanceData.medical_extra_granted || 0);
   const totalMedicalUsed = (balanceData.medical_used || 0) + (balanceData.medical_extra_used || 0);
 
   return {
@@ -410,13 +455,13 @@ const calculateLeaveBalances = async (userId, currentUser) => {
       used: balanceData.earned_used || 0,
       remaining: totalEarnedLeave - (balanceData.earned_used || 0)
     },
- medicalLeave: {
-      total: balanceData.medical_total, // FIX: Reads the prorated total from the database.
+    medicalLeave: {
+      total: balanceData.medical_total,
       used: balanceData.medical_used || 0,
-      remaining: balanceData.medical_remaining, // FIX: Reads the correct remaining balance from the database.
+      remaining: balanceData.medical_remaining,
       extraGranted: balanceData.medical_extra_granted || 0,
       extraUsed: balanceData.medical_extra_used || 0,
-      totalAvailable: totalMedicalAvailable, // This is now calculated correctly.
+      totalAvailable: totalMedicalAvailable,
       totalUsed: totalMedicalUsed
     },
     maternityLeave: {
@@ -424,11 +469,16 @@ const calculateLeaveBalances = async (userId, currentUser) => {
       used: balanceData.maternity_used,
       remaining: balanceData.maternity_remaining
     },
+    // --- MODIFICATION START ---
+    // The balance now comes directly from the database fields which are only updated by HR.
+    // The `eligible` count is still calculated to show HR what can be awarded.
     compensatoryLeave: {
-      total: totalCompensatoryDaysEarned,
+      total: balanceData.compensatory_total || 0,
       used: balanceData.compensatory_used || 0,
-      remaining: totalCompensatoryDaysEarned - (balanceData.compensatory_used || 0)
+      remaining: balanceData.compensatory_remaining || 0,
+      eligible: totalCompensatoryDaysEarned
     },
+    // --- MODIFICATION END ---
     excuses: {
       total: balanceData.excuses_total,
       used: balanceData.excuses_used,
@@ -537,6 +587,275 @@ const LeaveHistoryDrawer = ({ visible, onClose, leaveData, currentUser }) => {
   );
 };
 
+// --- START: REPLACE THE ENTIRE CompensatoryLeaveModal COMPONENT WITH THIS NEW VERSION ---
+
+const CompensatoryLeaveModal = ({ visible, onCancel, employees }) => {
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState(dayjs());
+  const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  
+  // Data state
+  // --- MODIFICATION: This now stores the full details (check-in/out) for each day ---
+  const [attendanceDetails, setAttendanceDetails] = useState(new Map());
+  const [eligibleDays, setEligibleDays] = useState([]);
+  const [allocatedDates, setAllocatedDates] = useState([]);
+
+  // State for multi-selection
+  const [selection, setSelection] = useState([]);
+  const [selectionMode, setSelectionMode] = useState(null);
+
+  // Helper function to calculate and format work hours
+  const calculateWorkHours = (checkIn, checkOut) => {
+    if (!checkIn || !checkOut) {
+      return <Text type="secondary">N/A</Text>;
+    }
+    try {
+      const start = dayjs(`1970-01-01T${checkIn}`);
+      const end = dayjs(`1970-01-01T${checkOut}`);
+      if (!start.isValid() || !end.isValid() || end.isBefore(start)) {
+        return <Text type="danger">Invalid</Text>;
+      }
+      const diffMinutes = end.diff(start, 'minute');
+      const hours = Math.floor(diffMinutes / 60);
+      const minutes = diffMinutes % 60;
+      return <Text strong style={{ color: '#0D7139' }}>{`${hours}h ${minutes}m`}</Text>;
+    } catch (e) {
+      return <Text type="danger">Error</Text>;
+    }
+  };
+
+  const fetchDataForEmployee = async (userId, date) => {
+    if (!userId || !date) return;
+    setLoading(true);
+    setSelection([]);
+    setSelectionMode(null);
+    try {
+      const startDate = date.startOf('month').format('YYYY-MM-DD');
+      const endDate = date.endOf('month').format('YYYY-MM-DD');
+
+      // 1. Fetch config and holidays
+      const { data: configData } = await supabase.from('company_calendar').select('reason').eq('day_type', 'working_config').single();
+      const defaultConfig = { monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false, sunday: false };
+      const workingDaysConfig = configData?.reason ? JSON.parse(configData.reason).workingDays || defaultConfig : defaultConfig;
+      const holidays = await fetchCompanyCalendar();
+      
+      // 2. --- MODIFICATION: Fetch detailed attendance with check-in/out times ---
+      const { data: attendanceData, error: attError } = await supabase
+        .from('attendance')
+        .select('date, is_present, check_in, check_out') // Ensure these columns are selected
+        .eq('user_id', userId)
+        .gte('date', startDate)
+        .lte('date', endDate);
+      if (attError) throw attError;
+      
+      // Store the full details in the map
+      const attMap = new Map(attendanceData.map(att => [att.date, { isPresent: att.is_present, checkIn: att.check_in, checkOut: att.check_out }]));
+      setAttendanceDetails(attMap);
+      
+      // 3. Fetch already allocated dates
+      const { data: balanceData } = await supabase.from('leave_balances').select('allocated_comp_off_dates').eq('user_id', userId).single();
+      const allocated = balanceData?.allocated_comp_off_dates || [];
+      setAllocatedDates(allocated);
+
+      // 4. Calculate eligible days
+      const eligible = [];
+      for (const [dayStr, details] of attMap.entries()) {
+        if (details.isPresent) {
+          const day = dayjs(dayStr);
+          const isHoliday = holidays.has(dayStr);
+          const isNonWorking = workingDaysConfig[day.format('dddd').toLowerCase()] === false;
+          if ((isHoliday || isNonWorking) && !allocated.includes(dayStr)) {
+            eligible.push(dayStr);
+          }
+        }
+      }
+      setEligibleDays(eligible);
+
+    } catch (error) {
+      console.error(error);
+      message.error("Failed to fetch employee's compensatory leave data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onDateSelect = (date) => {
+    const dateStr = date.format('YYYY-MM-DD');
+    const isEligible = eligibleDays.includes(dateStr);
+    const isAllocated = allocatedDates.includes(dateStr);
+    if (!isEligible && !isAllocated) return;
+    const clickedMode = isAllocated ? 'revoking' : 'allocating';
+    if (selectionMode && selectionMode !== clickedMode) {
+      setSelection([dateStr]);
+      setSelectionMode(clickedMode);
+      return;
+    }
+    setSelectionMode(clickedMode);
+    setSelection(prev => prev.includes(dateStr) ? prev.filter(d => d !== dateStr) : [...prev, dateStr]);
+  };
+
+  const handleAllocateSelection = async () => { /* ... Function remains the same ... */ 
+      if (selection.length === 0) return;
+    setActionLoading(true);
+    try {
+      const { data: currentBalance } = await supabase.from('leave_balances').select('compensatory_total, compensatory_remaining, allocated_comp_off_dates').eq('user_id', selectedEmployeeId).single();
+      
+      const newDaysCount = selection.length;
+      const newTotal = (currentBalance?.compensatory_total || 0) + newDaysCount;
+      const newRemaining = (currentBalance?.compensatory_remaining || 0) + newDaysCount;
+      const newAllocatedDates = [...(currentBalance?.allocated_comp_off_dates || []), ...selection];
+
+      await supabase.from('leave_balances').update({
+        compensatory_total: newTotal,
+        compensatory_remaining: newRemaining,
+        allocated_comp_off_dates: newAllocatedDates
+      }).eq('user_id', selectedEmployeeId);
+      
+      message.success(`${newDaysCount} day(s) allocated successfully!`);
+      fetchDataForEmployee(selectedEmployeeId, selectedMonth); // Refresh data
+    } catch (error) {
+      console.error('Error batch allocating:', error);
+      message.error('Failed to allocate leaves.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+  const handleRevokeSelection = async () => { /* ... Function remains the same ... */ 
+      if (selection.length === 0) return;
+    setActionLoading(true);
+    try {
+      const { data: currentBalance } = await supabase.from('leave_balances').select('compensatory_total, compensatory_remaining, allocated_comp_off_dates').eq('user_id', selectedEmployeeId).single();
+      
+      const revokedDaysCount = selection.length;
+      const currentAllocated = currentBalance?.allocated_comp_off_dates || [];
+
+      const newTotal = Math.max(0, (currentBalance?.compensatory_total || 0) - revokedDaysCount);
+      const newRemaining = Math.max(0, (currentBalance?.compensatory_remaining || 0) - revokedDaysCount);
+      const newAllocatedDates = currentAllocated.filter(d => !selection.includes(d));
+
+      await supabase.from('leave_balances').update({
+        compensatory_total: newTotal,
+        compensatory_remaining: newRemaining,
+        allocated_comp_off_dates: newAllocatedDates
+      }).eq('user_id', selectedEmployeeId);
+
+      message.success(`${revokedDaysCount} day(s) revoked successfully.`);
+      fetchDataForEmployee(selectedEmployeeId, selectedMonth); // Refresh data
+    } catch (error) {
+      console.error('Error batch revoking:', error);
+      message.error('Failed to revoke leaves.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const dateCellRender = (date) => { /* ... Function remains the same ... */ 
+      const dateStr = date.format('YYYY-MM-DD');
+    const isEligible = eligibleDays.includes(dateStr);
+    const isAllocated = allocatedDates.includes(dateStr);
+    const isSelected = selection.includes(dateStr);
+
+    let style = { borderRadius: '4px', transition: 'all 0.2s' };
+    if (isSelected) {
+      style.border = `2px solid ${selectionMode === 'allocating' ? '#0D7139' : '#ff4d4f'}`;
+      style.backgroundColor = selectionMode === 'allocating' ? '#f6ffed' : '#fff1f0';
+    } else if (isAllocated) {
+      style.backgroundColor = '#d3adf7';
+    } else if (isEligible) {
+      style.backgroundColor = '#f9f0ff';
+    }
+    
+    return <div className="ant-picker-cell-inner" style={style}>{date.date()}</div>;
+  };
+
+  return (
+    <Drawer
+      title="Manual Compensatory Leave Allocation"
+      width={window.innerWidth > 992 ? 900 : '95%'}
+      onClose={onCancel}
+      open={visible}
+      destroyOnClose
+    >
+      <Spin spinning={loading || actionLoading}>
+        <Row gutter={[16, 16]}>
+          <Col xs={24} md={12}>
+            <Select showSearch placeholder="Select an Employee" style={{ width: '100%' }} onChange={value => { setSelectedEmployeeId(value); fetchDataForEmployee(value, selectedMonth); }} filterOption={(input, option) => (option?.children ?? '').toLowerCase().includes(input.toLowerCase())}>
+              {employees.map(emp => <Option key={emp.id} value={emp.id}>{emp.name}</Option>)}
+            </Select>
+          </Col>
+          <Col xs={24} md={12}>
+            <DatePicker.MonthPicker value={selectedMonth} onChange={date => { setSelectedMonth(date); if (selectedEmployeeId) { fetchDataForEmployee(selectedEmployeeId, date); } }} style={{ width: '100%' }} disabled={!selectedEmployeeId} />
+          </Col>
+        </Row>
+        <Divider />
+        {selectedEmployeeId ? (
+          <Row gutter={[24, 24]}>
+            <Col xs={24} lg={16}>
+              <Card title="Click on days to select/deselect for batch actions">
+                 <Calendar fullscreen={false} value={selectedMonth} dateFullCellRender={dateCellRender} onSelect={onDateSelect} />
+                 <Space style={{ marginTop: '16px' }} wrap>
+                    <Badge color="#f9f0ff" text="Eligible" />
+                    <Badge color="#d3adf7" text="Allocated" />
+                    <Badge color="#f6ffed" text="Selected to Add" />
+                    <Badge color="#fff1f0" text="Selected to Revoke" />
+                 </Space>
+              </Card>
+            </Col>
+            <Col xs={24} lg={8}>
+              <Card title="Selected Days Details & Actions">
+                {selection.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                    {/* --- START: NEW DETAILED VIEW --- */}
+                    <div style={{ flexGrow: 1, maxHeight: '350px', overflowY: 'auto', marginBottom: '16px' }}>
+                      <Space direction="vertical" style={{ width: '100%' }}>
+                        {selection.sort().map(date => {
+                          const details = attendanceDetails.get(date);
+                          return (
+                            <Card key={date} size="small" style={{ background: '#fafafa' }}>
+                              <Row justify="space-between" align="middle">
+                                <Col>
+                                  <Text strong>{dayjs(date).format('ddd, DD MMM YYYY')}</Text>
+                                </Col>
+                                <Col>{calculateWorkHours(details?.checkIn, details?.checkOut)}</Col>
+                              </Row>
+                              <Row justify="space-between" style={{ fontSize: '12px', marginTop: '4px' }}>
+                                <Col><Text type="secondary">In: {details?.checkIn || 'N/A'}</Text></Col>
+                                <Col><Text type="secondary">Out: {details?.checkOut || 'N/A'}</Text></Col>
+                              </Row>
+                            </Card>
+                          );
+                        })}
+                      </Space>
+                    </div>
+                    {/* --- END: NEW DETAILED VIEW --- */}
+                    <Divider style={{ margin: '8px 0' }} />
+                    <Statistic title="Total Days Selected" value={selection.length} />
+                    {selectionMode === 'allocating' && (
+                      <Popconfirm title={`Are you sure you want to allocate these ${selection.length} days?`} onConfirm={handleAllocateSelection} okText="Yes, Allocate" cancelText="No">
+                        <Button type="primary" block icon={<CheckCircleOutlined />} style={{ marginTop: '16px' }}>Allocate {selection.length} Day(s)</Button>
+                      </Popconfirm>
+                    )}
+                    {selectionMode === 'revoking' && (
+                      <Popconfirm title={`Are you sure you want to REVOKE these ${selection.length} days?`} onConfirm={handleRevokeSelection} okText="Yes, Revoke" cancelText="No">
+                        <Button danger block icon={<DeleteOutlined />} style={{ marginTop: '16px' }}>Revoke {selection.length} Day(s)</Button>
+                      </Popconfirm>
+                    )}
+                  </div>
+                ) : (
+                  <Empty description="Select one or more days from the calendar to see details and perform an action." />
+                )}
+              </Card>
+            </Col>
+          </Row>
+        ) : (
+          <Empty description="Please select an employee to begin." />
+        )}
+      </Spin>
+    </Drawer>
+  );
+};
+// --- END: REPLACE THE ENTIRE CompensatoryLeaveModal COMPONENT ---
 const LeaveManagementPage = ({ userRole = 'hr', currentUserId = '1' }) => {
   // if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
   //   return <ErrorPage errorType="403" />;
@@ -574,6 +893,7 @@ const LeaveManagementPage = ({ userRole = 'hr', currentUserId = '1' }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [currentUser, setCurrentUser] = useState(null);
+   const [compOffModalVisible, setCompOffModalVisible] = useState(false);
 
 
 useEffect(() => {
@@ -2827,7 +3147,7 @@ useEffect(() => {
     fetchEmployees();
 }, [userRole, activeTab, employees.length]);
   // HR/Admin Dashboard Component
-  const HRDashboard = () => (
+   const HRDashboard = () => (
   <div style={animationStyles.container}>
     {/* Professional HR Header */}
     <Card style={{
@@ -2910,64 +3230,81 @@ useEffect(() => {
           </Space>
         </Col>
         
+        {/* --- THIS IS THE CORRECTED SECTION FOR THE BUTTONS --- */}
         <Col xs={24} md={10} lg={8}>
-          <Space direction="vertical" style={{ width: '100%' }} size={12}>
-            <Row gutter={8} justify="end">
+          <Space 
+            size={[8, 16]} 
+            wrap 
+            style={{ width: '100%', justifyContent: 'flex-end' }}
+          >
+              <Tooltip title="Export Leave Reports">
+                <Button
+                  type="primary"
+                  icon={<DownloadOutlined />}
+                  onClick={() => setExportModalVisible(true)}
+                  style={{
+                    height: '44px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #0D7139 0%, #52c41a 100%)',
+                    border: 'none',
+                    fontWeight: 600,
+                    boxShadow: '0 4px 16px rgba(13, 113, 57, 0.24)',
+                    transition: 'all 0.3s ease'
+                  }}
+                  className="professional-primary-btn"
+                >
+                  Export Report
+                </Button>
+              </Tooltip>
               
-              <Col>
-                <Tooltip title="Export Leave Reports">
+              <Tooltip title="Allocate Additional Medical Leave">
                   <Button
-                    type="primary"
-                    icon={<DownloadOutlined />}
-                    onClick={() => setExportModalVisible(true)}
-                    style={{
+                  icon={<MedicineBoxOutlined />}
+                  onClick={() => setMedicalLeaveModal(true)} 
+                  style={{
                       height: '44px',
                       borderRadius: '12px',
-                      background: 'linear-gradient(135deg, #0D7139 0%, #52c41a 100%)',
+                      background: 'linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%)',
                       border: 'none',
+                      color: 'white',
                       fontWeight: 600,
-                      boxShadow: '0 4px 16px rgba(13, 113, 57, 0.24)',
-                      transition: 'all 0.3s ease'
-                    }}
-                    className="professional-primary-btn"
+                      boxShadow: '0 4px 16px rgba(255, 77, 79, 0.24)',
+                  }}
                   >
-                    Export Report
+                  Medical Leave
                   </Button>
-                </Tooltip>
-              </Col>
-<Col>
-  <Tooltip title="Allocate Additional Medical Leave">
-    <Button
-      icon={<MedicineBoxOutlined />}
-      onClick={() => setMedicalLeaveModal(true)} // <-- THIS IS THE FIX
-      style={{
-        height: '44px',
-        borderRadius: '12px',
-        background: 'linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%)',
-        border: 'none',
-        color: 'white',
-        fontWeight: 600,
-        boxShadow: '0 4px 16px rgba(255, 77, 79, 0.24)',
-      }}
-    >
-      Medical Leave
-    </Button>
-  </Tooltip>
-</Col>
-            </Row>
+              </Tooltip>
+              
+              <Tooltip title="Manually Allocate Compensatory Leave">
+                <Button
+                  icon={<FaIndianRupeeSign />}
+                  onClick={() => setCompOffModalVisible(true)}
+                  style={{
+                    height: '44px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #722ed1 0%, #9254de 100%)',
+                    border: 'none',
+                    color: 'white',
+                    fontWeight: 600,
+                    boxShadow: '0 4px 16px rgba(114, 46, 209, 0.24)',
+                  }}
+                >
+                  Allocate Comp Off
+                </Button>
+              </Tooltip>
           </Space>
         </Col>
+        {/* --- END OF CORRECTED SECTION --- */}
       </Row>
     </Card>
 
-    {/* Professional Stats Cards with Enhanced Design */}
-   {/* Professional Stats Cards with Enhanced Design */}
+    {/* The rest of the HRDashboard component remains unchanged... */}
     <Row gutter={[20, 20]} style={{ marginBottom: '32px' }}>
       <Col xs={12} sm={6} lg={6}>
         <Card style={{
           borderRadius: '16px',
           border: '1px solid rgba(82, 196, 26, 0.12)',
-          background: 'white', // ✅ Added white background
+          background: 'white',
           boxShadow: '0 4px 20px rgba(82, 196, 26, 0.08)',
           transition: 'all 0.3s ease',
           position: 'relative',
@@ -2999,16 +3336,7 @@ useEffect(() => {
               }}>
                 <CheckCircleOutlined style={{ fontSize: '20px', color: '#52c41a' }} />
               </div>
-              <Text style={{ 
-                fontSize: '12px', 
-                color: '#52c41a',
-                fontWeight: 600,
-                background: 'rgba(82, 196, 26, 0.1)',
-                padding: '2px 8px',
-                borderRadius: '12px'
-              }}>
-                +12.5%
-              </Text>
+             
             </div>
             <div style={{ marginBottom: '4px' }}>
               <Text style={{
@@ -3043,7 +3371,7 @@ useEffect(() => {
         <Card style={{
           borderRadius: '16px',
           border: '1px solid rgba(250, 173, 20, 0.12)',
-          background: 'white', // ✅ Added white background
+          background: 'white',
           boxShadow: '0 4px 20px rgba(250, 173, 20, 0.08)',
           transition: 'all 0.3s ease',
           position: 'relative',
@@ -3116,7 +3444,7 @@ useEffect(() => {
         <Card style={{
           borderRadius: '16px',
           border: '1px solid rgba(255, 77, 79, 0.12)',
-          background: 'white', // ✅ Added white background
+          background: 'white',
           boxShadow: '0 4px 20px rgba(255, 77, 79, 0.08)',
           transition: 'all 0.3s ease',
           position: 'relative',
@@ -3148,16 +3476,7 @@ useEffect(() => {
               }}>
                 <CloseCircleOutlined style={{ fontSize: '20px', color: '#ff4d4f' }} />
               </div>
-              <Text style={{ 
-                fontSize: '12px', 
-                color: '#ff4d4f',
-                fontWeight: 600,
-                background: 'rgba(255, 77, 79, 0.1)',
-                padding: '2px 8px',
-                borderRadius: '12px'
-              }}>
-                -8.2%
-              </Text>
+             
             </div>
             <div style={{ marginBottom: '4px' }}>
               <Text style={{
@@ -3559,6 +3878,12 @@ useEffect(() => {
         employees={employees}
         onAllocate={handleAllocateMedicalLeave}
         loading={loading}
+      />
+       <CompensatoryLeaveModal
+        visible={compOffModalVisible}
+        onCancel={() => setCompOffModalVisible(false)}
+        employees={employees}
+        currentUser={currentUser}
       />
     </div>
   );
