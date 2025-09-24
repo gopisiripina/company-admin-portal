@@ -941,37 +941,53 @@ const markAttendance = async () => {
 
     // Add manual check-in details if they exist
     if (manualReason && userLocation) {
-        baseData.manual_checkin_reason = manualReason;
-        baseData.location_coordinates = userLocation;
-    }
+    baseData.location_coordinates = userLocation;
+}
 
     if (!existingRecord) {
-      // First time today - Check In
-      attendancePayload = {
-        ...baseData,
-        check_in: currentTime,
-      };
-      message = 'Check-in successful! Your attendance has been recorded.';
-    } else if (existingRecord.check_in && !existingRecord.check_out) {
-      // Already checked in - Check Out
-      const checkInTime = new Date(`${today}T${existingRecord.check_in}`);
-      const checkOutTime = new Date(`${today}T${currentTime}`);
-      const totalHours = (checkOutTime - checkInTime) / (1000 * 60 * 60);
+  // First time today - Check In
+  const reasonData = manualReason ? { check_in: manualReason } : {};
+  
+  attendancePayload = {
+    ...baseData,
+    check_in: currentTime,
+    reason: Object.keys(reasonData).length > 0 ? JSON.stringify(reasonData) : null
+  };
+  message = 'Check-in successful! Your attendance has been recorded.';
+} else if (existingRecord.check_in && !existingRecord.check_out) {
+  // Already checked in - Check Out
+  const checkInTime = new Date(`${today}T${existingRecord.check_in}`);
+  const checkOutTime = new Date(`${today}T${currentTime}`);
+  const totalHours = (checkOutTime - checkInTime) / (1000 * 60 * 60);
 
-      // (keep your existing time formatting logic)
-      const hours = Math.floor(totalHours);
-      const minutes = Math.round((totalHours - hours) * 60);
-      const formattedTotalHours = `${hours}:${minutes.toString().padStart(2, '0')}`;
+  const hours = Math.floor(totalHours);
+  const minutes = Math.round((totalHours - hours) * 60);
+  const formattedTotalHours = `${hours}:${minutes.toString().padStart(2, '0')}`;
 
+  // Parse existing reason or create new one
+  let reasonData = {};
+  if (existingRecord.reason) {
+    try {
+      reasonData = JSON.parse(existingRecord.reason);
+    } catch (e) {
+      reasonData = {};
+    }
+  }
+  
+  // Add check-out reason if manual reason exists
+  if (manualReason) {
+    reasonData.check_out = manualReason;
+  }
 
-      attendancePayload = {
-        ...existingRecord,
-        ...baseData, // Add base data again in case it's a manual check-out
-        check_out: currentTime,
-        total_hours: formattedTotalHours
-      };
-      message = `Check-out successful! Total hours worked: ${totalHours.toFixed(2)} hours`;
-    } else {
+  attendancePayload = {
+    ...existingRecord,
+    ...baseData,
+    check_out: currentTime,
+    total_hours: formattedTotalHours,
+    reason: Object.keys(reasonData).length > 0 ? JSON.stringify(reasonData) : existingRecord.reason
+  };
+  message = `Check-out successful! Total hours worked: ${totalHours.toFixed(2)} hours`;
+} else {
       throw new Error('You have already completed check-in and check-out for today.');
     }
 
