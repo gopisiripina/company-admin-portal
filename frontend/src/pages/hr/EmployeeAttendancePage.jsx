@@ -40,6 +40,7 @@ import {
   SearchOutlined,
   PrinterOutlined
 } from '@ant-design/icons';
+import { Building,MapPinHouse } from 'lucide-react';
 import dayjs from 'dayjs';
 import { supabase } from '../../supabase/config';
 import isBetween from 'dayjs/plugin/isBetween';
@@ -89,6 +90,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
     };
     getCurrentUser();
   }, []);
+  
   const fetchOnLeaveCount = async (date, search, type) => {
     try {
       const dateKey = date.format('YYYY-MM-DD');
@@ -106,7 +108,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
       const onLeaveUserIds = leaveUsers.map(l => l.user_id);
 
       if (onLeaveUserIds.length === 0) {
-        setOnLeaveCount(0); // No one is on leave, so no need for another query
+        setOnLeaveCount(0);
         return;
       }
 
@@ -114,7 +116,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
       let userQuery = supabase
         .from('users')
         .select('id', { count: 'exact', head: true })
-        .in('id', onLeaveUserIds); // Only count users from the on-leave list
+        .in('id', onLeaveUserIds);
 
       if (search) {
         userQuery = userQuery.or(`name.ilike.%${search}%,employee_id.ilike.%${search}%,department.ilike.%${search}%`);
@@ -137,10 +139,11 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
 
     } catch (error) {
       console.error('Error fetching on-leave count:', error);
-      setOnLeaveCount(0); // Reset to 0 in case of an error
+      setOnLeaveCount(0);
     }
   };
-const fetchLeaveData = async (date) => {
+
+  const fetchLeaveData = async (date) => {
     try {
       const startDate = dayjs(date).startOf('month').format('YYYY-MM-DD');
       const endDate = dayjs(date).endOf('month').format('YYYY-MM-DD');
@@ -157,6 +160,7 @@ const fetchLeaveData = async (date) => {
     } catch (error) {
       console.error('Error fetching leave data:', error);
       message.error('Failed to load leave data');
+      setLeaveData([]); // Set empty array on error
     }
   };
 
@@ -215,50 +219,50 @@ const fetchLeaveData = async (date) => {
   };
 
   // Fetch attendance data
- const fetchAttendanceData = async (startDate, endDate, shouldMerge = false) => {
-  try {
-    setLoading(true); // Add this
-    const { data, error } = await supabase
-      .from('attendance')
-      .select('*')
-      .gte('date', startDate)
-      .lte('date', endDate);
-    
-    if (error) throw error;
-    
-    // Add null check here
-    if (!data || data.length === 0) {
-      console.log('No attendance data found for the date range');
-    }
-    
-    const transformedData = {};
-    data.forEach(record => {
-      const dateKey = record.date;
-      if (!transformedData[dateKey]) {
-        transformedData[dateKey] = {};
+  const fetchAttendanceData = async (startDate, endDate, shouldMerge = false) => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('attendance')
+        .select('*')
+        .gte('date', startDate)
+        .lte('date', endDate);
+      
+      if (error) throw error;
+      
+      if (!data || data.length === 0) {
+        console.log('No attendance data found for the date range');
       }
-      transformedData[dateKey][record.user_id] = {
-        present: record.is_present,
-        checkIn: record.check_in,
-        checkOut: record.check_out,
-        totalHours: record.total_hours
-      };
-    });
-    
-    if (shouldMerge) {
-      // Merge with existing data instead of overwriting
-      setAttendanceData(prevData => ({
-        ...prevData,
-        ...transformedData
-      }));
-    } else {
-      setAttendanceData(transformedData);
+      
+      const transformedData = {};
+      data.forEach(record => {
+        const dateKey = record.date;
+        if (!transformedData[dateKey]) {
+          transformedData[dateKey] = {};
+        }
+        transformedData[dateKey][record.user_id] = {
+          present: record.is_present,
+          checkIn: record.check_in,
+          checkOut: record.check_out,
+          totalHours: record.total_hours,
+          location_coordinates: record.location_coordinates,
+          reason: record.reason
+        };
+      });
+      
+      if (shouldMerge) {
+        setAttendanceData(prevData => ({
+          ...prevData,
+          ...transformedData
+        }));
+      } else {
+        setAttendanceData(transformedData);
+      }
+    } catch (error) {
+      console.error('Error fetching attendance:', error);
+      message.error('Failed to load attendance data');
     }
-  } catch (error) {
-    console.error('Error fetching attendance:', error);
-    message.error('Failed to load attendance data');
-  }
-};
+  };
 
   // Mark individual employee as absent
   const handleMarkIndividualAbsent = async (employee) => {
@@ -369,7 +373,6 @@ const fetchLeaveData = async (date) => {
 
   // Submit attendance
   const handleSubmitAttendance = async () => {
-    
     if (!checkInTime) {
       message.error('Please select check-in time');
       return;
@@ -380,23 +383,23 @@ const fetchLeaveData = async (date) => {
     try {
       const dateKey = selectedDate.format('YYYY-MM-DD');
       const attendanceRecords = selectedEmployees.map(employeeId => {
-  let totalHours = null;  // Changed from 8 to null
-  let checkOutValue = null;
-  
-  if (checkInTime && checkOutTime && checkOutTime.isAfter(checkInTime)) {
-    totalHours = checkOutTime.diff(checkInTime, 'hours', true);
-    checkOutValue = checkOutTime.format('HH:mm:ss');
-  }
-  
-  return {
-    user_id: employeeId,
-    date: dateKey,
-    check_in: checkInTime.format('HH:mm:ss'),
-    check_out: checkOutValue,
-    total_hours: totalHours,  // Will be null if no check-out time
-    is_present: true
-  };
-});
+        let totalHours = null;
+        let checkOutValue = null;
+        
+        if (checkInTime && checkOutTime && checkOutTime.isAfter(checkInTime)) {
+          totalHours = checkOutTime.diff(checkInTime, 'hours', true);
+          checkOutValue = checkOutTime.format('HH:mm:ss');
+        }
+        
+        return {
+          user_id: employeeId,
+          date: dateKey,
+          check_in: checkInTime.format('HH:mm:ss'),
+          check_out: checkOutValue,
+          total_hours: totalHours,
+          is_present: true
+        };
+      });
 
       const { error } = await supabase
         .from('attendance')
@@ -422,42 +425,51 @@ const fetchLeaveData = async (date) => {
       setLoading(false);
     }
   };
- const handleViewAttendance = (employee) => {
-     if (!employee || !employee.id) {
-    message.error('Employee data not available');
-    return;
-  }
 
-  if (!attendanceData || Object.keys(attendanceData).length === 0) {
-    message.error('Attendance data is still loading. Please try again.');
-    return;
-  }
+  const handleViewAttendance = (employee) => {
+    // Enhanced validation
+    if (!employee?.id) {
+      console.error('Employee ID missing:', employee);
+      message.error('Employee data not available');
+      return;
+    }
 
-  if (!leaveData) {
-    message.error('Leave data is still loading. Please try again.');
-    return;
-  }
+    // Check if data is still loading
+    if (!isLoaded) {
+      message.warning('Please wait for data to load completely');
+      return;
+    }
 
-  const dateKey = selectedDate.format('YYYY-MM-DD');
-  const attendance = attendanceData[dateKey]?.[employee.id];
-    
+    // Ensure attendanceData exists and has content
+    if (!attendanceData) {
+      console.error('Attendance data is null/undefined');
+      message.error('Attendance data not loaded. Please refresh the page.');
+      return;
+    }
+
+    // Ensure leaveData is loaded (even if empty array)
+    if (leaveData === null || leaveData === undefined) {
+      console.error('Leave data not loaded');
+      message.error('Leave data not loaded. Please refresh the page.');
+      return;
+    }
+
+    const dateKey = selectedDate.format('YYYY-MM-DD');
+    const attendance = attendanceData[dateKey]?.[employee.id];
+      
     const employeeMonthlyData = {};
     Object.keys(attendanceData).forEach(date => {
       const month = dayjs(date).format('YYYY-MM');
       const employeeRecord = attendanceData[date][employee.id];
       
-      // --- START OF FIX ---
-      // PRIORITY #1: Check if the employee was on approved leave for this date.
       const isOnLeave = leaveData.some(leave => 
           leave.user_id === employee.id &&
           dayjs(date).isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
       );
 
-      // If the employee is on leave, we do not process this day for absence/presence counts.
       if (isOnLeave) {
-        return; // Skip to the next date
+        return;
       }
-      // --- END OF FIX ---
 
       if (employeeRecord) {
         if (!employeeMonthlyData[month]) {
@@ -471,19 +483,17 @@ const fetchLeaveData = async (date) => {
             employeeMonthlyData[month].present++;
           }
         } else {
-          // This 'else' block is now only reached if the employee was NOT on leave
-          // and has an attendance record marked as not present.
           employeeMonthlyData[month].absent++;
         }
       }
     });
+    
     Modal.info({
       title: `${employee.name}'s Attendance Details`,
       width: 800,
       content: (
         <div style={{ padding: '16px 0' }}>
           <Space direction="vertical" size="large" style={{ width: '100%' }}>
-            {/* ... The top Cards for Status and Monthly Summary remain the same ... */}
             <Card>
               <Text strong>Status for {selectedDate.format('DD/MM/YYYY')}: </Text>
               <Tag color={attendance?.present ? 'success' : 'error'}>
@@ -493,6 +503,12 @@ const fetchLeaveData = async (date) => {
                 <div style={{ marginTop: 8 }}>
                   <Text strong>Hours: </Text>
                   <Text>{attendance.totalHours?.toFixed(1) || 0}h</Text>
+                  <div style={{ marginTop: 4 }}>
+                    <Text strong>Location: </Text>
+                    <Tag color={attendance.location_coordinates ? 'orange' : 'green'}>
+                      {attendance.location_coordinates ? 'Out of Office' : 'In Office'}
+                    </Tag>
+                  </div>
                 </div>
               )}
             </Card>
@@ -525,7 +541,6 @@ const fetchLeaveData = async (date) => {
               </Row>
             </Card>
 
-            {/* --- THIS IS THE CORRECTED CALENDAR LOGIC --- */}
             <Card title="Attendance Calendar">
               <Calendar
                 fullscreen={false}
@@ -535,7 +550,6 @@ const fetchLeaveData = async (date) => {
                   const dayAttendance = attendanceData[dayKey]?.[employee.id];
                   const isToday = date.isSame(dayjs(), 'day');
 
-                  // PRIORITY #1: Check for an approved leave for this specific employee and date.
                   const approvedLeave = leaveData.find(leave =>
                     leave.user_id === employee.id &&
                     date.isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
@@ -549,26 +563,24 @@ const fetchLeaveData = async (date) => {
                     justifyContent: 'center',
                     borderRadius: '6px',
                     border: isToday ? '2px solid #1890ff' : '1px solid #d9d9d9',
-                    color: 'black' // Default text color
+                    color: 'black'
                   };
                   
-                  // If a leave is found, it overrides any attendance record.
                   if (approvedLeave) {
-                    cellStyle.backgroundColor = '#e6f7ff'; // Light blue for On Leave
+                    cellStyle.backgroundColor = '#e6f7ff';
                     cellStyle.color = '#1890ff';
                     cellStyle.border = `1px solid #91d5ff`;
                   } 
-                  // If no leave, THEN check attendance data.
                   else if (dayAttendance?.present) {
                     if (dayAttendance.checkIn && !dayAttendance.checkOut) {
-                      cellStyle.backgroundColor = '#fffbe6'; // Yellow for missing
+                      cellStyle.backgroundColor = '#fffbe6';
                       cellStyle.color = '#faad14';
                     } else {
-                      cellStyle.backgroundColor = '#f6ffed'; // Green for present
+                      cellStyle.backgroundColor = '#f6ffed';
                       cellStyle.color = '#52c41a';
                     }
                   } else if (dayAttendance && !dayAttendance.present) {
-                    cellStyle.backgroundColor = '#fff1f0'; // Red for absent
+                    cellStyle.backgroundColor = '#fff1f0';
                     cellStyle.color = '#ff4d4f';
                   } else if (isToday) {
                     cellStyle.backgroundColor = '#e6f7ff';
@@ -608,15 +620,12 @@ const fetchLeaveData = async (date) => {
     let presentCount = 0;
     let missingCount = 0;
 
-    // Use the accurate count from the state, which represents the entire filtered employee list
     const totalOnLeaveCount = onLeaveCount;
 
-    // Iterate through today's attendance records
     Object.keys(dayData).forEach(userId => {
       const record = dayData[userId];
       
       if (record.present) {
-        // Ensure the employee isn't on leave, to prioritize leave status over an attendance entry
         const isUserOnLeave = leaveData.some(leave =>
           leave.user_id === userId &&
           selectedDate.isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
@@ -632,12 +641,11 @@ const fetchLeaveData = async (date) => {
       }
     });
 
-    // The remaining employees are absent
     const absentCount = totalEmpCount - presentCount - missingCount - totalOnLeaveCount;
 
     return {
       present: presentCount,
-      absent: Math.max(0, absentCount), // Prevent negative numbers
+      absent: Math.max(0, absentCount),
       missing: missingCount,
       onLeave: totalOnLeaveCount,
       total: totalEmpCount
@@ -647,31 +655,42 @@ const fetchLeaveData = async (date) => {
   // Fetch employees on component mount and when filters change
   useEffect(() => {
     fetchEmployees(currentPage, pageSize, searchText, filterType);
-    fetchOnLeaveCount(selectedDate, searchText, filterType); // Add this line
+    fetchOnLeaveCount(selectedDate, searchText, filterType);
     
     const startDate = dayjs().startOf('month').format('YYYY-MM-DD');
     const endDate = dayjs().endOf('month').format('YYYY-MM-DD');
     fetchAttendanceData(startDate, endDate);
   }, [currentPage, pageSize, searchText, filterType]);
 
-  // Fetch attendance data when date changes
-  // Fetch attendance data when date changes
+  // Enhanced data loading useEffect
   useEffect(() => {
-  const startDate = selectedDate.startOf('month').format('YYYY-MM-DD');
-  const endDate = selectedDate.endOf('month').format('YYYY-MM-DD');
-  
-  // Ensure all data is loaded before allowing interactions
-  Promise.all([
-    fetchAttendanceData(startDate, endDate),
-    fetchLeaveData(selectedDate),
-    fetchOnLeaveCount(selectedDate, searchText, filterType)
-  ]).then(() => {
-    setIsLoaded(true); // Only set loaded after all data is fetched
-  }).catch(error => {
-    console.error('Error loading data:', error);
-    message.error('Failed to load attendance data');
-  });
-}, [selectedDate, searchText, filterType]);
+    const startDate = selectedDate.startOf('month').format('YYYY-MM-DD');
+    const endDate = selectedDate.endOf('month').format('YYYY-MM-DD');
+    
+    setIsLoaded(false);
+    
+    const loadAllData = async () => {
+      try {
+        await Promise.all([
+          fetchAttendanceData(startDate, endDate),
+          fetchLeaveData(selectedDate),
+          fetchOnLeaveCount(selectedDate, searchText, filterType)
+        ]);
+        
+        // Small delay to ensure state updates complete
+        setTimeout(() => {
+          setIsLoaded(true);
+        }, 200);
+        
+      } catch (error) {
+        console.error('Error loading data:', error);
+        message.error('Failed to load data');
+        setIsLoaded(false);
+      }
+    };
+
+    loadAllData();
+  }, [selectedDate, searchText, filterType]);
 
   // Animation effect
   useEffect(() => {
@@ -681,29 +700,28 @@ const fetchLeaveData = async (date) => {
 
   // Calculate monthly statistics
   useEffect(() => {
-  const monthly = {};
-  Object.keys(attendanceData).forEach(date => {
-    const month = dayjs(date).format('YYYY-MM');
-    if (!monthly[month]) {
-      monthly[month] = { present: 0, absent: 0, missing: 0, totalDays: 0 };  // Add missing: 0
-    }
-    
-    Object.values(attendanceData[date]).forEach(record => {
-      monthly[month].totalDays++;
-      if (record.present) {
-        // Check if missing (checked in but not checked out)
-        if (record.checkIn && !record.checkOut) {
-          monthly[month].missing++;  // Add this
-        } else {
-          monthly[month].present++;
-        }
-      } else {
-        monthly[month].absent++;
+    const monthly = {};
+    Object.keys(attendanceData).forEach(date => {
+      const month = dayjs(date).format('YYYY-MM');
+      if (!monthly[month]) {
+        monthly[month] = { present: 0, absent: 0, missing: 0, totalDays: 0 };
       }
+      
+      Object.values(attendanceData[date]).forEach(record => {
+        monthly[month].totalDays++;
+        if (record.present) {
+          if (record.checkIn && !record.checkOut) {
+            monthly[month].missing++;
+          } else {
+            monthly[month].present++;
+          }
+        } else {
+          monthly[month].absent++;
+        }
+      });
     });
-  });
-  setMonthlyData(monthly);
-}, [attendanceData]);
+    setMonthlyData(monthly);
+  }, [attendanceData]);
 
   const filteredEmployees = employeesData;
   const totalStats = calculateTotalStats();
@@ -742,27 +760,26 @@ const fetchLeaveData = async (date) => {
 
     const currentMonth = dayjs().format('YYYY-MM');
     const employeeMonthlyData = {};
-Object.keys(attendanceData).forEach(date => {
-  const month = dayjs(date).format('YYYY-MM');
-  if (month === currentMonth) {
-    if (!employeeMonthlyData[month]) {
-      employeeMonthlyData[month] = { present: 0, absent: 0, missing: 0, totalDays: 0 };
-    }
-    
-    const attendance = attendanceData[date][currentEmployee.id];
-    employeeMonthlyData[month].totalDays++;
-    if (attendance?.present) {
-      // Check if missing (checked in but not checked out)
-      if (attendance.checkIn && !attendance.checkOut) {
-        employeeMonthlyData[month].missing++;
-      } else {
-        employeeMonthlyData[month].present++;
+    Object.keys(attendanceData).forEach(date => {
+      const month = dayjs(date).format('YYYY-MM');
+      if (month === currentMonth) {
+        if (!employeeMonthlyData[month]) {
+          employeeMonthlyData[month] = { present: 0, absent: 0, missing: 0, totalDays: 0 };
+        }
+        
+        const attendance = attendanceData[date][currentEmployee.id];
+        employeeMonthlyData[month].totalDays++;
+        if (attendance?.present) {
+          if (attendance.checkIn && !attendance.checkOut) {
+            employeeMonthlyData[month].missing++;
+          } else {
+            employeeMonthlyData[month].present++;
+          }
+        } else {
+          employeeMonthlyData[month].absent++;
+        }
       }
-    } else {
-      employeeMonthlyData[month].absent++;
-    }
-  }
-});
+    });
 
     const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 0, totalDays: 0 };
     
@@ -790,67 +807,67 @@ Object.keys(attendanceData).forEach(date => {
           </Card>
 
           <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
-  <Col xs={24} sm={12} md={5}>
-    <Card style={{ ...animationStyles.statsCard, borderRadius: '12px' }}>
-      <Statistic
-        title="Days Present"
-        value={monthlyStats.present}
-        valueStyle={{ color: '#0D7139' }}
-        prefix={<CheckCircleOutlined />}
-      />
-      <Text type="secondary" style={{ fontSize: '12px' }}>This Month</Text>
-    </Card>
-  </Col>
-  <Col xs={24} sm={6}>
-  <Card style={{ borderRadius: '12px', ...animationStyles.statsCard }}>
-    <Statistic
-      title="Missing"
-      value={totalStats.missing}
-      valueStyle={{ color: '#faad14' }}
-      prefix={<ClockCircleOutlined />}
-    />
-    <Progress 
-      percent={totalStats.total > 0 ? (totalStats.missing / totalStats.total) * 100 : 0}
-      strokeColor="#faad14"
-      showInfo={false}
-      size="small"
-    />
-  </Card>
-</Col>
-  <Col xs={24} sm={12} md={5}>
-    <Card style={{ ...animationStyles.statsCard, borderRadius: '12px' }}>
-      <Statistic
-        title="Days Absent"
-        value={monthlyStats.absent}
-        valueStyle={{ color: '#ff4d4f' }}
-        prefix={<CloseCircleOutlined />}
-      />
-      <Text type="secondary" style={{ fontSize: '12px' }}>This Month</Text>
-    </Card>
-  </Col>
-  <Col xs={24} sm={12} md={4}>
-    <Card style={{ ...animationStyles.statsCard, borderRadius: '12px' }}>
-      <Statistic
-        title="Attendance Rate"
-        value={monthlyStats.totalDays > 0 ? (((monthlyStats.present + monthlyStats.missing) / monthlyStats.totalDays) * 100).toFixed(1) : 0}
-        valueStyle={{ color: '#0D7139' }}
-        suffix="%"
-      />
-      <Text type="secondary" style={{ fontSize: '12px' }}>This Month</Text>
-    </Card>
-  </Col>
-  <Col xs={24} sm={12} md={5}>
-    <Card style={{ ...animationStyles.statsCard, borderRadius: '12px' }}>
-      <Statistic
-        title="Total Hours"
-        value={monthlyStats.present * 8}
-        valueStyle={{ color: '#0D7139' }}
-        suffix="h"
-      />
-      <Text type="secondary" style={{ fontSize: '12px' }}>This Month</Text>
-    </Card>
-  </Col>
-</Row>
+            <Col xs={24} sm={12} md={5}>
+              <Card style={{ ...animationStyles.statsCard, borderRadius: '12px' }}>
+                <Statistic
+                  title="Days Present"
+                  value={monthlyStats.present}
+                  valueStyle={{ color: '#0D7139' }}
+                  prefix={<CheckCircleOutlined />}
+                />
+                <Text type="secondary" style={{ fontSize: '12px' }}>This Month</Text>
+              </Card>
+            </Col>
+            <Col xs={24} sm={6}>
+              <Card style={{ borderRadius: '12px', ...animationStyles.statsCard }}>
+                <Statistic
+                  title="Missing"
+                  value={totalStats.missing}
+                  valueStyle={{ color: '#faad14' }}
+                  prefix={<ClockCircleOutlined />}
+                />
+                <Progress 
+                  percent={totalStats.total > 0 ? (totalStats.missing / totalStats.total) * 100 : 0}
+                  strokeColor="#faad14"
+                  showInfo={false}
+                  size="small"
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} md={5}>
+              <Card style={{ ...animationStyles.statsCard, borderRadius: '12px' }}>
+                <Statistic
+                  title="Days Absent"
+                  value={monthlyStats.absent}
+                  valueStyle={{ color: '#ff4d4f' }}
+                  prefix={<CloseCircleOutlined />}
+                />
+                <Text type="secondary" style={{ fontSize: '12px' }}>This Month</Text>
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} md={4}>
+              <Card style={{ ...animationStyles.statsCard, borderRadius: '12px' }}>
+                <Statistic
+                  title="Attendance Rate"
+                  value={monthlyStats.totalDays > 0 ? (((monthlyStats.present + monthlyStats.missing) / monthlyStats.totalDays) * 100).toFixed(1) : 0}
+                  valueStyle={{ color: '#0D7139' }}
+                  suffix="%"
+                />
+                <Text type="secondary" style={{ fontSize: '12px' }}>This Month</Text>
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} md={5}>
+              <Card style={{ ...animationStyles.statsCard, borderRadius: '12px' }}>
+                <Statistic
+                  title="Total Hours"
+                  value={monthlyStats.present * 8}
+                  valueStyle={{ color: '#0D7139' }}
+                  suffix="h"
+                />
+                <Text type="secondary" style={{ fontSize: '12px' }}>This Month</Text>
+              </Card>
+            </Col>
+          </Row>
 
           <Card style={{ 
             background: 'rgba(255, 255, 255, 0.95)',
@@ -915,121 +932,196 @@ Object.keys(attendanceData).forEach(date => {
         </Tag>
       ),
     },
-  {
-  title: 'Status',
-  key: 'status',
-  render: (_, record) => {
-    const dateKey = selectedDate.format('YYYY-MM-DD');
-    const attendance = attendanceData[dateKey]?.[record.id];
+    {
+      title: 'Work Location',
+      key: 'work_location',
+      render: (_, record) => {
+        const dateKey = selectedDate.format('YYYY-MM-DD');
+        const attendance = attendanceData[dateKey]?.[record.id];
 
-    // --- PRIORITY #1: Check for an approved leave first. ---
-    const approvedLeave = leaveData.find(leave =>
-      leave.user_id === record.id &&
-      selectedDate.isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
-    );
+        if (!attendance?.present) {
+          return <Text type="secondary">-</Text>;
+        }
 
-    if (approvedLeave) {
-      return (
-        <Space>
-          <Badge status="processing" />
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <Text style={{ color: '#1890ff' }}>On Leave</Text>
-            <Text type="secondary" style={{ fontSize: '11px' }}>({approvedLeave.leave_type})</Text>
-          </div>
-        </Space>
-      );
-    }
-
-    if (attendance?.present) {
-      // Check if employee checked in but not checked out (missing)
-      if (attendance.checkIn && !attendance.checkOut) {
+        const isOutOfOffice = attendance.location_coordinates;
+        
         return (
-          <Space direction="vertical" size="small">
-            <Space><Badge status="warning" /><Text style={{ color: '#faad14' }}>Missing</Text></Space>
-            <div style={{ fontSize: '12px' }}><Text type="secondary">In: </Text><Text>{attendance.checkIn || '-'}</Text></div>
-            <div style={{ fontSize: '12px' }}><Text type="secondary">Out: </Text><Text style={{ color: '#faad14' }}>Not checked out</Text></div>
+          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>{isOutOfOffice ? <MapPinHouse /> : <Building />}</span>
+              <Tag color={isOutOfOffice ? 'orange' : 'green'} style={{ margin: 0 }}>
+                {isOutOfOffice ? 'Out of Office' : 'In Office'}
+              </Tag>
+            </div>
+            {isOutOfOffice && attendance.reason && (
+              <div style={{ 
+                fontSize: '11px', 
+                color: '#666',
+                backgroundColor: '#fff7e6',
+                padding: '6px 8px',
+                borderRadius: '4px',
+                border: '1px solid #ffd591',
+                maxWidth: '220px',
+                wordWrap: 'break-word'
+              }}>
+                {(() => {
+                  try {
+                    // Handle if reason is already an object (from JSONB) or string (needs parsing)
+                    const reasons = typeof attendance.reason === 'string' 
+                      ? JSON.parse(attendance.reason) 
+                      : attendance.reason;
+                      
+                    return (
+                      <div>
+                        {reasons.check_in && (
+                          <div style={{ marginBottom: '4px' }}>
+                            <Text strong style={{ fontSize: '10px', color: '#d46b08' }}>Check-in: </Text>
+                            <Text style={{ fontSize: '11px' }}>{reasons.check_in}</Text>
+                          </div>
+                        )}
+                        {reasons.check_out && (
+                          <div>
+                            <Text strong style={{ fontSize: '10px', color: '#d46b08' }}>Check-out: </Text>
+                            <Text style={{ fontSize: '11px' }}>{reasons.check_out}</Text>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  } catch (error) {
+                    // Fallback for non-JSON format
+                    return (
+                      <div>
+                        <Text strong style={{ fontSize: '10px', color: '#d46b08' }}>Reason: </Text>
+                        <Text style={{ fontSize: '11px' }}>{attendance.reason}</Text>
+                      </div>
+                    );
+                  }
+                })()}
+              </div>
+            )}
           </Space>
         );
-      } else {
-        return (
-          <Space direction="vertical" size="small">
-            <Space><Badge status="success" /><Text style={{ color: '#52c41a' }}>Present</Text></Space>
-            <div style={{ fontSize: '12px' }}><Text type="secondary">In: </Text><Text>{attendance.checkIn || '-'}</Text></div>
-            <div style={{ fontSize: '12px' }}><Text type="secondary">Out: </Text><Text>{attendance.checkOut || '-'}</Text></div>
-          </Space>
+      },
+    },
+    {
+      title: 'Status',
+      key: 'status',
+      render: (_, record) => {
+        const dateKey = selectedDate.format('YYYY-MM-DD');
+        const attendance = attendanceData[dateKey]?.[record.id];
+
+        // Check for approved leave first
+        const approvedLeave = leaveData.find(leave =>
+          leave.user_id === record.id &&
+          selectedDate.isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
         );
-      }
-    } else {
-      // Only show Absent if no attendance record exists AND they are not on leave.
-      return (
-        <Space>
-          <Badge status="error" />
-          <Text style={{ color: '#ff4d4f' }}>Absent</Text>
-        </Space>
-      );
-    }
-  },
-},
+
+        if (approvedLeave) {
+          return (
+            <Space>
+              <Badge status="processing" />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <Text style={{ color: '#1890ff' }}>On Leave</Text>
+                <Text type="secondary" style={{ fontSize: '11px' }}>({approvedLeave.leave_type})</Text>
+              </div>
+            </Space>
+          );
+        }
+
+        if (attendance?.present) {
+          // Check if employee checked in but not checked out (missing)
+          if (attendance.checkIn && !attendance.checkOut) {
+            return (
+              <Space direction="vertical" size="small">
+                <Space><Badge status="warning" /><Text style={{ color: '#faad14' }}>Missing</Text></Space>
+                <div style={{ fontSize: '12px' }}><Text type="secondary">In: </Text><Text>{attendance.checkIn || '-'}</Text></div>
+                <div style={{ fontSize: '12px' }}><Text type="secondary">Out: </Text><Text style={{ color: '#faad14' }}>Not checked out</Text></div>
+              </Space>
+            );
+          } else {
+            return (
+              <Space direction="vertical" size="small">
+                <Space><Badge status="success" /><Text style={{ color: '#52c41a' }}>Present</Text></Space>
+                <div style={{ fontSize: '12px' }}><Text type="secondary">In: </Text><Text>{attendance.checkIn || '-'}</Text></div>
+                <div style={{ fontSize: '12px' }}><Text type="secondary">Out: </Text><Text>{attendance.checkOut || '-'}</Text></div>
+              </Space>
+            );
+          }
+        } else {
+          return (
+            <Space>
+              <Badge status="error" />
+              <Text style={{ color: '#ff4d4f' }}>Absent</Text>
+            </Space>
+          );
+        }
+      },
+    },
     {
       title: 'Hours',
       key: 'hours',
       render: (_, record) => {
-  const dateKey = selectedDate.format('YYYY-MM-DD');
-  const attendance = attendanceData[dateKey]?.[record.id];
-  
-  if (attendance?.present && attendance.totalHours !== null) {  // Add null check
-    let hours = 0;
-    if (attendance.checkIn && attendance.checkOut) {
-      const checkIn = dayjs(`${dateKey} ${attendance.checkIn}`);
-      const checkOut = dayjs(`${dateKey} ${attendance.checkOut}`);
-      hours = checkOut.diff(checkIn, 'hours', true);
-    } else if (attendance.totalHours) {
-      hours = attendance.totalHours;
-    }
-    
-    const displayHours = Math.floor(hours);
-    const displayMinutes = Math.round((hours - displayHours) * 60);
-    const timeString = `${displayHours}:${String(displayMinutes).padStart(2, '0')}`;
-    
-    return (
-      <div>
-        <Text style={{ fontWeight: 600 }}>{timeString}</Text>
-        {hours < 8 && (
-          <div>
-            <Text type="danger" style={{ fontSize: '10px' }}>
-              Short by {Math.floor(8-hours)}:{String(Math.round(((8-hours) - Math.floor(8-hours)) * 60)).padStart(2, '0')}
-            </Text>
-          </div>
-        )}
-      </div>
-    );
-  }
-  return <Text type="secondary">-</Text>;
-},
+        const dateKey = selectedDate.format('YYYY-MM-DD');
+        const attendance = attendanceData[dateKey]?.[record.id];
+        
+        if (attendance?.present && attendance.totalHours !== null) {
+          let hours = 0;
+          if (attendance.checkIn && attendance.checkOut) {
+            const checkIn = dayjs(`${dateKey} ${attendance.checkIn}`);
+            const checkOut = dayjs(`${dateKey} ${attendance.checkOut}`);
+            hours = checkOut.diff(checkIn, 'hours', true);
+          } else if (attendance.totalHours) {
+            hours = attendance.totalHours;
+          }
+          
+          const displayHours = Math.floor(hours);
+          const displayMinutes = Math.round((hours - displayHours) * 60);
+          const timeString = `${displayHours}:${String(displayMinutes).padStart(2, '0')}`;
+          
+          return (
+            <div>
+              <Text style={{ fontWeight: 600 }}>{timeString}</Text>
+              {hours < 8 && (
+                <div>
+                  <Text type="danger" style={{ fontSize: '10px' }}>
+                    Short by {Math.floor(8-hours)}:{String(Math.round(((8-hours) - Math.floor(8-hours)) * 60)).padStart(2, '0')}
+                  </Text>
+                </div>
+              )}
+            </div>
+          );
+        }
+        return <Text type="secondary">-</Text>;
+      },
     },
     {
-  title: 'Actions',
-  key: 'actions',
-  render: (_, record) => {
-    // Add loading state check
-    if (loading || !isLoaded) {
-      return <Spin size="small" />;
-    }
-    
-    const dateKey = selectedDate.format('YYYY-MM-DD');
-    const attendance = attendanceData[dateKey]?.[record.id];
-    
-    return (
-      <Space>
-        <Tooltip title="View Details">
-          <Button
-            type="text"
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => handleViewAttendance(record)}
-            disabled={loading || !record.id} // Add disabled state
-          />
-        </Tooltip>
+      title: 'Actions',
+      key: 'actions',
+      render: (_, record) => {
+        // Safety checks
+        if (!record?.id || !isLoaded) {
+          return <Spin size="small" />;
+        }
+        
+        // Check if essential data is loaded
+        if (!attendanceData || leaveData === null || leaveData === undefined) {
+          return <Spin size="small" />;
+        }
+        
+        const dateKey = selectedDate.format('YYYY-MM-DD');
+        const attendance = attendanceData[dateKey]?.[record.id];
+        
+        return (
+          <Space>
+            <Tooltip title="View Details">
+              <Button
+                type="text"
+                size="small"
+                icon={<EyeOutlined />}
+                onClick={() => handleViewAttendance(record)}
+                disabled={loading}
+              />
+            </Tooltip>
             {attendance?.present && (
               <Tooltip title="Update Times">
                 <Button
@@ -1040,20 +1132,19 @@ Object.keys(attendanceData).forEach(date => {
                 />
               </Tooltip>
             )}
-              <Tooltip title="Mark Absent">
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<CloseCircleOutlined />}
-                  onClick={() => handleMarkIndividualAbsent(record)}
-                  style={{ color: '#ff4d4f' }}
-                />
-              </Tooltip>
-            
-              <Checkbox
-                checked={selectedEmployees.includes(record.id)}
-                onChange={(e) => handleEmployeeSelect(record.id, e.target.checked)}
+            <Tooltip title="Mark Absent">
+              <Button
+                type="text"
+                size="small"
+                icon={<CloseCircleOutlined />}
+                onClick={() => handleMarkIndividualAbsent(record)}
+                style={{ color: '#ff4d4f' }}
               />
+            </Tooltip>
+            <Checkbox
+              checked={selectedEmployees.includes(record.id)}
+              onChange={(e) => handleEmployeeSelect(record.id, e.target.checked)}
+            />
           </Space>
         );
       },
@@ -1159,22 +1250,22 @@ Object.keys(attendanceData).forEach(date => {
                         />
                       </Card>
                     </Col>
-                      <Col xs={12} sm={6}> {/* Adjusted grid size */}
-      <Card style={{ borderRadius: '12px', ...animationStyles.statsCard }}>
-        <Statistic
-          title="On Leave"
-          value={totalStats.onLeave}
-          valueStyle={{ color: '#1890ff' }}
-          prefix={<CalendarOutlined />}
-        />
-        <Progress
-          percent={totalStats.total > 0 ? (totalStats.onLeave / totalStats.total) * 100 : 0}
-          strokeColor="#1890ff"
-          showInfo={false}
-          size="small"
-        />
-      </Card>
-    </Col>
+                    <Col xs={12} sm={6}>
+                      <Card style={{ borderRadius: '12px', ...animationStyles.statsCard }}>
+                        <Statistic
+                          title="On Leave"
+                          value={totalStats.onLeave}
+                          valueStyle={{ color: '#1890ff' }}
+                          prefix={<CalendarOutlined />}
+                        />
+                        <Progress
+                          percent={totalStats.total > 0 ? (totalStats.onLeave / totalStats.total) * 100 : 0}
+                          strokeColor="#1890ff"
+                          showInfo={false}
+                          size="small"
+                        />
+                      </Card>
+                    </Col>
                   </Row>
                 </Col>
               </Row>
@@ -1345,9 +1436,9 @@ Object.keys(attendanceData).forEach(date => {
                               <Text style={{ color: '#0D7139', fontWeight: 600 }}>{data.present}</Text>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-  <Text>Missing:</Text>
-  <Text style={{ color: '#faad14', fontWeight: 600 }}>{data.missing}</Text>
-</div>
+                              <Text>Missing:</Text>
+                              <Text style={{ color: '#faad14', fontWeight: 600 }}>{data.missing}</Text>
+                            </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                               <Text>Absent:</Text>
                               <Text style={{ color: '#ff4d4f', fontWeight: 600 }}>{data.absent}</Text>
@@ -1471,22 +1562,22 @@ Object.keys(attendanceData).forEach(date => {
             </div>
 
             {checkInTime && checkOutTime && (
-  <div style={{ 
-    padding: '12px',
-    background: '#f0f9ff',
-    borderRadius: '8px',
-    border: '1px solid #0D7139'
-  }}>
-    <Text strong style={{ color: '#0D7139' }}>
-      Total Hours: {(() => {
-        const totalMinutes = checkOutTime.diff(checkInTime, 'minutes');
-        const hours = Math.floor(totalMinutes / 60);
-        const minutes = totalMinutes % 60;
-        return `${hours}:${String(minutes).padStart(2, '0')}`;
-      })()}
-    </Text>
-  </div>
-)}
+              <div style={{ 
+                padding: '12px',
+                background: '#f0f9ff',
+                borderRadius: '8px',
+                border: '1px solid #0D7139'
+              }}>
+                <Text strong style={{ color: '#0D7139' }}>
+                  Total Hours: {(() => {
+                    const totalMinutes = checkOutTime.diff(checkInTime, 'minutes');
+                    const hours = Math.floor(totalMinutes / 60);
+                    const minutes = totalMinutes % 60;
+                    return `${hours}:${String(minutes).padStart(2, '0')}`;
+                  })()}
+                </Text>
+              </div>
+            )}
           </div>
         </Modal>
       </div>
@@ -1494,4 +1585,4 @@ Object.keys(attendanceData).forEach(date => {
   );
 };
 
-export default EmployeeAttendancePage;  
+export default EmployeeAttendancePage;

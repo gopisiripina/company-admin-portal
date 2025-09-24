@@ -14,7 +14,7 @@ const supabase = createClient(
 const isWorkingDay = async (date) => {
   try {
     // Get the day of the week (0 = Sunday, 1 = Monday, etc.)
-    const dateObj = new Date(date + 'T00:00:00'); // Add time to avoid timezone issues
+    const dateObj = new Date(date + 'T00:00:00');
     const dayOfWeek = dateObj.getDay();
     
     // Map day numbers to day names
@@ -23,6 +23,17 @@ const isWorkingDay = async (date) => {
     
     console.log(`[AUTO-ABSENT] Checking if ${date} (${currentDayName}) is a working day`);
 
+    // Default working days configuration (Mon-Fri)
+    const defaultWorkingDays = {
+      monday: true,
+      tuesday: true,
+      wednesday: true,
+      thursday: true,
+      friday: true,
+      saturday: false,
+      sunday: false
+    };
+
     // Get company calendar configuration
     const { data: calendarConfig, error } = await supabase
       .from('company_calendar')
@@ -30,23 +41,31 @@ const isWorkingDay = async (date) => {
       .eq('day_type', 'working_config')
       .single();
 
+    let workingDays = defaultWorkingDays; // Use default as fallback
+
     if (error) {
       console.error('[AUTO-ABSENT] Error fetching company calendar:', error);
-      // If we can't fetch the config, assume it's a working day (fail-safe)
-      console.log('[AUTO-ABSENT] Defaulting to working day due to config fetch error');
-      return true;
+      console.log('[AUTO-ABSENT] Using default working days (Mon-Fri)');
+    } else if (calendarConfig && calendarConfig.reason) {
+      try {
+        // Parse the working days configuration
+        const workingConfig = typeof calendarConfig.reason === 'string' 
+          ? JSON.parse(calendarConfig.reason) 
+          : calendarConfig.reason;
+        
+        if (workingConfig.workingDays && Object.keys(workingConfig.workingDays).length > 0) {
+          workingDays = workingConfig.workingDays;
+          console.log('[AUTO-ABSENT] Using database working days config:', workingDays);
+        } else {
+          console.log('[AUTO-ABSENT] Database config empty, using default working days (Mon-Fri)');
+        }
+      } catch (parseError) {
+        console.error('[AUTO-ABSENT] Error parsing working config:', parseError);
+        console.log('[AUTO-ABSENT] Using default working days (Mon-Fri)');
+      }
+    } else {
+      console.log('[AUTO-ABSENT] No working config found, using default working days (Mon-Fri)');
     }
-
-    if (!calendarConfig || !calendarConfig.reason) {
-      console.log('[AUTO-ABSENT] No working config found, defaulting to working day');
-      return true;
-    }
-
-    // Parse the working days configuration
-    const workingConfig = calendarConfig.reason;
-    const workingDays = workingConfig.workingDays || {};
-    
-    console.log('[AUTO-ABSENT] Working days config:', workingDays);
     
     // Check if the current day is a working day
     const isWorking = workingDays[currentDayName] === true;
@@ -57,8 +76,10 @@ const isWorkingDay = async (date) => {
     
   } catch (error) {
     console.error('[AUTO-ABSENT] Error checking working day:', error);
-    // If there's an error, assume it's a working day (fail-safe)
-    return true;
+    // If there's an error, assume standard working days (Mon-Fri)
+    const dateObj = new Date(date + 'T00:00:00');
+    const dayOfWeek = dateObj.getDay();
+    return dayOfWeek >= 1 && dayOfWeek <= 5; // Monday to Friday
   }
 };
 
