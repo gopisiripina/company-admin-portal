@@ -1208,12 +1208,12 @@ const getAttendanceStatus = (dateStr, attendanceInfo, currentDate) => {
 }
   
   // If it's a past working day with no attendance record and no leave, it's absent.
-  if (isPastDate) {
-    return { dayClass: 'absent', tooltipText: `Absent on ${dateStr}` };
-  }
+//   if (isPastDate) {
+//   return { dayClass: 'absent', tooltipText: `No attendance data - ${dateStr}` };
+// }
 
-  // Otherwise, it's a future day with no data yet.
-  return { dayClass: 'no-data', tooltipText: `No data for ${dateStr}` };
+// Otherwise, it's a future day with no data yet.
+return { dayClass: 'no-data', tooltipText: `No data for ${dateStr}` };
 };
 
 // Enhanced renderAttendanceCalendar function
