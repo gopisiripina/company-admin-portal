@@ -939,9 +939,9 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
         const dateKey = selectedDate.format('YYYY-MM-DD');
         const attendance = attendanceData[dateKey]?.[record.id];
 
-        if (!attendance?.present) {
-          return <Text type="secondary">-</Text>;
-        }
+        if (!attendance?.present && !attendance?.checkIn) {
+  return <Text type="secondary">-</Text>;
+}
 
         const isOutOfOffice = attendance.location_coordinates;
         
@@ -1028,7 +1028,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
           );
         }
 
-        if (attendance?.present) {
+        if (attendance?.present || attendance?.checkIn) {
           // Check if employee checked in but not checked out (missing)
           if (attendance.checkIn && !attendance.checkOut) {
             return (
@@ -1122,7 +1122,8 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                 disabled={loading}
               />
             </Tooltip>
-            {attendance?.present && (
+            {(attendance?.present || attendance?.checkIn) && (
+
               <Tooltip title="Update Times">
                 <Button
                   type="text"
