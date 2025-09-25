@@ -1193,16 +1193,19 @@ const getAttendanceStatus = (dateStr, attendanceInfo, currentDate) => {
   
   // Now, check attendance records ONLY IF the employee was not on leave.
   if (attendanceInfo) {
-    if (attendanceInfo.isPresent) { // Use isPresent from the mapped data
-        if (attendanceInfo.hasCheckedIn && !attendanceInfo.hasCheckedOut) {
-          return { dayClass: 'checked-in', tooltipText: `Checked In at ${attendanceInfo.checkIn}` };
-        }
-        return { dayClass: 'present', tooltipText: `Present - Check in: ${attendanceInfo.checkIn}, Check out: ${attendanceInfo.checkOut}` };
-    }
-    else { // The record exists but is_present is false. It's a true absent day.
-        return { dayClass: 'absent', tooltipText: `Absent on ${dateStr}` };
-    }
+  // Check for checked-in but not checked-out (missing) first
+  if (attendanceInfo.hasCheckedIn && !attendanceInfo.hasCheckedOut) {
+    return { dayClass: 'checked-in', tooltipText: `Checked In at ${attendanceInfo.checkIn}` };
   }
+  
+  // Then check if fully present (both check-in and check-out)
+  if (attendanceInfo.isPresent || attendanceInfo.hasCheckedIn) {
+    return { dayClass: 'present', tooltipText: `Present - Check in: ${attendanceInfo.checkIn}, Check out: ${attendanceInfo.checkOut}` };
+  }
+  
+  // If record exists but is_present is false and no check-in, it's absent
+  return { dayClass: 'absent', tooltipText: `Absent on ${dateStr}` };
+}
   
   // If it's a past working day with no attendance record and no leave, it's absent.
   if (isPastDate) {
