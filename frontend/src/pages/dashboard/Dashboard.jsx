@@ -1559,7 +1559,7 @@ for (let day = 1; day <= daysInMonth; day++) {
               borderRadius: '50%' 
             }} 
           />
-          <Text style={{ fontSize: '12px' }}>Present</Text>
+          <Text  style={{ fontSize: '12px', color:"#22c55e" }}>Present</Text>
         </Flex>
         <Flex align="center" gap={5}>
           <Badge 
@@ -1570,7 +1570,7 @@ for (let day = 1; day <= daysInMonth; day++) {
               borderRadius: '50%' 
             }} 
           />
-          <Text style={{ fontSize: '12px' }}>Checked In</Text>
+          <Text style={{ fontSize: '12px', color:"#f97316" }}>Checked In</Text>
         </Flex>
         <Flex align="center" gap={5}>
           <Badge 
@@ -1581,7 +1581,7 @@ for (let day = 1; day <= daysInMonth; day++) {
               borderRadius: '50%' 
             }} 
           />
-          <Text style={{ fontSize: '12px' }}>Absent</Text>
+          <Text style={{ fontSize: '12px',color:"#ef4444" }}>Absent</Text>
         </Flex>
         <Flex align="center" gap={5}>
           <Badge 
@@ -1592,7 +1592,7 @@ for (let day = 1; day <= daysInMonth; day++) {
               borderRadius: '50%' 
             }} 
           />
-          <Text style={{ fontSize: '12px' }}>Holiday</Text>
+          <Text style={{ fontSize: '12px',color:"#8b5cf6" }}>Holiday</Text>
         </Flex>
         <Flex align="center" gap={5}>
           <Badge 
@@ -1603,7 +1603,7 @@ for (let day = 1; day <= daysInMonth; day++) {
               borderRadius: '50%' 
             }} 
           />
-          <Text style={{ fontSize: '12px' }}>Non-Working</Text>
+          <Text style={{ fontSize: '12px',color:"#94a3b8" }}>Non-Working</Text>
         </Flex>
         <Flex align="center" gap={5}>
             <Flex align="center" gap={5}>
@@ -1615,7 +1615,7 @@ for (let day = 1; day <= daysInMonth; day++) {
               borderRadius: '50%'
             }}
           />
-          <Text style={{ fontSize: '12px' }}>On Leave</Text>
+          <Text style={{ fontSize: '12px',color:"#1890ff" }}>On Leave</Text>
         </Flex>
   <Badge 
     color="#fbbf24" 
@@ -1625,7 +1625,7 @@ for (let day = 1; day <= daysInMonth; day++) {
       borderRadius: '50%' 
     }} 
   />
-  <Text style={{ fontSize: '12px' }}>Missing</Text>
+  <Text style={{ fontSize: '12px',color:"#fbbf24"  }}>Missing</Text>
 </Flex>
       </Flex>
     </Card>

@@ -1,15 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Home, User, ChevronLeft, ChevronRight, Zap, LogOut, UserCheck, FolderKanban, ChevronDown, ChevronUp, Calendar, IndianRupee, BarChart3, GitBranch, ClipboardList, AlertTriangle, FileText, BookOpen, MessageSquare, Sun, Moon } from 'lucide-react';
+import { Home, User, ChevronLeft, ChevronRight, Zap, LogOut, UserCheck, FolderKanban, ChevronDown, ChevronUp, Calendar, IndianRupee, BarChart3, GitBranch, ClipboardList, AlertTriangle, FileText, BookOpen, MessageSquare, Sun, Moon,CheckCircle } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import './Sidebar.css';
-import Myaccesslogo from '../../assets/Myalogobgr.svg'; // Adjust the path as necessary
-import { InboxOutlined, EditOutlined ,SendOutlined,DeleteOutlined} from '@ant-design/icons';
+import Myaccesslogo from '../../assets/Myalogobgr.svg';
+
+
+import { InboxOutlined, EditOutlined ,SendOutlined,DeleteOutlined,ScheduleOutlined} from '@ant-design/icons';
 import { X } from 'lucide-react';
 import authService from '../../supabase/authService';
 const Sidebar = ({ isOpen, onToggle, activeItem, onItemClick, userRole, isEmailAuthenticated, userData, onLogout }) => {
   const [hoveredItem, setHoveredItem] = useState(null);
   const [expandedItems, setExpandedItems] = useState({});
   const { isDarkMode, toggleTheme } = useTheme();
+
 
   // Handle item click
   const handleItemClick = (item) => {
@@ -111,11 +114,11 @@ useEffect(() => {
     children: [
       // For superadmin, admin, and hr - show all options
       ...(userRole === 'superadmin' || userRole === 'admin' ? [
-        { icon: IndianRupee , label: 'Employee Attendance', id: 'employee-attendance' },
+        { icon: ScheduleOutlined , label: 'Employee Attendance', id: 'employee-attendance' },
         { icon: AlertTriangle, label: 'Payroll', id: 'payroll' },
-        { icon: IndianRupee , label: 'Leaves Approval', id: 'leave-manage' },
-        { icon: IndianRupee , label: 'Calender And Events', id: 'company-calender' },
-        { icon: IndianRupee , label: 'AppraisalLetter', id: 'appraisalLetter' },
+        { icon: CheckCircle, label: 'Leaves Approval', id: 'leave-manage' },
+{ icon: Calendar, label: 'Calender And Events', id: 'company-calender' },
+{ icon: FileText, label: 'AppraisalLetter', id: 'appraisalLetter' },
         
       ] : []),
  ...( userRole === 'hr' ? [
