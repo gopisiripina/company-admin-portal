@@ -181,24 +181,24 @@ const PayCalculator = ({ onPayCalculated, onClose }) => {
   };
 
   const fetchAttendanceForUser = async (userId, month) => {
-    try {
-      const startOfMonth = month.startOf('month').format('YYYY-MM-DD');
-      const endOfMonth = month.endOf('month').format('YYYY-MM-DD');
+  try {
+    const startOfMonth = month.startOf('month').format('YYYY-MM-DD');
+    const endOfMonth = month.endOf('month').format('YYYY-MM-DD');
 
-      const { data, error } = await supabase
-        .from('attendance')
-        .select('*')
-        .eq('user_id', userId)
-        .gte('date', startOfMonth)
-        .lte('date', endOfMonth);
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('date', startOfMonth)
+      .lte('date', endOfMonth);
 
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching attendance:', error);
-      return [];
-    }
-  };
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching attendance:', error);
+    return [];
+  }
+};
 
   const calculateMonthlyPay = async () => {
     setLoading(true);
@@ -208,55 +208,63 @@ const PayCalculator = ({ onPayCalculated, onClose }) => {
       
       for (const user of users) {
         if (!user.pay || user.pay === 0) {
-          calculations.push({
-            key: user.id,
-            user_id: user.id,
-            name: user.name,
-            employee_id: user.employee_id,
-            email: user.email,
-            monthly_salary: 0,
-            working_days: monthlyWorkingDays,
-            working_hours_per_day: workingHoursPerDay,
-            per_day_pay: 0,
-            per_hour_pay: 0,
-            actual_working_days: 0,
-            actual_working_hours: 0,
-            calculated_pay: 0,
-            pay_status: 'No payroll data found',
-            payrollData: user.payrollData
-          });
-          continue;
-        }
+  calculations.push({
+    key: user.id,
+    user_id: user.id,
+    name: user.name,
+    employee_id: user.employee_id,
+    email: user.email,
+    monthly_salary: 0,
+    working_days: monthlyWorkingDays,
+    working_hours_per_day: workingHoursPerDay,
+    per_day_pay: 0,
+    per_hour_pay: 0,
+    actual_working_days: 0,
+    actual_working_hours: 0,
+    total_overtime_hours: 0, // Add this line
+    calculated_pay: 0,
+    pay_status: 'No payroll data found',
+    payrollData: user.payrollData
+  });
+  continue;
+}
 
         const monthlySalary = parseFloat(user.pay);
         const perDayPay = monthlySalary / monthlyWorkingDays;
         const perHourPay = perDayPay / workingHoursPerDay;
 
         const attendanceData = await fetchAttendanceForUser(user.id, selectedMonth);
-        
-        const actualWorkingDays = attendanceData.filter(att => att.is_present).length;
-        const actualWorkingHours = attendanceData.reduce((total, att) => {
-          return total + (parseFloat(att.total_hours) || 0);
-        }, 0);
+
+const actualWorkingDays = attendanceData.filter(att => att.is_present).length;
+const actualWorkingHours = attendanceData.reduce((total, att) => {
+  return total + (parseFloat(att.total_hours) || 0);
+}, 0);
+
+// Fix: Calculate total overtime hours from the 'overtime' field (which is text)
+const totalOvertimeHours = attendanceData.reduce((total, att) => {
+  const overtimeHours = parseFloat(att.overtime) || 0; // Use 'overtime' field, not 'overtime_hours'
+  return total + overtimeHours;
+}, 0);
 
         const calculatedPay = actualWorkingHours * perHourPay;
 
         calculations.push({
-          key: user.id,
-          user_id: user.id,
-          name: user.name,
-          employee_id: user.employee_id,
-          email: user.email,
-          monthly_salary: monthlySalary,
-          working_days: monthlyWorkingDays,
-          working_hours_per_day: workingHoursPerDay,
-          per_day_pay: perDayPay,
-          per_hour_pay: perHourPay,
-          actual_working_days: actualWorkingDays,
-          actual_working_hours: actualWorkingHours,
-          calculated_pay: calculatedPay,
-          pay_status: actualWorkingDays > 0 ? 'Calculated' : 'No attendance'
-        });
+  key: user.id,
+  user_id: user.id,
+  name: user.name,
+  employee_id: user.employee_id,
+  email: user.email,
+  monthly_salary: monthlySalary,
+  working_days: monthlyWorkingDays,
+  working_hours_per_day: workingHoursPerDay,
+  per_day_pay: perDayPay,
+  per_hour_pay: perHourPay,
+  actual_working_days: actualWorkingDays,
+  actual_working_hours: actualWorkingHours,
+  total_overtime_hours: totalOvertimeHours, // Make sure this is always a number
+  calculated_pay: calculatedPay,
+  pay_status: actualWorkingDays > 0 ? 'Calculated' : 'No attendance'
+});
       }
 
       setPayCalculations(calculations);
@@ -333,6 +341,22 @@ const PayCalculator = ({ onPayCalculated, onClose }) => {
         </div>
       ),
     },
+    {
+  title: 'Overtime Hours',
+  dataIndex: 'total_overtime_hours',
+  key: 'total_overtime_hours',
+  width: 120,
+  render: (hours) => (
+    <div>
+      <div style={{ fontWeight: 600, color: '#ff7a00' }}>
+        {(hours || 0).toFixed(1)}h  {/* Add || 0 to handle undefined */}
+      </div>
+      <div style={{ fontSize: '11px', color: '#666' }}>
+        Total OT
+      </div>
+    </div>
+  ),
+},
     {
       title: 'Calculated Pay',
       dataIndex: 'calculated_pay',
