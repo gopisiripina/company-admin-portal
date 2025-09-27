@@ -815,7 +815,67 @@ const renderEmailList = () => {
     title="Total emails"
   />
 </Space> }
-    extra={ <Button icon={<ReloadOutlined />} onClick={handleManualRefresh} loading={loading} type="text"> {!isMobile && 'Refresh'} </Button> }
+    extra={ 
+  <Space>
+    {/* Pagination Buttons */}
+    {(['inbox', 'sent', 'trash'].includes(activeFolder)) && (
+      <Space size={4}>
+        <Button
+          size="small"
+          onClick={() => {
+            if (activeFolder === 'inbox') {
+              const prevOffset = Math.max(0, inboxOffset - 10);
+              setInboxOffset(prevOffset);
+              fetchEmails('INBOX', 10, prevOffset);
+            } else if (activeFolder === 'sent') {
+              const prevOffset = Math.max(0, sentOffset - 10);
+              setSentOffset(prevOffset);
+              fetchEmails('sent', 10, prevOffset);
+            } else if (activeFolder === 'trash') {
+              const prevOffset = Math.max(0, trashOffset - 10);
+              setTrashOffset(prevOffset);
+              fetchEmails('trash', 10, prevOffset);
+            }
+          }}
+          disabled={
+            (activeFolder === 'inbox' && inboxOffset === 0) ||
+            (activeFolder === 'sent' && sentOffset === 0) ||
+            (activeFolder === 'trash' && trashOffset === 0) ||
+            loading
+          }
+          title="Previous"
+        >
+          ←
+        </Button>
+        <Button
+          size="small"
+          onClick={() => {
+            if (activeFolder === 'inbox') {
+              const nextOffset = inboxOffset + 10;
+              setInboxOffset(nextOffset);
+              fetchEmails('INBOX', 10, nextOffset);
+            } else if (activeFolder === 'sent') {
+              const nextOffset = sentOffset + 10;
+              setSentOffset(nextOffset);
+              fetchEmails('sent', 10, nextOffset);
+            } else if (activeFolder === 'trash') {
+              const nextOffset = trashOffset + 10;
+              setTrashOffset(nextOffset);
+              fetchEmails('trash', 10, nextOffset);
+            }
+          }}
+          disabled={!hasMore || loading}
+          title="Next"
+        >
+          →
+        </Button>
+      </Space>
+    )}
+    <Button icon={<ReloadOutlined />} onClick={handleManualRefresh} loading={loading} type="text">
+      {!isMobile && 'Refresh'}
+    </Button>
+  </Space>
+}
     style={{ height: '100%' }}
     styles={{ body: { height: 'calc(100% - 57px)', overflowY: 'auto', padding: '0' } }}
 >
@@ -830,18 +890,20 @@ const renderEmailList = () => {
                         return (
                             <List.Item
   style={{
-    cursor: 'pointer',
-    padding: '12px 16px',
-    backgroundColor: selectedEmail?.uid === email.uid 
-      ? '#e6f7ff' 
-      : email.unread 
-        ? '#d4fdd1ff'  // Light red for unread
-        : '#ffffff', // White for read
-    borderBottom: '1px solid #f0f0f0',
-    borderLeft: email.unread 
-      ? '4px solid #0D7139'  // Red border for unread
-      : '4px solid #d9d9d9', // Gray border for read
-  }}
+  cursor: 'pointer',
+  padding: '12px 16px',
+  backgroundColor: selectedEmail?.uid === email.uid 
+    ? '#e6f7ff' 
+    : email.unread 
+      ? '#d4fdd1ff'
+      : '#ffffff',
+  borderBottom: '1px solid #f0f0f0',
+  borderLeft: email.unread 
+    ? '4px solid #0D7139'
+    : '4px solid #d9d9d9',
+  overflow: 'hidden', // Add this
+  width: '100%' // Add this
+}}
   actions={!loading ? [
     <Button
       type="text"
@@ -870,17 +932,19 @@ const renderEmailList = () => {
         <Space>
           {email.unread && <Badge status="error" />}
           <Text 
-            strong={email.unread}
-            style={{ 
-              whiteSpace: 'nowrap', 
-              overflow: 'hidden', 
-              textOverflow: 'ellipsis',
-              color: email.unread ? '#000' : '#666',
-              fontWeight: email.unread ? 'bold' : 'normal'
-            }}
-          >
-            {isSentFolder ? `To: ${email.to}` : email.from}
-          </Text>
+  strong={email.unread}
+  style={{ 
+    display: 'block', // Add this
+    whiteSpace: 'nowrap', 
+    overflow: 'hidden', 
+    textOverflow: 'ellipsis',
+    maxWidth: isMobile ? '180px' : '100%', // Increase mobile width slightly
+    color: email.unread ? '#000' : '#666',
+    fontWeight: email.unread ? 'bold' : 'normal'
+  }}
+>
+  {isSentFolder ? `To: ${email.to}` : email.from}
+</Text>
         </Space>
         {email.attachments && email.attachments.length > 0 && (
           <Badge count={email.attachments.length} size="small" style={{ backgroundColor: '#52c41a' }}>
@@ -891,16 +955,18 @@ const renderEmailList = () => {
     }
     description={
       <Paragraph 
-        ellipsis={{ rows: 2 }} 
-        style={{ 
-          margin: 0, 
-          fontSize: 14,
-          fontWeight: email.unread ? '500' : 'normal',
-          color: email.unread ? '#000' : '#666'
-        }}
-      >
-        {email.subject}
-      </Paragraph>
+  ellipsis={isMobile ? { rows: 1 } : { rows: 2 }} // Change to 1 row on mobile
+  style={{ 
+    margin: 0, 
+    fontSize: 14,
+    fontWeight: email.unread ? '500' : 'normal',
+    color: email.unread ? '#000' : '#666',
+    maxWidth: isMobile ? '200px' : '100%', // Add maxWidth for mobile
+    wordBreak: 'break-all' // Add this to handle long words
+  }}
+>
+  {email.subject}
+</Paragraph>
     }
   />
 </List.Item>
@@ -1392,7 +1458,7 @@ const renderEmailInterface = () => (
         flexShrink: 0 // ✅ Prevent avatar from shrinking
       }} 
     />
-    <Input.Search
+    {/* <Input.Search
       placeholder="Search emails..."
       value={searchQuery}
       onChange={(e) => setSearchQuery(e.target.value)}
@@ -1402,71 +1468,10 @@ const renderEmailInterface = () => (
         flexShrink: 0 // ✅ Prevent search from shrinking
       }}
       loading={isSearching}
-    />
+    /> */}
   </div>
       {/* Professional Pagination and Logout */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-
-        {/* Pagination Buttons */}
-
-{/* Pagination Buttons */}
-{(['inbox', 'sent', 'trash'].includes(activeFolder)) && (
-  <Space size={8}>
-    <Button
-      size={isMobile ? "middle" : "small"}
-      onClick={() => {
-        if (activeFolder === 'inbox') {
-          const prevOffset = Math.max(0, inboxOffset - 10);
-          setInboxOffset(prevOffset);
-          fetchEmails('INBOX', 10, prevOffset);
-        } else if (activeFolder === 'sent') {
-          const prevOffset = Math.max(0, sentOffset - 10);
-          setSentOffset(prevOffset);
-          fetchEmails('sent', 10, prevOffset);
-        } else if (activeFolder === 'trash') {
-          const prevOffset = Math.max(0, trashOffset - 10);
-          setTrashOffset(prevOffset);
-          // ✅ FIXED: Use the calculated prevOffset here
-          fetchEmails('trash', 10, prevOffset);
-        }
-      }}
-      disabled={
-        (activeFolder === 'inbox' && inboxOffset === 0) ||
-        (activeFolder === 'sent' && sentOffset === 0) ||
-        (activeFolder === 'trash' && trashOffset === 0) ||
-        loading
-      }
-      title="Previous"
-      style={{ minWidth: 32 }}
-    >
-      ←
-    </Button>
-    <Button
-      size={isMobile ? "middle" : "small"}
-      onClick={() => {
-        if (activeFolder === 'inbox') {
-          const nextOffset = inboxOffset + 10;
-          setInboxOffset(nextOffset);
-          fetchEmails('INBOX', 10, nextOffset);
-        } else if (activeFolder === 'sent') {
-          const nextOffset = sentOffset + 10;
-          setSentOffset(nextOffset);
-          fetchEmails('sent', 10, nextOffset);
-        } else if (activeFolder === 'trash') {
-          const nextOffset = trashOffset + 10;
-          setTrashOffset(nextOffset);
-          fetchEmails('trash', 10, nextOffset);
-        }
-      }}
-      disabled={!hasMore || loading}
-      title="Next"
-      style={{ minWidth: 32 }}
-    >
-      →
-    </Button>
-  </Space>
-)}
-
         <Button
           type="text"
           onClick={handleLogout}
