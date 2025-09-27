@@ -97,31 +97,31 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
 
       // First, get the IDs of all users on approved leave for the selected date
       const { data: leaveUsers, error: leaveError } = await supabase
-  .from('leave_applications')
-  .select('user_id,leave_type, sub_type, approved_dates')
-  .eq('status', 'Approved')
-  .not('approved_dates', 'is', null);
-
-// Filter by approved_dates instead of date range
-const filteredLeaveUsers = leaveUsers.filter(leave => {
-  if (!leave.approved_dates || !Array.isArray(leave.approved_dates)) return false;
-  return leave.approved_dates.includes(dateKey);
-});
+        .from('leave_applications')
+        .select('user_id,leave_type, sub_type, approved_dates')
+        .eq('status', 'Approved')
+        .not('approved_dates', 'is', null);
 
       if (leaveError) throw leaveError;
-      
-      const fullDayLeaveUsers = leaveUsers.filter(leave => {
-  const isFullDayLeave = !leave.sub_type || 
-    leave.sub_type === 'FDL' || 
-    (leave.leave_type === 'Casual Leave' && !leave.sub_type);
-  
-  const isPermission = leave.leave_type === 'permissions';
-  const isExcuses = leave.leave_type === 'Excuses';
-  
-  return isFullDayLeave && !isPermission && !isExcuses;
-});
 
-const onLeaveUserIds = fullDayLeaveUsers.map(l => l.user_id);
+      // Filter by approved_dates
+      const filteredLeaveUsers = leaveUsers.filter(leave => {
+        if (!leave.approved_dates || !Array.isArray(leave.approved_dates)) return false;
+        return leave.approved_dates.includes(dateKey);
+      });
+
+      const fullDayLeaveUsers = filteredLeaveUsers.filter(leave => {
+        const isFullDayLeave = !leave.sub_type || 
+          leave.sub_type === 'FDL' || 
+          (leave.leave_type === 'Casual Leave' && !leave.sub_type);
+        
+        const isPermission = leave.leave_type === 'permissions';
+        const isExcuses = leave.leave_type === 'Excuses';
+        
+        return isFullDayLeave && !isPermission && !isExcuses;
+      });
+
+      const onLeaveUserIds = fullDayLeaveUsers.map(l => l.user_id);
 
       if (onLeaveUserIds.length === 0) {
         setOnLeaveCount(0);
@@ -159,23 +159,61 @@ const onLeaveUserIds = fullDayLeaveUsers.map(l => l.user_id);
     }
   };
 
-  const fetchLeaveData = async (date) => {
+  const fetchLeaveData = async () => {
     try {
-      const startDate = dayjs(date).startOf('month').format('YYYY-MM-DD');
-      const endDate = dayjs(date).endOf('month').format('YYYY-MM-DD');
+      console.log('Fetching leave data...');
+      
+      // First, let's see what data exists
+      const { data: allData, error: allError } = await supabase
+        .from('leave_applications')
+        .select('*')
+        .eq('status', 'Approved');
 
-      const { data, error } = await supabase
-  .from('leave_applications')
-  .select('user_id, leave_type, sub_type, approved_dates')
-  .eq('status', 'Approved')
-  .not('approved_dates', 'is', null);
+      if (allError) {
+        console.error('Error fetching all approved leaves:', allError);
+        return;
+      }
 
-      if (error) throw error;
-      setLeaveData(data || []);
+      console.log('All approved leave applications:', allData);
+
+      // Check which ones have approved_dates
+      const withApprovedDates = allData?.filter(leave => leave.approved_dates) || [];
+      console.log('Leaves with approved_dates:', withApprovedDates);
+
+      // Check which ones have valid JSONB arrays
+      const validLeaveData = withApprovedDates.filter(leave => {
+        try {
+          const dates = leave.approved_dates;
+          const isValid = Array.isArray(dates) && dates.length > 0;
+          
+          if (isValid) {
+            console.log(`Valid leave for user ${leave.user_id} (${leave.employee_name}) - Code: ${leave.employee_code}:`, {
+              leave_type: leave.leave_type,
+              approved_dates: dates,
+              user_id: leave.user_id,
+              employee_code: leave.employee_code
+            });
+          } else {
+            console.log(`Invalid approved_dates for ${leave.employee_name}:`, dates);
+          }
+          
+          return isValid;
+        } catch (error) {
+          console.error(`Error parsing approved_dates for ${leave.employee_name}:`, error);
+          return false;
+        }
+      });
+      
+      console.log(`Found ${validLeaveData.length} valid leave records`);
+      setLeaveData(validLeaveData);
+      
+      // Also log the current selected date for comparison
+      console.log('Current selected date:', selectedDate.format('YYYY-MM-DD'));
+      
     } catch (error) {
       console.error('Error fetching leave data:', error);
       message.error('Failed to load leave data');
-      setLeaveData([]); // Set empty array on error
+      setLeaveData([]);
     }
   };
 
@@ -442,27 +480,27 @@ const onLeaveUserIds = fullDayLeaveUsers.map(l => l.user_id);
   };
 
   const handleViewAttendance = (employee) => {
-  if (!employee?.id) {
-    console.error('Employee ID missing:', employee);
-    message.error('Employee data not available');
-    return;
-  }
-
+    if (!employee?.id) {
+      console.error('Employee ID missing:', employee);
+      message.error('Employee data not available');
+      return;
+    }
 
     const dateKey = selectedDate.format('YYYY-MM-DD');
     const attendance = attendanceData[dateKey]?.[employee.id];
-     const safeLeaveData = leaveData || [];
+    const safeLeaveData = leaveData || [];
+    
     const employeeMonthlyData = {};
     Object.keys(attendanceData).forEach(date => {
       const month = dayjs(date).format('YYYY-MM');
       const employeeRecord = attendanceData[date][employee.id];
       
       const isOnLeave = safeLeaveData.some(leave => 
-  leave.user_id === employee.id &&
-  leave.approved_dates &&
-  Array.isArray(leave.approved_dates) &&
-  leave.approved_dates.includes(date)
-);
+        leave.user_id === employee.id &&
+        leave.approved_dates &&
+        Array.isArray(leave.approved_dates) &&
+        leave.approved_dates.includes(date)
+      );
 
       if (isOnLeave) {
         return;
@@ -499,7 +537,7 @@ const onLeaveUserIds = fullDayLeaveUsers.map(l => l.user_id);
               {attendance?.present && (
                 <div style={{ marginTop: 8 }}>
                   <Text strong>Hours: </Text>
-<Text>{typeof attendance.totalHours === 'number' ? attendance.totalHours.toFixed(1) : '0'}h</Text>
+                  <Text>{typeof attendance.totalHours === 'number' ? attendance.totalHours.toFixed(1) : '0'}h</Text>
                   <div style={{ marginTop: 4 }}>
                     <Text strong>Location: </Text>
                     <Tag color={attendance.location_coordinates ? 'orange' : 'green'}>
@@ -547,7 +585,6 @@ const onLeaveUserIds = fullDayLeaveUsers.map(l => l.user_id);
                   const dayAttendance = attendanceData[dayKey]?.[employee.id];
                   const isToday = date.isSame(dayjs(), 'day');
 
-                  
                   let cellStyle = {
                     width: '100%',
                     height: '100%',
@@ -558,36 +595,31 @@ const onLeaveUserIds = fullDayLeaveUsers.map(l => l.user_id);
                     border: isToday ? '2px solid #1890ff' : '1px solid #d9d9d9',
                     color: 'black'
                   };
-                  const approvedLeave = leaveData.find(leave =>
-  leave.user_id === employee.id &&
-  leave.approved_dates &&
-  Array.isArray(leave.approved_dates) &&
-  leave.approved_dates.includes(date.format('YYYY-MM-DD'))
-);
 
-if (approvedLeave) {
-  const isFullDayLeave = !approvedLeave.sub_type || 
-    approvedLeave.sub_type === 'FDL' || 
-    (approvedLeave.leave_type === 'Casual Leave' && !approvedLeave.sub_type);
-  
-  const isPermission = approvedLeave.leave_type === 'permissions';
-  
-  if (isFullDayLeave && !isPermission) {
-    cellStyle.backgroundColor = '#e6f7ff';  // <-- ERROR: cellStyle used before declaration
-    cellStyle.color = '#1890ff';
-    cellStyle.border = `1px solid #91d5ff`;
-  } else {
-    // Different styling for partial leaves/permissions
-    cellStyle.backgroundColor = '#fff7e6';
-    cellStyle.color = '#fa8c16';
-    cellStyle.border = `1px solid #ffd591`;
-  }
-}
+                  const approvedLeave = leaveData.find(leave =>
+                    leave.user_id === employee.id &&
+                    leave.approved_dates &&
+                    Array.isArray(leave.approved_dates) &&
+                    leave.approved_dates.includes(date.format('YYYY-MM-DD'))
+                  );
 
                   if (approvedLeave) {
-                    cellStyle.backgroundColor = '#e6f7ff';
-                    cellStyle.color = '#1890ff';
-                    cellStyle.border = `1px solid #91d5ff`;
+                    const isFullDayLeave = !approvedLeave.sub_type || 
+                      approvedLeave.sub_type === 'FDL' || 
+                      (approvedLeave.leave_type === 'Casual Leave' && !approvedLeave.sub_type);
+                    
+                    const isPermission = approvedLeave.leave_type === 'permissions';
+                    
+                    if (isFullDayLeave && !isPermission) {
+                      cellStyle.backgroundColor = '#e6f7ff';
+                      cellStyle.color = '#1890ff';
+                      cellStyle.border = `1px solid #91d5ff`;
+                    } else {
+                      // Different styling for partial leaves/permissions
+                      cellStyle.backgroundColor = '#fff7e6';
+                      cellStyle.color = '#fa8c16';
+                      cellStyle.border = `1px solid #ffd591`;
+                    }
                   } 
                   else if (dayAttendance?.present) {
                     if (dayAttendance.checkIn && !dayAttendance.checkOut) {
@@ -646,7 +678,9 @@ if (approvedLeave) {
       if (record.present) {
         const isUserOnLeave = leaveData.some(leave =>
           leave.user_id === userId &&
-          selectedDate.isBetween(dayjs(leave.start_date), dayjs(leave.end_date), 'day', '[]')
+          leave.approved_dates &&
+          Array.isArray(leave.approved_dates) &&
+          leave.approved_dates.includes(dateKey)
         );
 
         if (!isUserOnLeave) {
@@ -672,12 +706,14 @@ if (approvedLeave) {
 
   // Fetch employees on component mount and when filters change
   useEffect(() => {
-    fetchEmployees(currentPage, pageSize, searchText, filterType);
-    fetchOnLeaveCount(selectedDate, searchText, filterType);
+    const loadData = async () => {
+      await Promise.all([
+        fetchEmployees(currentPage, pageSize, searchText, filterType),
+        fetchOnLeaveCount(selectedDate, searchText, filterType)
+      ]);
+    };
     
-    const startDate = dayjs().startOf('month').format('YYYY-MM-DD');
-    const endDate = dayjs().endOf('month').format('YYYY-MM-DD');
-    fetchAttendanceData(startDate, endDate);
+    loadData();
   }, [currentPage, pageSize, searchText, filterType]);
 
   // Enhanced data loading useEffect
@@ -689,16 +725,18 @@ if (approvedLeave) {
     
     const loadAllData = async () => {
       try {
+        // Load leave data first, then other data
+        await fetchLeaveData();
+        
         await Promise.all([
           fetchAttendanceData(startDate, endDate),
-          fetchLeaveData(selectedDate),
           fetchOnLeaveCount(selectedDate, searchText, filterType)
         ]);
         
         // Small delay to ensure state updates complete
         setTimeout(() => {
           setIsLoaded(true);
-        }, 200);
+        }, 500); // Increased delay to ensure leave data is loaded
         
       } catch (error) {
         console.error('Error loading data:', error);
@@ -709,6 +747,28 @@ if (approvedLeave) {
 
     loadAllData();
   }, [selectedDate, searchText, filterType]);
+
+  // Initial data load on component mount
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        await fetchLeaveData(); // Load leave data first
+        
+        const startDate = dayjs().startOf('month').format('YYYY-MM-DD');
+        const endDate = dayjs().endOf('month').format('YYYY-MM-DD');
+        
+        await Promise.all([
+          fetchEmployees(currentPage, pageSize, searchText, filterType),
+          fetchAttendanceData(startDate, endDate),
+          fetchOnLeaveCount(selectedDate, searchText, filterType)
+        ]);
+      } catch (error) {
+        console.error('Error loading initial data:', error);
+      }
+    };
+
+    loadInitialData();
+  }, []); // Only run on mount
 
   // Animation effect
   useEffect(() => {
@@ -958,8 +1018,8 @@ if (approvedLeave) {
         const attendance = attendanceData[dateKey]?.[record.id];
 
         if (!attendance?.present && !attendance?.checkIn) {
-  return <Text type="secondary">-</Text>;
-}
+          return <Text type="secondary">-</Text>;
+        }
 
         const isOutOfOffice = attendance.location_coordinates;
         
@@ -1022,74 +1082,62 @@ if (approvedLeave) {
       },
     },
     {
-  title: 'Status',
-  key: 'status',
-  render: (_, record) => {
-    const dateKey = selectedDate.format('YYYY-MM-DD');
-    const attendance = attendanceData[dateKey]?.[record.id];
+      title: 'Status',
+      key: 'status',
+      render: (_, record) => {
+        const dateKey = selectedDate.format('YYYY-MM-DD');
+        const attendance = attendanceData[dateKey]?.[record.id];
 
-    // Check for approved leave first
-    const approvedLeave = leaveData.find(leave =>
-  leave.user_id === record.id &&
-  leave.approved_dates &&
-  Array.isArray(leave.approved_dates) &&
-  leave.approved_dates.includes(selectedDate.format('YYYY-MM-DD'))
-);
+        console.log(`Checking status for ${record.name} (ID: ${record.id}, Code: ${record.employeeId}) on ${dateKey}`);
+        console.log(`Leave data available: ${leaveData.length} records`);
 
-    if (approvedLeave) {
-  const isFullDayLeave = !approvedLeave.sub_type || 
-    approvedLeave.sub_type === 'FDL' || 
-    (approvedLeave.leave_type === 'Casual Leave' && !approvedLeave.sub_type);
-  
-  const isPermission = approvedLeave.leave_type === 'permissions';
-  const isExcuses = approvedLeave.leave_type === 'Excuses';
-  
-  if (isFullDayLeave && !isPermission && !isExcuses) {
-    return (
-      <Space>
-        <Badge status="processing" />
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <Text style={{ color: '#1890ff' }}>On Leave</Text>
-          <Text type="secondary" style={{ fontSize: '11px' }}>({approvedLeave.leave_type})</Text>
-        </div>
-      </Space>
-    );
-  } else {
-    // For permissions, excuses, and partial leaves, show attendance times too
-    return (
-      <Space direction="vertical" size="small">
-        <Space>
-          <Badge status="processing" />
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <Text style={{ color: '#1890ff' }}>
-              {isExcuses ? 'On Leave' : approvedLeave.leave_type}
-            </Text>
-            <Text type="secondary" style={{ fontSize: '11px' }}>
-              ({approvedLeave.leave_type}
-              {approvedLeave.sub_type ? ` - ${approvedLeave.sub_type}` : ''})
-            </Text>
-          </div>
-        </Space>
-        {/* Show attendance times if present */}
-        {(attendance?.present || attendance?.checkIn) && (
-          <>
-            <div style={{ fontSize: '12px' }}>
-              <Text type="secondary">In: </Text>
-              <Text>{attendance.checkIn || '-'}</Text>
-            </div>
-            <div style={{ fontSize: '12px' }}>
-              <Text type="secondary">Out: </Text>
-              <Text>{attendance.checkOut || '-'}</Text>
-            </div>
-          </>
-        )}
-      </Space>
-    );
-  }
-}
+        // Try to find leave by both user_id and employee_code
+        const approvedLeave = leaveData.find(leave => {
+          console.log(`Comparing leave:`, {
+            leave_user_id: leave.user_id,
+            leave_employee_code: leave.employee_code,
+            record_id: record.id,
+            record_employeeId: record.employeeId,
+            approved_dates: leave.approved_dates
+          });
+          
+          // Try matching by user_id first, then by employee_code
+          const userIdMatch = String(leave.user_id) === String(record.id);
+          const employeeCodeMatch = leave.employee_code === record.employeeId;
+          const userMatch = userIdMatch || employeeCodeMatch;
+          
+          const dateMatch = leave.approved_dates && 
+                           Array.isArray(leave.approved_dates) && 
+                           leave.approved_dates.includes(dateKey);
+          
+          console.log(`Match results:`, {
+            userIdMatch,
+            employeeCodeMatch,
+            finalUserMatch: userMatch,
+            dateMatch,
+            overallMatch: userMatch && dateMatch
+          });
+          
+          return userMatch && dateMatch;
+        });
 
+        if (approvedLeave) {
+          console.log(`FOUND LEAVE for ${record.name}:`, approvedLeave);
+          return (
+            <Space>
+              <Badge status="processing" />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <Text style={{ color: '#1890ff' }}>On Leave</Text>
+                <Text type="secondary" style={{ fontSize: '11px' }}>({approvedLeave.leave_type})</Text>
+              </div>
+            </Space>
+          );
+        }
+
+        console.log(`No leave found for ${record.name}`);
+
+        // Regular attendance logic
         if (attendance?.present || attendance?.checkIn) {
-          // Check if employee checked in but not checked out (missing)
           if (attendance.checkIn && !attendance.checkOut) {
             return (
               <Space direction="vertical" size="small">
@@ -1118,26 +1166,26 @@ if (approvedLeave) {
       },
     },
     {
-  title: 'Hours',
-  key: 'hours',
-  render: (_, record) => {
-    const dateKey = selectedDate.format('YYYY-MM-DD');
-    const attendance = attendanceData[dateKey]?.[record.id];
-    
-    if (attendance?.present && attendance.totalHours !== null) {
-      let hours = 0;
-      if (attendance.checkIn && attendance.checkOut) {
-        const checkIn = dayjs(`${dateKey} ${attendance.checkIn}`);
-        const checkOut = dayjs(`${dateKey} ${attendance.checkOut}`);
-        hours = checkOut.diff(checkIn, 'hours', true);
-      } else if (attendance.totalHours && typeof attendance.totalHours === 'number') {
-        hours = attendance.totalHours;
-      } else if (attendance.totalHours) {
-        hours = Number(attendance.totalHours) || 0;
-      }
-      
-      const displayHours = Math.floor(hours || 0);
-const displayMinutes = Math.round(((hours || 0) - displayHours) * 60);
+      title: 'Hours',
+      key: 'hours',
+      render: (_, record) => {
+        const dateKey = selectedDate.format('YYYY-MM-DD');
+        const attendance = attendanceData[dateKey]?.[record.id];
+        
+        if (attendance?.present && attendance.totalHours !== null) {
+          let hours = 0;
+          if (attendance.checkIn && attendance.checkOut) {
+            const checkIn = dayjs(`${dateKey} ${attendance.checkIn}`);
+            const checkOut = dayjs(`${dateKey} ${attendance.checkOut}`);
+            hours = checkOut.diff(checkIn, 'hours', true);
+          } else if (attendance.totalHours && typeof attendance.totalHours === 'number') {
+            hours = attendance.totalHours;
+          } else if (attendance.totalHours) {
+            hours = Number(attendance.totalHours) || 0;
+          }
+          
+          const displayHours = Math.floor(hours || 0);
+          const displayMinutes = Math.round(((hours || 0) - displayHours) * 60);
           const timeString = `${displayHours}:${String(displayMinutes).padStart(2, '0')}`;
           
           return (
@@ -1160,10 +1208,10 @@ const displayMinutes = Math.round(((hours || 0) - displayHours) * 60);
       title: 'Actions',
       key: 'actions',
       render: (_, record) => {
-  // Safety checks
-  if (!record?.id) {
-    return <Spin size="small" />;
-  }
+        // Safety checks
+        if (!record?.id) {
+          return <Spin size="small" />;
+        }
         
         const dateKey = selectedDate.format('YYYY-MM-DD');
         const attendance = attendanceData[dateKey]?.[record.id];
@@ -1180,7 +1228,6 @@ const displayMinutes = Math.round(((hours || 0) - displayHours) * 60);
               />
             </Tooltip>
             {(attendance?.present || attendance?.checkIn) && (
-
               <Tooltip title="Update Times">
                 <Button
                   type="text"
@@ -1233,6 +1280,48 @@ const displayMinutes = Math.round(((hours || 0) - displayHours) * 60);
             </Col>
             <Col>
               <Space size="middle">
+                <Button 
+                  onClick={async () => {
+                    console.log('=== DATABASE TEST ===');
+                    
+                    // Test 1: Check if any approved leaves exist
+                    const { data: approvedLeaves } = await supabase
+                      .from('leave_applications')
+                      .select('user_id, employee_name, status, approved_dates')
+                      .eq('status', 'Approved');
+                    
+                    console.log('Approved leaves in DB:', approvedLeaves);
+                    
+                    // Test 2: Check employees table for matching IDs
+                    const employeeIds = employeesData.map(emp => emp.id);
+                    console.log('Current employee IDs on page:', employeeIds);
+                    
+                    // Test 3: Check for matching user_ids
+                    const leaveUserIds = approvedLeaves?.map(leave => leave.user_id) || [];
+                    console.log('Leave user_ids:', leaveUserIds);
+                    
+                    const matchingIds = employeeIds.filter(empId => leaveUserIds.includes(empId));
+                    console.log('Matching IDs between employees and leaves:', matchingIds);
+                    
+                    // Test 4: Manual leave fetch
+                    await fetchLeaveData();
+                    console.log('Leave data state after fetch:', leaveData);
+                  }}
+                  type="default"
+                >
+                  Test Database
+                </Button>
+                <Button 
+                  onClick={async () => {
+                    console.log('=== MANUAL LEAVE DATA TEST ===');
+                    await fetchLeaveData();
+                    console.log('Current leaveData state:', leaveData);
+                    console.log('Selected date:', selectedDate.format('YYYY-MM-DD'));
+                  }}
+                  type="default"
+                >
+                  Debug Leave Data
+                </Button>
                 <Button icon={<DownloadOutlined />} type="default">
                   Export
                 </Button>
@@ -1643,4 +1732,4 @@ const displayMinutes = Math.round(((hours || 0) - displayHours) * 60);
   );
 };
 
-export default EmployeeAttendancePage;
+export default EmployeeAttendancePage;  

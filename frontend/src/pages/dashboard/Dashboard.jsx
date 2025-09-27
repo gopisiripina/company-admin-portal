@@ -1508,126 +1508,106 @@ for (let day = 1; day <= daysInMonth; day++) {
       </Card>
       
       {/* Calendar Weekdays */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(7, 1fr)',
-        gap: '0px',
-        marginBottom: '8px',
-        marginRight:"10px"
-      }}>
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-          <div key={day} style={{ textAlign: 'center' }}>
-            <Text 
-              style={{ 
-                fontSize: '12px', 
-                fontWeight: '600', 
-                color: '#64748b',
-                padding: '8px 3px'
-              }}
-            >
-              {day}
-            </Text>
-          </div>
-        ))}
-      </div>
+<div style={{ 
+  display: 'grid', 
+  gridTemplateColumns: 'repeat(7, 1fr)',
+  gap: '4px',
+  marginBottom: '8px'
+}}>
+  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+    <div key={day} style={{ textAlign: 'left' }}> {/* Changed from 'center' to 'left' */}
+      <Text 
+        style={{ 
+          fontSize: '12px', 
+          fontWeight: '600', 
+          color: '#64748b',
+          padding: '8px 3px',
+          paddingLeft: '6px' /* Add left padding for more spacing */
+        }}
+      >
+        {day}
+      </Text>
+    </div>
+  ))}
+</div>
       
       {/* Calendar Grid */}
-      <div style={{ flex: 1, marginBottom: '15px' }}>
-        <Row 
-          gutter={[4, 4]} 
-          style={{ 
-            flex: 1, 
-            marginBottom: '15px',
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(7, 1fr)',
-            gap: '4px',
-            alignItems: 'start'
-          }}
-        >
-          {calendarDays}
-        </Row>
-      </div>
+      <div style={{ 
+  flex: 1, 
+  marginBottom: '15px',
+  display: 'grid', 
+  gridTemplateColumns: 'repeat(7, 1fr)',
+  gap: '4px'
+}}>
+  {calendarDays}
+</div>
       
       {/* Calendar Legend */}
-      <Flex justify="center" gap={12} style={{ fontSize: '12px', flexWrap: 'wrap' }}>
-        <Flex align="center" gap={5}>
-          <Badge 
-            color="#22c55e" 
-            style={{ 
-              width: '12px', 
-              height: '12px', 
-              borderRadius: '50%' 
-            }} 
-          />
-          <Text  style={{ fontSize: '12px', color:"#22c55e" }}>Present</Text>
-        </Flex>
-        <Flex align="center" gap={5}>
-          <Badge 
-            color="#f97316" 
-            style={{ 
-              width: '12px', 
-              height: '12px', 
-              borderRadius: '50%' 
-            }} 
-          />
-          <Text style={{ fontSize: '12px', color:"#f97316" }}>Checked In</Text>
-        </Flex>
-        <Flex align="center" gap={5}>
-          <Badge 
-            color="#ef4444" 
-            style={{ 
-              width: '12px', 
-              height: '12px', 
-              borderRadius: '50%' 
-            }} 
-          />
-          <Text style={{ fontSize: '12px',color:"#ef4444" }}>Absent</Text>
-        </Flex>
-        <Flex align="center" gap={5}>
-          <Badge 
-            color="#8b5cf6" 
-            style={{ 
-              width: '12px', 
-              height: '12px', 
-              borderRadius: '50%' 
-            }} 
-          />
-          <Text style={{ fontSize: '12px',color:"#8b5cf6" }}>Holiday</Text>
-        </Flex>
-        <Flex align="center" gap={5}>
-          <Badge 
-            color="#94a3b8" 
-            style={{ 
-              width: '12px', 
-              height: '12px', 
-              borderRadius: '50%' 
-            }} 
-          />
-          <Text style={{ fontSize: '12px',color:"#94a3b8" }}>Non-Working</Text>
-        </Flex>
-        <Flex align="center" gap={5}>
-            <Flex align="center" gap={5}>
-          <Badge
-            color="#1890ff" // Blue color for leave
-            style={{
-              width: '12px',
-              height: '12px',
-              borderRadius: '50%'
-            }}
-          />
-          <Text style={{ fontSize: '12px',color:"#1890ff" }}>On Leave</Text>
-        </Flex>
-  <Badge 
-    color="#fbbf24" 
-    style={{ 
+<Flex justify="flex-start" gap={12} style={{ fontSize: '12px', flexWrap: 'wrap' }}>
+  <Flex align="center" gap={5}>
+    <div style={{ 
       width: '12px', 
       height: '12px', 
-      borderRadius: '50%' 
-    }} 
-  />
-  <Text style={{ fontSize: '12px',color:"#fbbf24"  }}>Missing</Text>
+      borderRadius: '50%',
+      backgroundColor: '#22c55e'
+    }} />
+    <Text style={{ fontSize: '12px', color: '#22c55e' }}>Present</Text>
+  </Flex>
+  <Flex align="center" gap={5}>
+    <div style={{ 
+      width: '12px', 
+      height: '12px', 
+      borderRadius: '50%',
+      backgroundColor: '#f97316'
+    }} />
+    <Text style={{ fontSize: '12px', color: '#f97316' }}>Checked In</Text>
+  </Flex>
+  <Flex align="center" gap={5}>
+    <div style={{ 
+      width: '12px', 
+      height: '12px', 
+      borderRadius: '50%',
+      backgroundColor: '#ef4444'
+    }} />
+    <Text style={{ fontSize: '12px', color: '#ef4444' }}>Absent</Text>
+  </Flex>
+  <Flex align="center" gap={5}>
+    <div style={{ 
+      width: '12px', 
+      height: '12px', 
+      borderRadius: '50%',
+      backgroundColor: '#8b5cf6'
+    }} />
+    <Text style={{ fontSize: '12px', color: '#8b5cf6' }}>Holiday</Text>
+  </Flex>
+  <Flex align="center" gap={5}>
+    <div style={{ 
+      width: '12px', 
+      height: '12px', 
+      borderRadius: '50%',
+      backgroundColor: '#94a3b8'
+    }} />
+    <Text style={{ fontSize: '12px', color: '#94a3b8' }}>Non-Working</Text>
+  </Flex>
+  {/* <Flex align="center" gap={5}>
+    <div style={{ 
+      width: '12px', 
+      height: '12px', 
+      borderRadius: '50%',
+      backgroundColor: '#1890ff'
+    }} />
+    <Text style={{ fontSize: '12px', color: '#1890ff' }}>On Leave</Text>
+  </Flex> */}
+  <Flex align="center" gap={5}>
+    <div style={{ 
+      width: '12px', 
+      height: '12px', 
+      borderRadius: '50%',
+      backgroundColor: '#fbbf24'
+    }} />
+    <Text style={{ fontSize: '12px', color: '#fbbf24' }}>Missing</Text>
+  </Flex>
 </Flex>
-      </Flex>
     </Card>
   );
 };

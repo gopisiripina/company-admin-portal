@@ -1297,7 +1297,7 @@ const upcomingEvents = [
   size="small"
   extra={
     <Space direction="vertical" align="start" style={{ width: '100%' }}>
-      <Text type="secondary">Click on a date to view events</Text>
+      <Text type="secondary"></Text>
     </Space>
   }
 >
