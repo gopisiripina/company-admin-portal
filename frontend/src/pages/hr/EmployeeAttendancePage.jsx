@@ -75,7 +75,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
   const [totalEmployees, setTotalEmployees] = useState(0);
   const [leaveData, setLeaveData] = useState([]);
   const [onLeaveCount, setOnLeaveCount] = useState(0);
-
+  const [viewingMonth, setViewingMonth] = useState(dayjs());
   useEffect(() => {
     const getCurrentUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -479,88 +479,76 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
     }
   };
 
-  const handleViewAttendance = (employee) => {
-    if (!employee?.id) {
-      console.error('Employee ID missing:', employee);
-      message.error('Employee data not available');
-      return;
-    }
+  const handleViewAttendance = async (employee) => {
+  if (!employee?.id) {
+    console.error('Employee ID missing:', employee);
+    message.error('Employee data not available');
+    return;
+  }
 
-    const dateKey = selectedDate.format('YYYY-MM-DD');
-    const attendance = attendanceData[dateKey]?.[employee.id];
+  let currentViewingMonth = selectedDate;
+  let modalInstance = null;
+  let currentAttendanceData = { ...attendanceData };
+  let isLoadingData = false; // Add loading state tracker
+
+  const renderModalContent = (monthToView, attendanceDataToUse, loading = false) => {
+    const dateKey = monthToView.format('YYYY-MM-DD');
+    const attendance = attendanceDataToUse[dateKey]?.[employee.id];
     const safeLeaveData = leaveData || [];
     
+    // Calculate monthly data for the viewing month
     const employeeMonthlyData = {};
-    Object.keys(attendanceData).forEach(date => {
-      const month = dayjs(date).format('YYYY-MM');
-      const employeeRecord = attendanceData[date][employee.id];
-      
-      const isOnLeave = safeLeaveData.some(leave => 
-        leave.user_id === employee.id &&
-        leave.approved_dates &&
-        Array.isArray(leave.approved_dates) &&
-        leave.approved_dates.includes(date)
-      );
-
-      if (isOnLeave) {
-        return;
-      }
-
-      if (employeeRecord) {
-        if (!employeeMonthlyData[month]) {
-          employeeMonthlyData[month] = { present: 0, absent: 0, missing: 0 };
-        }
+    Object.keys(attendanceDataToUse)
+      .filter(date => dayjs(date).isSame(monthToView, 'month'))
+      .forEach(date => {
+        const month = dayjs(date).format('YYYY-MM');
+        const employeeRecord = attendanceDataToUse[date][employee.id];
         
-        if (employeeRecord.present) {
-          if (employeeRecord.checkIn && !employeeRecord.checkOut) {
-            employeeMonthlyData[month].missing++;
-          } else {
-            employeeMonthlyData[month].present++;
-          }
-        } else {
-          employeeMonthlyData[month].absent++;
-        }
-      }
-    });
-    
-    Modal.info({
-      title: `${employee.name}'s Attendance Details`,
-      width: 800,
-      content: (
-        <div style={{ padding: '16px 0' }}>
-          <Space direction="vertical" size="large" style={{ width: '100%' }}>
-            <Card>
-              <Text strong>Status for {selectedDate.format('DD/MM/YYYY')}: </Text>
-              <Tag color={attendance?.present ? 'success' : 'error'}>
-                {attendance?.present ? 'Present' : 'Absent'}
-              </Tag>
-              {attendance?.present && (
-                <div style={{ marginTop: 8 }}>
-                  <Text strong>Hours: </Text>
-                  <Text>{typeof attendance.totalHours === 'number' ? attendance.totalHours.toFixed(1) : '0'}h</Text>
-                  <div style={{ marginTop: 4 }}>
-                    <Text strong>Location: </Text>
-                    <Tag color={attendance.location_coordinates ? 'orange' : 'green'}>
-                      {attendance.location_coordinates ? 'Out of Office' : 'In Office'}
-                    </Tag>
-                  </div>
-                </div>
-              )}
-            </Card>
+        const isOnLeave = safeLeaveData.some(leave => 
+          leave.user_id === employee.id &&
+          leave.approved_dates &&
+          Array.isArray(leave.approved_dates) &&
+          leave.approved_dates.includes(date)
+        );
 
-            <Card title="Monthly Summary">
+        if (isOnLeave) {
+          return;
+        }
+
+        if (employeeRecord) {
+          if (!employeeMonthlyData[month]) {
+            employeeMonthlyData[month] = { present: 0, absent: 0, missing: 0 };
+          }
+          
+          if (employeeRecord.present) {
+            if (employeeRecord.checkIn && !employeeRecord.checkOut) {
+              employeeMonthlyData[month].missing++;
+            } else {
+              employeeMonthlyData[month].present++;
+            }
+          } else {
+            employeeMonthlyData[month].absent++;
+          }
+        }
+      });
+
+    return (
+      <div style={{ padding: '16px 0' }}>
+        <Spin spinning={loading} tip="Loading attendance data...">
+          <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <Card title={`Monthly Summary - ${monthToView.format('MMMM YYYY')}`}>
               <Row gutter={16}>
                 <Col span={12}>
                   <Statistic 
                     title="Days Present" 
-                    value={employeeMonthlyData[selectedDate.format('YYYY-MM')]?.present || 0} 
+                    value={employeeMonthlyData[monthToView.format('YYYY-MM')]?.present || 0} 
                     prefix={<CheckCircleOutlined />}
                   />
                 </Col>
                 <Col span={12}>
                   <Statistic 
                     title="Days Absent" 
-                    value={employeeMonthlyData[selectedDate.format('YYYY-MM')]?.absent || 0} 
+                    value={employeeMonthlyData[monthToView.format('YYYY-MM')]?.absent || 0} 
                     prefix={<CloseCircleOutlined />}
                     valueStyle={{ color: '#ff4d4f' }}
                   />
@@ -568,7 +556,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                 <Col span={12}>
                   <Statistic 
                     title="Days Missing" 
-                    value={employeeMonthlyData[selectedDate.format('YYYY-MM')]?.missing || 0} 
+                    value={employeeMonthlyData[monthToView.format('YYYY-MM')]?.missing || 0} 
                     prefix={<ClockCircleOutlined />}
                     valueStyle={{ color: '#faad14' }}
                   />
@@ -579,10 +567,61 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
             <Card title="Attendance Calendar">
               <Calendar
                 fullscreen={false}
-                value={selectedDate}
+                value={monthToView}
+                onChange={async (newDate) => {
+                  if (!newDate.isSame(currentViewingMonth, 'month') && !isLoadingData) {
+                    currentViewingMonth = newDate;
+                    isLoadingData = true;
+                    
+                    // Show loading state
+                    modalInstance.update({
+                      content: renderModalContent(newDate, currentAttendanceData, true)
+                    });
+                    
+                    const startDate = newDate.startOf('month').format('YYYY-MM-DD');
+                    const endDate = newDate.endOf('month').format('YYYY-MM-DD');
+                    
+                    const { data, error } = await supabase
+                      .from('attendance')
+                      .select('*')
+                      .gte('date', startDate)
+                      .lte('date', endDate);
+                    
+                    if (!error && data) {
+                      const transformedData = {};
+                      data.forEach(record => {
+                        const dateKey = record.date;
+                        if (!transformedData[dateKey]) {
+                          transformedData[dateKey] = {};
+                        }
+                        transformedData[dateKey][record.user_id] = {
+                          present: record.is_present,
+                          checkIn: record.check_in,
+                          checkOut: record.check_out,
+                          totalHours: record.total_hours,
+                          location_coordinates: record.location_coordinates,
+                          reason: record.reason
+                        };
+                      });
+                      
+                      currentAttendanceData = transformedData;
+                      
+                      modalInstance.update({
+                        content: renderModalContent(newDate, transformedData, false)
+                      });
+                    }
+                    
+                    isLoadingData = false;
+                  }
+                }}
                 dateFullCellRender={(date) => {
+                  // ... rest of your dateFullCellRender code remains the same
+                  if (!date.isSame(monthToView, 'month')) {
+                    return <div style={{ color: '#d9d9d9' }}>{date.date()}</div>;
+                  }
+
                   const dayKey = date.format('YYYY-MM-DD');
-                  const dayAttendance = attendanceData[dayKey]?.[employee.id];
+                  const dayAttendance = attendanceDataToUse[dayKey]?.[employee.id];
                   const isToday = date.isSame(dayjs(), 'day');
 
                   let cellStyle = {
@@ -615,7 +654,6 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                       cellStyle.color = '#1890ff';
                       cellStyle.border = `1px solid #91d5ff`;
                     } else {
-                      // Different styling for partial leaves/permissions
                       cellStyle.backgroundColor = '#fff7e6';
                       cellStyle.color = '#fa8c16';
                       cellStyle.border = `1px solid #ffd591`;
@@ -646,10 +684,18 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
               />
             </Card>
           </Space>
-        </div>
-      ),
-    });
+        </Spin>
+      </div>
+    );
   };
+
+  // Show initial modal
+  modalInstance = Modal.info({
+    title: `${employee.name}'s Attendance Details`,
+    width: 800,
+    content: renderModalContent(currentViewingMonth, currentAttendanceData, false),
+  });
+};
 
   // Update times for existing attendance
   const handleUpdateTimes = (employee) => {
@@ -1205,55 +1251,56 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
       },
     },
     {
-      title: 'Actions',
-      key: 'actions',
-      render: (_, record) => {
-        // Safety checks
-        if (!record?.id) {
-          return <Spin size="small" />;
-        }
-        
-        const dateKey = selectedDate.format('YYYY-MM-DD');
-        const attendance = attendanceData[dateKey]?.[record.id];
-        
-        return (
-          <Space>
-            <Tooltip title="View Details">
-              <Button
-                type="text"
-                size="small"
-                icon={<EyeOutlined />}
-                onClick={() => handleViewAttendance(record)}
-                disabled={loading}
-              />
-            </Tooltip>
-            {(attendance?.present || attendance?.checkIn) && (
-              <Tooltip title="Update Times">
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<ClockCircleOutlined />}
-                  onClick={() => handleUpdateTimes(record)}
-                />
-              </Tooltip>
-            )}
-            <Tooltip title="Mark Absent">
-              <Button
-                type="text"
-                size="small"
-                icon={<CloseCircleOutlined />}
-                onClick={() => handleMarkIndividualAbsent(record)}
-                style={{ color: '#ff4d4f' }}
-              />
-            </Tooltip>
-            <Checkbox
-              checked={selectedEmployees.includes(record.id)}
-              onChange={(e) => handleEmployeeSelect(record.id, e.target.checked)}
+  title: 'Actions',
+  key: 'actions',
+  render: (_, record) => {
+    // Safety checks
+    if (!record?.id) {
+      return <Spin size="small" />;
+    }
+    
+    const dateKey = selectedDate.format('YYYY-MM-DD');
+    const attendance = attendanceData[dateKey]?.[record.id];
+    
+    return (
+      <Space>
+        <Tooltip title="View Details">
+          <Button
+            type="text"
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => handleViewAttendance(record)}
+            // Remove this line or change condition:
+            // disabled={loading}
+          />
+        </Tooltip>
+        {(attendance?.present || attendance?.checkIn) && (
+          <Tooltip title="Update Times">
+            <Button
+              type="text"
+              size="small"
+              icon={<ClockCircleOutlined />}
+              onClick={() => handleUpdateTimes(record)}
             />
-          </Space>
-        );
-      },
-    },
+          </Tooltip>
+        )}
+        <Tooltip title="Mark Absent">
+          <Button
+            type="text"
+            size="small"
+            icon={<CloseCircleOutlined />}
+            onClick={() => handleMarkIndividualAbsent(record)}
+            style={{ color: '#ff4d4f' }}
+          />
+        </Tooltip>
+        <Checkbox
+          checked={selectedEmployees.includes(record.id)}
+          onChange={(e) => handleEmployeeSelect(record.id, e.target.checked)}
+        />
+      </Space>
+    );
+  },
+},
   ];
 
   // HR/Admin view
