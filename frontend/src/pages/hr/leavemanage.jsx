@@ -34,7 +34,7 @@ import {
   Timeline,
   Drawer,
   Popconfirm,
-  Calendar
+  Calendar, Dropdown
 } from 'antd';
 import {
   UserOutlined,
@@ -68,7 +68,7 @@ import {
   MoonOutlined,
   ThunderboltOutlined,
   EnvironmentOutlined,
-  ReloadOutlined
+  ReloadOutlined, MoreOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -111,20 +111,20 @@ const uploadFileToSupabase = async (file, bucketName = 'leave-documents') => {
   }
 };
 
- const getLeaveTypeConfig = (type) => {
-    const configs = {
-      'Permission': { color: '#1890ff', icon: <ClockCircleOutlined />, gradient: 'linear-gradient(45deg, #40a9ff 0%, #1890ff 100%)' },
-      'Casual Leave': { color: '#52c41a', icon: <CalendarOutlined />, gradient: 'linear-gradient(45deg, #73d13d 0%, #52c41a 100%)' },
-      'Earned Leave': { color: '#0D7139', icon: <BankOutlined />, gradient: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)' },
-      'Medical Leave': { color: '#ff4d4f', icon: <MedicineBoxOutlined />, gradient: 'linear-gradient(45deg, #ff7875 0%, #ff4d4f 100%)' },
-      'Maternity Leave': { color: '#eb2f96', icon: <MedicineBoxOutlined />, gradient: 'linear-gradient(45deg, #f759ab 0%, #eb2f96 100%)' },
-      'Compensatory Leave': { color: '#722ed1', icon: <FaIndianRupeeSign/>, gradient: 'linear-gradient(45deg, #9254de 0%, #722ed1 100%)' },
-      'On Duty': { color: '#13c2c2', icon: <TeamOutlined />, gradient: 'linear-gradient(45deg, #36cfc9 0%, #13c2c2 100%)' },
-      'Excuses': { color: '#fa8c16', icon: <ExclamationCircleOutlined />, gradient: 'linear-gradient(45deg, #ffa940 0%, #fa8c16 100%)' },
-      'Overtime': { color: '#a0d911', icon: <ThunderboltOutlined />, gradient: 'linear-gradient(45deg, #b7eb8f 0%, #a0d911 100%)' },
-    };
-    return configs[type] || { color: '#666', icon: <FileTextOutlined />, gradient: 'linear-gradient(45deg, #bfbfbf 0%, #666 100%)' };
+const getLeaveTypeConfig = (type) => {
+  const configs = {
+    'Permission': { color: '#1890ff', icon: <ClockCircleOutlined />, gradient: 'linear-gradient(45deg, #40a9ff 0%, #1890ff 100%)' },
+    'Casual Leave': { color: '#52c41a', icon: <CalendarOutlined />, gradient: 'linear-gradient(45deg, #73d13d 0%, #52c41a 100%)' },
+    'Earned Leave': { color: '#0D7139', icon: <BankOutlined />, gradient: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)' },
+    'Medical Leave': { color: '#ff4d4f', icon: <MedicineBoxOutlined />, gradient: 'linear-gradient(45deg, #ff7875 0%, #ff4d4f 100%)' },
+    'Maternity Leave': { color: '#eb2f96', icon: <MedicineBoxOutlined />, gradient: 'linear-gradient(45deg, #f759ab 0%, #eb2f96 100%)' },
+    'Compensatory Leave': { color: '#722ed1', icon: <FaIndianRupeeSign />, gradient: 'linear-gradient(45deg, #9254de 0%, #722ed1 100%)' },
+    'On Duty': { color: '#13c2c2', icon: <TeamOutlined />, gradient: 'linear-gradient(45deg, #36cfc9 0%, #13c2c2 100%)' },
+    'Excuses': { color: '#fa8c16', icon: <ExclamationCircleOutlined />, gradient: 'linear-gradient(45deg, #ffa940 0%, #fa8c16 100%)' },
+    'Overtime': { color: '#a0d911', icon: <ThunderboltOutlined />, gradient: 'linear-gradient(45deg, #b7eb8f 0%, #a0d911 100%)' },
   };
+  return configs[type] || { color: '#666', icon: <FileTextOutlined />, gradient: 'linear-gradient(45deg, #bfbfbf 0%, #666 100%)' };
+};
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -177,7 +177,7 @@ const fetchWorkingDays = async (userId, holidays) => {
     console.error('Error fetching working days:', error);
     return 0;
   }
- 
+
 };
 const fetchCompensatoryOffDays = async (userId, holidays) => {
   try {
@@ -197,7 +197,7 @@ const fetchCompensatoryOffDays = async (userId, holidays) => {
       monday: true, tuesday: true, wednesday: true,
       thursday: true, friday: true, saturday: false, sunday: false
     };
-    
+
     // Safely parse the configuration from the database, or use the default
     const workingDaysConfig = configData?.reason
       ? JSON.parse(configData.reason).workingDays || defaultConfig
@@ -293,11 +293,11 @@ const fetchLeaveApplications = async (userId = null) => {
       if (fetchError) throw fetchError;
 
       // Filter in JavaScript for HR view
-      const filteredLeaves = allLeaves.filter(leave => 
-        leave.users?.employee_id?.startsWith('MYAEMP') || 
+      const filteredLeaves = allLeaves.filter(leave =>
+        leave.users?.employee_id?.startsWith('MYAEMP') ||
         leave.users?.employee_id?.startsWith('MYAINT')
       );
-      
+
       return filteredLeaves || [];
     }
 
@@ -368,9 +368,9 @@ const fetchLeaveBalances = async (userId) => {
           .from('leave_balances')
           .update(updates)
           .eq('user_id', userId);
-        
+
         if (updateError) throw updateError;
-        
+
         // Fetch the newly updated data to reflect on the UI immediately
         return await fetchLeaveBalances(userId);
       }
@@ -389,13 +389,13 @@ const fetchLeaveBalances = async (userId) => {
 const calculateLeaveBalances = async (userId, currentUser) => {
   // 1. Fetch all necessary data first.
   const balanceData = await fetchLeaveBalances(userId);
-  
+
   // Cache holidays to prevent repeated fetching
   if (!window.holidayCache) {
     window.holidayCache = await fetchCompanyCalendar();
   }
   const holidays = window.holidayCache;
-  
+
   const totalWorkingDaysPresent = await fetchWorkingDays(userId, holidays);
   const totalCompensatoryDaysEarned = await fetchCompensatoryOffDays(userId, holidays);
 
@@ -407,14 +407,14 @@ const calculateLeaveBalances = async (userId, currentUser) => {
     return {
       permission: { total: 2, used: 0, remaining: 2, monthlyLimit: 2 },
       casualLeave: { total: 12, used: 0, remaining: 12, monthlyLimit: 1 },
-      earnedLeave: { 
-        total: totalEarnedLeave, 
-        used: 0, 
-        remaining: totalEarnedLeave 
+      earnedLeave: {
+        total: totalEarnedLeave,
+        used: 0,
+        remaining: totalEarnedLeave
       },
-      medicalLeave: { 
-        total: 12, 
-        used: 0, 
+      medicalLeave: {
+        total: 12,
+        used: 0,
         remaining: 12,
         extraGranted: 0,
         extraUsed: 0,
@@ -424,9 +424,9 @@ const calculateLeaveBalances = async (userId, currentUser) => {
       // --- MODIFICATION START ---
       // Compensatory leave now defaults to 0 and is only added manually by HR.
       // The `eligible` property is new, for HR to see, but isn't part of the employee's balance.
-      compensatoryLeave: { 
-        total: 0, 
-        used: 0, 
+      compensatoryLeave: {
+        total: 0,
+        used: 0,
         remaining: 0,
         eligible: totalCompensatoryDaysEarned
       },
@@ -435,7 +435,7 @@ const calculateLeaveBalances = async (userId, currentUser) => {
     };
   }
 
-    const totalMedicalAvailable =  (balanceData.medical_total || 0)+ (balanceData.medical_extra_granted || 0);
+  const totalMedicalAvailable = (balanceData.medical_total || 0) + (balanceData.medical_extra_granted || 0);
   const totalMedicalUsed = (balanceData.medical_used || 0) + (balanceData.medical_extra_used || 0);
 
   return {
@@ -563,7 +563,7 @@ const LeaveHistoryDrawer = ({ visible, onClose, leaveData, currentUser }) => {
                       {leave.leave_type}
                       <Tag color={
                         leave.status === 'Approved' ? 'success' :
-                        leave.status === 'Rejected' ? 'error' : 'warning'
+                          leave.status === 'Rejected' ? 'error' : 'warning'
                       } style={{ marginLeft: '8px' }}>
                         {leave.status}
                       </Tag>
@@ -571,7 +571,7 @@ const LeaveHistoryDrawer = ({ visible, onClose, leaveData, currentUser }) => {
                     <Text type="secondary" style={{ fontSize: '12px' }}>
                       {dayjs(leave.start_date).format('MMM DD, YYYY')} - {dayjs(leave.end_date).format('MMM DD, YYYY')}
                     </Text>
-                     <Paragraph ellipsis={{ rows: 2, expandable: true, symbol: 'more' }} style={{ fontSize: '13px', marginTop: '4px', color: '#666' }}>
+                    <Paragraph ellipsis={{ rows: 2, expandable: true, symbol: 'more' }} style={{ fontSize: '13px', marginTop: '4px', color: '#666' }}>
                       Reason: {leave.reason}
                     </Paragraph>
                   </div>
@@ -594,7 +594,7 @@ const CompensatoryLeaveModal = ({ visible, onCancel, employees }) => {
   const [selectedMonth, setSelectedMonth] = useState(dayjs());
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
-  
+
   // Data state
   // --- MODIFICATION: This now stores the full details (check-in/out) for each day ---
   const [attendanceDetails, setAttendanceDetails] = useState(new Map());
@@ -639,7 +639,7 @@ const CompensatoryLeaveModal = ({ visible, onCancel, employees }) => {
       const defaultConfig = { monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false, sunday: false };
       const workingDaysConfig = configData?.reason ? JSON.parse(configData.reason).workingDays || defaultConfig : defaultConfig;
       const holidays = await fetchCompanyCalendar();
-      
+
       // 2. --- MODIFICATION: Fetch detailed attendance with check-in/out times ---
       const { data: attendanceData, error: attError } = await supabase
         .from('attendance')
@@ -648,11 +648,11 @@ const CompensatoryLeaveModal = ({ visible, onCancel, employees }) => {
         .gte('date', startDate)
         .lte('date', endDate);
       if (attError) throw attError;
-      
+
       // Store the full details in the map
       const attMap = new Map(attendanceData.map(att => [att.date, { isPresent: att.is_present, checkIn: att.check_in, checkOut: att.check_out }]));
       setAttendanceDetails(attMap);
-      
+
       // 3. Fetch already allocated dates
       const { data: balanceData } = await supabase.from('leave_balances').select('allocated_comp_off_dates').eq('user_id', userId).single();
       const allocated = balanceData?.allocated_comp_off_dates || [];
@@ -695,12 +695,12 @@ const CompensatoryLeaveModal = ({ visible, onCancel, employees }) => {
     setSelection(prev => prev.includes(dateStr) ? prev.filter(d => d !== dateStr) : [...prev, dateStr]);
   };
 
-  const handleAllocateSelection = async () => { /* ... Function remains the same ... */ 
-      if (selection.length === 0) return;
+  const handleAllocateSelection = async () => { /* ... Function remains the same ... */
+    if (selection.length === 0) return;
     setActionLoading(true);
     try {
       const { data: currentBalance } = await supabase.from('leave_balances').select('compensatory_total, compensatory_remaining, allocated_comp_off_dates').eq('user_id', selectedEmployeeId).single();
-      
+
       const newDaysCount = selection.length;
       const newTotal = (currentBalance?.compensatory_total || 0) + newDaysCount;
       const newRemaining = (currentBalance?.compensatory_remaining || 0) + newDaysCount;
@@ -711,7 +711,7 @@ const CompensatoryLeaveModal = ({ visible, onCancel, employees }) => {
         compensatory_remaining: newRemaining,
         allocated_comp_off_dates: newAllocatedDates
       }).eq('user_id', selectedEmployeeId);
-      
+
       message.success(`${newDaysCount} day(s) allocated successfully!`);
       fetchDataForEmployee(selectedEmployeeId, selectedMonth); // Refresh data
     } catch (error) {
@@ -721,12 +721,12 @@ const CompensatoryLeaveModal = ({ visible, onCancel, employees }) => {
       setActionLoading(false);
     }
   };
-  const handleRevokeSelection = async () => { /* ... Function remains the same ... */ 
-      if (selection.length === 0) return;
+  const handleRevokeSelection = async () => { /* ... Function remains the same ... */
+    if (selection.length === 0) return;
     setActionLoading(true);
     try {
       const { data: currentBalance } = await supabase.from('leave_balances').select('compensatory_total, compensatory_remaining, allocated_comp_off_dates').eq('user_id', selectedEmployeeId).single();
-      
+
       const revokedDaysCount = selection.length;
       const currentAllocated = currentBalance?.allocated_comp_off_dates || [];
 
@@ -750,8 +750,8 @@ const CompensatoryLeaveModal = ({ visible, onCancel, employees }) => {
     }
   };
 
-  const dateCellRender = (date) => { /* ... Function remains the same ... */ 
-      const dateStr = date.format('YYYY-MM-DD');
+  const dateCellRender = (date) => { /* ... Function remains the same ... */
+    const dateStr = date.format('YYYY-MM-DD');
     const isEligible = eligibleDays.includes(dateStr);
     const isAllocated = allocatedDates.includes(dateStr);
     const isSelected = selection.includes(dateStr);
@@ -765,7 +765,7 @@ const CompensatoryLeaveModal = ({ visible, onCancel, employees }) => {
     } else if (isEligible) {
       style.backgroundColor = '#f9f0ff';
     }
-    
+
     return <div className="ant-picker-cell-inner" style={style}>{date.date()}</div>;
   };
 
@@ -793,13 +793,13 @@ const CompensatoryLeaveModal = ({ visible, onCancel, employees }) => {
           <Row gutter={[24, 24]}>
             <Col xs={24} lg={16}>
               <Card title="Click on days to select/deselect for batch actions">
-                 <Calendar fullscreen={false} value={selectedMonth} dateFullCellRender={dateCellRender} onSelect={onDateSelect} />
-                 <Space style={{ marginTop: '16px' }} wrap>
-                    <Badge color="#f9f0ff" text="Eligible" />
-                    <Badge color="#d3adf7" text="Allocated" />
-                    <Badge color="#f6ffed" text="Selected to Add" />
-                    <Badge color="#fff1f0" text="Selected to Revoke" />
-                 </Space>
+                <Calendar fullscreen={false} value={selectedMonth} dateFullCellRender={dateCellRender} onSelect={onDateSelect} />
+                <Space style={{ marginTop: '16px' }} wrap>
+                  <Badge color="#f9f0ff" text="Eligible" />
+                  <Badge color="#d3adf7" text="Allocated" />
+                  <Badge color="#f6ffed" text="Selected to Add" />
+                  <Badge color="#fff1f0" text="Selected to Revoke" />
+                </Space>
               </Card>
             </Col>
             <Col xs={24} lg={8}>
@@ -885,7 +885,7 @@ const LeaveManagementPage = ({ userRole = 'hr', currentUserId = '1' }) => {
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterType, setFilterType] = useState('All');
   const [filterEmployee, setFilterEmployee] = useState('All');
-    const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [calculatedDays, setCalculatedDays] = useState(0);
   const [balanceWarning, setBalanceWarning] = useState('');
 
@@ -893,21 +893,38 @@ const LeaveManagementPage = ({ userRole = 'hr', currentUserId = '1' }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [currentUser, setCurrentUser] = useState(null);
-   const [compOffModalVisible, setCompOffModalVisible] = useState(false);
+  const [compOffModalVisible, setCompOffModalVisible] = useState(false);
 
 
-useEffect(() => {
-  const fetchCurrentUser = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', currentUserId)
-        .single();
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', currentUserId)
+          .single();
 
-      if (error) {
-        console.error('Error fetching current user:', error);
-        // Create a fallback user object
+        if (error) {
+          console.error('Error fetching current user:', error);
+          // Create a fallback user object
+          setCurrentUser({
+            id: currentUserId,
+            name: 'Current User',
+            employeeId: 'EMP001',
+            department: 'General',
+            position: 'Employee',
+            email: 'user@company.com',
+            joinDate: dayjs().format('YYYY-MM-DD'),
+            type: 'Full-time',
+            workingDays: 0
+          });
+        } else {
+          setCurrentUser(data);
+        }
+      } catch (err) {
+        console.error('Error:', err);
+        // Fallback user
         setCurrentUser({
           id: currentUserId,
           name: 'Current User',
@@ -919,28 +936,11 @@ useEffect(() => {
           type: 'Full-time',
           workingDays: 0
         });
-      } else {
-        setCurrentUser(data);
       }
-    } catch (err) {
-      console.error('Error:', err);
-      // Fallback user
-      setCurrentUser({
-        id: currentUserId,
-        name: 'Current User',
-        employeeId: 'EMP001',
-        department: 'General',
-        position: 'Employee',
-        email: 'user@company.com',
-        joinDate: dayjs().format('YYYY-MM-DD'),
-        type: 'Full-time',
-        workingDays: 0
-      });
-    }
-  };
+    };
 
-  fetchCurrentUser();
-}, [currentUserId]);
+    fetchCurrentUser();
+  }, [currentUserId]);
   // Animation effect
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -949,59 +949,59 @@ useEffect(() => {
     return () => clearTimeout(timer);
   }, []);
 
-useEffect(() => {
-  // Only load data ONCE when component mounts and user is available
-  if (!dataLoaded && currentUser?.id && activeTab === 'dashboard') {
-    const loadInitialData = async () => {
-      setLoading(true);
-      try {
-        // FIRST: Initialize balance if it doesn't exist (only for employee)
-        if (userRole === 'employee') {
-          await initializeUserLeaveBalance(currentUserId);
+  useEffect(() => {
+    // Only load data ONCE when component mounts and user is available
+    if (!dataLoaded && currentUser?.id && activeTab === 'dashboard') {
+      const loadInitialData = async () => {
+        setLoading(true);
+        try {
+          // FIRST: Initialize balance if it doesn't exist (only for employee)
+          if (userRole === 'employee') {
+            await initializeUserLeaveBalance(currentUserId);
+          }
+
+          // THEN: Load data
+          const leaves = await fetchLeaveApplications(userRole === 'employee' ? currentUserId : null);
+
+          // Only calculate balances for employee view
+          let balances = {};
+          if (userRole === 'employee') {
+            balances = await calculateLeaveBalances(currentUserId, currentUser);
+          }
+
+          setLeaveData(leaves);
+          setLeaveBalances(balances);
+          setDataLoaded(true);
+
+        } catch (error) {
+          console.error('Error loading initial data:', error);
+        } finally {
+          setLoading(false);
+          setIsLoaded(true);
         }
-        
-        // THEN: Load data
-        const leaves = await fetchLeaveApplications(userRole === 'employee' ? currentUserId : null);
-        
-        // Only calculate balances for employee view
-        let balances = {};
-        if (userRole === 'employee') {
-          balances = await calculateLeaveBalances(currentUserId, currentUser);
-        }
-        
-        setLeaveData(leaves);
-        setLeaveBalances(balances);
-        setDataLoaded(true);
-        
-      } catch (error) {
-        console.error('Error loading initial data:', error);
-      } finally {
-        setLoading(false);
-        setIsLoaded(true);
-      }
-    };
-    
-    loadInitialData();
-  }
-}, [currentUser?.id, dataLoaded, activeTab, userRole]);
- useEffect(() => {
-  let filtered = leaveData;
-  
-  if (filterStatus !== 'All') {
-    filtered = filtered.filter(leave => leave.status === filterStatus);
-  }
-  
-  if (filterType !== 'All') {
-    filtered = filtered.filter(leave => leave.leave_type === filterType);
-  }
-  
-  if (filterEmployee !== 'All') {
-    // UPDATED: Corrected the filter to use user_id
-    filtered = filtered.filter(leave => leave.user_id === filterEmployee);
-  }
-  
-  setFilteredLeaves(filtered);
-}, [leaveData, filterStatus, filterType, filterEmployee]);
+      };
+
+      loadInitialData();
+    }
+  }, [currentUser?.id, dataLoaded, activeTab, userRole]);
+  useEffect(() => {
+    let filtered = leaveData;
+
+    if (filterStatus !== 'All') {
+      filtered = filtered.filter(leave => leave.status === filterStatus);
+    }
+
+    if (filterType !== 'All') {
+      filtered = filtered.filter(leave => leave.leave_type === filterType);
+    }
+
+    if (filterEmployee !== 'All') {
+      // UPDATED: Corrected the filter to use user_id
+      filtered = filtered.filter(leave => leave.user_id === filterEmployee);
+    }
+
+    setFilteredLeaves(filtered);
+  }, [leaveData, filterStatus, filterType, filterEmployee]);
   // Animation styles
   const animationStyles = {
     container: {
@@ -1025,78 +1025,78 @@ useEffect(() => {
       transition: 'all 0.9s cubic-bezier(0.4, 0, 0.2, 1) 0.3s',
     },
   };
-// Add this component before LeaveManagementPage
-const HRMedicalLeaveModal = ({ visible, onCancel, employees, onAllocate, loading }) => {
-  const [form] = Form.useForm();
-  
-  return (
-    <Modal
-      title={
-        <Space>
-          <MedicineBoxOutlined style={{ color: '#ff4d4f' }} />
-          <span>Allocate Additional Medical Leave</span>
-        </Space>
-      }
-      open={visible}
-      onCancel={onCancel}
-      footer={[
-        <Button key="cancel" onClick={onCancel}>Cancel</Button>,
-        <Button 
-          key="allocate" 
-          type="primary" 
-          onClick={() => form.submit()}
-          loading={loading}
-          style={{ background: '#ff4d4f', borderColor: '#ff4d4f' }}
-        >
-          Allocate Leave
-        </Button>
-      ]}
-      width={600}
-      destroyOnHidden
-    >
-      <Form form={form} layout="vertical" onFinish={onAllocate}>
-        <Form.Item
-          name="employeeId"
-          label="Select Employee"
-          rules={[{ required: true, message: 'Please select an employee' }]}
-        >
-          <Select 
-            placeholder="Choose employee"
-            showSearch
-            filterOption={(input, option) =>
-              option.children.toLowerCase().includes(input.toLowerCase())
-            }
+  // Add this component before LeaveManagementPage
+  const HRMedicalLeaveModal = ({ visible, onCancel, employees, onAllocate, loading }) => {
+    const [form] = Form.useForm();
+
+    return (
+      <Modal
+        title={
+          <Space>
+            <MedicineBoxOutlined style={{ color: '#ff4d4f' }} />
+            <span>Allocate Additional Medical Leave</span>
+          </Space>
+        }
+        open={visible}
+        onCancel={onCancel}
+        footer={[
+          <Button key="cancel" onClick={onCancel}>Cancel</Button>,
+          <Button
+            key="allocate"
+            type="primary"
+            onClick={() => form.submit()}
+            loading={loading}
+            style={{ background: '#ff4d4f', borderColor: '#ff4d4f' }}
           >
-            {employees.map(emp => (
-              <Option key={emp.id} value={emp.id}>
-                <Space>
-                  <Avatar size="small" style={{ backgroundColor: '#ff4d4f' }}>
-                    {emp.name.charAt(0)}
-                  </Avatar>
-                  {emp.name} ({emp.employee_id})
-                </Space>
-              </Option>
-            ))}
-          </Select>
-        </Form.Item>
+            Allocate Leave
+          </Button>
+        ]}
+        width={600}
+        destroyOnHidden
+      >
+        <Form form={form} layout="vertical" onFinish={onAllocate}>
+          <Form.Item
+            name="employeeId"
+            label="Select Employee"
+            rules={[{ required: true, message: 'Please select an employee' }]}
+          >
+            <Select
+              placeholder="Choose employee"
+              showSearch
+              filterOption={(input, option) =>
+                option.children.toLowerCase().includes(input.toLowerCase())
+              }
+            >
+              {employees.map(emp => (
+                <Option key={emp.id} value={emp.id}>
+                  <Space>
+                    <Avatar size="small" style={{ backgroundColor: '#ff4d4f' }}>
+                      {emp.name.charAt(0)}
+                    </Avatar>
+                    {emp.name} ({emp.employee_id})
+                  </Space>
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
 
-        <Form.Item
-          name="extraDays"
-          label="Additional Medical Leave Days"
-          rules={[
-            { required: true, message: 'Please enter number of days' },
-            { type: 'number', min: 1, max: 30, message: 'Days must be between 1-30' }
-          ]}
-        >
-          <InputNumber
-            style={{ width: '100%' }}
-            placeholder="Enter number of additional days"
-            min={1}
-            max={30}
-          />
-        </Form.Item>
+          <Form.Item
+            name="extraDays"
+            label="Additional Medical Leave Days"
+            rules={[
+              { required: true, message: 'Please enter number of days' },
+              { type: 'number', min: 1, max: 30, message: 'Days must be between 1-30' }
+            ]}
+          >
+            <InputNumber
+              style={{ width: '100%' }}
+              placeholder="Enter number of additional days"
+              min={1}
+              max={30}
+            />
+          </Form.Item>
 
-        {/* <Form.Item
+          {/* <Form.Item
           name="medicalCertificate"
           label="Medical Certificate (Required)"
           rules={[{ required: true, message: 'Medical certificate is required' }]}
@@ -1116,31 +1116,31 @@ const HRMedicalLeaveModal = ({ visible, onCancel, employees, onAllocate, loading
           </Upload>
         </Form.Item> */}
 
-        <Form.Item
-          name="reason"
-          label="HR Comments/Reason"
-          rules={[{ required: true, message: 'Please provide reason for allocation' }]}
-        >
-          <TextArea
-            rows={3}
-            placeholder="Reason for granting additional medical leave..."
-            maxLength={300}
-            showCount
+          <Form.Item
+            name="reason"
+            label="HR Comments/Reason"
+            rules={[{ required: true, message: 'Please provide reason for allocation' }]}
+          >
+            <TextArea
+              rows={3}
+              placeholder="Reason for granting additional medical leave..."
+              maxLength={300}
+              showCount
+            />
+          </Form.Item>
+
+          <Alert
+            message="This will add extra medical leave days to the selected employee's balance."
+            type="warning"
+            showIcon
+            style={{ marginTop: '16px' }}
           />
-        </Form.Item>
+        </Form>
+      </Modal>
+    );
+  };
 
-        <Alert
-          message="This will add extra medical leave days to the selected employee's balance."
-          type="warning"
-          showIcon
-          style={{ marginTop: '16px' }}
-        />
-      </Form>
-    </Modal>
-  );
-};
-
-const handleAllocateMedicalLeave = async (values) => {
+  const handleAllocateMedicalLeave = async (values) => {
     setLoading(true);
     try {
       const { employeeId, extraDays, reason, medicalCertificate } = values;
@@ -1165,14 +1165,14 @@ const handleAllocateMedicalLeave = async (values) => {
         await initializeUserLeaveBalance(employeeId);
         // Then retry fetching
         const { data: newBalance, error: newFetchError } = await supabase
-            .from('leave_balances')
-            .select('medical_extra_granted, medical_remaining')
-            .eq('user_id', employeeId)
-            .single();
+          .from('leave_balances')
+          .select('medical_extra_granted, medical_remaining')
+          .eq('user_id', employeeId)
+          .single();
         if (newFetchError) throw newFetchError;
         Object.assign(currentBalance, newBalance);
       }
-      
+
       // 3. Calculate new totals
       const newExtraGranted = (currentBalance?.medical_extra_granted || 0) + extraDays;
       const newRemaining = (currentBalance?.medical_remaining || 0) + extraDays;
@@ -1189,13 +1189,13 @@ const handleAllocateMedicalLeave = async (values) => {
         .eq('user_id', employeeId);
 
       if (updateError) throw updateError;
-      
+
       message.success(`${extraDays} additional medical leave days allocated successfully!`);
-      
+
       // 5. Close modal and reset form
       setMedicalLeaveModal(false);
       medicalForm.resetFields();
-      
+
       // 6. Refresh data for the current view
       if (userRole === 'employee' && currentUserId === employeeId) {
         const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
@@ -1209,559 +1209,561 @@ const handleAllocateMedicalLeave = async (values) => {
       setLoading(false);
     }
   };
-// Helper to count only working days (exclude weekends + holidays)
-// In leavemanage.jsx, replace the existing countDeductibleDays function
+  // Helper to count only working days (exclude weekends + holidays)
+  // In leavemanage.jsx, replace the existing countDeductibleDays function
 
-const countDeductibleDays = async (startDate, endDate) => {
-  // 1. Fetch all public holidays
-  const holidays = await fetchCompanyCalendar(); // Fetches all dates marked as 'holiday'
+  const countDeductibleDays = async (startDate, endDate) => {
+    // 1. Fetch all public holidays
+    const holidays = await fetchCompanyCalendar(); // Fetches all dates marked as 'holiday'
 
-  // 2. Fetch the dynamic working day configuration set by HR
-  const { data: configData, error: configError } = await supabase
-    .from('company_calendar')
-    .select('reason') // We only need the JSON data from the 'reason' column
-    .eq('day_type', 'working_config') // Fetch the correct configuration type
-    .single();
+    // 2. Fetch the dynamic working day configuration set by HR
+    const { data: configData, error: configError } = await supabase
+      .from('company_calendar')
+      .select('reason') // We only need the JSON data from the 'reason' column
+      .eq('day_type', 'working_config') // Fetch the correct configuration type
+      .single();
 
-  // Handle potential errors while fetching the configuration
-  if (configError && configError.code !== 'PGRST116') { // PGRST116 means no row was found, which is okay
-    console.error('Error fetching working day configuration:', configError);
-    // Fallback to a simple day count if the configuration is unavailable
-    return dayjs(endDate).diff(dayjs(startDate), 'day') + 1;
-  }
+    // Handle potential errors while fetching the configuration
+    if (configError && configError.code !== 'PGRST116') { // PGRST116 means no row was found, which is okay
+      console.error('Error fetching working day configuration:', configError);
+      // Fallback to a simple day count if the configuration is unavailable
+      return dayjs(endDate).diff(dayjs(startDate), 'day') + 1;
+    }
 
-  // 3. Define a default schedule in case no configuration is set in the database yet
-  const defaultConfig = {
-    monday: true, tuesday: true, wednesday: true,
-    thursday: true, friday: true, saturday: false, sunday: false
+    // 3. Define a default schedule in case no configuration is set in the database yet
+    const defaultConfig = {
+      monday: true, tuesday: true, wednesday: true,
+      thursday: true, friday: true, saturday: false, sunday: false
+    };
+
+    // 4. Safely parse the configuration from the database, or use the default
+    // This now correctly looks inside the nested JSON for the "workingDays" object
+    const workingDaysConfig = configData?.reason
+      ? JSON.parse(configData.reason).workingDays || defaultConfig
+      : defaultConfig;
+
+    // 5. Iterate through the date range to count only the deductible days
+    let deductibleDays = 0;
+    let current = dayjs(startDate);
+
+    while (current.isSameOrBefore(endDate, 'day')) {
+      const dayName = current.format('dddd').toLowerCase(); // e.g., 'monday', 'tuesday'
+      const isHoliday = holidays.has(current.format('YYYY-MM-DD'));
+
+      // Check if the current day is marked as a working day in the fetched configuration
+      const isWorkingDay = workingDaysConfig[dayName];
+
+      // A day is only deducted if it is a configured working day AND not a public holiday
+      if (isWorkingDay && !isHoliday) {
+        deductibleDays++;
+      }
+
+      current = current.add(1, 'day');
+    }
+
+    return deductibleDays;
   };
 
-  // 4. Safely parse the configuration from the database, or use the default
-  // This now correctly looks inside the nested JSON for the "workingDays" object
-  const workingDaysConfig = configData?.reason
-    ? JSON.parse(configData.reason).workingDays || defaultConfig
-    : defaultConfig;
 
-  // 5. Iterate through the date range to count only the deductible days
-  let deductibleDays = 0;
-  let current = dayjs(startDate);
+  // In leavemanage.jsx, replace the existing calculateLeaveDays function
+  // In leavemanage.jsx, replace the existing calculateLeaveDays function
 
-  while (current.isSameOrBefore(endDate, 'day')) {
-    const dayName = current.format('dddd').toLowerCase(); // e.g., 'monday', 'tuesday'
-    const isHoliday = holidays.has(current.format('YYYY-MM-DD'));
-    
-    // Check if the current day is marked as a working day in the fetched configuration
-    const isWorkingDay = workingDaysConfig[dayName];
+  const calculateLeaveDays = async () => {
+    const startDate = form.getFieldValue('startDate');
+    const endDate = form.getFieldValue('endDate');
+    const leaveType = form.getFieldValue('leaveType');
+    const subType = form.getFieldValue('subType'); // This will be 'HDL' or 'FDL'
 
-    // A day is only deducted if it is a configured working day AND not a public holiday
-    if (isWorkingDay && !isHoliday) {
-      deductibleDays++;
-    }
-
-    current = current.add(1, 'day');
-  }
-
-  return deductibleDays;
-};
-
-
-// In leavemanage.jsx, replace the existing calculateLeaveDays function
-// In leavemanage.jsx, replace the existing calculateLeaveDays function
-
-const calculateLeaveDays = async () => {
-  const startDate = form.getFieldValue('startDate');
-  const endDate = form.getFieldValue('endDate');
-  const leaveType = form.getFieldValue('leaveType');
-  const subType = form.getFieldValue('subType'); // This will be 'HDL' or 'FDL'
-
-  if (!startDate || !leaveType) {
-    setCalculatedDays(0);
-    setBalanceWarning('');
-    return;
-  }
-
-  let days = 0;
-
-  if (leaveType === 'Permission') {
-    days = 0; // Permissions are in hours.
-  } else if (leaveType === 'Excuses') {
-    days = 1; // An excuse is always treated as 1 unit/day for deduction.
-  } else if (leaveType === 'Casual Leave' && subType === 'HDL') {
-    // FIX: A half-day leave is always 0.5 days.
-    days = 0.5;
-  } else if (leaveType === 'Casual Leave' && subType === 'FDL') {
-    // Use the working day counter for Full Day Casual Leave
-    days = await countDeductibleDays(startDate, endDate || startDate);
-  }
-   else if (leaveType === 'Medical Leave') {
-    days = await countDeductibleDays(startDate, endDate || startDate);
-  } else {
-    // Default calculation for other leave types
-    const start = dayjs(startDate);
-    const end = dayjs(endDate || startDate);
-    days = end.diff(start, 'days') + 1;
-  }
-
-  setCalculatedDays(days);
-
-  const currentBalance = getCurrentBalance(leaveType);
-  if (days > 0 && days > currentBalance && leaveType !== 'On Duty' && leaveType !== 'Overtime') {
-    setBalanceWarning(`❌ You don’t have enough balance for ${leaveType}. Only ${currentBalance} available.`);
-  } else if (days > 0) {
-    setBalanceWarning(`✅ This will deduct ${days} day(s) from your ${leaveType} balance.`);
-  } else {
-    setBalanceWarning('');
-  }
-};
-// Helper function to get current balance
-const getCurrentBalance = (leaveType) => {
-  switch (leaveType) {
-    case 'Permission': return leaveBalances.permission?.remaining || 0;
-    case 'Casual Leave': return leaveBalances.casualLeave?.remaining || 0;
-    case 'Earned Leave': return leaveBalances.earnedLeave?.remaining || 0;
-    case 'Medical Leave': return leaveBalances.medicalLeave?.remaining || 0;
-    case 'Maternity Leave': return leaveBalances.maternityLeave?.remaining || 0;
-    case 'Compensatory Leave': return leaveBalances.compensatoryLeave?.remaining || 0;
-    case 'Excuses': return leaveBalances.excuses?.remaining || 0;
-    default: return 999; // For leaves without balance like 'On Duty'
-  }
-};
-
-// Add watchers to form fields
-useEffect(() => {
-  calculateLeaveDays();
-}, [form.getFieldValue('startDate'), form.getFieldValue('endDate'), form.getFieldValue('leaveType'), form.getFieldValue('subType')]);
-
-
-// In leavemanage.jsx, replace the existing handleApplyLeave function
-
-const handleApplyLeave = async (values) => {
-  setLoading(true);
-  try {
-    const { startDate, endDate, leaveType, subType, startTime, endTime, reason, session } = values;
-
-    // --- START: NEW VALIDATION LOGIC FOR SAME-DAY LEAVE ---
-    const { data: existingLeavesOnDate } = await supabase
-      .from('leave_applications')
-      .select('total_days')
-      .eq('user_id', currentUserId)
-      .eq('start_date', startDate.format('YYYY-MM-DD'))
-      .eq('status', 'Approved');
-
-    let alreadyApprovedDays = 0;
-    if (existingLeavesOnDate) {
-      alreadyApprovedDays = existingLeavesOnDate.reduce((sum, leave) => sum + leave.total_days, 0);
-    }
-
-    if (alreadyApprovedDays >= 1) {
-      message.error(`You already have a full day of approved leave on ${startDate.format('DD/MM/YYYY')}.`);
-      setLoading(false);
+    if (!startDate || !leaveType) {
+      setCalculatedDays(0);
+      setBalanceWarning('');
       return;
     }
-    // --- END: NEW VALIDATION LOGIC ---
 
-    if (leaveType === 'Permission' && startTime && endTime) {
-      const hours = endTime.diff(startTime, 'hours');
-      if (hours > 2) {
-        message.error('Permission cannot be applied for more than 2 hours.');
-        setLoading(false);
-        return;
-      }
-    }
-
-    let totalDays = 0;
+    let days = 0;
 
     if (leaveType === 'Permission') {
-      totalDays = 0;
+      days = 0; // Permissions are in hours.
     } else if (leaveType === 'Excuses') {
-      totalDays = 1;
+      days = 1; // An excuse is always treated as 1 unit/day for deduction.
     } else if (leaveType === 'Casual Leave' && subType === 'HDL') {
-      totalDays = 0.5;
-    } else if (leaveType === 'Casual Leave' || leaveType === 'Medical Leave') {
-      totalDays = await countDeductibleDays(startDate, endDate || startDate);
+      // FIX: A half-day leave is always 0.5 days.
+      days = 0.5;
+    } else if (leaveType === 'Casual Leave' && subType === 'FDL') {
+      // Use the working day counter for Full Day Casual Leave
+      days = await countDeductibleDays(startDate, endDate || startDate);
+    }
+    else if (leaveType === 'Medical Leave') {
+      days = await countDeductibleDays(startDate, endDate || startDate);
     } else {
+      // Default calculation for other leave types
       const start = dayjs(startDate);
       const end = dayjs(endDate || startDate);
-      totalDays = end.diff(start, 'days') + 1;
-    }
-    
-    // --- ADJUST DEDUCTION AMOUNT BASED ON EXISTING LEAVE ---
-    const finalDeductionDays = Math.max(0, totalDays - alreadyApprovedDays);
-    if (totalDays > 0 && finalDeductionDays < totalDays) {
-        message.info(`Adjusted deduction: Only ${finalDeductionDays} day(s) will be deducted as you already have approved leave on this day.`);
+      days = end.diff(start, 'days') + 1;
     }
 
+    setCalculatedDays(days);
 
     const currentBalance = getCurrentBalance(leaveType);
-    const isValidationRequired = !['On Duty', 'Overtime'].includes(leaveType);
+    if (days > 0 && days > currentBalance && leaveType !== 'On Duty' && leaveType !== 'Overtime') {
+      setBalanceWarning(`❌ You don’t have enough balance for ${leaveType}. Only ${currentBalance} available.`);
+    } else if (days > 0) {
+      setBalanceWarning(`✅ This will deduct ${days} day(s) from your ${leaveType} balance.`);
+    } else {
+      setBalanceWarning('');
+    }
+  };
+  // Helper function to get current balance
+  const getCurrentBalance = (leaveType) => {
+    switch (leaveType) {
+      case 'Permission': return leaveBalances.permission?.remaining || 0;
+      case 'Casual Leave': return leaveBalances.casualLeave?.remaining || 0;
+      case 'Earned Leave': return leaveBalances.earnedLeave?.remaining || 0;
+      case 'Medical Leave': return leaveBalances.medicalLeave?.remaining || 0;
+      case 'Maternity Leave': return leaveBalances.maternityLeave?.remaining || 0;
+      case 'Compensatory Leave': return leaveBalances.compensatoryLeave?.remaining || 0;
+      case 'Excuses': return leaveBalances.excuses?.remaining || 0;
+      default: return 999; // For leaves without balance like 'On Duty'
+    }
+  };
 
-    if (isValidationRequired) {
-      if (leaveType === 'Casual Leave' && subType === 'HDL' && currentBalance < 0.5) {
-        message.error(`You don't have enough ${leaveType}. Need 0.5 days, but only ${currentBalance} available.`);
-        setLoading(false);
-        return;
-      } else if (finalDeductionDays > currentBalance && !(leaveType === 'Casual Leave' && subType === 'HDL')) {
-        message.error(`You don't have enough ${leaveType}. Only ${currentBalance} available.`);
+  // Add watchers to form fields
+  useEffect(() => {
+    calculateLeaveDays();
+  }, [form.getFieldValue('startDate'), form.getFieldValue('endDate'), form.getFieldValue('leaveType'), form.getFieldValue('subType')]);
+
+
+  // In leavemanage.jsx, replace the existing handleApplyLeave function
+
+  const handleApplyLeave = async (values) => {
+    setLoading(true);
+    try {
+      const { startDate, endDate, leaveType, subType, startTime, endTime, reason, session } = values;
+
+      // --- START: NEW VALIDATION LOGIC FOR SAME-DAY LEAVE ---
+      const { data: existingLeavesOnDate } = await supabase
+        .from('leave_applications')
+        .select('total_days')
+        .eq('user_id', currentUserId)
+        .eq('start_date', startDate.format('YYYY-MM-DD'))
+        .eq('status', 'Approved');
+
+      let alreadyApprovedDays = 0;
+      if (existingLeavesOnDate) {
+        alreadyApprovedDays = existingLeavesOnDate.reduce((sum, leave) => sum + leave.total_days, 0);
+      }
+
+      if (alreadyApprovedDays >= 1) {
+        message.error(`You already have a full day of approved leave on ${startDate.format('DD/MM/YYYY')}.`);
         setLoading(false);
         return;
       }
-    }
-    
-    const { data: userData } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', currentUserId)
-      .single();
-      
-    if (!userData) {
-      message.error('User information not found');
+      // --- END: NEW VALIDATION LOGIC ---
+
+      if (leaveType === 'Permission' && startTime && endTime) {
+        const hours = endTime.diff(startTime, 'hours');
+        if (hours > 2) {
+          message.error('Permission cannot be applied for more than 2 hours.');
+          setLoading(false);
+          return;
+        }
+      }
+
+      let totalDays = 0;
+
+      if (leaveType === 'Permission') {
+        totalDays = 0;
+      } else if (leaveType === 'Excuses') {
+        totalDays = 1;
+      } else if (leaveType === 'Casual Leave' && subType === 'HDL') {
+        totalDays = 0.5;
+      } else if (leaveType === 'Casual Leave' || leaveType === 'Medical Leave') {
+        totalDays = await countDeductibleDays(startDate, endDate || startDate);
+      } else {
+        const start = dayjs(startDate);
+        const end = dayjs(endDate || startDate);
+        totalDays = end.diff(start, 'days') + 1;
+      }
+
+      // --- ADJUST DEDUCTION AMOUNT BASED ON EXISTING LEAVE ---
+      const finalDeductionDays = Math.max(0, totalDays - alreadyApprovedDays);
+      if (totalDays > 0 && finalDeductionDays < totalDays) {
+        message.info(`Adjusted deduction: Only ${finalDeductionDays} day(s) will be deducted as you already have approved leave on this day.`);
+      }
+
+
+      const currentBalance = getCurrentBalance(leaveType);
+      const isValidationRequired = !['On Duty', 'Overtime'].includes(leaveType);
+
+      if (isValidationRequired) {
+        if (leaveType === 'Casual Leave' && subType === 'HDL' && currentBalance < 0.5) {
+          message.error(`You don't have enough ${leaveType}. Need 0.5 days, but only ${currentBalance} available.`);
+          setLoading(false);
+          return;
+        } else if (finalDeductionDays > currentBalance && !(leaveType === 'Casual Leave' && subType === 'HDL')) {
+          message.error(`You don't have enough ${leaveType}. Only ${currentBalance} available.`);
+          setLoading(false);
+          return;
+        }
+      }
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', currentUserId)
+        .single();
+
+      if (!userData) {
+        message.error('User information not found');
+        setLoading(false);
+        return;
+      }
+
+      let medicalCertificateUrl = null;
+      let attachmentUrl = null;
+
+      if (values.medicalCertificate && values.medicalCertificate.length > 0) {
+        medicalCertificateUrl = await uploadFileToSupabase(values.medicalCertificate[0].originFileObj);
+      }
+
+      if (values.attachment && values.attachment.length > 0) {
+        attachmentUrl = await uploadFileToSupabase(values.attachment[0].originFileObj);
+      }
+
+      const newLeave = {
+        user_id: currentUserId,
+        employee_name: userData.name,
+        employee_code: userData.employee_id,
+        department: userData.department || 'General',
+        position: userData.position || 'Employee',
+        email: userData.email,
+        join_date: userData.start_date,
+        employee_type: userData.employee_type,
+        leave_type: values.leaveType,
+        sub_type: subType === 'HDL' ? `${subType} - ${session}` : subType,
+        start_date: values.startDate.format('YYYY-MM-DD'),
+        end_date: subType === 'HDL' ? values.startDate.format('YYYY-MM-DD') : (values.endDate || values.startDate).format('YYYY-MM-DD'),
+        start_time: values.startTime ? values.startTime.format('HH:mm') : null,
+        end_time: values.endTime ? values.endTime.format('HH:mm') : null,
+        total_days: finalDeductionDays, // Use the final adjusted days
+        total_hours: values.leaveType === 'Permission' && values.startTime && values.endTime ?
+          values.endTime.diff(values.startTime, 'hours', true) : 0,
+        reason: values.reason,
+        medical_certificate: medicalCertificateUrl,
+        attachment: attachmentUrl,
+        working_days_at_application: currentUser?.workingDays || 0
+      };
+
+      const { error } = await supabase
+        .from('leave_applications')
+        .insert([newLeave])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      clearCache();
+
+      const updatedLeaves = await fetchLeaveApplications(userRole === 'employee' ? currentUserId : null);
+      setLeaveData(updatedLeaves);
+
+      if (userRole === 'employee') {
+        const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
+        setLeaveBalances(updatedBalances);
+      }
+
+      setApplyLeaveModal(false);
+      form.resetFields();
+      setBalanceWarning('');
+      setCalculatedDays(0);
+      message.success('Leave application submitted successfully!');
+
+    } catch (error) {
+      console.error('Error submitting leave:', error);
+      message.error('Failed to submit leave application');
+    } finally {
       setLoading(false);
-      return;
     }
-
-    let medicalCertificateUrl = null;
-    let attachmentUrl = null;
-
-    if (values.medicalCertificate && values.medicalCertificate.length > 0) {
-      medicalCertificateUrl = await uploadFileToSupabase(values.medicalCertificate[0].originFileObj);
-    }
-
-    if (values.attachment && values.attachment.length > 0) {
-      attachmentUrl = await uploadFileToSupabase(values.attachment[0].originFileObj);
-    }
-
-    const newLeave = {
-      user_id: currentUserId,
-      employee_name: userData.name,
-      employee_code: userData.employee_id,
-      department: userData.department || 'General',
-      position: userData.position || 'Employee',
-      email: userData.email,
-      join_date: userData.start_date,
-      employee_type: userData.employee_type,
-      leave_type: values.leaveType,
-      sub_type: subType === 'HDL' ? `${subType} - ${session}` : subType,
-      start_date: values.startDate.format('YYYY-MM-DD'),
-      end_date: subType === 'HDL' ? values.startDate.format('YYYY-MM-DD') : (values.endDate || values.startDate).format('YYYY-MM-DD'),
-      start_time: values.startTime ? values.startTime.format('HH:mm') : null,
-      end_time: values.endTime ? values.endTime.format('HH:mm') : null,
-      total_days: finalDeductionDays, // Use the final adjusted days
-      total_hours: values.leaveType === 'Permission' && values.startTime && values.endTime ? 
-                  values.endTime.diff(values.startTime, 'hours', true) : 0,
-      reason: values.reason,
-      medical_certificate: medicalCertificateUrl,
-      attachment: attachmentUrl,
-      working_days_at_application: currentUser?.workingDays || 0
-    };
-      
-    const { error } = await supabase
-      .from('leave_applications')
-      .insert([newLeave])
-      .select()
-      .single();
-    
-    if (error) throw error;
-    
-    clearCache();
-    
-    const updatedLeaves = await fetchLeaveApplications(userRole === 'employee' ? currentUserId : null);
-    setLeaveData(updatedLeaves);
-    
-    if (userRole === 'employee') {
-      const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
-      setLeaveBalances(updatedBalances);
-    }
-    
-    setApplyLeaveModal(false);
-    form.resetFields();
-    setBalanceWarning('');
-    setCalculatedDays(0);
-    message.success('Leave application submitted successfully!');
-
-  } catch (error) {
-    console.error('Error submitting leave:', error);
-    message.error('Failed to submit leave application');
-  } finally {
-    setLoading(false);
+  };
+  // In LeaveManagementPage.jsx
+  {/* Add this after the date selection Row */ }
+  {
+    balanceWarning && (
+      <Alert
+        message={balanceWarning}
+        type={balanceWarning.includes('❌') ? 'error' : 'success'}
+        showIcon
+        style={{ marginBottom: '16px' }}
+      />
+    )
   }
-};
-// In LeaveManagementPage.jsx
-{/* Add this after the date selection Row */}
-{balanceWarning && (
-  <Alert
-    message={balanceWarning}
-    type={balanceWarning.includes('❌') ? 'error' : 'success'}
-    showIcon
-    style={{ marginBottom: '16px' }}
-  />
-)}
-const updateLeaveBalance = async (userId, leaveType, days, subType = null) => {
-  try {
-    // First ensure user has a balance record
-    await initializeUserLeaveBalance(userId);
-    
-    const { data: currentBalances, error: fetchError } = await supabase
-      .from('leave_balances')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
+  const updateLeaveBalance = async (userId, leaveType, days, subType = null) => {
+    try {
+      // First ensure user has a balance record
+      await initializeUserLeaveBalance(userId);
 
-    if (fetchError) {
-      console.error('Error fetching leave balances:', fetchError.message);
-      return;
+      const { data: currentBalances, error: fetchError } = await supabase
+        .from('leave_balances')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching leave balances:', fetchError.message);
+        return;
+      }
+
+      const updates = { updated_at: new Date().toISOString() };
+
+      switch (leaveType) {
+        case 'Permission':
+          updates.permission_used = (currentBalances.permission_used || 0) + 1;
+          updates.permission_remaining = Math.max(0, (currentBalances.permission_remaining || 2) - 1);
+          break;
+
+        case 'Casual Leave':
+          // FIX: Use the actual days value for HDL (0.5) or FDL (varies)
+          const actualDays = subType && subType.includes('HDL') ? 0.5 : days;
+          updates.casual_used = (currentBalances.casual_used || 0) + actualDays;
+          updates.casual_remaining = Math.max(0, (currentBalances.casual_remaining || 12) - actualDays);
+          break;
+
+        case 'Earned Leave':
+          updates.earned_used = (currentBalances.earned_used || 0) + days;
+          // FIX: Calculate remaining based on current earned leave total
+          const currentEarnedTotal = await calculateEarnedLeaveTotal(userId);
+          updates.earned_remaining = Math.max(0, currentEarnedTotal - ((currentBalances.earned_used || 0) + days));
+          break;
+
+        case 'Medical Leave':
+          updates.medical_used = (currentBalances.medical_used || 0) + days;
+          updates.medical_remaining = Math.max(0, (currentBalances.medical_remaining || 12) - days);
+          break;
+
+        case 'Maternity Leave':
+          updates.maternity_used = (currentBalances.maternity_used || 0) + days;
+          updates.maternity_remaining = Math.max(0, (currentBalances.maternity_remaining || 84) - days);
+          break;
+
+        case 'Compensatory Leave':
+          updates.compensatory_used = (currentBalances.compensatory_used || 0) + days;
+          // FIX: Calculate remaining based on current compensatory leave total
+          const currentCompTotal = await calculateCompensatoryLeaveTotal(userId);
+          updates.compensatory_remaining = Math.max(0, currentCompTotal - ((currentBalances.compensatory_used || 0) + days));
+          break;
+
+        case 'Excuses':
+          updates.excuses_used = (currentBalances.excuses_used || 0) + 1;
+          updates.excuses_remaining = Math.max(0, (currentBalances.excuses_remaining || 1) - 1);
+          break;
+
+        default:
+          return; // No balance update needed for On Duty, Overtime, etc.
+      }
+
+      const { error: updateError } = await supabase
+        .from('leave_balances')
+        .update(updates)
+        .eq('user_id', userId);
+
+      if (updateError) {
+        console.error('Error updating leave balances:', updateError.message);
+      } else {
+        console.log(`Leave balance updated: ${actualDays || days} days deducted for user:`, userId);
+      }
+
+    } catch (error) {
+      console.error('Error in updateLeaveBalance:', error);
     }
-
-    const updates = { updated_at: new Date().toISOString() };
-        
-    switch (leaveType) {
-      case 'Permission':
-        updates.permission_used = (currentBalances.permission_used || 0) + 1;
-        updates.permission_remaining = Math.max(0, (currentBalances.permission_remaining || 2) - 1);
-        break;
-        
-      case 'Casual Leave':
-        // FIX: Use the actual days value for HDL (0.5) or FDL (varies)
-        const actualDays = subType && subType.includes('HDL') ? 0.5 : days;
-        updates.casual_used = (currentBalances.casual_used || 0) + actualDays;
-        updates.casual_remaining = Math.max(0, (currentBalances.casual_remaining || 12) - actualDays);
-        break;
-        
-      case 'Earned Leave':
-        updates.earned_used = (currentBalances.earned_used || 0) + days;
-        // FIX: Calculate remaining based on current earned leave total
-        const currentEarnedTotal = await calculateEarnedLeaveTotal(userId);
-        updates.earned_remaining = Math.max(0, currentEarnedTotal - ((currentBalances.earned_used || 0) + days));
-        break;
-        
-      case 'Medical Leave':
-        updates.medical_used = (currentBalances.medical_used || 0) + days;
-        updates.medical_remaining = Math.max(0, (currentBalances.medical_remaining || 12) - days);
-        break;
-
-      case 'Maternity Leave':
-        updates.maternity_used = (currentBalances.maternity_used || 0) + days;
-        updates.maternity_remaining = Math.max(0, (currentBalances.maternity_remaining || 84) - days);
-        break;
-        
-      case 'Compensatory Leave':
-        updates.compensatory_used = (currentBalances.compensatory_used || 0) + days;
-        // FIX: Calculate remaining based on current compensatory leave total
-        const currentCompTotal = await calculateCompensatoryLeaveTotal(userId);
-        updates.compensatory_remaining = Math.max(0, currentCompTotal - ((currentBalances.compensatory_used || 0) + days));
-        break;
-        
-      case 'Excuses':
-        updates.excuses_used = (currentBalances.excuses_used || 0) + 1;
-        updates.excuses_remaining = Math.max(0, (currentBalances.excuses_remaining || 1) - 1);
-        break;
-      
-      default:
-        return; // No balance update needed for On Duty, Overtime, etc.
+  };
+  const calculateEarnedLeaveTotal = async (userId) => {
+    // Cache holidays to prevent repeated fetching
+    if (!window.holidayCache) {
+      window.holidayCache = await fetchCompanyCalendar();
     }
+    const holidays = window.holidayCache;
 
-    const { error: updateError } = await supabase
-      .from('leave_balances')
-      .update(updates)
-      .eq('user_id', userId);
+    const totalWorkingDaysPresent = await fetchWorkingDays(userId, holidays);
+    return Math.floor(totalWorkingDaysPresent / 20);
+  };
 
-    if (updateError) {
-      console.error('Error updating leave balances:', updateError.message);
-    } else {
-      console.log(`Leave balance updated: ${actualDays || days} days deducted for user:`, userId);
+  const calculateCompensatoryLeaveTotal = async (userId) => {
+    // Cache holidays to prevent repeated fetching
+    if (!window.holidayCache) {
+      window.holidayCache = await fetchCompanyCalendar();
     }
+    const holidays = window.holidayCache;
 
-  } catch (error) {
-    console.error('Error in updateLeaveBalance:', error);
-  }
-};
-const calculateEarnedLeaveTotal = async (userId) => {
-  // Cache holidays to prevent repeated fetching
-  if (!window.holidayCache) {
-    window.holidayCache = await fetchCompanyCalendar();
-  }
-  const holidays = window.holidayCache;
-  
-  const totalWorkingDaysPresent = await fetchWorkingDays(userId, holidays);
-  return Math.floor(totalWorkingDaysPresent / 20);
-};
-
-const calculateCompensatoryLeaveTotal = async (userId) => {
-  // Cache holidays to prevent repeated fetching
-  if (!window.holidayCache) {
-    window.holidayCache = await fetchCompanyCalendar();
-  }
-  const holidays = window.holidayCache;
-  
-  return await fetchCompensatoryOffDays(userId, holidays);
-};
-// 7. Add function to get available leave types:
+    return await fetchCompensatoryOffDays(userId, holidays);
+  };
+  // 7. Add function to get available leave types:
   const getAvailableLeaveTypes = () => {
     const available = [];
-    
+
     // These leaves are only available if there is a balance
     if (leaveBalances.permission?.remaining > 0) available.push('Permission');
-if (leaveBalances.casualLeave?.remaining > 0) available.push('Casual Leave');    if (leaveBalances.earnedLeave?.remaining > 0) available.push('Earned Leave');
+    if (leaveBalances.casualLeave?.remaining > 0) available.push('Casual Leave'); if (leaveBalances.earnedLeave?.remaining > 0) available.push('Earned Leave');
     if (leaveBalances.maternityLeave?.remaining > 0) available.push('Maternity Leave');
     if (leaveBalances.compensatoryLeave?.remaining > 0) available.push('Compensatory Leave');
     if (leaveBalances.excuses?.remaining > 0) available.push('Excuses');
-    
-    if ((leaveBalances.medicalLeave?.remaining || 0) > 0) {
-  available.push('Medical Leave');
-}
 
-    
+    if ((leaveBalances.medicalLeave?.remaining || 0) > 0) {
+      available.push('Medical Leave');
+    }
+
+
     // These are always available (no balance limits)
     available.push('On Duty', 'Overtime');
-    
+
     return available;
   };
 
 
- // In leavemanage.jsx
-// Replace the existing initializeUserLeaveBalance function with this one
+  // In leavemanage.jsx
+  // Replace the existing initializeUserLeaveBalance function with this one
 
-const initializeUserLeaveBalance = async (userId) => {
-  try {
-    // Check if balance record already exists
-    const { data: existingBalance } = await supabase
-      .from('leave_balances')
-      .select('id')
-      .eq('user_id', userId)
-      .single();
+  const initializeUserLeaveBalance = async (userId) => {
+    try {
+      // Check if balance record already exists
+      const { data: existingBalance } = await supabase
+        .from('leave_balances')
+        .select('id')
+        .eq('user_id', userId)
+        .single();
 
-    if (existingBalance) {
-      return; // Balance already exists
-    }
-
-    // Get user info
-    const { data: userData } = await supabase
-      .from('users')
-      .select('name')
-      .eq('id', userId)
-      .single();
-
-    if (!userData) {
-      console.error('User not found:', userId);
-      return;
-    }
-
-    // --- NEW: Prorated Leave Calculation ---
-    // Calculates leaves based on months remaining in the year.
-    // dayjs().month() is 0-indexed (Jan=0), so we add 1.
-    const currentMonth = dayjs().month() + 1; 
-    const proratedLeaves = 12 - currentMonth + 1; // +1 to include the current month
-
-    // Create initial balance record
-    const { error } = await supabase
-      .from('leave_balances')
-      .insert([{
-        user_id: userId,
-        employee_name: userData.name,
-        permission_total: 2,
-        permission_used: 0,
-        permission_remaining: 2,
-        // --- UPDATED: Use prorated values for the first year ---
-        casual_total: proratedLeaves,
-        casual_used: 0,
-        casual_remaining: proratedLeaves,
-        earned_total: 0,
-        earned_used: 0,
-        earned_remaining: 0,
-        medical_total: proratedLeaves,
-        medical_used: 0,
-        medical_remaining: proratedLeaves,
-        // --- End of Update ---
-        maternity_total: 84,
-        maternity_used: 0,
-        maternity_remaining: 84,
-        compensatory_total: 0,
-        compensatory_used: 0,
-        compensatory_remaining: 0,
-        excuses_total: 1,
-        excuses_used: 0,
-        excuses_remaining: 1
-      }]);
-
-    if (error) {
-      console.error('Error initializing leave balance:', error);
-    } else {
-      console.log(`Leave balance initialized for user ${userId} with ${proratedLeaves} prorated leaves.`);
-    }
-
-  } catch (error) {
-    console.error('Error in initializeUserLeaveBalance:', error);
-  }
-};
-// Update the handleLeaveAction function:
-const handleLeaveAction = async (leaveId, action, reason = null) => {
-  setLoading(true);
-  try {
-    // Get the leave details first
-    const { data: leaveDetails, error: fetchError } = await supabase
-      .from('leave_applications')
-      .select('*')
-      .eq('id', leaveId)
-      .single();
-    
-    if (fetchError) throw fetchError;
-
-    const updates = {
-      status: action === 'approve' ? 'Approved' : 'Rejected',
-      approved_by: action === 'approve' ? (currentUser?.name || 'Admin') : null,
-      rejected_by: action === 'reject' ? (currentUser?.name || 'Admin') : null,
-      approved_date: action === 'approve' ? new Date().toISOString().split('T')[0] : null,
-      rejection_reason: action === 'reject' ? reason : null,
-    };
-    
-    const { error } = await supabase
-      .from('leave_applications')
-      .update(updates)
-      .eq('id', leaveId);
-    
-    if (error) throw error;
-    
-    // Update balance if approved
-  // In handleLeaveAction function, after updating balance:
-if (action === 'approve') {
-  // FIX: Pass the sub_type to handle HDL correctly
-  const totalDays = leaveDetails.leave_type === 'Permission' ? 0 : leaveDetails.total_days;
-  await updateLeaveBalance(
-    leaveDetails.user_id, 
-    leaveDetails.leave_type, 
-    totalDays, 
-    leaveDetails.sub_type // Pass sub_type for HDL detection
-  );
-  
-  // Force refresh balances for the affected user
-  if (leaveDetails.user_id === currentUserId) {
-    // Clear cache to ensure fresh calculation
-    clearCache();
-    const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
-    setLeaveBalances(updatedBalances);
-  }
-}
-    
-    // Force immediate UI refresh (backup to realtime)
-    setTimeout(async () => {
-      const updatedLeaves = await fetchLeaveApplications(userRole === 'employee' ? currentUserId : null);
-      setLeaveData(updatedLeaves);
-      
-      // Update balances for the affected user
-      if (userRole === 'employee' && leaveDetails.user_id === currentUserId) {
-        const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
-        setLeaveBalances(updatedBalances);
+      if (existingBalance) {
+        return; // Balance already exists
       }
-    }, 300);
-    
-    message.success(`Leave ${action}d successfully!`);
-  } catch (error) {
-    console.error(`Error ${action}ing leave:`, error);
-    message.error(`Failed to ${action} leave. Please try again.`);
-  } finally {
-    setLoading(false);
-  }
-};
- 
+
+      // Get user info
+      const { data: userData } = await supabase
+        .from('users')
+        .select('name')
+        .eq('id', userId)
+        .single();
+
+      if (!userData) {
+        console.error('User not found:', userId);
+        return;
+      }
+
+      // --- NEW: Prorated Leave Calculation ---
+      // Calculates leaves based on months remaining in the year.
+      // dayjs().month() is 0-indexed (Jan=0), so we add 1.
+      const currentMonth = dayjs().month() + 1;
+      const proratedLeaves = 12 - currentMonth + 1; // +1 to include the current month
+
+      // Create initial balance record
+      const { error } = await supabase
+        .from('leave_balances')
+        .insert([{
+          user_id: userId,
+          employee_name: userData.name,
+          permission_total: 2,
+          permission_used: 0,
+          permission_remaining: 2,
+          // --- UPDATED: Use prorated values for the first year ---
+          casual_total: proratedLeaves,
+          casual_used: 0,
+          casual_remaining: proratedLeaves,
+          earned_total: 0,
+          earned_used: 0,
+          earned_remaining: 0,
+          medical_total: proratedLeaves,
+          medical_used: 0,
+          medical_remaining: proratedLeaves,
+          // --- End of Update ---
+          maternity_total: 84,
+          maternity_used: 0,
+          maternity_remaining: 84,
+          compensatory_total: 0,
+          compensatory_used: 0,
+          compensatory_remaining: 0,
+          excuses_total: 1,
+          excuses_used: 0,
+          excuses_remaining: 1
+        }]);
+
+      if (error) {
+        console.error('Error initializing leave balance:', error);
+      } else {
+        console.log(`Leave balance initialized for user ${userId} with ${proratedLeaves} prorated leaves.`);
+      }
+
+    } catch (error) {
+      console.error('Error in initializeUserLeaveBalance:', error);
+    }
+  };
+  // Update the handleLeaveAction function:
+  const handleLeaveAction = async (leaveId, action, reason = null) => {
+    setLoading(true);
+    try {
+      // Get the leave details first
+      const { data: leaveDetails, error: fetchError } = await supabase
+        .from('leave_applications')
+        .select('*')
+        .eq('id', leaveId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const updates = {
+        status: action === 'approve' ? 'Approved' : 'Rejected',
+        approved_by: action === 'approve' ? (currentUser?.name || 'Admin') : null,
+        rejected_by: action === 'reject' ? (currentUser?.name || 'Admin') : null,
+        approved_date: action === 'approve' ? new Date().toISOString().split('T')[0] : null,
+        rejection_reason: action === 'reject' ? reason : null,
+      };
+
+      const { error } = await supabase
+        .from('leave_applications')
+        .update(updates)
+        .eq('id', leaveId);
+
+      if (error) throw error;
+
+      // Update balance if approved
+      // In handleLeaveAction function, after updating balance:
+      if (action === 'approve') {
+        // FIX: Pass the sub_type to handle HDL correctly
+        const totalDays = leaveDetails.leave_type === 'Permission' ? 0 : leaveDetails.total_days;
+        await updateLeaveBalance(
+          leaveDetails.user_id,
+          leaveDetails.leave_type,
+          totalDays,
+          leaveDetails.sub_type // Pass sub_type for HDL detection
+        );
+
+        // Force refresh balances for the affected user
+        if (leaveDetails.user_id === currentUserId) {
+          // Clear cache to ensure fresh calculation
+          clearCache();
+          const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
+          setLeaveBalances(updatedBalances);
+        }
+      }
+
+      // Force immediate UI refresh (backup to realtime)
+      setTimeout(async () => {
+        const updatedLeaves = await fetchLeaveApplications(userRole === 'employee' ? currentUserId : null);
+        setLeaveData(updatedLeaves);
+
+        // Update balances for the affected user
+        if (userRole === 'employee' && leaveDetails.user_id === currentUserId) {
+          const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
+          setLeaveBalances(updatedBalances);
+        }
+      }, 300);
+
+      message.success(`Leave ${action}d successfully!`);
+    } catch (error) {
+      console.error(`Error ${action}ing leave:`, error);
+      message.error(`Failed to ${action} leave. Please try again.`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Get permission time icon
   const getPermissionTimeIcon = (timeSlot) => {
     const icons = {
@@ -1775,291 +1777,291 @@ if (action === 'approve') {
   };
 
   // Employee Dashboard Component
-const EmployeeDashboard = () => (
-  <Spin spinning={loading} tip="Fetching your leave data..." size="large">
-    <div style={animationStyles.container}>
-      {/* Mobile-Responsive Header */}
-      <Card style={{ 
-        marginBottom: '24px',
-        background: 'rgba(255, 255, 255, 0.95)',
-        backdropFilter: 'blur(10px)',
-        border: 'none',
-        borderRadius: '16px',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-        ...animationStyles.headerCard
-      }}>
-        <Row align="middle" justify="space-between" gutter={[16, 16]}>
-          <Col xs={24} sm={16} md={18}>
-            <Space size="large" direction="vertical" style={{ width: '100%' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <Avatar 
-                  size={{ xs: 48, sm: 64 }} 
-                  icon={<UserOutlined />} 
-                  style={{ backgroundColor: '#0D7139', flexShrink: 0 }}
-                />
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <Title 
-                    level={2} 
-                    style={{ 
-                      margin: 0, 
-                      color: '#0D7139',
-                      fontSize: 'clamp(18px, 4vw, 24px)' // Responsive font size
-                    }}
-                  >
-                    Leave Dashboard
-                  </Title>
-                  <Text type="secondary" style={{ 
-                    fontSize: 'clamp(12px, 3vw, 14px)',
-                    display: 'block'
-                  }}>
-                    {currentUser?.position} • {currentUser?.department}
-                  </Text>
+  const EmployeeDashboard = () => (
+    <Spin spinning={loading} tip="Fetching your leave data..." size="large">
+      <div style={animationStyles.container}>
+        {/* Mobile-Responsive Header */}
+        <Card style={{
+          marginBottom: '24px',
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(10px)',
+          border: 'none',
+          borderRadius: '16px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+          ...animationStyles.headerCard
+        }}>
+          <Row align="middle" justify="space-between" gutter={[16, 16]}>
+            <Col xs={24} sm={16} md={18}>
+              <Space size="large" direction="vertical" style={{ width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <Avatar
+                    size={{ xs: 48, sm: 64 }}
+                    icon={<UserOutlined />}
+                    style={{ backgroundColor: '#0D7139', flexShrink: 0 }}
+                  />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <Title
+                      level={2}
+                      style={{
+                        margin: 0,
+                        color: '#0D7139',
+                        fontSize: 'clamp(18px, 4vw, 24px)' // Responsive font size
+                      }}
+                    >
+                      Leave Dashboard
+                    </Title>
+                    <Text type="secondary" style={{
+                      fontSize: 'clamp(12px, 3vw, 14px)',
+                      display: 'block'
+                    }}>
+                      {currentUser?.position} • {currentUser?.department}
+                    </Text>
+                  </div>
                 </div>
-              </div>
-            </Space>
-          </Col>
-          <Col xs={24} sm={8} md={6}>
-            <Button
-              type="primary"
-              size="large"
-              icon={<PlusOutlined />}
-              onClick={() => setApplyLeaveModal(true)}
-              block // Make button full width on mobile
-              style={{
-                background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
-                border: 'none',
-                borderRadius: '8px',
-                height: '50px'
-              }}
-            >
-              Apply Leave
-            </Button>
-          </Col>
-        </Row>
-      </Card>
-
-      {/* Leave Balance Cards */}
-      <Row gutter={[12, 12]} style={{ marginBottom: '24px' }}>
-        {loading ? (
-          // Skeleton Loading State
-          Array.from({ length: 7 }).map((_, index) => (
-            <Col xs={12} sm={8} md={6} lg={4} xl={4} key={index}>
-              <Card 
-                style={{ 
-                  borderRadius: '12px',
-                  border: '1px solid #f0f0f0',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
-                }}
-                styles={{ body: { padding: '12px' } }}
-              >
-                <div style={{ textAlign: 'center', height: '135px' }}>
-                  <Spin />
-                </div>
-              </Card>
+              </Space>
             </Col>
-          ))
-        ) : (
-          // Actual Data
-          Object.entries(leaveBalances).map(([key, balance]) => {
-            const leaveTypeNames = {
-              permission: 'Permission',
-              casualLeave: 'Casual Leave',
-              earnedLeave: 'Earned Leave',
-              medicalLeave: 'Medical Leave',
-              maternityLeave: 'Maternity Leave',
-              compensatoryLeave: 'Compensatory Leave',
-              excuses: 'Excuses'
-            };
+            <Col xs={24} sm={8} md={6}>
+              <Button
+                type="primary"
+                size="large"
+                icon={<PlusOutlined />}
+                onClick={() => setApplyLeaveModal(true)}
+                block // Make button full width on mobile
+                style={{
+                  background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  height: '50px'
+                }}
+              >
+                Apply Leave
+              </Button>
+            </Col>
+          </Row>
+        </Card>
 
-            const config = getLeaveTypeConfig(leaveTypeNames[key]);
-            const percentage = balance.total > 0 ? (balance.remaining / balance.total) * 100 : 0;
-            return (
-              <Col xs={12} sm={8} md={6} lg={4} xl={4} key={key}>
-                <Card 
-                  style={{ 
+        {/* Leave Balance Cards */}
+        <Row gutter={[12, 12]} style={{ marginBottom: '24px' }}>
+          {loading ? (
+            // Skeleton Loading State
+            Array.from({ length: 7 }).map((_, index) => (
+              <Col xs={12} sm={8} md={6} lg={4} xl={4} key={index}>
+                <Card
+                  style={{
                     borderRadius: '12px',
-                    background: '#ffffff', 
                     border: '1px solid #f0f0f0',
                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
-                    ...animationStyles.statsCard 
                   }}
                   styles={{ body: { padding: '12px' } }}
                 >
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ 
-                      fontSize: 'clamp(18px, 4vw, 24px)',
-                      color: config.color, 
-                      marginBottom: '6px' 
-                    }}>
-                      {config.icon}
-                    </div>
-                    <Title level={5} style={{ 
-                      margin: '0 0 6px 0', 
-                      color: config.color,
-                      fontSize: 'clamp(11px, 2.5vw, 14px)',
-                      lineHeight: '1.2'
-                    }}>
-                      {leaveTypeNames[key]}
-                    </Title>
-                    <div style={{ marginBottom: '8px' }}>
-                      <Text style={{ 
-                        fontSize: 'clamp(16px, 4vw, 20px)', 
-                        fontWeight: 'bold', 
-                        color: config.color 
-                      }}>
-                        {balance.remaining}
-                      </Text>
-                      <Text type="secondary" style={{ 
-                        fontSize: 'clamp(10px, 2vw, 12px)', 
-                        marginLeft: '2px' 
-                      }}>
-                        / {key === 'medicalLeave' ? balance.totalAvailable || balance.total : balance.total}
-                      </Text>
-                    </div>
-                    {key === 'medicalLeave' && balance.extraGranted > 0 && (
-                      <div style={{ marginTop: '4px' }}>
-                        <Text style={{ fontSize: '9px', color: '#ff4d4f' }}>
-                          +{balance.extraGranted} HR granted
-                        </Text>
-                      </div>
-                    )}
-                    <Progress 
-                      percent={percentage}
-                      strokeColor={config.color}
-                      showInfo={false}
-                      size="small"
-                    />
-                    <div style={{ marginTop: '6px' }}>
-                      <Text type="secondary" style={{ fontSize: 'clamp(9px, 2vw, 11px)' }}>
-                        Used: {balance.used}
-                      </Text>
-                    </div>
+                  <div style={{ textAlign: 'center', height: '135px' }}>
+                    <Spin />
                   </div>
                 </Card>
               </Col>
-            );
-          })
-        )}
-      </Row>
-
-      {/* Recent Leave Applications */}
-      <Card style={{ 
-        background: 'rgba(255, 255, 255, 0.95)',
-        backdropFilter: 'blur(10px)',
-        border: 'none',
-        borderRadius: '16px',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-        ...animationStyles.mainCard
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <Title level={4} style={{ margin: 0, color: '#0D7139' }}>
-            <HistoryOutlined style={{ marginRight: '8px' }} />
-            Recent Applications
-          </Title>
-          <Button 
-            type="text" 
-            onClick={() => setLeaveHistoryDrawer(true)}
-            style={{ color: '#0D7139' }}
-          >
-            View All
-          </Button>
-        </div>
-        
-        <div style={{ minHeight: '200px', maxHeight: '400px', overflowY: 'auto' }}>
-          {/* Timeline or Empty State */}
-          {!loading && filteredLeaves.length === 0 ? (
-            <Empty description="No recent applications found." />
+            ))
           ) : (
-            <Timeline
-              items={filteredLeaves.slice(0, 5).map(leave => {
-                const config = getLeaveTypeConfig(leave.leaveType);
-                return {
-                  key: leave.id,
-                  dot: <div style={{ 
-                    width: '12px', 
-                    height: '12px', 
-                    borderRadius: '50%', 
-                    background: config.gradient,
-                    border: '2px solid white', 
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)' 
-                  }} />,
-                  children: (
-                    <Card 
-                      size="small" 
-                      style={{ 
-                        marginBottom: '8px',
-                        borderRadius: '8px',
-                        border: `1px solid ${config.color}20`,
-                        background: `linear-gradient(135deg, ${config.color}08 0%, ${config.color}03 100%)`
-                      }}
-                      styles={{ body: { padding: '12px' } }}
-                    >
-                      <Row align="middle" justify="space-between">
-                        <Col flex="auto">
-                          <Space>
-                            {config.icon}
-                            <div>
-                              <Text strong style={{ color: config.color }}>
-                                {leave.leaveType}
-                                {leave.subType && ` (${leave.subType})`}
-                              </Text>
-                              <br />
-                              <Text type="secondary" style={{ fontSize: '12px' }}>
-                                {dayjs(leave.startDate).format('MMM DD')} - {dayjs(leave.endDate).format('MMM DD, YYYY')}
-                                {leave.totalHours > 0 && ` • ${leave.totalHours}h`}
-                                {leave.totalDays > 0 && ` • ${leave.totalDays} day${leave.totalDays > 1 ? 's' : ''}`}
-                              </Text>
-                            </div>
-                          </Space>
-                        </Col>
-                        <Col>
-                          <Tag 
-                            color={leave.status === 'Approved' ? 'success' : 
-                                  leave.status === 'Rejected' ? 'error' : 'warning'}
-                          >
-                            {leave.status}
-                          </Tag>
-                        </Col>
-                      </Row>
-                    </Card>
-                  )
-                };
-              })}
-            />
+            // Actual Data
+            Object.entries(leaveBalances).map(([key, balance]) => {
+              const leaveTypeNames = {
+                permission: 'Permission',
+                casualLeave: 'Casual Leave',
+                earnedLeave: 'Earned Leave',
+                medicalLeave: 'Medical Leave',
+                maternityLeave: 'Maternity Leave',
+                compensatoryLeave: 'Compensatory Leave',
+                excuses: 'Excuses'
+              };
+
+              const config = getLeaveTypeConfig(leaveTypeNames[key]);
+              const percentage = balance.total > 0 ? (balance.remaining / balance.total) * 100 : 0;
+              return (
+                <Col xs={12} sm={8} md={6} lg={4} xl={4} key={key}>
+                  <Card
+                    style={{
+                      borderRadius: '12px',
+                      background: '#ffffff',
+                      border: '1px solid #f0f0f0',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+                      ...animationStyles.statsCard
+                    }}
+                    styles={{ body: { padding: '12px' } }}
+                  >
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{
+                        fontSize: 'clamp(18px, 4vw, 24px)',
+                        color: config.color,
+                        marginBottom: '6px'
+                      }}>
+                        {config.icon}
+                      </div>
+                      <Title level={5} style={{
+                        margin: '0 0 6px 0',
+                        color: config.color,
+                        fontSize: 'clamp(11px, 2.5vw, 14px)',
+                        lineHeight: '1.2'
+                      }}>
+                        {leaveTypeNames[key]}
+                      </Title>
+                      <div style={{ marginBottom: '8px' }}>
+                        <Text style={{
+                          fontSize: 'clamp(16px, 4vw, 20px)',
+                          fontWeight: 'bold',
+                          color: config.color
+                        }}>
+                          {balance.remaining}
+                        </Text>
+                        <Text type="secondary" style={{
+                          fontSize: 'clamp(10px, 2vw, 12px)',
+                          marginLeft: '2px'
+                        }}>
+                          / {key === 'medicalLeave' ? balance.totalAvailable || balance.total : balance.total}
+                        </Text>
+                      </div>
+                      {key === 'medicalLeave' && balance.extraGranted > 0 && (
+                        <div style={{ marginTop: '4px' }}>
+                          <Text style={{ fontSize: '9px', color: '#ff4d4f' }}>
+                            +{balance.extraGranted} HR granted
+                          </Text>
+                        </div>
+                      )}
+                      <Progress
+                        percent={percentage}
+                        strokeColor={config.color}
+                        showInfo={false}
+                        size="small"
+                      />
+                      <div style={{ marginTop: '6px' }}>
+                        <Text type="secondary" style={{ fontSize: 'clamp(9px, 2vw, 11px)' }}>
+                          Used: {balance.used}
+                        </Text>
+                      </div>
+                    </div>
+                  </Card>
+                </Col>
+              );
+            })
           )}
-        </div>
-      </Card>
-    </div>
-  </Spin>
-);
+        </Row>
+
+        {/* Recent Leave Applications */}
+        <Card style={{
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(10px)',
+          border: 'none',
+          borderRadius: '16px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+          ...animationStyles.mainCard
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <Title level={4} style={{ margin: 0, color: '#0D7139' }}>
+              <HistoryOutlined style={{ marginRight: '8px' }} />
+              Recent Applications
+            </Title>
+            <Button
+              type="text"
+              onClick={() => setLeaveHistoryDrawer(true)}
+              style={{ color: '#0D7139' }}
+            >
+              View All
+            </Button>
+          </div>
+
+          <div style={{ minHeight: '200px', maxHeight: '400px', overflowY: 'auto' }}>
+            {/* Timeline or Empty State */}
+            {!loading && filteredLeaves.length === 0 ? (
+              <Empty description="No recent applications found." />
+            ) : (
+              <Timeline
+                items={filteredLeaves.slice(0, 5).map(leave => {
+                  const config = getLeaveTypeConfig(leave.leaveType);
+                  return {
+                    key: leave.id,
+                    dot: <div style={{
+                      width: '12px',
+                      height: '12px',
+                      borderRadius: '50%',
+                      background: config.gradient,
+                      border: '2px solid white',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                    }} />,
+                    children: (
+                      <Card
+                        size="small"
+                        style={{
+                          marginBottom: '8px',
+                          borderRadius: '8px',
+                          border: `1px solid ${config.color}20`,
+                          background: `linear-gradient(135deg, ${config.color}08 0%, ${config.color}03 100%)`
+                        }}
+                        styles={{ body: { padding: '12px' } }}
+                      >
+                        <Row align="middle" justify="space-between">
+                          <Col flex="auto">
+                            <Space>
+                              {config.icon}
+                              <div>
+                                <Text strong style={{ color: config.color }}>
+                                  {leave.leaveType}
+                                  {leave.subType && ` (${leave.subType})`}
+                                </Text>
+                                <br />
+                                <Text type="secondary" style={{ fontSize: '12px' }}>
+                                  {dayjs(leave.startDate).format('MMM DD')} - {dayjs(leave.endDate).format('MMM DD, YYYY')}
+                                  {leave.totalHours > 0 && ` • ${leave.totalHours}h`}
+                                  {leave.totalDays > 0 && ` • ${leave.totalDays} day${leave.totalDays > 1 ? 's' : ''}`}
+                                </Text>
+                              </div>
+                            </Space>
+                          </Col>
+                          <Col>
+                            <Tag
+                              color={leave.status === 'Approved' ? 'success' :
+                                leave.status === 'Rejected' ? 'error' : 'warning'}
+                            >
+                              {leave.status}
+                            </Tag>
+                          </Col>
+                        </Row>
+                      </Card>
+                    )
+                  };
+                })}
+              />
+            )}
+          </div>
+        </Card>
+      </div>
+    </Spin>
+  );
 
   // HR/Admin Table Columns
-const getTableColumns = () => {
-  const isMobile = window.innerWidth < 768;
-  
-  const baseColumns = [
-    // Employee Column (Enhanced)
-    ...(userRole !== 'employee' ? [{
-      title: (
-        <Space>
-          <UserOutlined className="employee-icon" />
-          <span className="column-title">Employee</span>
-        </Space>
-      ),
-      key: 'employee',
-      render: (_, record) => (
-        <Space direction="horizontal" size={12}>
-          <Avatar 
-            className="employee-avatar"
-            size={isMobile ? 36 : 42}
-          >
-            {(record.users?.name || record.employee_name)?.charAt(0)}
-          </Avatar>
-          <div className="employee-info">
-            <div className="employee-name">
-              {record.users?.name || record.employee_name}
-            </div>
-            {/* <Text className="employee-id">
+  const getTableColumns = () => {
+    const isMobile = window.innerWidth < 768;
+
+    const baseColumns = [
+      // Employee Column (Enhanced)
+      ...(userRole !== 'employee' ? [{
+        title: (
+          <Space>
+            <UserOutlined className="employee-icon" />
+            <span className="column-title">Employee</span>
+          </Space>
+        ),
+        key: 'employee',
+        render: (_, record) => (
+          <Space direction="horizontal" size={12}>
+            <Avatar
+              className="employee-avatar"
+              size={isMobile ? 36 : 42}
+            >
+              {(record.users?.name || record.employee_name)?.charAt(0)}
+            </Avatar>
+            <div className="employee-info">
+              <div className="employee-name">
+                {record.users?.name || record.employee_name}
+              </div>
+              {/* <Text className="employee-id">
               {record.users?.employee_id || record.employee_code}
             </Text>
             {!isMobile && (
@@ -2067,333 +2069,313 @@ const getTableColumns = () => {
                 {record.department}
               </div>
             )} */}
-          </div>
-        </Space>
-      ),
-      width: isMobile ? 120 : 180,
-      fixed: !isMobile ? 'left' : false,
-    }] : []),
-
-    // Leave Type Column (Enhanced)
-    {
-      title: (
-        <Space>
-          <CalendarOutlined style={{ color: '#0D7139' }} />
-          <span style={{ fontWeight: 600 }}>Leave Type</span>
-        </Space>
-      ),
-      key: 'leaveType',
-      render: (_, record) => {
-        const config = getLeaveTypeConfig(record.leave_type);
-        return (
-          <Space direction="vertical" size={4} style={{ width: '100%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{ 
-                padding: '4px',
-                background: `${config.color}15`,
-                borderRadius: '6px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-                <span style={{ color: config.color, fontSize: '14px' }}>
-                  {config.icon}
-                </span>
-              </div>
-              <Tag 
-                style={{ 
-                  background: config.gradient,
-                  border: 'none',
-                  color: 'white',
-                  borderRadius: '8px',
-                  fontWeight: 500,
-                  fontSize: isMobile ? '10px' : '12px',
-                  padding: isMobile ? '2px 6px' : '4px 8px',
-                  margin: 0
-                }}
-              >
-                {isMobile ? 
-                  (record.leave_type.length > 8 ? 
-                    record.leave_type.substring(0, 8) + '...' : 
-                    record.leave_type
-                  ) : 
-                  record.leave_type
-                }
-              </Tag>
             </div>
-            {record.sub_type && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                {record.leave_type === 'Permission' && (
-                  <span style={{ fontSize: '10px' }}>
-                    {getPermissionTimeIcon(record.sub_type)}
-                  </span>
-                )}
-                <Text type="secondary" style={{ 
-                  fontSize: isMobile ? '9px' : '11px',
-                  background: '#f8f9fa',
-                  padding: '1px 6px',
-                  borderRadius: '4px',
-                  border: '1px solid #e9ecef'
-                }}>
-                  {record.sub_type}
-                </Text>
-              </div>
-            )}
           </Space>
-        );
-      },
-      width: isMobile ? 100 : 160,
-    },
+        ),
+        width: isMobile ? 120 : 180,
+        fixed: !isMobile ? 'left' : false,
+      }] : []),
 
-    // Duration Column (Enhanced)
-    {
-      title: (
-        <Space>
-          <ClockCircleOutlined style={{ color: '#0D7139' }} />
-          <span style={{ fontWeight: 600 }}>Duration</span>
-        </Space>
-      ),
-      key: 'duration',
-      render: (_, record) => (
-        <div style={{ lineHeight: '1.4' }}>
-          <div className="leave-duration-dates">
-            {dayjs(record.start_date).format(isMobile ? 'DD/MM' : 'DD MMM')}
-            {record.end_date !== record.start_date && 
-              ` - ${dayjs(record.end_date).format(isMobile ? 'DD/MM' : 'DD MMM')}`}
+      // Leave Type Column (Enhanced)
+      {
+        title: (
+          <Space>
+            <CalendarOutlined style={{ color: '#0D7139' }} />
+            <span style={{ fontWeight: 600 }}>Leave Type</span>
+          </Space>
+        ),
+        key: 'leaveType',
+        render: (_, record) => {
+          const config = getLeaveTypeConfig(record.leave_type);
+          return (
+            <Space direction="vertical" size={4} style={{ width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{
+                  padding: '4px',
+                  background: `${config.color}15`,
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <span style={{ color: config.color, fontSize: '14px' }}>
+                    {config.icon}
+                  </span>
+                </div>
+                <Tag
+                  style={{
+                    background: config.gradient,
+                    border: 'none',
+                    color: 'white',
+                    borderRadius: '8px',
+                    fontWeight: 500,
+                    fontSize: isMobile ? '10px' : '12px',
+                    padding: isMobile ? '2px 6px' : '4px 8px',
+                    margin: 0
+                  }}
+                >
+                  {isMobile ?
+                    (record.leave_type.length > 8 ?
+                      record.leave_type.substring(0, 8) + '...' :
+                      record.leave_type
+                    ) :
+                    record.leave_type
+                  }
+                </Tag>
+              </div>
+              {record.sub_type && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  {record.leave_type === 'Permission' && (
+                    <span style={{ fontSize: '10px' }}>
+                      {getPermissionTimeIcon(record.sub_type)}
+                    </span>
+                  )}
+                  <Text type="secondary" style={{
+                    fontSize: isMobile ? '9px' : '11px',
+                    background: '#f8f9fa',
+                    padding: '1px 6px',
+                    borderRadius: '4px',
+                    border: '1px solid #e9ecef'
+                  }}>
+                    {record.sub_type}
+                  </Text>
+                </div>
+              )}
+            </Space>
+          );
+        },
+        width: isMobile ? 100 : 160,
+      },
+
+      // Duration Column (Enhanced)
+      {
+        title: (
+          <Space>
+            <ClockCircleOutlined style={{ color: '#0D7139' }} />
+            <span style={{ fontWeight: 600 }}>Duration</span>
+          </Space>
+        ),
+        key: 'duration',
+        render: (_, record) => (
+          <div style={{ lineHeight: '1.4' }}>
+            <div className="leave-duration-dates">
+              {dayjs(record.start_date).format(isMobile ? 'DD/MM' : 'DD MMM')}
+              {record.end_date !== record.start_date &&
+                ` - ${dayjs(record.end_date).format(isMobile ? 'DD/MM' : 'DD MMM')}`}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              {record.total_hours > 0 ? (
+                <div style={{
+                  background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  fontSize: isMobile ? '9px' : '10px',
+                  fontWeight: 500,
+                  color: '#1565c0'
+                }}>
+                  {record.total_hours}h
+                </div>
+              ) : record.total_days > 0 && (
+                <div style={{
+                  background: 'linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%)',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  fontSize: isMobile ? '9px' : '10px',
+                  fontWeight: 500,
+                  color: '#2e7d32'
+                }}>
+                  {record.total_days}d
+                </div>
+              )}
+              {record.start_time && record.end_time && !isMobile && (
+                <Text type="secondary" style={{ fontSize: '9px' }}>
+                  {record.start_time}-{record.end_time}
+                </Text>
+              )}
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            {record.total_hours > 0 ? (
+        ),
+        width: isMobile ? 80 : 120,
+      },
+
+      // Status Column (Enhanced)
+      {
+        title: (
+          <Space>
+            <NotificationOutlined style={{ color: '#0D7139' }} />
+            <span style={{ fontWeight: 600 }}>Status</span>
+          </Space>
+        ),
+        key: 'status',
+        render: (_, record) => {
+          const statusConfig = {
+            'Approved': {
+              color: '#52c41a',
+              bg: 'linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%)',
+              icon: <CheckCircleOutlined />
+            },
+            'Rejected': {
+              color: '#ff4d4f',
+              bg: 'linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%)',
+              icon: <CloseCircleOutlined />
+            },
+            'Pending': {
+              color: '#faad14',
+              bg: 'linear-gradient(135deg, #fffbe6 0%, #fff1b8 100%)',
+              icon: <ClockCircleOutlined />
+            }
+          };
+
+          const config = statusConfig[record.status] || statusConfig['Pending'];
+
+          return (
+            <div>
               <div style={{
-                background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
-                padding: '2px 6px',
-                borderRadius: '4px',
-                fontSize: isMobile ? '9px' : '10px',
-                fontWeight: 500,
-                color: '#1565c0'
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: config.bg,
+                padding: '6px 10px',
+                borderRadius: '20px',
+                border: `1px solid ${config.color}30`,
+                fontSize: isMobile ? '10px' : '12px',
+                fontWeight: 600,
+                color: config.color
               }}>
-                {record.total_hours}h
+                <span style={{ fontSize: '10px' }}>{config.icon}</span>
+                {isMobile ? record.status.substring(0, 4) : record.status}
               </div>
-            ) : record.total_days > 0 && (
-              <div style={{
-                background: 'linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%)',
-                padding: '2px 6px',
-                borderRadius: '4px',
-                fontSize: isMobile ? '9px' : '10px',
-                fontWeight: 500,
-                color: '#2e7d32'
-              }}>
-                {record.total_days}d
-              </div>
-            )}
-            {record.start_time && record.end_time && !isMobile && (
-              <Text type="secondary" style={{ fontSize: '9px' }}>
-                {record.start_time}-{record.end_time}
+              {!isMobile && record.status === 'Approved' && record.approved_by && (
+                <div style={{ marginTop: '4px' }}>
+                  <Text type="secondary" style={{ fontSize: '9px' }}>
+                    by {record.approved_by}
+                  </Text>
+                </div>
+              )}
+              {!isMobile && record.status === 'Rejected' && record.rejected_by && (
+                <div style={{ marginTop: '4px' }}>
+                  <Text type="secondary" style={{ fontSize: '9px' }}>
+                    by {record.rejected_by}
+                  </Text>
+                </div>
+              )}
+            </div>
+          );
+        },
+        width: isMobile ? 70 : 120,
+      },
+
+      // Applied Date Column (Enhanced)
+      {
+        title: (
+          <Space>
+            <HistoryOutlined style={{ color: '#0D7139' }} />
+            <span style={{ fontWeight: 600 }}>Applied</span>
+          </Space>
+        ),
+        dataIndex: 'created_at',
+        render: (date) => (
+          <div style={{ textAlign: 'center' }}>
+            <div className="leave-duration-dates">
+              {dayjs(date).format(isMobile ? 'DD/MM' : 'DD MMM')}
+            </div>
+            <Text type="secondary" style={{
+              fontSize: isMobile ? '8px' : '10px',
+              display: 'block'
+            }}>
+              {dayjs(date).format(isMobile ? 'YY' : 'YYYY')}
+            </Text>
+            {!isMobile && (
+              <Text type="secondary" style={{ fontSize: '9px', display: 'block' }}>
+                {dayjs(date).fromNow()}
               </Text>
             )}
           </div>
-        </div>
-      ),
-      width: isMobile ? 80 : 120,
-    },
-
-    // Status Column (Enhanced)
-    {
-      title: (
-        <Space>
-          <NotificationOutlined style={{ color: '#0D7139' }} />
-          <span style={{ fontWeight: 600 }}>Status</span>
-        </Space>
-      ),
-      key: 'status',
-      render: (_, record) => {
-        const statusConfig = {
-          'Approved': { 
-            color: '#52c41a', 
-            bg: 'linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%)',
-            icon: <CheckCircleOutlined />
-          },
-          'Rejected': { 
-            color: '#ff4d4f', 
-            bg: 'linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%)',
-            icon: <CloseCircleOutlined />
-          },
-          'Pending': { 
-            color: '#faad14', 
-            bg: 'linear-gradient(135deg, #fffbe6 0%, #fff1b8 100%)',
-            icon: <ClockCircleOutlined />
-          }
-        };
-        
-        const config = statusConfig[record.status] || statusConfig['Pending'];
-        
-        return (
-          <div>
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: config.bg,
-              padding: '6px 10px',
-              borderRadius: '20px',
-              border: `1px solid ${config.color}30`,
-              fontSize: isMobile ? '10px' : '12px',
-              fontWeight: 600,
-              color: config.color
-            }}>
-              <span style={{ fontSize: '10px' }}>{config.icon}</span>
-              {isMobile ? record.status.substring(0, 4) : record.status}
-            </div>
-            {!isMobile && record.status === 'Approved' && record.approved_by && (
-              <div style={{ marginTop: '4px' }}>
-                <Text type="secondary" style={{ fontSize: '9px' }}>
-                  by {record.approved_by}
-                </Text>
-              </div>
-            )}
-            {!isMobile && record.status === 'Rejected' && record.rejected_by && (
-              <div style={{ marginTop: '4px' }}>
-                <Text type="secondary" style={{ fontSize: '9px' }}>
-                  by {record.rejected_by}
-                </Text>
-              </div>
-            )}
-          </div>
-        );
+        ),
+        width: isMobile ? 60 : 100,
+        sorter: (a, b) => dayjs(a.created_at).unix() - dayjs(b.created_at).unix(),
       },
-      width: isMobile ? 70 : 120,
-    },
 
-    // Applied Date Column (Enhanced)
-    {
-      title: (
-        <Space>
-          <HistoryOutlined style={{ color: '#0D7139' }} />
-          <span style={{ fontWeight: 600 }}>Applied</span>
-        </Space>
-      ),
-      dataIndex: 'created_at',
-      render: (date) => (
-        <div style={{ textAlign: 'center' }}>
-          <div className="leave-duration-dates">
-            {dayjs(date).format(isMobile ? 'DD/MM' : 'DD MMM')}
+      // Actions Column (Enhanced)
+      {
+        title: (
+          <div style={{ textAlign: 'center' }}>
+            <Text style={{ fontWeight: 600, color: '#6b7280' }}>Actions</Text>
           </div>
-          <Text type="secondary" style={{ 
-            fontSize: isMobile ? '8px' : '10px',
-            display: 'block'
-          }}>
-            {dayjs(date).format(isMobile ? 'YY' : 'YYYY')}
-          </Text>
-          {!isMobile && (
-            <Text type="secondary" style={{ fontSize: '9px', display: 'block' }}>
-              {dayjs(date).fromNow()}
-            </Text>
-          )}
-        </div>
-      ),
-      width: isMobile ? 60 : 100,
-      sorter: (a, b) => dayjs(a.created_at).unix() - dayjs(b.created_at).unix(),
-    },
-
-    // Actions Column (Enhanced)
-    {
-      title: (
-        <div style={{ textAlign: 'center' }}>
-          <Text style={{ fontWeight: 600, color: '#6b7280' }}>Actions</Text>
-        </div>
-      ),
-      key: 'actions',
-      render: (_, record) => (
-        <Space size={4} direction={isMobile ? 'vertical' : 'horizontal'}>
-          <Tooltip title="View Details">
+        ),
+        key: 'actions',
+        render: (_, record) => (
+          <Dropdown
+            menu={{
+              items: [
+                {
+                  key: 'view',
+                  icon: <EyeOutlined />,
+                  label: 'View Details',
+                  onClick: () => {
+                    setSelectedLeave(record);
+                    setLeaveDetailsModal(true);
+                  }
+                },
+                ...(userRole !== 'employee' && record.status === 'Pending' ? [
+                  {
+                    type: 'divider'
+                  },
+                  {
+                    key: 'approve',
+                    icon: <CheckCircleOutlined style={{ color: '#52c41a' }} />,
+                    label: 'Approve Leave',
+                    onClick: () => {
+                      Modal.confirm({
+                        title: 'Approve this leave application?',
+                        content: 'This action cannot be undone.',
+                        okText: 'Approve',
+                        okButtonProps: {
+                          style: { background: '#52c41a', borderColor: '#52c41a' }
+                        },
+                        onOk: () => handleLeaveAction(record.id, 'approve')
+                      });
+                    }
+                  },
+                  {
+                    key: 'reject',
+                    icon: <CloseCircleOutlined style={{ color: '#ff4d4f' }} />,
+                    label: 'Reject Leave',
+                    danger: true,
+                    onClick: () => {
+                      Modal.confirm({
+                        title: 'Reject this leave application?',
+                        content: 'Please provide rejection reason in the details modal.',
+                        okText: 'Reject',
+                        okButtonProps: { danger: true },
+                        onOk: () => handleLeaveAction(record.id, 'reject', 'Leave rejected by HR')
+                      });
+                    }
+                  }
+                ] : [])
+              ]
+            }}
+            trigger={['click']}
+            placement="bottomRight"
+          >
             <Button
               type="text"
-              icon={<EyeOutlined />}
-              size="small"
-              onClick={() => {
-                setSelectedLeave(record);
-                setLeaveDetailsModal(true);
+              icon={<MoreOutlined />}
+              style={{
+                color: '#6b7280',
+                fontSize: '16px'
               }}
-              style={{ 
-                color: '#0D7139',
-                border: '1px solid transparent',
-                borderRadius: '8px',
-                padding: '4px 8px',
-                transition: 'all 0.3s ease'
-              }}
-              className="action-btn"
             />
-          </Tooltip>
-          
-          {userRole !== 'employee' && record.status === 'Pending' && (
-            <>
-              <Tooltip title="Approve Leave">
-                <Popconfirm
-                  title="Approve this leave application?"
-                  description="This action cannot be undone."
-                  onConfirm={() => handleLeaveAction(record.id, 'approve')}
-                  okText="Approve"
-                  cancelText="Cancel"
-                  okButtonProps={{ 
-                    style: { 
-                      background: '#52c41a',
-                      borderColor: '#52c41a'
-                    }
-                  }}
-                >
-                  <Button
-                    type="text"
-                    icon={<CheckCircleOutlined />}
-                    size="small"
-                    style={{ 
-                      color: '#52c41a',
-                      border: '1px solid transparent',
-                      borderRadius: '8px',
-                      padding: '4px 8px',
-                      transition: 'all 0.3s ease'
-                    }}
-                    className="action-btn approve-btn"
-                  />
-                </Popconfirm>
-              </Tooltip>
-              
-              <Tooltip title="Reject Leave">
-                <Popconfirm
-                  title="Reject this leave application?"
-                  description="Please provide rejection reason in the details modal."
-                  onConfirm={() => handleLeaveAction(record.id, 'reject', 'Leave rejected by HR')}
-                  okText="Reject"
-                  cancelText="Cancel"
-                  okButtonProps={{ 
-                    danger: true 
-                  }}
-                >
-                  <Button
-                    type="text"
-                    icon={<CloseCircleOutlined />}
-                    size="small"
-                    style={{ 
-                      color: '#ff4d4f',
-                      border: '1px solid transparent',
-                      borderRadius: '8px',
-                      padding: '4px 8px',
-                      transition: 'all 0.3s ease'
-                    }}
-                    className="action-btn reject-btn"
-                  />
-                </Popconfirm>
-              </Tooltip>
-            </>
-          )}
-        </Space>
-      ),
-      width: isMobile ? 50 : (userRole === 'employee' ? 80 : 140),
-      fixed: !isMobile ? 'right' : false,
-    },
-  ];
+          </Dropdown>
+        ),
+        width: 60,
+        fixed: !isMobile ? 'right' : false,
+      },
+    ];
 
-  return baseColumns;
-};
-const actionButtonStyles = `
+    return baseColumns;
+  };
+  const actionButtonStyles = `
   /* Enhanced Action Buttons */
   .action-btn:hover {
     background: rgba(13, 113, 57, 0.08) !important;
@@ -2452,11 +2434,11 @@ const actionButtonStyles = `
   }
 `;
 
-// 5. Export the complete updated styles to be added to your component
-const completeStyles = professionalStyles + actionButtonStyles;
- // In leavemanage.jsx, replace the existing ApplyLeaveForm component
+  // 5. Export the complete updated styles to be added to your component
+  const completeStyles = professionalStyles + actionButtonStyles;
+  // In leavemanage.jsx, replace the existing ApplyLeaveForm component
 
- const ApplyLeaveForm = () => {
+  const ApplyLeaveForm = () => {
     const [selectedLeaveType, setSelectedLeaveType] = useState('');
     const [casualLeaveDuration, setCasualLeaveDuration] = useState('FDL');
     const availableLeaveTypes = getAvailableLeaveTypes();
@@ -2467,12 +2449,12 @@ const completeStyles = professionalStyles + actionButtonStyles;
     const isCompensatoryDisabled = !leaveBalances.compensatoryLeave || leaveBalances.compensatoryLeave.remaining <= 0;
     const isExcusesDisabled = leaveBalances.excuses?.remaining <= 0;
 
-     useEffect(() => {
+    useEffect(() => {
       const validatePermissionTime = () => {
         if (selectedLeaveType === 'Permission') {
           const startTime = form.getFieldValue('startTime');
           const endTime = form.getFieldValue('endTime');
-          
+
           if (startTime && endTime) {
             const hours = endTime.diff(startTime, 'hours');
             if (hours > 2) {
@@ -2491,7 +2473,7 @@ const completeStyles = professionalStyles + actionButtonStyles;
 
       validatePermissionTime();
     }, [form.getFieldValue('startTime'), form.getFieldValue('endTime'), selectedLeaveType]);
-    
+
     return (
       <Form
         form={form}
@@ -2512,7 +2494,7 @@ const completeStyles = professionalStyles + actionButtonStyles;
             }
           }
         }}
-        // --- END: NEW onFieldsChange HANDLER ---
+      // --- END: NEW onFieldsChange HANDLER ---
       >
         <Row gutter={16}>
           <Col xs={24} md={12}>
@@ -2521,19 +2503,19 @@ const completeStyles = professionalStyles + actionButtonStyles;
               label="Leave Type"
               rules={[{ required: true, message: 'Please select leave type' }]}
             >
-              <Select 
+              <Select
                 placeholder="Select leave type"
                 onChange={(value) => {
                   setSelectedLeaveType(value);
                   form.resetFields(['subType', 'startTime', 'endTime', 'endDate', 'session']);
                   if (value === 'Casual Leave') {
-                     setCasualLeaveDuration('FDL');
-                     form.setFieldsValue({ subType: 'FDL' });
+                    setCasualLeaveDuration('FDL');
+                    form.setFieldsValue({ subType: 'FDL' });
                   }
                 }}
                 size="large"
               >
-                 <Option value="Permission" disabled={isPermissionDisabled}>
+                <Option value="Permission" disabled={isPermissionDisabled}>
                   <Space>
                     <ClockCircleOutlined style={{ color: '#1890ff' }} />
                     Permission ({leaveBalances.permission?.remaining} remaining)
@@ -2545,27 +2527,27 @@ const completeStyles = professionalStyles + actionButtonStyles;
                     Casual Leave ({leaveBalances.casualLeave?.remaining} remaining)
                   </Space>
                 </Option>
-                 <Option value="Earned Leave" disabled={isEarnedDisabled}>
+                <Option value="Earned Leave" disabled={isEarnedDisabled}>
                   <Space>
                     <BankOutlined style={{ color: '#0D7139' }} />
                     Earned Leave ({leaveBalances.earnedLeave?.remaining || 0} remaining)
                   </Space>
                 </Option>
                 <Option value="Medical Leave" disabled={isMedicalDisabled}>
-                    <Space>
-                        <MedicineBoxOutlined style={{ color: '#ff4d4f' }} />
-                        Medical Leave ({leaveBalances.medicalLeave?.remaining} remaining)
-                    </Space>
+                  <Space>
+                    <MedicineBoxOutlined style={{ color: '#ff4d4f' }} />
+                    Medical Leave ({leaveBalances.medicalLeave?.remaining} remaining)
+                  </Space>
                 </Option>
                 <Option value="Maternity Leave">
-                   <Space>
+                  <Space>
                     <MedicineBoxOutlined style={{ color: '#eb2f96' }} />
                     Maternity Leave
                   </Space>
                 </Option>
-               <Option value="Compensatory Leave" disabled={isCompensatoryDisabled}>
-                   <Space>
-                    <FaIndianRupeeSign  style={{ color: '#722ed1' }} />
+                <Option value="Compensatory Leave" disabled={isCompensatoryDisabled}>
+                  <Space>
+                    <FaIndianRupeeSign style={{ color: '#722ed1' }} />
                     Compensatory Leave ({leaveBalances.compensatoryLeave?.remaining || 0} remaining)
                   </Space>
                 </Option>
@@ -2598,8 +2580,8 @@ const completeStyles = professionalStyles + actionButtonStyles;
                 label="Leave Duration"
                 rules={[{ required: true, message: 'Please select duration' }]}
               >
-                <Radio.Group 
-                  onChange={(e) => setCasualLeaveDuration(e.target.value)} 
+                <Radio.Group
+                  onChange={(e) => setCasualLeaveDuration(e.target.value)}
                   size="large"
                   optionType="button"
                   buttonStyle="solid"
@@ -2625,7 +2607,7 @@ const completeStyles = professionalStyles + actionButtonStyles;
               </Form.Item>
             </Col>
           )}
-          
+
           {selectedLeaveType === 'Permission' && (
             <Col xs={24} md={12}>
               <Form.Item
@@ -2633,21 +2615,21 @@ const completeStyles = professionalStyles + actionButtonStyles;
                 label="Permission Time Slot"
                 rules={[{ required: true, message: 'Please select time slot' }]}
               >
-                <Select 
+                <Select
                   placeholder="Select time slot"
-                  
+
                   size="large"
                 >
                   <Option value="Morning">
                     <Space>
                       <SunOutlined style={{ color: '#faad14' }} />
-                      Morning 
+                      Morning
                     </Space>
                   </Option>
                   <Option value="Before Lunch">
                     <Space>
                       <CoffeeOutlined style={{ color: '#8c4a2b' }} />
-                      Before Lunch 
+                      Before Lunch
                     </Space>
                   </Option>
                   <Option value="Middle">
@@ -2674,81 +2656,81 @@ const completeStyles = professionalStyles + actionButtonStyles;
           )}
 
         </Row>
-        
+
         <Row gutter={16}>
-            <Col xs={24} md={
-              (selectedLeaveType === 'Casual Leave' && casualLeaveDuration === 'HDL') || selectedLeaveType === 'Excuses' || selectedLeaveType === 'Permission' 
-              ? 24 
+          <Col xs={24} md={
+            (selectedLeaveType === 'Casual Leave' && casualLeaveDuration === 'HDL') || selectedLeaveType === 'Excuses' || selectedLeaveType === 'Permission'
+              ? 24
               : 12
-            }>
+          }>
             <Form.Item
-                name="startDate"
-                label={
-                    selectedLeaveType === 'Casual Leave' && casualLeaveDuration === 'HDL' ? 'Date' :
-                    selectedLeaveType === 'Excuses' ? 'Date of Excuse' : 'Start Date'
-                }
-                rules={[{ required: true, message: 'Please select a date' }]}
+              name="startDate"
+              label={
+                selectedLeaveType === 'Casual Leave' && casualLeaveDuration === 'HDL' ? 'Date' :
+                  selectedLeaveType === 'Excuses' ? 'Date of Excuse' : 'Start Date'
+              }
+              rules={[{ required: true, message: 'Please select a date' }]}
             >
-                <DatePicker 
+              <DatePicker
                 style={{ width: '100%' }}
                 size="large"
                 format="DD/MM/YYYY"
                 disabledDate={(current) => selectedLeaveType === 'Excuses' ? current && current > dayjs().endOf('day') : false}
-                />
+              />
             </Form.Item>
-            </Col>
+          </Col>
 
-            {selectedLeaveType !== 'Permission' && selectedLeaveType !== 'Excuses' && !(selectedLeaveType === 'Casual Leave' && casualLeaveDuration === 'HDL') && (
+          {selectedLeaveType !== 'Permission' && selectedLeaveType !== 'Excuses' && !(selectedLeaveType === 'Casual Leave' && casualLeaveDuration === 'HDL') && (
             <Col xs={24} md={12}>
-                <Form.Item
+              <Form.Item
                 name="endDate"
                 label="End Date"
                 rules={[{ required: true, message: 'Please select end date' }]}
-                >
-                <DatePicker 
-                    style={{ width: '100%' }}
-                    size="large"
-                    format="DD/MM/YYYY"
-                    disabledDate={(current) => {
+              >
+                <DatePicker
+                  style={{ width: '100%' }}
+                  size="large"
+                  format="DD/MM/YYYY"
+                  disabledDate={(current) => {
                     const startDate = form.getFieldValue('startDate');
                     // Prevent selecting a date before the start date
                     return current && startDate && current < startDate;
-                    }}
+                  }}
                 />
-                </Form.Item>
+              </Form.Item>
             </Col>
-            )}
+          )}
 
-            {selectedLeaveType === 'Permission' && (
-                <>
-                <Col xs={12} md={8}>
-                    <Form.Item
-                    name="startTime"
-                    label="Start Time"
-                    rules={[{ required: true, message: 'Please select start time' }]}
-                    >
-                    <TimePicker 
-                        format="HH:mm"
-                        style={{ width: '100%' }}
-                        size="large"
-                    />
-                    </Form.Item>
-                </Col>
-                <Col xs={12} md={8}>
-                    <Form.Item
-                    name="endTime"
-                    label="End Time"
-                    rules={[{ required: true, message: 'Please select end time' }]}
-                    >
-                    <TimePicker 
-                        format="HH:mm"
-                        style={{ width: '100%' }}
-                        size="large"
-                    />
-                    </Form.Item>
-                </Col>
-                </>
-            )}
+          {selectedLeaveType === 'Permission' && (
+            <>
+              <Col xs={12} md={8}>
+                <Form.Item
+                  name="startTime"
+                  label="Start Time"
+                  rules={[{ required: true, message: 'Please select start time' }]}
+                >
+                  <TimePicker
+                    format="HH:mm"
+                    style={{ width: '100%' }}
+                    size="large"
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={12} md={8}>
+                <Form.Item
+                  name="endTime"
+                  label="End Time"
+                  rules={[{ required: true, message: 'Please select end time' }]}
+                >
+                  <TimePicker
+                    format="HH:mm"
+                    style={{ width: '100%' }}
+                    size="large"
+                  />
+                </Form.Item>
+              </Col>
+            </>
+          )}
         </Row>
 
 
@@ -2788,8 +2770,8 @@ const completeStyles = professionalStyles + actionButtonStyles;
           </Form.Item>
         )}
 
-        <Form.Item 
-          name="attachment" 
+        <Form.Item
+          name="attachment"
           label="Additional Documents (Optional)"
           valuePropName="fileList"
           getValueFromEvent={(e) => Array.isArray(e) ? e : e && e.fileList}
@@ -2806,23 +2788,22 @@ const completeStyles = professionalStyles + actionButtonStyles;
             </div>
           </Upload>
         </Form.Item>
-         {selectedLeaveType && (
+        {selectedLeaveType && (
           <Alert
-            message={`Available Balance: ${
-              selectedLeaveType === 'Permission' ? leaveBalances.permission.remaining + ' permissions' :
+            message={`Available Balance: ${selectedLeaveType === 'Permission' ? leaveBalances.permission.remaining + ' permissions' :
               selectedLeaveType === 'Casual Leave' ? leaveBalances.casualLeave.remaining + ' days' :
-              selectedLeaveType === 'Earned Leave' ? leaveBalances.earnedLeave.remaining + ' days' :
-              selectedLeaveType === 'Medical Leave' ? leaveBalances.medicalLeave.remaining + ' days' :
-              selectedLeaveType === 'Maternity Leave' ? leaveBalances.maternityLeave.remaining + ' days' :
-              selectedLeaveType === 'Compensatory Leave' ? leaveBalances.compensatoryLeave.remaining + ' days' :
-              selectedLeaveType === 'Excuses' ? leaveBalances.excuses.remaining + ' excuses' : 'Check with HR'
-            }`}
+                selectedLeaveType === 'Earned Leave' ? leaveBalances.earnedLeave.remaining + ' days' :
+                  selectedLeaveType === 'Medical Leave' ? leaveBalances.medicalLeave.remaining + ' days' :
+                    selectedLeaveType === 'Maternity Leave' ? leaveBalances.maternityLeave.remaining + ' days' :
+                      selectedLeaveType === 'Compensatory Leave' ? leaveBalances.compensatoryLeave.remaining + ' days' :
+                        selectedLeaveType === 'Excuses' ? leaveBalances.excuses.remaining + ' excuses' : 'Check with HR'
+              }`}
             type={
               (selectedLeaveType === 'Permission' && leaveBalances.permission.remaining <= 0) ||
-              (selectedLeaveType === 'Casual Leave' && leaveBalances.casualLeave.remaining < 0.5) ||
-              (selectedLeaveType === 'Earned Leave' && leaveBalances.earnedLeave.remaining <= 0) ||
-              (selectedLeaveType === 'Medical Leave' && leaveBalances.medicalLeave.remaining <= 0) ||
-              (selectedLeaveType === 'Excuses' && leaveBalances.excuses.remaining <= 0)
+                (selectedLeaveType === 'Casual Leave' && leaveBalances.casualLeave.remaining < 0.5) ||
+                (selectedLeaveType === 'Earned Leave' && leaveBalances.earnedLeave.remaining <= 0) ||
+                (selectedLeaveType === 'Medical Leave' && leaveBalances.medicalLeave.remaining <= 0) ||
+                (selectedLeaveType === 'Excuses' && leaveBalances.excuses.remaining <= 0)
                 ? 'warning' : 'info'
             }
             showIcon
@@ -2834,409 +2815,409 @@ const completeStyles = professionalStyles + actionButtonStyles;
   };
 
 
-    // Leave Details Modal Component
+  // Leave Details Modal Component
   const LeaveDetailsModal = () => {
-  if (!selectedLeave) return null;
+    if (!selectedLeave) return null;
 
-  const [employeeLeaveBalance, setEmployeeLeaveBalance] = useState(null);
-  const [balanceLoading, setBalanceLoading] = useState(false);
+    const [employeeLeaveBalance, setEmployeeLeaveBalance] = useState(null);
+    const [balanceLoading, setBalanceLoading] = useState(false);
 
-  const config = getLeaveTypeConfig(selectedLeave.leave_type || selectedLeave.leaveType);
+    const config = getLeaveTypeConfig(selectedLeave.leave_type || selectedLeave.leaveType);
 
-  // Fetch the specific employee's leave balance when the modal opens
-  useEffect(() => {
-    const fetchBalanceForEmployee = async () => {
-      if (selectedLeave && selectedLeave.user_id) {
-        setBalanceLoading(true);
-        try {
-          const balances = await calculateLeaveBalances(selectedLeave.user_id);
-          setEmployeeLeaveBalance(balances);
-        } catch (error) {
-          console.error("Failed to fetch employee balance for modal:", error);
-          setEmployeeLeaveBalance(null); // Reset on error
-        } finally {
-          setBalanceLoading(false);
+    // Fetch the specific employee's leave balance when the modal opens
+    useEffect(() => {
+      const fetchBalanceForEmployee = async () => {
+        if (selectedLeave && selectedLeave.user_id) {
+          setBalanceLoading(true);
+          try {
+            const balances = await calculateLeaveBalances(selectedLeave.user_id);
+            setEmployeeLeaveBalance(balances);
+          } catch (error) {
+            console.error("Failed to fetch employee balance for modal:", error);
+            setEmployeeLeaveBalance(null); // Reset on error
+          } finally {
+            setBalanceLoading(false);
+          }
         }
+      };
+
+      fetchBalanceForEmployee();
+    }, [selectedLeave]); // Re-run when a new leave is selected
+
+    // Helper to get the specific balance details based on the leave type
+    const getBalanceForType = (type) => {
+      if (!employeeLeaveBalance) return null;
+      switch (type) {
+        case 'Permission': return employeeLeaveBalance.permission;
+        case 'Casual Leave': return employeeLeaveBalance.casualLeave;
+        case 'Earned Leave': return employeeLeaveBalance.earnedLeave;
+        case 'Medical Leave': return employeeLeaveBalance.medicalLeave;
+        case 'Maternity Leave': return employeeLeaveBalance.maternityLeave;
+        case 'Compensatory Leave': return employeeLeaveBalance.compensatoryLeave;
+        case 'Excuses': return employeeLeaveBalance.excuses;
+        default: return null;
       }
     };
 
-    fetchBalanceForEmployee();
-  }, [selectedLeave]); // Re-run when a new leave is selected
+    const relevantBalance = getBalanceForType(selectedLeave.leave_type || selectedLeave.leaveType);
 
-  // Helper to get the specific balance details based on the leave type
-  const getBalanceForType = (type) => {
-    if (!employeeLeaveBalance) return null;
-    switch (type) {
-      case 'Permission': return employeeLeaveBalance.permission;
-      case 'Casual Leave': return employeeLeaveBalance.casualLeave;
-      case 'Earned Leave': return employeeLeaveBalance.earnedLeave;
-      case 'Medical Leave': return employeeLeaveBalance.medicalLeave;
-      case 'Maternity Leave': return employeeLeaveBalance.maternityLeave;
-      case 'Compensatory Leave': return employeeLeaveBalance.compensatoryLeave;
-      case 'Excuses': return employeeLeaveBalance.excuses;
-      default: return null;
-    }
-  };
-
-  const relevantBalance = getBalanceForType(selectedLeave.leave_type || selectedLeave.leaveType);
-
-return (
-    <Modal
-      title={
-        <Space>
-          <div style={{ color: config.color }}>{config.icon}</div>
-          <span>Leave Details</span>
-        </Space>
-      }
-      open={leaveDetailsModal}
-      onCancel={() => {
-        setLeaveDetailsModal(false);
-        setSelectedLeave(null);
-      }}
-      // --- CHANGE: Removed action buttons from the footer ---
-      footer={[
-        <Button key="close" onClick={() => {
+    return (
+      <Modal
+        title={
+          <Space>
+            <div style={{ color: config.color }}>{config.icon}</div>
+            <span>Leave Details</span>
+          </Space>
+        }
+        open={leaveDetailsModal}
+        onCancel={() => {
           setLeaveDetailsModal(false);
           setSelectedLeave(null);
-        }}>
-          Close
-        </Button>,
-      ]}
-      width={600}
-    >
-      <Descriptions bordered column={1} size="small">
-        <Descriptions.Item label="Employee">
-          <Space>
-            <Avatar icon={<UserOutlined />} size="small" style={{ backgroundColor: '#0D7139' }} />
-            <div>
-              <div style={{ fontWeight: 600 }}>
-                {selectedLeave.users?.name || selectedLeave.employee_name || selectedLeave.employeeName}
+        }}
+        // --- CHANGE: Removed action buttons from the footer ---
+        footer={[
+          <Button key="close" onClick={() => {
+            setLeaveDetailsModal(false);
+            setSelectedLeave(null);
+          }}>
+            Close
+          </Button>,
+        ]}
+        width={600}
+      >
+        <Descriptions bordered column={1} size="small">
+          <Descriptions.Item label="Employee">
+            <Space>
+              <Avatar icon={<UserOutlined />} size="small" style={{ backgroundColor: '#0D7139' }} />
+              <div>
+                <div style={{ fontWeight: 600 }}>
+                  {selectedLeave.users?.name || selectedLeave.employee_name || selectedLeave.employeeName}
+                </div>
+                <Text type="secondary">
+                  {selectedLeave.users?.employee_id || selectedLeave.employee_code || selectedLeave.employeeCode} • {selectedLeave.department}
+                </Text>
               </div>
-              <Text type="secondary">
-                {selectedLeave.users?.employee_id || selectedLeave.employee_code || selectedLeave.employeeCode} • {selectedLeave.department}
-              </Text>
-            </div>
-          </Space>
-        </Descriptions.Item>
+            </Space>
+          </Descriptions.Item>
 
-        <Descriptions.Item label="Leave Type">
-          <Space>
-            <Tag color={config.color} style={{ borderRadius: '6px' }}>
-              {selectedLeave.leave_type || selectedLeave.leaveType}
-            </Tag>
-            {(selectedLeave.sub_type || selectedLeave.subType) && (
-              <Tag color="default">
-                {(selectedLeave.leave_type || selectedLeave.leaveType) === 'Permission' &&
-                  getPermissionTimeIcon(selectedLeave.sub_type || selectedLeave.subType)}
-                {' '}{selectedLeave.sub_type || selectedLeave.subType}
+          <Descriptions.Item label="Leave Type">
+            <Space>
+              <Tag color={config.color} style={{ borderRadius: '6px' }}>
+                {selectedLeave.leave_type || selectedLeave.leaveType}
               </Tag>
-            )}
-          </Space>
-        </Descriptions.Item>
-
-        {/* --- NEW: Added Leave Balance Information Row --- */}
-        {relevantBalance && (
-           <Descriptions.Item label={`${selectedLeave.leave_type} Balance`}>
-            {balanceLoading ? (
-              <Spin size="small" />
-            ) : (
-              <Space split={<Divider type="vertical" />}>
-                <Statistic title="Total" value={relevantBalance.total} valueStyle={{ fontSize: '16px', color: '#333' }} />
-                <Statistic title="Used" value={relevantBalance.used} valueStyle={{ fontSize: '16px', color: '#fa8c16' }} />
-                <Statistic title="Remaining" value={relevantBalance.remaining} valueStyle={{ fontSize: '16px', color: '#52c41a' }} />
-              </Space>
-            )}
-           </Descriptions.Item>
-        )}
-
-        <Descriptions.Item label="Duration">
-          <div>
-            <Text strong>
-              {dayjs(selectedLeave.start_date || selectedLeave.startDate).format('DD MMM YYYY')}
-              {(selectedLeave.end_date || selectedLeave.endDate) !== (selectedLeave.start_date || selectedLeave.startDate) &&
-                ` - ${dayjs(selectedLeave.end_date || selectedLeave.endDate).format('DD MMM YYYY')}`}
-            </Text>
-            <br />
-            <Text type="secondary">
-              {(selectedLeave.total_hours || selectedLeave.totalHours) > 0 ?
-                `${selectedLeave.total_hours || selectedLeave.totalHours} hours` :
-                `${selectedLeave.total_days || selectedLeave.totalDays} day${(selectedLeave.total_days || selectedLeave.totalDays) > 1 ? 's' : ''}`}
-              {(selectedLeave.start_time || selectedLeave.startTime) && (selectedLeave.end_time || selectedLeave.endTime) && (
-                <> • {selectedLeave.start_time || selectedLeave.startTime} - {selectedLeave.end_time || selectedLeave.endTime}</>
-              )}
-            </Text>
-          </div>
-        </Descriptions.Item>
-
-        <Descriptions.Item label="Reason">
-          <Paragraph style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-            {selectedLeave.reason}
-          </Paragraph>
-        </Descriptions.Item>
-
-        <Descriptions.Item label="Applied Date">
-          {dayjs(selectedLeave.created_at || selectedLeave.appliedDate).format('DD MMM YYYY, hh:mm A')}
-        </Descriptions.Item>
-
-        <Descriptions.Item label="Status">
-          <Badge
-            status={selectedLeave.status === 'Approved' ? 'success' :
-                   selectedLeave.status === 'Rejected' ? 'error' : 'processing'}
-            text={selectedLeave.status}
-          />
-          {selectedLeave.status === 'Approved' && (selectedLeave.approved_by || selectedLeave.approvedBy) && (
-            <div style={{ marginTop: '4px' }}>
-              <Text type="secondary" style={{ fontSize: '12px' }}>
-                Approved by {selectedLeave.approved_by || selectedLeave.approvedBy} on {dayjs(selectedLeave.approved_date || selectedLeave.approvedDate).format('DD MMM YYYY')}
-              </Text>
-            </div>
-          )}
-          {selectedLeave.status === 'Rejected' && (selectedLeave.rejected_by || selectedLeave.rejected_by) && (
-            <div style={{ marginTop: '4px' }}>
-              <Text type="secondary" style={{ fontSize: '12px' }}>
-                Rejected by {selectedLeave.rejected_by || selectedLeave.rejected_by} on {dayjs(selectedLeave.approved_date || selectedLeave.approvedDate).format('DD MMM YYYY')}
-              </Text>
-            </div>
-          )}
-        </Descriptions.Item>
-
-        {((selectedLeave.medical_certificate || selectedLeave.medicalCertificate) || (selectedLeave.attachment)) && (
-          <Descriptions.Item label="Attachments">
-            <Space direction="vertical">
-              {(selectedLeave.medical_certificate || selectedLeave.medicalCertificate) && (
-                <Button
-                  type="link"
-                  icon={<FileTextOutlined />}
-                  style={{ padding: 0, height: 'auto' }}
-                  onClick={() => window.open(selectedLeave.medical_certificate || selectedLeave.medicalCertificate, '_blank')}
-                >
-                Medical Certificate
-              </Button>
-              )}
-              {selectedLeave.attachment && (
-                <Button
-                  type="link"
-                  icon={<FileTextOutlined />}
-                  onClick={() => window.open(selectedLeave.attachment || selectedLeave.attachment, '_blank')}
-                  style={{ padding: 0, height: 'auto' }}
-                >
-                  Attachment
-                </Button>
+              {(selectedLeave.sub_type || selectedLeave.subType) && (
+                <Tag color="default">
+                  {(selectedLeave.leave_type || selectedLeave.leaveType) === 'Permission' &&
+                    getPermissionTimeIcon(selectedLeave.sub_type || selectedLeave.subType)}
+                  {' '}{selectedLeave.sub_type || selectedLeave.subType}
+                </Tag>
               )}
             </Space>
           </Descriptions.Item>
-        )}
-      </Descriptions>
-    </Modal>
-  );
-};
+
+          {/* --- NEW: Added Leave Balance Information Row --- */}
+          {relevantBalance && (
+            <Descriptions.Item label={`${selectedLeave.leave_type} Balance`}>
+              {balanceLoading ? (
+                <Spin size="small" />
+              ) : (
+                <Space split={<Divider type="vertical" />}>
+                  <Statistic title="Total" value={relevantBalance.total} valueStyle={{ fontSize: '16px', color: '#333' }} />
+                  <Statistic title="Used" value={relevantBalance.used} valueStyle={{ fontSize: '16px', color: '#fa8c16' }} />
+                  <Statistic title="Remaining" value={relevantBalance.remaining} valueStyle={{ fontSize: '16px', color: '#52c41a' }} />
+                </Space>
+              )}
+            </Descriptions.Item>
+          )}
+
+          <Descriptions.Item label="Duration">
+            <div>
+              <Text strong>
+                {dayjs(selectedLeave.start_date || selectedLeave.startDate).format('DD MMM YYYY')}
+                {(selectedLeave.end_date || selectedLeave.endDate) !== (selectedLeave.start_date || selectedLeave.startDate) &&
+                  ` - ${dayjs(selectedLeave.end_date || selectedLeave.endDate).format('DD MMM YYYY')}`}
+              </Text>
+              <br />
+              <Text type="secondary">
+                {(selectedLeave.total_hours || selectedLeave.totalHours) > 0 ?
+                  `${selectedLeave.total_hours || selectedLeave.totalHours} hours` :
+                  `${selectedLeave.total_days || selectedLeave.totalDays} day${(selectedLeave.total_days || selectedLeave.totalDays) > 1 ? 's' : ''}`}
+                {(selectedLeave.start_time || selectedLeave.startTime) && (selectedLeave.end_time || selectedLeave.endTime) && (
+                  <> • {selectedLeave.start_time || selectedLeave.startTime} - {selectedLeave.end_time || selectedLeave.endTime}</>
+                )}
+              </Text>
+            </div>
+          </Descriptions.Item>
+
+          <Descriptions.Item label="Reason">
+            <Paragraph style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+              {selectedLeave.reason}
+            </Paragraph>
+          </Descriptions.Item>
+
+          <Descriptions.Item label="Applied Date">
+            {dayjs(selectedLeave.created_at || selectedLeave.appliedDate).format('DD MMM YYYY, hh:mm A')}
+          </Descriptions.Item>
+
+          <Descriptions.Item label="Status">
+            <Badge
+              status={selectedLeave.status === 'Approved' ? 'success' :
+                selectedLeave.status === 'Rejected' ? 'error' : 'processing'}
+              text={selectedLeave.status}
+            />
+            {selectedLeave.status === 'Approved' && (selectedLeave.approved_by || selectedLeave.approvedBy) && (
+              <div style={{ marginTop: '4px' }}>
+                <Text type="secondary" style={{ fontSize: '12px' }}>
+                  Approved by {selectedLeave.approved_by || selectedLeave.approvedBy} on {dayjs(selectedLeave.approved_date || selectedLeave.approvedDate).format('DD MMM YYYY')}
+                </Text>
+              </div>
+            )}
+            {selectedLeave.status === 'Rejected' && (selectedLeave.rejected_by || selectedLeave.rejected_by) && (
+              <div style={{ marginTop: '4px' }}>
+                <Text type="secondary" style={{ fontSize: '12px' }}>
+                  Rejected by {selectedLeave.rejected_by || selectedLeave.rejected_by} on {dayjs(selectedLeave.approved_date || selectedLeave.approvedDate).format('DD MMM YYYY')}
+                </Text>
+              </div>
+            )}
+          </Descriptions.Item>
+
+          {((selectedLeave.medical_certificate || selectedLeave.medicalCertificate) || (selectedLeave.attachment)) && (
+            <Descriptions.Item label="Attachments">
+              <Space direction="vertical">
+                {(selectedLeave.medical_certificate || selectedLeave.medicalCertificate) && (
+                  <Button
+                    type="link"
+                    icon={<FileTextOutlined />}
+                    style={{ padding: 0, height: 'auto' }}
+                    onClick={() => window.open(selectedLeave.medical_certificate || selectedLeave.medicalCertificate, '_blank')}
+                  >
+                    Medical Certificate
+                  </Button>
+                )}
+                {selectedLeave.attachment && (
+                  <Button
+                    type="link"
+                    icon={<FileTextOutlined />}
+                    onClick={() => window.open(selectedLeave.attachment || selectedLeave.attachment, '_blank')}
+                    style={{ padding: 0, height: 'auto' }}
+                  >
+                    Attachment
+                  </Button>
+                )}
+              </Space>
+            </Descriptions.Item>
+          )}
+        </Descriptions>
+      </Modal>
+    );
+  };
 
 
 
 
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
-useEffect(() => {
-  const handleResize = () => {
-    setIsMobile(window.innerWidth < 768);
-  };
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
 
-  handleResize();
-  window.addEventListener('resize', handleResize);
-  
-  return () => {
-    window.removeEventListener('resize', handleResize);
-  };
-}, [])
-// In leavemanage.jsx
+    handleResize();
+    window.addEventListener('resize', handleResize);
 
-useEffect(() => {
-  // Only set up realtime after initial data is loaded and for the dashboard tab
-  if (!dataLoaded || activeTab !== 'dashboard' || !currentUser?.id) return;
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [])
+  // In leavemanage.jsx
 
-  console.log('Setting up realtime subscriptions for user:', currentUserId);
+  useEffect(() => {
+    // Only set up realtime after initial data is loaded and for the dashboard tab
+    if (!dataLoaded || activeTab !== 'dashboard' || !currentUser?.id) return;
 
-  // --- LEAVE APPLICATIONS SUBSCRIPTION ---
-  const leaveChannel = supabase
-    .channel('realtime-leave-applications')
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'leave_applications',
-      // Filter for employee's own applications OR all applications for HR
-      ...(userRole === 'employee' && { filter: `user_id=eq.${currentUserId}` })
-    }, async (payload) => {
-      console.log('🔄 Realtime: Leave application change detected!', payload);
-      
-      try {
-        // Fetch updated leave data
-        const updatedLeaves = await fetchLeaveApplications(userRole === 'employee' ? currentUserId : null);
-        setLeaveData(updatedLeaves);
-        
-        // If this is an employee and it's their own application, also update balances
-        if (userRole === 'employee' && payload.new?.user_id === currentUserId) {
-          console.log('🔄 Updating balances for employee after leave change');
-          const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
-          setLeaveBalances(updatedBalances);
-        }
-      } catch (error) {
-        console.error('Error handling leave application change:', error);
-      }
-    })
-    .subscribe();
+    console.log('Setting up realtime subscriptions for user:', currentUserId);
 
-  // --- LEAVE BALANCES SUBSCRIPTION ---
-  const balanceChannel = supabase
-    .channel('realtime-leave-balances')
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'leave_balances',
-      // Only listen to current user's balance changes for employees
-      ...(userRole === 'employee' && { filter: `user_id=eq.${currentUserId}` })
-    }, async (payload) => {
-      console.log('🔄 Realtime: Leave balance change detected!', payload);
-      
-      try {
-        // For employees, only update if it's their balance
-        if (userRole === 'employee') {
-          if (payload.new?.user_id === currentUserId || payload.old?.user_id === currentUserId) {
+    // --- LEAVE APPLICATIONS SUBSCRIPTION ---
+    const leaveChannel = supabase
+      .channel('realtime-leave-applications')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'leave_applications',
+        // Filter for employee's own applications OR all applications for HR
+        ...(userRole === 'employee' && { filter: `user_id=eq.${currentUserId}` })
+      }, async (payload) => {
+        console.log('🔄 Realtime: Leave application change detected!', payload);
+
+        try {
+          // Fetch updated leave data
+          const updatedLeaves = await fetchLeaveApplications(userRole === 'employee' ? currentUserId : null);
+          setLeaveData(updatedLeaves);
+
+          // If this is an employee and it's their own application, also update balances
+          if (userRole === 'employee' && payload.new?.user_id === currentUserId) {
+            console.log('🔄 Updating balances for employee after leave change');
             const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
             setLeaveBalances(updatedBalances);
-            console.log('✅ Employee balance updated via realtime');
           }
-        } else {
-          // For HR, this might trigger other updates
-          console.log('HR detected balance change for user:', payload.new?.user_id);
+        } catch (error) {
+          console.error('Error handling leave application change:', error);
         }
-      } catch (error) {
-        console.error('Error handling balance change:', error);
-      }
-    })
-    .subscribe();
+      })
+      .subscribe();
 
-  // Enhanced cleanup function
-  return () => {
-    console.log('🧹 Cleaning up realtime subscriptions');
-    supabase.removeChannel(leaveChannel);
-    supabase.removeChannel(balanceChannel);
-  };
-}, [dataLoaded, currentUserId, userRole, currentUser?.id, activeTab]);
-// Add cache clearing utility
-const clearCache = () => {
-  delete window.holidayCache;
-};
-// Add this useEffect hook inside LeaveManagementPage
-useEffect(() => {
-    const fetchEmployees = async () => {
-        if (userRole !== 'employee' && activeTab === 'dashboard' && employees.length === 0) {
-            const { data, error } = await supabase
-                .from('users')
-                .select('id, name, employee_id') // Only essential fields
-                .or('employee_id.like.MYAEMP%,employee_id.like.MYAINT%') // Server-side filtering
-                .order('name', { ascending: true });
-            
-            if (error) {
-                console.error("Error fetching employees:", error);
-            } else {
-                setEmployees(data || []);
+    // --- LEAVE BALANCES SUBSCRIPTION ---
+    const balanceChannel = supabase
+      .channel('realtime-leave-balances')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'leave_balances',
+        // Only listen to current user's balance changes for employees
+        ...(userRole === 'employee' && { filter: `user_id=eq.${currentUserId}` })
+      }, async (payload) => {
+        console.log('🔄 Realtime: Leave balance change detected!', payload);
+
+        try {
+          // For employees, only update if it's their balance
+          if (userRole === 'employee') {
+            if (payload.new?.user_id === currentUserId || payload.old?.user_id === currentUserId) {
+              const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
+              setLeaveBalances(updatedBalances);
+              console.log('✅ Employee balance updated via realtime');
             }
+          } else {
+            // For HR, this might trigger other updates
+            console.log('HR detected balance change for user:', payload.new?.user_id);
+          }
+        } catch (error) {
+          console.error('Error handling balance change:', error);
         }
+      })
+      .subscribe();
+
+    // Enhanced cleanup function
+    return () => {
+      console.log('🧹 Cleaning up realtime subscriptions');
+      supabase.removeChannel(leaveChannel);
+      supabase.removeChannel(balanceChannel);
+    };
+  }, [dataLoaded, currentUserId, userRole, currentUser?.id, activeTab]);
+  // Add cache clearing utility
+  const clearCache = () => {
+    delete window.holidayCache;
+  };
+  // Add this useEffect hook inside LeaveManagementPage
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      if (userRole !== 'employee' && activeTab === 'dashboard' && employees.length === 0) {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, name, employee_id') // Only essential fields
+          .or('employee_id.like.MYAEMP%,employee_id.like.MYAINT%') // Server-side filtering
+          .order('name', { ascending: true });
+
+        if (error) {
+          console.error("Error fetching employees:", error);
+        } else {
+          setEmployees(data || []);
+        }
+      }
     };
 
     fetchEmployees();
-}, [userRole, activeTab, employees.length]);
+  }, [userRole, activeTab, employees.length]);
   // HR/Admin Dashboard Component
-   const HRDashboard = () => (
-  <div style={animationStyles.container}>
-    {/* Professional HR Header */}
-    <Card style={{
-      marginBottom: '24px',
-      background: 'linear-gradient(135deg, #f8fffe 0%, #e6f7ff 50%, #f0f9ff 100%)',
-      border: '1px solid #e8f4fd',
-      borderRadius: '20px',
-      boxShadow: '0 10px 40px rgba(13, 113, 57, 0.08)',
-      overflow: 'hidden',
-      ...animationStyles.headerCard
-    }}>
-      <div style={{
-        position: 'absolute',
-        top: 0,
-        right: 0,
-        width: '200px',
-        height: '100px',
-        background: 'linear-gradient(135deg, rgba(13, 113, 57, 0.05) 0%, rgba(82, 196, 26, 0.03) 100%)',
-        borderRadius: '0 0 0 100px',
-        zIndex: 1
-      }} />
-      
-      <Row align="middle" justify="space-between" gutter={[24, 16]} style={{ position: 'relative', zIndex: 2 }}>
-        <Col xs={24} md={14} lg={16}>
-          <Space size={24} direction="horizontal" style={{ width: '100%' }}>
-            <div style={{
-              position: 'relative',
-              background: 'linear-gradient(135deg, #0D7139 0%, #52c41a 100%)',
-              borderRadius: '16px',
-              padding: '16px',
-              boxShadow: '0 8px 24px rgba(13, 113, 57, 0.2)'
-            }}>
-              <TeamOutlined style={{ fontSize: '32px', color: 'white' }} />
+  const HRDashboard = () => (
+    <div style={animationStyles.container}>
+      {/* Professional HR Header */}
+      <Card style={{
+        marginBottom: '24px',
+        background: 'linear-gradient(135deg, #f8fffe 0%, #e6f7ff 50%, #f0f9ff 100%)',
+        border: '1px solid #e8f4fd',
+        borderRadius: '20px',
+        boxShadow: '0 10px 40px rgba(13, 113, 57, 0.08)',
+        overflow: 'hidden',
+        ...animationStyles.headerCard
+      }}>
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          width: '200px',
+          height: '100px',
+          background: 'linear-gradient(135deg, rgba(13, 113, 57, 0.05) 0%, rgba(82, 196, 26, 0.03) 100%)',
+          borderRadius: '0 0 0 100px',
+          zIndex: 1
+        }} />
+
+        <Row align="middle" justify="space-between" gutter={[24, 16]} style={{ position: 'relative', zIndex: 2 }}>
+          <Col xs={24} md={14} lg={16}>
+            <Space size={24} direction="horizontal" style={{ width: '100%' }}>
               <div style={{
-                position: 'absolute',
-                top: '-4px',
-                right: '-4px',
-                width: '12px',
-                height: '12px',
-                background: '#52c41a',
-                borderRadius: '50%',
-                border: '2px solid white'
-              }} />
-            </div>
-            
-            <div style={{ flex: 1 }}>
-              <Title level={2} style={{
-                margin: '0 0 4px 0',
+                position: 'relative',
                 background: 'linear-gradient(135deg, #0D7139 0%, #52c41a 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-                fontSize: 'clamp(20px, 4vw, 28px)',
-                fontWeight: 700,
-                letterSpacing: '-0.5px'
+                borderRadius: '16px',
+                padding: '16px',
+                boxShadow: '0 8px 24px rgba(13, 113, 57, 0.2)'
               }}>
-                Leave Management Hub
-              </Title>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-                <Text style={{ 
-                  color: '#6b7280',
-                  fontSize: '14px',
-                  fontWeight: 500
+                <TeamOutlined style={{ fontSize: '32px', color: 'white' }} />
+                <div style={{
+                  position: 'absolute',
+                  top: '-4px',
+                  right: '-4px',
+                  width: '12px',
+                  height: '12px',
+                  background: '#52c41a',
+                  borderRadius: '50%',
+                  border: '2px solid white'
+                }} />
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <Title level={2} style={{
+                  margin: '0 0 4px 0',
+                  background: 'linear-gradient(135deg, #0D7139 0%, #52c41a 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  fontSize: 'clamp(20px, 4vw, 28px)',
+                  fontWeight: 700,
+                  letterSpacing: '-0.5px'
                 }}>
-                  HR Administrative Dashboard
-                </Text>
-                <div style={{ 
-                  padding: '4px 12px',
-                  background: 'rgba(13, 113, 57, 0.1)',
-                  border: '1px solid rgba(13, 113, 57, 0.2)',
-                  borderRadius: '20px',
-                  fontSize: '12px',
-                  color: '#0D7139',
-                  fontWeight: 600
-                }}>
-                  Admin Access
+                  Leave Management Hub
+                </Title>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                  <Text style={{
+                    color: '#6b7280',
+                    fontSize: '14px',
+                    fontWeight: 500
+                  }}>
+                    HR Administrative Dashboard
+                  </Text>
+                  <div style={{
+                    padding: '4px 12px',
+                    background: 'rgba(13, 113, 57, 0.1)',
+                    border: '1px solid rgba(13, 113, 57, 0.2)',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    color: '#0D7139',
+                    fontWeight: 600
+                  }}>
+                    Admin Access
+                  </div>
                 </div>
               </div>
-            </div>
-          </Space>
-        </Col>
-        
-        {/* --- THIS IS THE CORRECTED SECTION FOR THE BUTTONS --- */}
-        <Col xs={24} md={10} lg={8}>
-          <Space 
-            size={[8, 16]} 
-            wrap 
-            style={{ width: '100%', justifyContent: 'flex-end' }}
-          >
+            </Space>
+          </Col>
+
+          {/* --- THIS IS THE CORRECTED SECTION FOR THE BUTTONS --- */}
+          <Col xs={24} md={10} lg={8}>
+            <Space
+              size={[8, 8]}
+              wrap
+              style={{ width: '100%', justifyContent: window.innerWidth < 768 ? 'flex-start' : 'flex-end' }}
+            >
               <Tooltip title="Export Leave Reports">
                 <Button
                   type="primary"
@@ -3256,25 +3237,25 @@ useEffect(() => {
                   Export Report
                 </Button>
               </Tooltip>
-              
+
               <Tooltip title="Allocate Additional Medical Leave">
-                  <Button
+                <Button
                   icon={<MedicineBoxOutlined />}
-                  onClick={() => setMedicalLeaveModal(true)} 
+                  onClick={() => setMedicalLeaveModal(true)}
                   style={{
-                      height: '44px',
-                      borderRadius: '12px',
-                      background: 'linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%)',
-                      border: 'none',
-                      color: 'white',
-                      fontWeight: 600,
-                      boxShadow: '0 4px 16px rgba(255, 77, 79, 0.24)',
+                    height: '44px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%)',
+                    border: 'none',
+                    color: 'white',
+                    fontWeight: 600,
+                    boxShadow: '0 4px 16px rgba(255, 77, 79, 0.24)',
                   }}
-                  >
+                >
                   Medical Leave
-                  </Button>
+                </Button>
               </Tooltip>
-              
+
               <Tooltip title="Manually Allocate Compensatory Leave">
                 <Button
                   icon={<FaIndianRupeeSign />}
@@ -3292,431 +3273,431 @@ useEffect(() => {
                   Allocate Comp Off
                 </Button>
               </Tooltip>
-          </Space>
-        </Col>
-        {/* --- END OF CORRECTED SECTION --- */}
-      </Row>
-    </Card>
-
-    {/* The rest of the HRDashboard component remains unchanged... */}
-    <Row gutter={[20, 20]} style={{ marginBottom: '32px' }}>
-      <Col xs={12} sm={6} lg={6}>
-        <Card style={{
-          borderRadius: '16px',
-          border: '1px solid rgba(82, 196, 26, 0.12)',
-          background: 'white',
-          boxShadow: '0 4px 20px rgba(82, 196, 26, 0.08)',
-          transition: 'all 0.3s ease',
-          position: 'relative',
-          overflow: 'hidden',
-          ...animationStyles.statsCard
-        }}>
-          <div style={{
-            position: 'absolute',
-            top: '-20px',
-            right: '-20px',
-            width: '80px',
-            height: '80px',
-            background: 'rgba(82, 196, 26, 0.1)',
-            borderRadius: '50%',
-            zIndex: 1
-          }} />
-          <div style={{ position: 'relative', zIndex: 2 }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '12px'
-            }}>
-              <div style={{
-                padding: '8px',
-                background: 'rgba(82, 196, 26, 0.1)',
-                borderRadius: '10px',
-                display: 'inline-flex'
-              }}>
-                <CheckCircleOutlined style={{ fontSize: '20px', color: '#52c41a' }} />
-              </div>
-             
-            </div>
-            <div style={{ marginBottom: '4px' }}>
-              <Text style={{
-                fontSize: '28px',
-                fontWeight: 700,
-                color: '#52c41a',
-                lineHeight: 1
-              }}>
-                {filteredLeaves.filter(l => l.status === 'Approved').length}
-              </Text>
-            </div>
-            <Text style={{
-              color: '#6b7280',
-              fontSize: '14px',
-              fontWeight: 500
-            }}>
-              Approved Leaves
-            </Text>
-            <Text style={{
-              display: 'block',
-              fontSize: '11px',
-              color: '#9ca3af',
-              marginTop: '4px'
-            }}>
-              This month
-            </Text>
-          </div>
-        </Card>
-      </Col>
-
-      <Col xs={12} sm={6} lg={6}>
-        <Card style={{
-          borderRadius: '16px',
-          border: '1px solid rgba(250, 173, 20, 0.12)',
-          background: 'white',
-          boxShadow: '0 4px 20px rgba(250, 173, 20, 0.08)',
-          transition: 'all 0.3s ease',
-          position: 'relative',
-          overflow: 'hidden',
-          ...animationStyles.statsCard
-        }}>
-          <div style={{
-            position: 'absolute',
-            top: '-20px',
-            right: '-20px',
-            width: '80px',
-            height: '80px',
-            background: 'rgba(250, 173, 20, 0.1)',
-            borderRadius: '50%',
-            zIndex: 1
-          }} />
-          <div style={{ position: 'relative', zIndex: 2 }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '12px'
-            }}>
-              <div style={{
-                padding: '8px',
-                background: 'rgba(250, 173, 20, 0.1)',
-                borderRadius: '10px',
-                display: 'inline-flex'
-              }}>
-                <ClockCircleOutlined style={{ fontSize: '20px', color: '#faad14' }} />
-              </div>
-              <div style={{
-                width: '8px',
-                height: '8px',
-                background: '#faad14',
-                borderRadius: '50%',
-                animation: 'pulse 2s infinite'
-              }} />
-            </div>
-            <div style={{ marginBottom: '4px' }}>
-              <Text style={{
-                fontSize: '28px',
-                fontWeight: 700,
-                color: '#faad14',
-                lineHeight: 1
-              }}>
-                {filteredLeaves.filter(l => l.status === 'Pending').length}
-              </Text>
-            </div>
-            <Text style={{
-              color: '#6b7280',
-              fontSize: '14px',
-              fontWeight: 500
-            }}>
-              Pending Review
-            </Text>
-            <Text style={{
-              display: 'block',
-              fontSize: '11px',
-              color: '#9ca3af',
-              marginTop: '4px'
-            }}>
-              Requires attention
-            </Text>
-          </div>
-        </Card>
-      </Col>
-
-      <Col xs={12} sm={6} lg={6}>
-        <Card style={{
-          borderRadius: '16px',
-          border: '1px solid rgba(255, 77, 79, 0.12)',
-          background: 'white',
-          boxShadow: '0 4px 20px rgba(255, 77, 79, 0.08)',
-          transition: 'all 0.3s ease',
-          position: 'relative',
-          overflow: 'hidden',
-          ...animationStyles.statsCard
-        }}>
-          <div style={{
-            position: 'absolute',
-            top: '-20px',
-            right: '-20px',
-            width: '80px',
-            height: '80px',
-            background: 'rgba(255, 77, 79, 0.1)',
-            borderRadius: '50%',
-            zIndex: 1
-          }} />
-          <div style={{ position: 'relative', zIndex: 2 }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '12px'
-            }}>
-              <div style={{
-                padding: '8px',
-                background: 'rgba(255, 77, 79, 0.1)',
-                borderRadius: '10px',
-                display: 'inline-flex'
-              }}>
-                <CloseCircleOutlined style={{ fontSize: '20px', color: '#ff4d4f' }} />
-              </div>
-             
-            </div>
-            <div style={{ marginBottom: '4px' }}>
-              <Text style={{
-                fontSize: '28px',
-                fontWeight: 700,
-                color: '#ff4d4f',
-                lineHeight: 1
-              }}>
-                {filteredLeaves.filter(l => l.status === 'Rejected').length}
-              </Text>
-            </div>
-            <Text style={{
-              color: '#6b7280',
-              fontSize: '14px',
-              fontWeight: 500
-            }}>
-              Rejected Leaves
-            </Text>
-            <Text style={{
-              display: 'block',
-              fontSize: '11px',
-              color: '#9ca3af',
-              marginTop: '4px'
-            }}>
-              This month
-            </Text>
-          </div>
-        </Card>
-      </Col>
-
-     
-    </Row>
-
-    {/* Enhanced Leave Applications Table */}
-    <Card style={{
-      background: 'white',
-      border: '1px solid #f0f0f0',
-      borderRadius: '20px',
-      boxShadow: '0 6px 30px rgba(0, 0, 0, 0.04)',
-      overflow: 'hidden',
-      ...animationStyles.mainCard
-    }}>
-      {/* Professional Table Header */}
-      <div className="leave-header">
-        <Row gutter={[24, 16]} align="middle">
-          <Col xs={24} sm={12} md={14}>
-            <Space size={16}>
-              <div className="leave-icon-container">
-                <NotificationOutlined style={{ fontSize: '20px', color: 'white' }} />
-              </div>
-              <div>
-                <Title level={3} className="leave-title">
-                  Leave Applications
-                </Title>
-                <Text className="leave-subtitle">
-                  Manage and review employee leave requests
-                </Text>
-              </div>
             </Space>
           </Col>
-          
-          <Col xs={24} sm={12} md={10}>
-            <Row gutter={[12, 12]} justify="end">
-  <Col xs={24} sm={12} md={6}>
-    <Select
-      placeholder="Status"
-      value={filterStatus}
-      onChange={setFilterStatus}
-      style={{ width: '100%' }}
-      size="large"
-      suffixIcon={<FilterOutlined style={{ color: '#9ca3af' }} />}
-      className="professional-select"
-    >
-      <Option value="All">All Status</Option>
-      <Option value="Pending">
-        <Space>
-          <div style={{ width: '8px', height: '8px', background: '#faad14', borderRadius: '50%' }} />
-          Pending
-        </Space>
-      </Option>
-      <Option value="Approved">
-        <Space>
-          <div style={{ width: '8px', height: '8px', background: '#52c41a', borderRadius: '50%' }} />
-          Approved
-        </Space>
-      </Option>
-      <Option value="Rejected">
-        <Space>
-          <div style={{ width: '8px', height: '8px', background: '#ff4d4f', borderRadius: '50%' }} />
-          Rejected
-        </Space>
-      </Option>
-    </Select>
-  </Col>
-  
-  {/* NEW DATE RANGE PICKER */}
-  <Col xs={24} sm={12} md={6}>
-    <RangePicker
-      style={{ width: '100%' }}
-      size="large"
-      placeholder={['Start Date', 'End Date']}
-      onChange={(dates) => {
-        // Add date filtering logic here
-        if (dates && dates.length === 2) {
-          // Filter leaves by date range
-          const filtered = leaveData.filter(leave => {
-            const leaveDate = dayjs(leave.start_date);
-            return leaveDate.isBetween(dates[0], dates[1], 'day', '[]');
-          });
-          setFilteredLeaves(filtered);
-        } else {
-          // Reset to show all leaves when date range is cleared
-          setFilteredLeaves(leaveData);
-        }
-      }}
-      className="professional-select"
-    />
-  </Col>
-  
-  <Col xs={24} sm={12} md={6}>
-    <Select
-      placeholder="Employee"
-      value={filterEmployee}
-      onChange={setFilterEmployee}
-      style={{ width: '100%' }}
-      size="large"
-      suffixIcon={<UserOutlined style={{ color: '#9ca3af' }} />}
-      className="professional-select"
-    >
-      <Option value="All">All Employees</Option>
-      {employees.map(emp => (
-        <Option key={emp.id} value={emp.id}>
-          <Space>
-            <Avatar size="small" style={{ backgroundColor: '#0D7139' }}>
-              {emp.name.charAt(0)}
-            </Avatar>
-            {emp.name}
-          </Space>
-        </Option>
-      ))}
-    </Select>
-  </Col>
-</Row>
-          </Col>
+          {/* --- END OF CORRECTED SECTION --- */}
         </Row>
-      </div>
-      
-      {/* Table with padding */}
-      <div style={{ padding: '0 24px 24px 24px' }}>
-        <Table
-          columns={getTableColumns()}
-          dataSource={filteredLeaves}
-          rowKey="id"
-          loading={loading}
-          pagination={filteredLeaves.length > 0 ? {
-  current: currentPage,
-  pageSize: pageSize,
-  total: filteredLeaves.length, // Change this from totalEmployees to filteredLeaves.length
-  showSizeChanger: true,
-  showQuickJumper: true,
-  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} applications`, // Change "employees" to "applications"
-  pageSizeOptions: ['5', '10', '20', '50'],
-  onChange: (page, size) => {
-    setCurrentPage(page);
-    if (size !== pageSize) {
-      setPageSize(size);
-      setCurrentPage(1);
-    }
-  },
-  onShowSizeChange: (current, size) => {
-    setCurrentPage(1);
-    setPageSize(size);
-  },
-  itemRender: (current, type, originalElement) => {
-    if (type === 'page') {
-      return (
-        <a style={{
-          color: current === currentPage ? '#0D7139' : '#d9d9d9',
-          backgroundColor:current === currentPage ? "#ffffffff" : '#faf8f8ff' ,
-          border: `1px solid ${current === currentPage ? '#0D7139' : '#d9d9d9'}`,
-          borderRadius: '6px',
-          fontWeight: current === currentPage ? 600 : 400,
-          padding: '0px 7px',
-          textDecoration: 'none'
-        }}>
-          {current}
-        </a>
-      );
-    }
-    return originalElement;
-  }
-} : false}
-          scroll={filteredLeaves.length > 0 ? {
-            x: 'max-content',
-            scrollToFirstRowOnChange: true
-          } : undefined}
-          size="middle"
-          rowClassName={(record) => {
-            if (record.status === 'Pending') return 'pending-row';
-            if (record.status === 'Approved') return 'approved-row';
-            if (record.status === 'Rejected') return 'rejected-row';
-            return '';
-          }}
-          locale={{
-            emptyText: (
+      </Card>
+
+      {/* The rest of the HRDashboard component remains unchanged... */}
+      <Row gutter={[20, 20]} style={{ marginBottom: '32px' }}>
+        <Col xs={12} sm={6} lg={6}>
+          <Card style={{
+            borderRadius: '16px',
+            border: '1px solid rgba(82, 196, 26, 0.12)',
+            background: 'white',
+            boxShadow: '0 4px 20px rgba(82, 196, 26, 0.08)',
+            transition: 'all 0.3s ease',
+            position: 'relative',
+            overflow: 'hidden',
+            ...animationStyles.statsCard
+          }}>
+            <div style={{
+              position: 'absolute',
+              top: '-20px',
+              right: '-20px',
+              width: '80px',
+              height: '80px',
+              background: 'rgba(82, 196, 26, 0.1)',
+              borderRadius: '50%',
+              zIndex: 1
+            }} />
+            <div style={{ position: 'relative', zIndex: 2 }}>
               <div style={{
-                padding: '60px 20px',
-                textAlign: 'center',
-                background: 'linear-gradient(135deg, #fafbfc 0%, #f8f9fa 100%)',
-                borderRadius: '16px',
-                margin: '20px 0'
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '12px'
               }}>
                 <div style={{
-                  padding: '20px',
-                  background: 'white',
-                  borderRadius: '50%',
-                  display: 'inline-block',
-                  marginBottom: '16px',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)'
+                  padding: '8px',
+                  background: 'rgba(82, 196, 26, 0.1)',
+                  borderRadius: '10px',
+                  display: 'inline-flex'
                 }}>
-                  <NotificationOutlined style={{ fontSize: '32px', color: '#d1d5db' }} />
+                  <CheckCircleOutlined style={{ fontSize: '20px', color: '#52c41a' }} />
                 </div>
-                <Title level={4} style={{ color: '#6b7280', marginBottom: '8px' }}>
-                  No Leave Applications
-                </Title>
-                <Text style={{ color: '#9ca3af' }}>
-                  No leave applications found matching your criteria
+
+              </div>
+              <div style={{ marginBottom: '4px' }}>
+                <Text style={{
+                  fontSize: '28px',
+                  fontWeight: 700,
+                  color: '#52c41a',
+                  lineHeight: 1
+                }}>
+                  {filteredLeaves.filter(l => l.status === 'Approved').length}
                 </Text>
               </div>
-            )
-          }}
-        />
-      </div>
-    </Card>
-  </div>
-);
+              <Text style={{
+                color: '#6b7280',
+                fontSize: '14px',
+                fontWeight: 500
+              }}>
+                Approved Leaves
+              </Text>
+              <Text style={{
+                display: 'block',
+                fontSize: '11px',
+                color: '#9ca3af',
+                marginTop: '4px'
+              }}>
+                This month
+              </Text>
+            </div>
+          </Card>
+        </Col>
+
+        <Col xs={12} sm={6} lg={6}>
+          <Card style={{
+            borderRadius: '16px',
+            border: '1px solid rgba(250, 173, 20, 0.12)',
+            background: 'white',
+            boxShadow: '0 4px 20px rgba(250, 173, 20, 0.08)',
+            transition: 'all 0.3s ease',
+            position: 'relative',
+            overflow: 'hidden',
+            ...animationStyles.statsCard
+          }}>
+            <div style={{
+              position: 'absolute',
+              top: '-20px',
+              right: '-20px',
+              width: '80px',
+              height: '80px',
+              background: 'rgba(250, 173, 20, 0.1)',
+              borderRadius: '50%',
+              zIndex: 1
+            }} />
+            <div style={{ position: 'relative', zIndex: 2 }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '12px'
+              }}>
+                <div style={{
+                  padding: '8px',
+                  background: 'rgba(250, 173, 20, 0.1)',
+                  borderRadius: '10px',
+                  display: 'inline-flex'
+                }}>
+                  <ClockCircleOutlined style={{ fontSize: '20px', color: '#faad14' }} />
+                </div>
+                <div style={{
+                  width: '8px',
+                  height: '8px',
+                  background: '#faad14',
+                  borderRadius: '50%',
+                  animation: 'pulse 2s infinite'
+                }} />
+              </div>
+              <div style={{ marginBottom: '4px' }}>
+                <Text style={{
+                  fontSize: '28px',
+                  fontWeight: 700,
+                  color: '#faad14',
+                  lineHeight: 1
+                }}>
+                  {filteredLeaves.filter(l => l.status === 'Pending').length}
+                </Text>
+              </div>
+              <Text style={{
+                color: '#6b7280',
+                fontSize: '14px',
+                fontWeight: 500
+              }}>
+                Pending Review
+              </Text>
+              <Text style={{
+                display: 'block',
+                fontSize: '11px',
+                color: '#9ca3af',
+                marginTop: '4px'
+              }}>
+                Requires attention
+              </Text>
+            </div>
+          </Card>
+        </Col>
+
+        <Col xs={12} sm={6} lg={6}>
+          <Card style={{
+            borderRadius: '16px',
+            border: '1px solid rgba(255, 77, 79, 0.12)',
+            background: 'white',
+            boxShadow: '0 4px 20px rgba(255, 77, 79, 0.08)',
+            transition: 'all 0.3s ease',
+            position: 'relative',
+            overflow: 'hidden',
+            ...animationStyles.statsCard
+          }}>
+            <div style={{
+              position: 'absolute',
+              top: '-20px',
+              right: '-20px',
+              width: '80px',
+              height: '80px',
+              background: 'rgba(255, 77, 79, 0.1)',
+              borderRadius: '50%',
+              zIndex: 1
+            }} />
+            <div style={{ position: 'relative', zIndex: 2 }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '12px'
+              }}>
+                <div style={{
+                  padding: '8px',
+                  background: 'rgba(255, 77, 79, 0.1)',
+                  borderRadius: '10px',
+                  display: 'inline-flex'
+                }}>
+                  <CloseCircleOutlined style={{ fontSize: '20px', color: '#ff4d4f' }} />
+                </div>
+
+              </div>
+              <div style={{ marginBottom: '4px' }}>
+                <Text style={{
+                  fontSize: '28px',
+                  fontWeight: 700,
+                  color: '#ff4d4f',
+                  lineHeight: 1
+                }}>
+                  {filteredLeaves.filter(l => l.status === 'Rejected').length}
+                </Text>
+              </div>
+              <Text style={{
+                color: '#6b7280',
+                fontSize: '14px',
+                fontWeight: 500
+              }}>
+                Rejected Leaves
+              </Text>
+              <Text style={{
+                display: 'block',
+                fontSize: '11px',
+                color: '#9ca3af',
+                marginTop: '4px'
+              }}>
+                This month
+              </Text>
+            </div>
+          </Card>
+        </Col>
+
+
+      </Row>
+
+      {/* Enhanced Leave Applications Table */}
+      <Card style={{
+        background: 'white',
+        border: '1px solid #f0f0f0',
+        borderRadius: '20px',
+        boxShadow: '0 6px 30px rgba(0, 0, 0, 0.04)',
+        overflow: 'hidden',
+        ...animationStyles.mainCard
+      }}>
+        {/* Professional Table Header */}
+        <div className="leave-header">
+          <Row gutter={[16, 16]} align="middle">
+            <Col xs={24} md={14}>
+              <Space size={16}>
+                <div className="leave-icon-container">
+                  <NotificationOutlined style={{ fontSize: '20px', color: 'white' }} />
+                </div>
+                <div>
+                  <Title level={3} className="leave-title">
+                    Leave Applications
+                  </Title>
+                  <Text className="leave-subtitle">
+                    Manage and review employee leave requests
+                  </Text>
+                </div>
+              </Space>
+            </Col>
+
+            <Col xs={24} md={10}>
+              <Row gutter={[8, 8]}>
+                <Col xs={24} sm={8}>
+                  <Select
+                    placeholder="Status"
+                    value={filterStatus}
+                    onChange={setFilterStatus}
+                    style={{ width: '100%' }}
+                    size="large"
+                    suffixIcon={<FilterOutlined style={{ color: '#9ca3af' }} />}
+                    className="professional-select"
+                  >
+                    <Option value="All">All Status</Option>
+                    <Option value="Pending">
+                      <Space>
+                        <div style={{ width: '8px', height: '8px', background: '#faad14', borderRadius: '50%' }} />
+                        Pending
+                      </Space>
+                    </Option>
+                    <Option value="Approved">
+                      <Space>
+                        <div style={{ width: '8px', height: '8px', background: '#52c41a', borderRadius: '50%' }} />
+                        Approved
+                      </Space>
+                    </Option>
+                    <Option value="Rejected">
+                      <Space>
+                        <div style={{ width: '8px', height: '8px', background: '#ff4d4f', borderRadius: '50%' }} />
+                        Rejected
+                      </Space>
+                    </Option>
+                  </Select>
+                </Col>
+
+                {/* NEW DATE RANGE PICKER */}
+                <Col xs={24} sm={8}>
+                  <RangePicker
+                    style={{ width: '100%' }}
+                    size="large"
+                    placeholder={['Start Date', 'End Date']}
+                    onChange={(dates) => {
+                      // Add date filtering logic here
+                      if (dates && dates.length === 2) {
+                        // Filter leaves by date range
+                        const filtered = leaveData.filter(leave => {
+                          const leaveDate = dayjs(leave.start_date);
+                          return leaveDate.isBetween(dates[0], dates[1], 'day', '[]');
+                        });
+                        setFilteredLeaves(filtered);
+                      } else {
+                        // Reset to show all leaves when date range is cleared
+                        setFilteredLeaves(leaveData);
+                      }
+                    }}
+                    className="professional-select"
+                  />
+                </Col>
+
+                <Col xs={24} sm={12}>
+                  <Select
+                    placeholder="Employee"
+                    value={filterEmployee}
+                    onChange={setFilterEmployee}
+                    style={{ width: '100%' }}
+                    size="large"
+                    suffixIcon={<UserOutlined style={{ color: '#9ca3af' }} />}
+                    className="professional-select"
+                  >
+                    <Option value="All">All Employees</Option>
+                    {employees.map(emp => (
+                      <Option key={emp.id} value={emp.id}>
+                        <Space>
+                          <Avatar size="small" style={{ backgroundColor: '#0D7139' }}>
+                            {emp.name.charAt(0)}
+                          </Avatar>
+                          {emp.name}
+                        </Space>
+                      </Option>
+                    ))}
+                  </Select>
+                </Col>
+              </Row>
+            </Col>
+          </Row>
+        </div>
+
+        {/* Table with padding */}
+        <div style={{ padding: '0 24px 24px 24px' }}>
+          <Table
+            columns={getTableColumns()}
+            dataSource={filteredLeaves}
+            rowKey="id"
+            loading={loading}
+            pagination={filteredLeaves.length > 0 ? {
+              current: currentPage,
+              pageSize: pageSize,
+              total: filteredLeaves.length, // Change this from totalEmployees to filteredLeaves.length
+              showSizeChanger: true,
+              showQuickJumper: true,
+              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} applications`, // Change "employees" to "applications"
+              pageSizeOptions: ['5', '10', '20', '50'],
+              onChange: (page, size) => {
+                setCurrentPage(page);
+                if (size !== pageSize) {
+                  setPageSize(size);
+                  setCurrentPage(1);
+                }
+              },
+              onShowSizeChange: (current, size) => {
+                setCurrentPage(1);
+                setPageSize(size);
+              },
+              itemRender: (current, type, originalElement) => {
+                if (type === 'page') {
+                  return (
+                    <a style={{
+                      color: current === currentPage ? '#0D7139' : '#d9d9d9',
+                      backgroundColor: current === currentPage ? "#ffffffff" : '#faf8f8ff',
+                      border: `1px solid ${current === currentPage ? '#0D7139' : '#d9d9d9'}`,
+                      borderRadius: '6px',
+                      fontWeight: current === currentPage ? 600 : 400,
+                      padding: '0px 7px',
+                      textDecoration: 'none'
+                    }}>
+                      {current}
+                    </a>
+                  );
+                }
+                return originalElement;
+              }
+            } : false}
+            scroll={filteredLeaves.length > 0 ? {
+              x: 'max-content',
+              scrollToFirstRowOnChange: true
+            } : undefined}
+            size="middle"
+            rowClassName={(record) => {
+              if (record.status === 'Pending') return 'pending-row';
+              if (record.status === 'Approved') return 'approved-row';
+              if (record.status === 'Rejected') return 'rejected-row';
+              return '';
+            }}
+            locale={{
+              emptyText: (
+                <div style={{
+                  padding: '60px 20px',
+                  textAlign: 'center',
+                  background: 'linear-gradient(135deg, #fafbfc 0%, #f8f9fa 100%)',
+                  borderRadius: '16px',
+                  margin: '20px 0'
+                }}>
+                  <div style={{
+                    padding: '20px',
+                    background: 'white',
+                    borderRadius: '50%',
+                    display: 'inline-block',
+                    marginBottom: '16px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)'
+                  }}>
+                    <NotificationOutlined style={{ fontSize: '32px', color: '#d1d5db' }} />
+                  </div>
+                  <Title level={4} style={{ color: '#6b7280', marginBottom: '8px' }}>
+                    No Leave Applications
+                  </Title>
+                  <Text style={{ color: '#9ca3af' }}>
+                    No leave applications found matching your criteria
+                  </Text>
+                </div>
+              )
+            }}
+          />
+        </div>
+      </Card>
+    </div>
+  );
 
 
   return (
-    <div style={{ 
+    <div style={{
       padding: '24px',
       background: 'transparent',
       minHeight: '100vh'
@@ -3771,12 +3752,12 @@ useEffect(() => {
 }
 `}</style>
 
-       <Tabs 
-  activeKey={activeTab} 
-  onChange={setActiveTab}
-  style={{ marginBottom: '24px' }}
-  destroyOnHidden={false} // ✅ This prevents tab content from being destroyed/recreated
-  items={[
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        style={{ marginBottom: '24px' }}
+        destroyOnHidden={false} // ✅ This prevents tab content from being destroyed/recreated
+        items={[
           userRole === 'employee' ? {
             key: 'dashboard',
             label: (
@@ -3796,24 +3777,24 @@ useEffect(() => {
             ),
             children: <HRDashboard />
           },
-          
+
           userRole !== 'employee' &&
-     {
-      key: 'analytics',
-      label: (
-        <Space>
-          <BankOutlined />
-          <span>Analytics</span>
-        </Space>
-      ),
-      children: (
-        <Analytics 
-          currentUserId={currentUserId}
-          userRole={userRole}
-          leaveData={leaveData}
-        />
-      )
-    }
+          {
+            key: 'analytics',
+            label: (
+              <Space>
+                <BankOutlined />
+                <span>Analytics</span>
+              </Space>
+            ),
+            children: (
+              <Analytics
+                currentUserId={currentUserId}
+                userRole={userRole}
+                leaveData={leaveData}
+              />
+            )
+          }
         ].filter(Boolean)}
       />
 
@@ -3834,9 +3815,9 @@ useEffect(() => {
           <Button key="cancel" onClick={() => setApplyLeaveModal(false)}>
             Cancel
           </Button>,
-          <Button 
-            key="submit" 
-            type="primary" 
+          <Button
+            key="submit"
+            type="primary"
             onClick={() => form.submit()}
             loading={loading}
             style={{
@@ -3848,7 +3829,7 @@ useEffect(() => {
           </Button>
         ]}
         width={800}
-       destroyOnHidden
+        destroyOnHidden
       >
         <ApplyLeaveForm />
       </Modal>
@@ -3857,19 +3838,19 @@ useEffect(() => {
       <LeaveDetailsModal />
 
       {/* Leave History Drawer */}
-    {/* Remove this entire component usage */}
+      {/* Remove this entire component usage */}
       <LeaveHistoryDrawer
         visible={leaveHistoryDrawer}
         onClose={() => setLeaveHistoryDrawer(false)}
-        leaveData={leaveData} 
+        leaveData={leaveData}
         currentUser={currentUser}
-      />      
-       <ExportReportModal 
-  visible={exportModalVisible}
-  onCancel={() => setExportModalVisible(false)}
-  leaveData={filteredLeaves}
-/>
-    <HRMedicalLeaveModal
+      />
+      <ExportReportModal
+        visible={exportModalVisible}
+        onCancel={() => setExportModalVisible(false)}
+        leaveData={filteredLeaves}
+      />
+      <HRMedicalLeaveModal
         visible={medicalLeaveModal}
         onCancel={() => {
           setMedicalLeaveModal(false);
@@ -3879,7 +3860,7 @@ useEffect(() => {
         onAllocate={handleAllocateMedicalLeave}
         loading={loading}
       />
-       <CompensatoryLeaveModal
+      <CompensatoryLeaveModal
         visible={compOffModalVisible}
         onCancel={() => setCompOffModalVisible(false)}
         employees={employees}

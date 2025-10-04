@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Form, 
-  Input, 
-  Select, 
-  Button, 
-  Card, 
-  Row, 
-  Col, 
+import {
+  Form,
+  Input,
+  Select,
+  Button,
+  Card,
+  Row,
+  Col,
   Steps,
-  Typography, 
-  Divider, 
+  Typography,
+  Divider,
   Modal,
   Rate,
   Space,
@@ -25,13 +25,13 @@ import {
   Tooltip,
   Table,
   InputNumber,
-  
+
   Empty
 } from 'antd';
-import { 
-  UserOutlined, 
-  CheckCircleOutlined, 
-  CloseCircleOutlined, 
+import {
+  UserOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
   PhoneOutlined,
   MailOutlined,
   CalendarOutlined,
@@ -50,7 +50,7 @@ import {
   BankOutlined,
   PlusOutlined,
   LinkOutlined,
-  DeleteOutlined, 
+  DeleteOutlined,
   EyeOutlined,
   ArrowLeftOutlined,
   CopyOutlined,
@@ -65,342 +65,342 @@ const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 const { Step } = Steps;
 
-const DirectRecruitmentPage = ({userRole}) => {
+const DirectRecruitmentPage = ({ userRole }) => {
 
   if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
     return <ErrorPage errorType="403" />;
   }
   const [form] = Form.useForm();
   const [jobForm] = Form.useForm();
-  
+
   // View management
   const [currentView, setCurrentView] = useState('jobPosting'); // 'jobPosting', 'candidatesList', 'interview'
   const [loading, setLoading] = useState(false);
   const [submitModalVisible, setSubmitModalVisible] = useState(false);
   const [interviewData, setInterviewData] = useState(null);
   const [isLoaded, setIsLoaded] = useState(false);
-const [jobPostings, setJobPostings] = useState([]);
-const [candidates, setCandidates] = useState([]);  // Data states
+  const [jobPostings, setJobPostings] = useState([]);
+  const [candidates, setCandidates] = useState([]);  // Data states
 
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [selectedJob, setSelectedJob] = useState(null);
   const [departments, setDepartments] = useState([]);
-const [locations, setLocations] = useState([]);
-const [experienceLevels, setExperienceLevels] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [experienceLevels, setExperienceLevels] = useState([]);
 
   const interviewType = 'technical';
 
   useEffect(() => {
-  const timer = setTimeout(() => {
-    setIsLoaded(true);
-    fetchJobPostings();
-    fetchCandidates();
-  }, 100);
-  return () => clearTimeout(timer);
-}, []);
-// Fetch job postings
-const smartTitleCase = (str) => {
-  if (!str) return str;
-  return str.split(' ').map(word => {
-    if (word.length === 0) return word;
-    return word.charAt(0).toUpperCase() + word.slice(1);
-  }).join(' ');
-};
-// Delete Job Posting Function
-const handleDeleteJob = async (recordId, jobTitle) => {
-  confirm({
-    title: 'Delete Job Posting',
-    icon: <ExclamationCircleOutlined />,
-    content: (
-      <div>
-        <p>Are you sure you want to delete the job posting:</p>
-        <p><strong>"{jobTitle}"</strong></p>
-        <p style={{ color: '#ff4d4f', marginTop: '12px' }}>
-          This action cannot be undone and will also delete all associated candidate applications.
-        </p>
-      </div>
-    ),
-    okText: 'Yes, Delete',
-    okType: 'danger',
-    cancelText: 'Cancel',
-    onOk: async () => {
-      setLoading(true);
-      try {
-        // Get the job_id first, then delete all records with that job_id
-        const { data: jobData } = await supabase
-          .from('direct_recruitment')
-          .select('job_id')
-          .eq('id', recordId)
-          .single();
+    const timer = setTimeout(() => {
+      setIsLoaded(true);
+      fetchJobPostings();
+      fetchCandidates();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+  // Fetch job postings
+  const smartTitleCase = (str) => {
+    if (!str) return str;
+    return str.split(' ').map(word => {
+      if (word.length === 0) return word;
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    }).join(' ');
+  };
+  // Delete Job Posting Function
+  const handleDeleteJob = async (recordId, jobTitle) => {
+    confirm({
+      title: 'Delete Job Posting',
+      icon: <ExclamationCircleOutlined />,
+      content: (
+        <div>
+          <p>Are you sure you want to delete the job posting:</p>
+          <p><strong>"{jobTitle}"</strong></p>
+          <p style={{ color: '#ff4d4f', marginTop: '12px' }}>
+            This action cannot be undone and will also delete all associated candidate applications.
+          </p>
+        </div>
+      ),
+      okText: 'Yes, Delete',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      onOk: async () => {
+        setLoading(true);
+        try {
+          // Get the job_id first, then delete all records with that job_id
+          const { data: jobData } = await supabase
+            .from('direct_recruitment')
+            .select('job_id')
+            .eq('id', recordId)
+            .single();
 
-        if (jobData) {
+          if (jobData) {
+            const { error } = await supabase
+              .from('direct_recruitment')
+              .delete()
+              .eq('job_id', jobData.job_id);
+
+            if (error) throw error;
+          }
+
+          message.success('Job posting and all associated applications deleted successfully!');
+
+          // Refresh both lists
+          fetchJobPostings();
+          fetchCandidates();
+
+        } catch (error) {
+          console.error('Error deleting job:', error);
+          message.error('Failed to delete job posting. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
+  };
+
+  // Delete Candidate Function
+  const handleDeleteCandidate = async (recordId, candidateName) => {
+    confirm({
+      title: 'Delete Candidate Application',
+      icon: <ExclamationCircleOutlined />,
+      content: (
+        <div>
+          <p>Are you sure you want to delete the application from:</p>
+          <p><strong>{candidateName}</strong></p>
+          <p style={{ color: '#ff4d4f', marginTop: '12px' }}>
+            This action cannot be undone and will permanently remove all interview data and assessments.
+          </p>
+        </div>
+      ),
+      okText: 'Yes, Delete',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      onOk: async () => {
+        setLoading(true);
+        try {
           const { error } = await supabase
             .from('direct_recruitment')
             .delete()
-            .eq('job_id', jobData.job_id);
+            .eq('id', recordId); // Use 'id' instead of 'candidate_id'
 
           if (error) throw error;
+
+          message.success('Candidate application deleted successfully!');
+
+          // Update local state immediately
+          const updatedCandidates = candidates.filter(candidate => candidate.db_id !== recordId);
+          setCandidates(updatedCandidates);
+
+          // If we're currently viewing this candidate, go back to list
+          if (selectedCandidate && selectedCandidate.db_id === recordId) {
+            setCurrentView('candidatesList');
+            setSelectedCandidate(null);
+          }
+
+        } catch (error) {
+          console.error('Error deleting candidate:', error);
+          message.error('Failed to delete candidate application. Please try again.');
+        } finally {
+          setLoading(false);
         }
-
-        message.success('Job posting and all associated applications deleted successfully!');
-        
-        // Refresh both lists
-        fetchJobPostings();
-        fetchCandidates();
-        
-      } catch (error) {
-        console.error('Error deleting job:', error);
-        message.error('Failed to delete job posting. Please try again.');
-      } finally {
-        setLoading(false);
       }
+    });
+  };
+  const handleSmartTitleCaseChange = (e, fieldName, form) => {
+    const cursorPosition = e.target.selectionStart;
+    const value = e.target.value;
+    const smartTitleCaseValue = smartTitleCase(value);
+    form.setFieldsValue({ [fieldName]: smartTitleCaseValue });
+
+    setTimeout(() => {
+      e.target.setSelectionRange(cursorPosition, cursorPosition);
+    }, 0);
+  };
+
+  // Add this function to load dynamic data (similar to JobDescriptionPage)
+  const loadDynamicData = async () => {
+    try {
+      // Load departments
+      const { data: deptData } = await supabase
+        .from('direct_recruitment')
+        .select('department')
+        .not('department', 'is', null);
+
+      const uniqueDepartments = [...new Set(deptData?.map(item => item.department).filter(Boolean))];
+      setDepartments(uniqueDepartments.length > 0 ? uniqueDepartments : [
+        'Technology'
+      ]);
+
+      // Load locations
+      const { data: locData } = await supabase
+        .from('direct_recruitment')
+        .select('location')
+        .not('location', 'is', null);
+
+      const uniqueLocations = [...new Set(locData?.map(item => item.location).filter(Boolean))];
+      setLocations(uniqueLocations.length > 0 ? uniqueLocations : [
+        'Remote',
+      ]);
+
+      // Load experience levels
+      const { data: expData } = await supabase
+        .from('direct_recruitment')
+        .select('experience')
+        .not('experience', 'is', null);
+
+      const uniqueExpLevels = [...new Set(expData?.map(item => item.experience).filter(Boolean))];
+      setExperienceLevels(uniqueExpLevels.length > 0 ? uniqueExpLevels : [
+        '0-1 Years',
+      ]);
+
+    } catch (error) {
+      console.error('Error loading dynamic data:', error);
+      // Set default values if error occurs
+      setDepartments(['Technology',]);
+      setLocations(['Remote',]);
+      setExperienceLevels(['0-1 Years',]);
     }
-  });
-};
+  };
 
-// Delete Candidate Function
-const handleDeleteCandidate = async (recordId, candidateName) => {
-  confirm({
-    title: 'Delete Candidate Application',
-    icon: <ExclamationCircleOutlined />,
-    content: (
-      <div>
-        <p>Are you sure you want to delete the application from:</p>
-        <p><strong>{candidateName}</strong></p>
-        <p style={{ color: '#ff4d4f', marginTop: '12px' }}>
-          This action cannot be undone and will permanently remove all interview data and assessments.
-        </p>
-      </div>
-    ),
-    okText: 'Yes, Delete',
-    okType: 'danger',
-    cancelText: 'Cancel',
-    onOk: async () => {
-      setLoading(true);
-      try {
-        const { error } = await supabase
-          .from('direct_recruitment')
-          .delete()
-          .eq('id', recordId); // Use 'id' instead of 'candidate_id'
+  // Add this useEffect to load data on component mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoaded(true);
+      fetchJobPostings();
+      fetchCandidates();
+      loadDynamicData(); // Add this line
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
 
-        if (error) throw error;
+  const fetchJobPostings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('direct_recruitment')
+        .select('id, job_id, job_title, department, location, experience, job_created_at, job_status, applications_count, shareable_link') // Added 'id'
+        .is('candidate_id', null)
+        .eq('job_status', 'active')
+        .order('job_created_at', { ascending: false });
 
-        message.success('Candidate application deleted successfully!');
-        
-        // Update local state immediately
-        const updatedCandidates = candidates.filter(candidate => candidate.db_id !== recordId);
-        setCandidates(updatedCandidates);
-        
-        // If we're currently viewing this candidate, go back to list
-        if (selectedCandidate && selectedCandidate.db_id === recordId) {
-          setCurrentView('candidatesList');
-          setSelectedCandidate(null);
-        }
-        
-      } catch (error) {
-        console.error('Error deleting candidate:', error);
-        message.error('Failed to delete candidate application. Please try again.');
-      } finally {
-        setLoading(false);
-      }
+      if (error) throw error;
+
+      const transformedJobs = data.map(job => ({
+        id: job.job_id, // Keep this for UI consistency
+        db_id: job.id,  // Add database ID for delete operations
+        title: job.job_title,
+        department: job.department,
+        location: job.location,
+        experience: job.experience,
+        created_at: job.job_created_at,
+        status: job.job_status,
+        applications_count: job.applications_count || 0,
+        shareable_link: job.shareable_link
+      }));
+
+      setJobPostings(transformedJobs);
+    } catch (error) {
+      console.error('Error fetching jobs:', error);
+      message.error('Failed to load job postings');
     }
-  });
-};
-const handleSmartTitleCaseChange = (e, fieldName, form) => {
-  const cursorPosition = e.target.selectionStart;
-  const value = e.target.value;
-  const smartTitleCaseValue = smartTitleCase(value);
-  form.setFieldsValue({ [fieldName]: smartTitleCaseValue });
-  
-  setTimeout(() => {
-    e.target.setSelectionRange(cursorPosition, cursorPosition);
-  }, 0);
-};
+  };
 
-// Add this function to load dynamic data (similar to JobDescriptionPage)
-const loadDynamicData = async () => {
-  try {
-    // Load departments
-    const { data: deptData } = await supabase
-      .from('direct_recruitment')
-      .select('department')
-      .not('department', 'is', null);
-    
-    const uniqueDepartments = [...new Set(deptData?.map(item => item.department).filter(Boolean))];
-    setDepartments(uniqueDepartments.length > 0 ? uniqueDepartments : [
-      'Technology'
-    ]);
+  // Fetch candidates
+  const fetchCandidates = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('direct_recruitment')
+        .select('id, *') // Added 'id'
+        .not('candidate_id', 'is', null)
+        .order('application_date', { ascending: false });
 
-    // Load locations
-    const { data: locData } = await supabase
-      .from('direct_recruitment')
-      .select('location')
-      .not('location', 'is', null);
-    
-    const uniqueLocations = [...new Set(locData?.map(item => item.location).filter(Boolean))];
-    setLocations(uniqueLocations.length > 0 ? uniqueLocations : [
-      'Remote',
-    ]);
+      if (error) throw error;
 
-    // Load experience levels
-    const { data: expData } = await supabase
-      .from('direct_recruitment')
-      .select('experience')
-      .not('experience', 'is', null);
-    
-    const uniqueExpLevels = [...new Set(expData?.map(item => item.experience).filter(Boolean))];
-    setExperienceLevels(uniqueExpLevels.length > 0 ? uniqueExpLevels : [
-      '0-1 Years', 
-    ]);
+      const transformedCandidates = data.map(candidate => ({
+        id: candidate.candidate_id, // Keep this for UI consistency
+        db_id: candidate.id,        // Add database ID for delete operations
+        job_id: candidate.job_id,
+        job_title: candidate.job_title,
+        full_name: candidate.full_name,
+        email: candidate.email,
+        phone: candidate.phone,
+        experience: candidate.candidate_experience,
+        current_company: candidate.current_company,
+        current_designation: candidate.current_designation,
+        notice_period: candidate.notice_period,
+        current_location: candidate.current_location,
+        preferred_location: candidate.preferred_location,
+        education: candidate.education,
+        skills: candidate.skills || [],
+        linkedin: candidate.linkedin,
+        expected_salary: candidate.expected_salary,
+        current_salary: candidate.current_salary,
+        application_date: candidate.application_date,
+        status: candidate.candidate_status,
+        resume_url: candidate.resume_url
+      }));
 
-  } catch (error) {
-    console.error('Error loading dynamic data:', error);
-    // Set default values if error occurs
-    setDepartments(['Technology', ]);
-    setLocations(['Remote',]);
-    setExperienceLevels(['0-1 Years',]);
-  }
-};
-
-// Add this useEffect to load data on component mount
-useEffect(() => {
-  const timer = setTimeout(() => {
-    setIsLoaded(true);
-    fetchJobPostings();
-    fetchCandidates();
-    loadDynamicData(); // Add this line
-  }, 100);
-  return () => clearTimeout(timer);
-}, []);
-
-const fetchJobPostings = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('direct_recruitment')
-      .select('id, job_id, job_title, department, location, experience, job_created_at, job_status, applications_count, shareable_link') // Added 'id'
-      .is('candidate_id', null)
-      .eq('job_status', 'active')
-      .order('job_created_at', { ascending: false });
-
-    if (error) throw error;
-    
-    const transformedJobs = data.map(job => ({
-      id: job.job_id, // Keep this for UI consistency
-      db_id: job.id,  // Add database ID for delete operations
-      title: job.job_title,
-      department: job.department,
-      location: job.location,
-      experience: job.experience,
-      created_at: job.job_created_at,
-      status: job.job_status,
-      applications_count: job.applications_count || 0,
-      shareable_link: job.shareable_link
-    }));
-
-    setJobPostings(transformedJobs);
-  } catch (error) {
-    console.error('Error fetching jobs:', error);
-    message.error('Failed to load job postings');
-  }
-};
-
-// Fetch candidates
-const fetchCandidates = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('direct_recruitment')
-      .select('id, *') // Added 'id'
-      .not('candidate_id', 'is', null)
-      .order('application_date', { ascending: false });
-
-    if (error) throw error;
-    
-    const transformedCandidates = data.map(candidate => ({
-      id: candidate.candidate_id, // Keep this for UI consistency
-      db_id: candidate.id,        // Add database ID for delete operations
-      job_id: candidate.job_id,
-      job_title: candidate.job_title,
-      full_name: candidate.full_name,
-      email: candidate.email,
-      phone: candidate.phone,
-      experience: candidate.candidate_experience,
-      current_company: candidate.current_company,
-      current_designation: candidate.current_designation,
-      notice_period: candidate.notice_period,
-      current_location: candidate.current_location,
-      preferred_location: candidate.preferred_location,
-      education: candidate.education,
-      skills: candidate.skills || [],
-      linkedin: candidate.linkedin,
-      expected_salary: candidate.expected_salary,
-      current_salary: candidate.current_salary,
-      application_date: candidate.application_date,
-      status: candidate.candidate_status,
-      resume_url: candidate.resume_url
-    }));
-
-    setCandidates(transformedCandidates);
-  } catch (error) {
-    console.error('Error fetching candidates:', error);
-    message.error('Failed to load candidates');
-  }
-};
+      setCandidates(transformedCandidates);
+    } catch (error) {
+      console.error('Error fetching candidates:', error);
+      message.error('Failed to load candidates');
+    }
+  };
 
 
   // Job Posting Functions
-// Updated handleCreateJob function
-const handleCreateJob = async (values) => {
-  setLoading(true);
-  try {
-    const jobId = `job_${Date.now()}`;
-    // Fix the shareable link - remove the extra path
-    const shareableLink = `${window.location.origin}/direct-apply/${jobId}`;    
-    
-    const { data, error } = await supabase
-      .from('direct_recruitment')
-      .insert([{
-        job_id: jobId,
-        job_title: values.title,
-        department: values.department,
-        location: values.location,
-        experience: values.experience,
-        description: values.description,
-        job_status: 'active',
-        applications_count: 0,
-        shareable_link: shareableLink,
-        job_created_at: new Date().toISOString()
-      }])
-      .select();
+  // Updated handleCreateJob function
+  const handleCreateJob = async (values) => {
+    setLoading(true);
+    try {
+      const jobId = `job_${Date.now()}`;
+      // Fix the shareable link - remove the extra path
+      const shareableLink = `${window.location.origin}/direct-apply/${jobId}`;
 
-    if (error) {
-      console.error('Supabase error:', error);
-      throw error;
-    }
+      const { data, error } = await supabase
+        .from('direct_recruitment')
+        .insert([{
+          job_id: jobId,
+          job_title: values.title,
+          department: values.department,
+          location: values.location,
+          experience: values.experience,
+          description: values.description,
+          job_status: 'active',
+          applications_count: 0,
+          shareable_link: shareableLink,
+          job_created_at: new Date().toISOString()
+        }])
+        .select();
 
-    jobForm.resetFields();
-    message.success('Job posting created successfully!');
-    fetchJobPostings();
-    
-  } catch (error) {
-    console.error('Error details:', {
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-      code: error.code
-    });
-    
-    // More specific error messages
-    if (error.message.includes('Failed to fetch')) {
-      message.error('Network error: Please check your internet connection and try again');
-    } else if (error.message.includes('JWT')) {
-      message.error('Authentication error: Please refresh the page and try again');
-    } else {
-      message.error(`Failed to create job posting: ${error.message}`);
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+
+      jobForm.resetFields();
+      message.success('Job posting created successfully!');
+      fetchJobPostings();
+
+    } catch (error) {
+      console.error('Error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+
+      // More specific error messages
+      if (error.message.includes('Failed to fetch')) {
+        message.error('Network error: Please check your internet connection and try again');
+      } else if (error.message.includes('JWT')) {
+        message.error('Authentication error: Please refresh the page and try again');
+      } else {
+        message.error(`Failed to create job posting: ${error.message}`);
+      }
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).then(() => {
       message.success('Link copied to clipboard!');
@@ -414,35 +414,81 @@ const handleCreateJob = async (values) => {
   };
 
   // Interview Functions (existing code)
-// Replace your existing handleInterviewSubmit function with this:
-const handleInterviewSubmit = async (values) => {
-  setLoading(true);
-  try {
-    // Debug: Log the form values
-    console.log('Form values received:', values);
-    
-    // Ensure we have valid ratings
-    const technicalRating = values.technicalRating || 0;
-    const communicationRating = values.communicationRating || 0;
-    const problemSolvingRating = values.problemSolvingRating || 0;
-    const cultureFitRating = values.cultureFitRating || 0;
-    
-    const scores = [
-      technicalRating,
-      communicationRating,
-      problemSolvingRating,
-      cultureFitRating
-    ];
-    const overallScore = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1);
-    
-    console.log('Calculated scores:', { technicalRating, communicationRating, problemSolvingRating, cultureFitRating, overallScore });
-    
-    // Update the candidate record with interview data AND status
-    const { data, error } = await supabase
-      .from('direct_recruitment')
-      .update({
-        interview_date: values.interviewDate?.format('YYYY-MM-DD'),
-        interview_time: values.interviewTime?.format('HH:mm'),
+  // Replace your existing handleInterviewSubmit function with this:
+  const handleInterviewSubmit = async (values) => {
+    setLoading(true);
+    try {
+      // Debug: Log the form values
+      console.log('Form values received:', values);
+
+      // Ensure we have valid ratings
+      const technicalRating = values.technicalRating || 0;
+      const communicationRating = values.communicationRating || 0;
+      const problemSolvingRating = values.problemSolvingRating || 0;
+      const cultureFitRating = values.cultureFitRating || 0;
+
+      const scores = [
+        technicalRating,
+        communicationRating,
+        problemSolvingRating,
+        cultureFitRating
+      ];
+      const overallScore = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1);
+
+      console.log('Calculated scores:', { technicalRating, communicationRating, problemSolvingRating, cultureFitRating, overallScore });
+
+      // Update the candidate record with interview data AND status
+      const { data, error } = await supabase
+        .from('direct_recruitment')
+        .update({
+          interview_date: values.interviewDate?.format('YYYY-MM-DD'),
+          interview_time: values.interviewTime?.format('HH:mm'),
+          interviewer_name: values.interviewerName,
+          technical_rating: technicalRating,
+          communication_rating: communicationRating,
+          problem_solving_rating: problemSolvingRating,
+          culture_fit_rating: cultureFitRating,
+          overall_score: parseFloat(overallScore),
+          strengths: values.strengths,
+          areas_for_improvement: values.areasForImprovement,
+          interview_notes: values.interviewNotes,
+          recommendation: values.recommendation,
+          next_round_notes: values.nextRoundNotes,
+          candidate_status: 'interviewed',
+          interview_status: 'completed',
+          interview_created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('candidate_id', selectedCandidate.id)
+        .select();
+
+      if (error) throw error;
+
+      // Update local state immediately for real-time effect
+      const updatedCandidates = candidates.map(candidate =>
+        candidate.id === selectedCandidate.id
+          ? {
+            ...candidate,
+            status: 'interviewed',
+            technical_rating: technicalRating,
+            communication_rating: communicationRating,
+            problem_solving_rating: problemSolvingRating,
+            culture_fit_rating: cultureFitRating,
+            overall_score: parseFloat(overallScore)
+          }
+          : candidate
+      );
+      setCandidates(updatedCandidates);
+
+      const interviewResult = {
+        candidate_id: selectedCandidate.id,
+        candidate_name: selectedCandidate.full_name,
+        candidate_email: selectedCandidate.email,
+        candidate_phone: selectedCandidate.phone,
+        job_position: selectedCandidate.job_title,
+        interview_type: interviewType,
+        interview_date: values.interviewDate?.format('YYYY-MM-DD') || '2025-01-20',
+        interview_time: values.interviewTime?.format('HH:mm') || '14:30',
         interviewer_name: values.interviewerName,
         technical_rating: technicalRating,
         communication_rating: communicationRating,
@@ -454,90 +500,44 @@ const handleInterviewSubmit = async (values) => {
         interview_notes: values.interviewNotes,
         recommendation: values.recommendation,
         next_round_notes: values.nextRoundNotes,
-        candidate_status: 'interviewed',
-        interview_status: 'completed',
-        interview_created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('candidate_id', selectedCandidate.id)
-      .select();
+        status: 'interviewed',
+        created_at: new Date().toISOString()
+      };
 
-    if (error) throw error;
+      setInterviewData(interviewResult);
+      setSubmitModalVisible(true);
+      message.success('Interview assessment completed successfully!');
 
-    // Update local state immediately for real-time effect
-    const updatedCandidates = candidates.map(candidate =>
-      candidate.id === selectedCandidate.id
-        ? { 
-            ...candidate, 
-            status: 'interviewed',
-            technical_rating: technicalRating,
-            communication_rating: communicationRating,
-            problem_solving_rating: problemSolvingRating,
-            culture_fit_rating: cultureFitRating,
-            overall_score: parseFloat(overallScore)
-          }
-        : candidate
-    );
-    setCandidates(updatedCandidates);
-
-    const interviewResult = {
-      candidate_id: selectedCandidate.id,
-      candidate_name: selectedCandidate.full_name,
-      candidate_email: selectedCandidate.email,
-      candidate_phone: selectedCandidate.phone,
-      job_position: selectedCandidate.job_title,
-      interview_type: interviewType,
-      interview_date: values.interviewDate?.format('YYYY-MM-DD') || '2025-01-20',
-      interview_time: values.interviewTime?.format('HH:mm') || '14:30',
-      interviewer_name: values.interviewerName,
-      technical_rating: technicalRating,
-      communication_rating: communicationRating,
-      problem_solving_rating: problemSolvingRating,
-      culture_fit_rating: cultureFitRating,
-      overall_score: parseFloat(overallScore),
-      strengths: values.strengths,
-      areas_for_improvement: values.areasForImprovement,
-      interview_notes: values.interviewNotes,
-      recommendation: values.recommendation,
-      next_round_notes: values.nextRoundNotes,
-      status: 'interviewed',
-      created_at: new Date().toISOString()
-    };
-
-    setInterviewData(interviewResult);
-    setSubmitModalVisible(true);
-    message.success('Interview assessment completed successfully!');
-    
-  } catch (error) {
-    console.error('Error processing interview:', error);
-    message.error('Failed to process interview data');
-  } finally {
-    setLoading(false);
-  }
-};
+    } catch (error) {
+      console.error('Error processing interview:', error);
+      message.error('Failed to process interview data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
-// Add this useEffect for real-time updates after your existing useEffects:
-useEffect(() => {
-  // Set up real-time subscription
-  const subscription = supabase
-    .channel('direct_recruitment_changes')
-    .on(
-      'postgres_changes',
-      {
-        event: '*', // Listen to all changes (INSERT, UPDATE, DELETE)
-        schema: 'public',
-        table: 'direct_recruitment'
-      },
-      (payload) => {
-        console.log('Real-time update received:', payload);
-        
-        if (payload.eventType === 'UPDATE' && payload.new.candidate_id) {
-          // Update candidates list when a candidate record is updated
-          setCandidates(prevCandidates => 
-            prevCandidates.map(candidate => 
-              candidate.id === payload.new.candidate_id 
-                ? {
+  // Add this useEffect for real-time updates after your existing useEffects:
+  useEffect(() => {
+    // Set up real-time subscription
+    const subscription = supabase
+      .channel('direct_recruitment_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all changes (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'direct_recruitment'
+        },
+        (payload) => {
+          console.log('Real-time update received:', payload);
+
+          if (payload.eventType === 'UPDATE' && payload.new.candidate_id) {
+            // Update candidates list when a candidate record is updated
+            setCandidates(prevCandidates =>
+              prevCandidates.map(candidate =>
+                candidate.id === payload.new.candidate_id
+                  ? {
                     ...candidate,
                     status: payload.new.candidate_status,
                     technical_rating: payload.new.technical_rating,
@@ -546,164 +546,164 @@ useEffect(() => {
                     culture_fit_rating: payload.new.culture_fit_rating,
                     overall_score: payload.new.overall_score
                   }
-                : candidate
-            )
-          );
-          
-          // Update selected candidate if it's currently being viewed
-          if (selectedCandidate && selectedCandidate.id === payload.new.candidate_id) {
-            setSelectedCandidate(prev => ({
-              ...prev,
-              status: payload.new.candidate_status,
-              technical_rating: payload.new.technical_rating,
-              communication_rating: payload.new.communication_rating,
-              problem_solving_rating: payload.new.problem_solving_rating,
-              culture_fit_rating: payload.new.culture_fit_rating,
-              overall_score: payload.new.overall_score
-            }));
+                  : candidate
+              )
+            );
+
+            // Update selected candidate if it's currently being viewed
+            if (selectedCandidate && selectedCandidate.id === payload.new.candidate_id) {
+              setSelectedCandidate(prev => ({
+                ...prev,
+                status: payload.new.candidate_status,
+                technical_rating: payload.new.technical_rating,
+                communication_rating: payload.new.communication_rating,
+                problem_solving_rating: payload.new.problem_solving_rating,
+                culture_fit_rating: payload.new.culture_fit_rating,
+                overall_score: payload.new.overall_score
+              }));
+            }
           }
         }
-      }
-    )
-    .subscribe();
+      )
+      .subscribe();
 
-  // Cleanup subscription on unmount
-  return () => {
-    supabase.removeChannel(subscription);
+    // Cleanup subscription on unmount
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, [selectedCandidate]);
+
+  // Replace your existing handleFinalDecision function:
+  // Replace your existing handleFinalDecision function:
+  // Replace your existing handleFinalDecision function:
+  // Replace your existing handleFinalDecision function:
+  // Replace your existing handleFinalDecision function:
+  const handleFinalDecision = async (decision) => {
+    setLoading(true);
+    try {
+      const newStatus = decision === 'selected' ? 'selected' : 'rejected';
+
+      // First, update in the direct_recruitment table
+      const { error: directRecruitmentError } = await supabase
+        .from('direct_recruitment')
+        .update({
+          candidate_status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('candidate_id', selectedCandidate.id);
+
+      if (directRecruitmentError) {
+        console.error('Direct recruitment update error:', directRecruitmentError);
+        throw directRecruitmentError;
+      }
+
+      // If selected, create record in job_applications table for SelectedCandidatesPage
+      if (decision === 'selected') {
+        try {
+          // Parse experience years from string (e.g., "3-5 Years" -> 3)
+          let experienceYears = 0;
+          if (selectedCandidate.experience) {
+            const match = selectedCandidate.experience.match(/(\d+)/);
+            experienceYears = match ? parseInt(match[1]) : 0;
+          }
+
+          // Extract numeric part from job_id string (e.g., "job_1754461702050" -> 1754461702050)
+          const numericJobId = selectedCandidate.job_id ?
+            parseInt(selectedCandidate.job_id.replace('job_', '')) :
+            Date.now(); // fallback to current timestamp if no job_id
+
+          const jobApplicationData = {
+            job_id: numericJobId, // Convert string job_id to numeric value
+            full_name: selectedCandidate.full_name,
+            email: selectedCandidate.email,
+            phone: selectedCandidate.phone,
+            job_title: selectedCandidate.job_title,
+            current_company: selectedCandidate.current_company || 'Not specified',
+            experience_years: experienceYears,
+            skills: Array.isArray(selectedCandidate.skills)
+              ? selectedCandidate.skills.join(',')
+              : (selectedCandidate.skills || ''),
+            status: 'selected',
+            location: selectedCandidate.current_location || selectedCandidate.preferred_location || 'Not specified',
+            expected_salary: selectedCandidate.expected_salary || 'Not specified',
+            current_position: selectedCandidate.current_designation || 'Not specified',
+            education: selectedCandidate.education || 'Not specified',
+            linkedin_url: selectedCandidate.linkedin || null,
+            portfolio_url: null,
+            resume_url: selectedCandidate.resume_url || null,
+            technical_rating: interviewData?.technical_rating || selectedCandidate.technical_rating,
+            communication_rating: interviewData?.communication_rating || selectedCandidate.communication_rating,
+            interview_feedback: interviewData?.interview_notes || 'Interview completed via Direct Recruitment',
+            interviewer_name: interviewData?.interviewer_name || 'Direct Recruitment Team',
+            interview_date: interviewData?.interview_date || new Date().toISOString().split('T')[0],
+            interview_time: interviewData?.interview_time || '14:00',
+            interview_type: 'technical',
+            interview_status: 'completed',
+            applied_at: selectedCandidate.application_date || new Date().toISOString(),
+            mail_history: []
+          };
+
+          console.log('Inserting job application data:', jobApplicationData);
+
+          const { error: insertError, data: insertedData } = await supabase
+            .from('job_applications')
+            .insert(jobApplicationData)
+            .select();
+
+          if (insertError) {
+            console.error('Error inserting into job_applications table:', insertError);
+            // Don't throw error here - the main functionality still works
+            console.warn('Could not create job_applications record, but candidate status updated successfully');
+          } else {
+            console.log('Successfully created job_applications record:', insertedData);
+          }
+        } catch (jobAppError) {
+          console.warn('Could not create job_applications record:', jobAppError);
+          // Continue execution - the main functionality still works
+        }
+      }
+
+      // Update local state immediately for real-time effect
+      const updatedCandidates = candidates.map(candidate =>
+        candidate.id === selectedCandidate.id
+          ? { ...candidate, status: newStatus }
+          : candidate
+      );
+      setCandidates(updatedCandidates);
+
+      // Update selected candidate state
+      if (selectedCandidate) {
+        setSelectedCandidate(prev => ({
+          ...prev,
+          status: newStatus
+        }));
+      }
+
+      if (decision === 'selected') {
+        message.success('Candidate moved to selected list successfully! Check the Selected Candidates page.');
+      } else {
+        message.success('Candidate has been rejected.');
+      }
+
+      setSubmitModalVisible(false);
+      setCurrentView('candidatesList');
+      setSelectedCandidate(null);
+
+    } catch (error) {
+      console.error('Error saving decision:', error);
+      message.error(`Failed to save decision: ${error.message}. Please try again.`);
+    } finally {
+      setLoading(false);
+    }
   };
-}, [selectedCandidate]);
-
-// Replace your existing handleFinalDecision function:
-// Replace your existing handleFinalDecision function:
-// Replace your existing handleFinalDecision function:
-// Replace your existing handleFinalDecision function:
-// Replace your existing handleFinalDecision function:
-const handleFinalDecision = async (decision) => {
-  setLoading(true);
-  try {
-    const newStatus = decision === 'selected' ? 'selected' : 'rejected';
-    
-    // First, update in the direct_recruitment table
-    const { error: directRecruitmentError } = await supabase
-      .from('direct_recruitment')
-      .update({
-        candidate_status: newStatus,
-        updated_at: new Date().toISOString()
-      })
-      .eq('candidate_id', selectedCandidate.id);
-
-    if (directRecruitmentError) {
-      console.error('Direct recruitment update error:', directRecruitmentError);
-      throw directRecruitmentError;
-    }
-
-    // If selected, create record in job_applications table for SelectedCandidatesPage
-    if (decision === 'selected') {
-      try {
-        // Parse experience years from string (e.g., "3-5 Years" -> 3)
-        let experienceYears = 0;
-        if (selectedCandidate.experience) {
-          const match = selectedCandidate.experience.match(/(\d+)/);
-          experienceYears = match ? parseInt(match[1]) : 0;
-        }
-
-        // Extract numeric part from job_id string (e.g., "job_1754461702050" -> 1754461702050)
-        const numericJobId = selectedCandidate.job_id ? 
-          parseInt(selectedCandidate.job_id.replace('job_', '')) : 
-          Date.now(); // fallback to current timestamp if no job_id
-        
-        const jobApplicationData = {
-          job_id: numericJobId, // Convert string job_id to numeric value
-          full_name: selectedCandidate.full_name,
-          email: selectedCandidate.email,
-          phone: selectedCandidate.phone,
-          job_title: selectedCandidate.job_title,
-          current_company: selectedCandidate.current_company || 'Not specified',
-          experience_years: experienceYears,
-          skills: Array.isArray(selectedCandidate.skills) 
-            ? selectedCandidate.skills.join(',') 
-            : (selectedCandidate.skills || ''),
-          status: 'selected',
-          location: selectedCandidate.current_location || selectedCandidate.preferred_location || 'Not specified',
-          expected_salary: selectedCandidate.expected_salary || 'Not specified',
-          current_position: selectedCandidate.current_designation || 'Not specified',
-          education: selectedCandidate.education || 'Not specified',
-          linkedin_url: selectedCandidate.linkedin || null,
-          portfolio_url: null,
-          resume_url: selectedCandidate.resume_url || null,
-          technical_rating: interviewData?.technical_rating || selectedCandidate.technical_rating,
-          communication_rating: interviewData?.communication_rating || selectedCandidate.communication_rating,
-          interview_feedback: interviewData?.interview_notes || 'Interview completed via Direct Recruitment',
-          interviewer_name: interviewData?.interviewer_name || 'Direct Recruitment Team',
-          interview_date: interviewData?.interview_date || new Date().toISOString().split('T')[0],
-          interview_time: interviewData?.interview_time || '14:00',
-          interview_type: 'technical',
-          interview_status: 'completed',
-          applied_at: selectedCandidate.application_date || new Date().toISOString(),
-          mail_history: []
-        };
-
-        console.log('Inserting job application data:', jobApplicationData);
-
-        const { error: insertError, data: insertedData } = await supabase
-          .from('job_applications')
-          .insert(jobApplicationData)
-          .select();
-
-        if (insertError) {
-          console.error('Error inserting into job_applications table:', insertError);
-          // Don't throw error here - the main functionality still works
-          console.warn('Could not create job_applications record, but candidate status updated successfully');
-        } else {
-          console.log('Successfully created job_applications record:', insertedData);
-        }
-      } catch (jobAppError) {
-        console.warn('Could not create job_applications record:', jobAppError);
-        // Continue execution - the main functionality still works
-      }
-    }
-
-    // Update local state immediately for real-time effect
-    const updatedCandidates = candidates.map(candidate =>
-      candidate.id === selectedCandidate.id
-        ? { ...candidate, status: newStatus }
-        : candidate
-    );
-    setCandidates(updatedCandidates);
-
-    // Update selected candidate state
-    if (selectedCandidate) {
-      setSelectedCandidate(prev => ({
-        ...prev,
-        status: newStatus
-      }));
-    }
-
-    if (decision === 'selected') {
-      message.success('Candidate moved to selected list successfully! Check the Selected Candidates page.');
-    } else {
-      message.success('Candidate has been rejected.');
-    }
-
-    setSubmitModalVisible(false);
-    setCurrentView('candidatesList');
-    setSelectedCandidate(null);
-    
-  } catch (error) {
-    console.error('Error saving decision:', error);
-    message.error(`Failed to save decision: ${error.message}. Please try again.`);
-  } finally {
-    setLoading(false);
-  }
-};
 
 
-const getCurrentStep = () => {
-  if (selectedCandidate.status === 'selected' || selectedCandidate.status === 'rejected') return 2;
-  if (selectedCandidate.technical_rating) return 2;
-  if (selectedCandidate.interview_date) return 1;
-  return 0;
-};
+  const getCurrentStep = () => {
+    if (selectedCandidate.status === 'selected' || selectedCandidate.status === 'rejected') return 2;
+    if (selectedCandidate.technical_rating) return 2;
+    if (selectedCandidate.interview_date) return 1;
+    return 0;
+  };
   // Animation styles
   const animationStyles = {
     container: {
@@ -746,8 +746,8 @@ const getCurrentStep = () => {
       key: 'candidate',
       render: (_, record) => (
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <Avatar 
-            style={{ 
+          <Avatar
+            style={{
               background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
               marginRight: '12px'
             }}
@@ -783,57 +783,57 @@ const getCurrentStep = () => {
       key: 'application_date',
       render: (date) => formatDate(date)
     },
-   // In your candidatesColumns array, update the Status column:
-{
-  title: 'Status',
-  dataIndex: 'status',
-  key: 'status',
-  render: (status) => {
-    const statusConfig = {
-      applied: { color: 'blue', text: 'Applied' },
-      interviewed: { color: 'orange', text: 'Interviewed' },
-      selected: { color: 'green', text: 'Selected' },
-      rejected: { color: 'red', text: 'Rejected' }
-    };
-    const config = statusConfig[status] || statusConfig.applied;
-    return <Badge status={config.color} text={config.text} />;
-  }
-},
-  {
-    title: 'Action',
-    key: 'action',
-    render: (_, record) => (
-      <Space size="small">
-        <Button
-          type="primary"
-          size="small"
-          icon={<EyeOutlined />}
-          onClick={() => handleCandidateSelect(record)}
-          style={{
-            background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
-            border: 'none'
-          }}
-        >
-          Interview
-        </Button>
-        <Tooltip title="Delete Application">
+    // In your candidatesColumns array, update the Status column:
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status) => {
+        const statusConfig = {
+          applied: { color: 'blue', text: 'Applied' },
+          interviewed: { color: 'orange', text: 'Interviewed' },
+          selected: { color: 'green', text: 'Selected' },
+          rejected: { color: 'red', text: 'Rejected' }
+        };
+        const config = statusConfig[status] || statusConfig.applied;
+        return <Badge status={config.color} text={config.text} />;
+      }
+    },
+    {
+      title: 'Action',
+      key: 'action',
+      render: (_, record) => (
+        <Space size="small">
           <Button
-            type="text"
-            danger
+            type="primary"
             size="small"
-            icon={<DeleteOutlined />}
-            onClick={() => handleDeleteCandidate(record.db_id, record.full_name)}
+            icon={<EyeOutlined />}
+            onClick={() => handleCandidateSelect(record)}
             style={{
-              color: '#ff4d4f'
+              background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
+              border: 'none'
             }}
-          />
-        </Tooltip>
-      </Space>
-    )
-  }
-];
+          >
+            Interview
+          </Button>
+          <Tooltip title="Delete Application">
+            <Button
+              type="text"
+              danger
+              size="small"
+              icon={<DeleteOutlined />}
+              onClick={() => handleDeleteCandidate(record.db_id, record.full_name)}
+              style={{
+                color: '#ff4d4f'
+              }}
+            />
+          </Tooltip>
+        </Space>
+      )
+    }
+  ];
   return (
-    <div style={{ 
+    <div style={{
       padding: '24px',
       backgroundColor: '#f5f7fa',
       minHeight: '100vh',
@@ -876,8 +876,8 @@ const getCurrentStep = () => {
 
       <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
         {/* Header */}
-        <Card 
-          style={{ 
+        <Card
+          style={{
             marginBottom: '24px',
             background: 'linear-gradient(135deg, #0D7139 0%, #4ead1fff 100%)',
             border: 'none',
@@ -905,8 +905,8 @@ const getCurrentStep = () => {
         {currentView === 'jobPosting' && (
           <Row gutter={[24, 24]}>
             <Col xs={24} lg={12}>
-              <Card 
-                style={{ 
+              <Card
+                style={{
                   background: 'white',
                   border: 'none',
                   borderRadius: '16px',
@@ -924,136 +924,136 @@ const getCurrentStep = () => {
                   layout="vertical"
                   onFinish={handleCreateJob}
                 >
-<Form.Item
-  label="Job Title"
-  name="title"
-  rules={[{ required: true, message: 'Please enter job title' }]}
->
-  <Input 
-    size="large" 
-    placeholder="e.g. Senior React Developer"
-    onChange={(e) => handleSmartTitleCaseChange(e, 'title', jobForm)}
-  />
-</Form.Item>
+                  <Form.Item
+                    label="Job Title"
+                    name="title"
+                    rules={[{ required: true, message: 'Please enter job title' }]}
+                  >
+                    <Input
+                      size="large"
+                      placeholder="e.g. Senior React Developer"
+                      onChange={(e) => handleSmartTitleCaseChange(e, 'title', jobForm)}
+                    />
+                  </Form.Item>
 
-<Form.Item
-  label="Department"
-  name="department"
-  rules={[{ required: true, message: 'Please select department' }]}
->
-  <Select 
-    size="large" 
-    placeholder="Select department"
-    popupRender={menu => (
-      <div>
-        {menu}
-        <Divider style={{ margin: '8px 0' }} />
-        <Space style={{ padding: '0 8px 4px' }}>
-          <Input
-            placeholder="Add new department"
-            onChange={(e) => {
-              e.target.value = smartTitleCase(e.target.value);
-            }}
-            onPressEnter={e => {
-              const value = smartTitleCase(e.target.value.trim());
-              if (value && !departments.includes(value)) {
-                setDepartments([...departments, value]);
-                jobForm.setFieldsValue({ department: value });
-              }
-              e.target.value = '';
-            }}
-          />
-        </Space>
-      </div>
-    )}
-  >
-    {departments.map(dept => (
-      <Option key={dept} value={dept}>{dept}</Option>
-    ))}
-  </Select>
-</Form.Item>
-
-
-<Form.Item
-  label="Location"
-  name="location"
-  rules={[{ required: true, message: 'Please enter location' }]}
->
-  <Select 
-    size="large" 
-    placeholder="Select location"
-    popupRender={menu => (
-      <div>
-        {menu}
-        <Divider style={{ margin: '8px 0' }} />
-        <Space style={{ padding: '0 8px 4px' }}>
-          <Input
-            placeholder="Add new location"
-            onChange={(e) => {
-              e.target.value = smartTitleCase(e.target.value);
-            }}
-            onPressEnter={e => {
-              const value = smartTitleCase(e.target.value.trim());
-              if (value && !locations.includes(value)) {
-                setLocations([...locations, value]);
-                jobForm.setFieldsValue({ location: value });
-              }
-              e.target.value = '';
-            }}
-          />
-        </Space>
-      </div>
-    )}
-  >
-    {locations.map(loc => (
-      <Option key={loc} value={loc}>
-        <EnvironmentOutlined style={{ marginRight: '8px' }} />
-        {loc}
-      </Option>
-    ))}
-  </Select>
-</Form.Item>
+                  <Form.Item
+                    label="Department"
+                    name="department"
+                    rules={[{ required: true, message: 'Please select department' }]}
+                  >
+                    <Select
+                      size="large"
+                      placeholder="Select department"
+                      popupRender={menu => (
+                        <div>
+                          {menu}
+                          <Divider style={{ margin: '8px 0' }} />
+                          <Space style={{ padding: '0 8px 4px' }}>
+                            <Input
+                              placeholder="Add new department"
+                              onChange={(e) => {
+                                e.target.value = smartTitleCase(e.target.value);
+                              }}
+                              onPressEnter={e => {
+                                const value = smartTitleCase(e.target.value.trim());
+                                if (value && !departments.includes(value)) {
+                                  setDepartments([...departments, value]);
+                                  jobForm.setFieldsValue({ department: value });
+                                }
+                                e.target.value = '';
+                              }}
+                            />
+                          </Space>
+                        </div>
+                      )}
+                    >
+                      {departments.map(dept => (
+                        <Option key={dept} value={dept}>{dept}</Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
 
 
-<Form.Item
-  label="Experience Required"
-  name="experience"
-  rules={[{ required: false, message: 'Please enter experience requirement' }]}
->
-  <Select 
-    size="large" 
-    placeholder="Select experience level"
-    popupRender={menu => (
-      <div>
-        {menu}
-        <Divider style={{ margin: '8px 0' }} />
-        <Space style={{ padding: '0 8px 4px' }}>
-          <Input
-            placeholder="Add new experience level"
-            onChange={(e) => {
-              e.target.value = smartTitleCase(e.target.value);
-            }}
-            onPressEnter={e => {
-              const value = smartTitleCase(e.target.value.trim());
-              if (value && !experienceLevels.includes(value)) {
-                setExperienceLevels([...experienceLevels, value]);
-                jobForm.setFieldsValue({ experience: value });
-              }
-              e.target.value = '';
-            }}
-          />
-        </Space>
-      </div>
-    )}
-  >
-    {experienceLevels.map(exp => (
-      <Option key={exp} value={exp}>
-        <StarOutlined style={{ marginRight: '8px' }} />
-        {exp}
-      </Option>
-    ))}
-  </Select>
-</Form.Item>
+                  <Form.Item
+                    label="Location"
+                    name="location"
+                    rules={[{ required: true, message: 'Please enter location' }]}
+                  >
+                    <Select
+                      size="large"
+                      placeholder="Select location"
+                      popupRender={menu => (
+                        <div>
+                          {menu}
+                          <Divider style={{ margin: '8px 0' }} />
+                          <Space style={{ padding: '0 8px 4px' }}>
+                            <Input
+                              placeholder="Add new location"
+                              onChange={(e) => {
+                                e.target.value = smartTitleCase(e.target.value);
+                              }}
+                              onPressEnter={e => {
+                                const value = smartTitleCase(e.target.value.trim());
+                                if (value && !locations.includes(value)) {
+                                  setLocations([...locations, value]);
+                                  jobForm.setFieldsValue({ location: value });
+                                }
+                                e.target.value = '';
+                              }}
+                            />
+                          </Space>
+                        </div>
+                      )}
+                    >
+                      {locations.map(loc => (
+                        <Option key={loc} value={loc}>
+                          <EnvironmentOutlined style={{ marginRight: '8px' }} />
+                          {loc}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+
+
+                  <Form.Item
+                    label="Experience Required"
+                    name="experience"
+                    rules={[{ required: false, message: 'Please enter experience requirement' }]}
+                  >
+                    <Select
+                      size="large"
+                      placeholder="Select experience level"
+                      popupRender={menu => (
+                        <div>
+                          {menu}
+                          <Divider style={{ margin: '8px 0' }} />
+                          <Space style={{ padding: '0 8px 4px' }}>
+                            <Input
+                              placeholder="Add new experience level"
+                              onChange={(e) => {
+                                e.target.value = smartTitleCase(e.target.value);
+                              }}
+                              onPressEnter={e => {
+                                const value = smartTitleCase(e.target.value.trim());
+                                if (value && !experienceLevels.includes(value)) {
+                                  setExperienceLevels([...experienceLevels, value]);
+                                  jobForm.setFieldsValue({ experience: value });
+                                }
+                                e.target.value = '';
+                              }}
+                            />
+                          </Space>
+                        </div>
+                      )}
+                    >
+                      {experienceLevels.map(exp => (
+                        <Option key={exp} value={exp}>
+                          <StarOutlined style={{ marginRight: '8px' }} />
+                          {exp}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
 
 
                   <Form.Item
@@ -1087,8 +1087,8 @@ const getCurrentStep = () => {
             </Col>
 
             <Col xs={24} lg={12}>
-              <Card 
-                style={{ 
+              <Card
+                style={{
                   background: 'white',
                   border: 'none',
                   borderRadius: '16px',
@@ -1096,94 +1096,99 @@ const getCurrentStep = () => {
                   ...animationStyles.card
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                  <Title level={4} style={{ color: '#0D7139', margin: 0 }}>
-                    <GlobalOutlined style={{ marginRight: '12px' }} />
-                    Active Job Postings
-                  </Title>
-                  <Button
-                    type="primary"
-                    icon={<UsergroupAddOutlined />}
-                    onClick={() => setCurrentView('candidatesList')}
-                    style={{
-                      background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
-                      border: 'none'
-                    }}
-                  >
-                    View Applications ({candidates.length})
-                  </Button>
-                </div>
+                <Row gutter={[16, 16]} align="middle" justify="space-between" style={{ marginBottom: '24px' }}>
+                  <Col xs={24} md={12}>
+                    <Title level={4} style={{ color: '#0D7139', margin: 0 }}>
+                      <GlobalOutlined style={{ marginRight: '12px' }} />
+                      Active Job Postings
+                    </Title>
+                  </Col>
+                  <Col xs={24} md={12} style={{ textAlign: window.innerWidth < 768 ? 'left' : 'right' }}>
+                    <Button
+                      type="primary"
+                      icon={<UsergroupAddOutlined />}
+                      onClick={() => setCurrentView('candidatesList')}
+                      block={window.innerWidth < 768}
+                      style={{
+                        background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
+                        border: 'none'
+                      }}
+                    >
+                      View Applications ({candidates.length})
+                    </Button>
+                  </Col>
+                </Row>
 
                 <Space direction="vertical" style={{ width: '100%' }} size="large">
-{jobPostings.map(job => (
-  <Card key={job.id} type="inner" style={{ background: '#fafbfc' }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-      <div style={{ flex: 1 }}>
-        <div style={{ marginBottom: '12px' }}>
-          <Title level={5} style={{ margin: 0, color: '#0D7139' }}>
-            {job.title}
-          </Title>
-          <Text type="secondary">{job.department} • {job.location} • {job.experience}</Text>
-        </div>
-        
-        <div style={{ marginBottom: '16px' }}>
-          <Badge count={job.applications_count} style={{ backgroundColor: '#0D7139' }}>
-            <Tag color="blue">Applications</Tag>
-          </Badge>
-          <Tag color="green" style={{ marginLeft: '8px' }}>
-            Created {formatDate(job.created_at)}
-          </Tag>
-        </div>
+                  {jobPostings.map(job => (
+                    <Card key={job.id} type="inner" style={{ background: '#fafbfc' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ marginBottom: '12px' }}>
+                            <Title level={5} style={{ margin: 0, color: '#0D7139' }}>
+                              {job.title}
+                            </Title>
+                            <Text type="secondary">{job.department} • {job.location} • {job.experience}</Text>
+                          </div>
 
-        <div style={{ 
-          background: 'white', 
-          padding: '12px', 
-          borderRadius: '8px',
-          border: '1px dashed #d9d9d9'
-        }}>
-          <Text strong style={{ color: '#0D7139', fontSize: '13px' }}>
-            <LinkOutlined style={{ marginRight: '6px' }} />
-            Shareable Application Link:
-          </Text>
-          <div style={{ display: 'flex', alignItems: 'center', marginTop: '8px' }}>
-            <Input 
-              value={job.shareable_link}
-              size="small"
-              readOnly
-              style={{ fontSize: '12px' }}
-            />
-            <Button
-              type="primary"
-              size="small"
-              icon={<CopyOutlined />}
-              onClick={() => copyToClipboard(job.shareable_link)}
-              style={{ marginLeft: '8px', background: '#0D7139', border: 'none' }}
-            >
-              Copy
-            </Button>
-          </div>
-        </div>
-      </div>
-      
-      {/* Delete Button */}
-      <div style={{ marginLeft: '16px' }}>
-        <Tooltip title="Delete Job Posting">
-          <Button
-            type="text"
-            danger
-            size="small"
-            icon={<DeleteOutlined />}
-            onClick={() => handleDeleteJob(job.db_id, job.title)}
-            style={{
-              color: '#ff4d4f',
-              borderColor: '#ff4d4f'
-            }}
-          />
-        </Tooltip>
-      </div>
-    </div>
-  </Card>
-))}                </Space>
+                          <div style={{ marginBottom: '16px' }}>
+                            <Badge count={job.applications_count} style={{ backgroundColor: '#0D7139' }}>
+                              <Tag color="blue">Applications</Tag>
+                            </Badge>
+                            <Tag color="green" style={{ marginLeft: '8px' }}>
+                              Created {formatDate(job.created_at)}
+                            </Tag>
+                          </div>
+
+                          <div style={{
+                            background: 'white',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            border: '1px dashed #d9d9d9'
+                          }}>
+                            <Text strong style={{ color: '#0D7139', fontSize: '13px' }}>
+                              <LinkOutlined style={{ marginRight: '6px' }} />
+                              Shareable Application Link:
+                            </Text>
+                            <div style={{ display: 'flex', alignItems: 'center', marginTop: '8px' }}>
+                              <Input
+                                value={job.shareable_link}
+                                size="small"
+                                readOnly
+                                style={{ fontSize: '12px' }}
+                              />
+                              <Button
+                                type="primary"
+                                size="small"
+                                icon={<CopyOutlined />}
+                                onClick={() => copyToClipboard(job.shareable_link)}
+                                style={{ marginLeft: '8px', background: '#0D7139', border: 'none' }}
+                              >
+                                Copy
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Delete Button */}
+                        <div style={{ marginLeft: '16px' }}>
+                          <Tooltip title="Delete Job Posting">
+                            <Button
+                              type="text"
+                              danger
+                              size="small"
+                              icon={<DeleteOutlined />}
+                              onClick={() => handleDeleteJob(job.db_id, job.title)}
+                              style={{
+                                color: '#ff4d4f',
+                                borderColor: '#ff4d4f'
+                              }}
+                            />
+                          </Tooltip>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}                </Space>
               </Card>
             </Col>
           </Row>
@@ -1204,8 +1209,8 @@ const getCurrentStep = () => {
               </Col>
             </Row>
 
-            <Card 
-              style={{ 
+            <Card
+              style={{
                 background: 'white',
                 border: 'none',
                 borderRadius: '16px',
@@ -1219,7 +1224,7 @@ const getCurrentStep = () => {
               </Title>
 
               {candidates.length === 0 ? (
-                <Empty 
+                <Empty
                   description="No applications received yet"
                   image={Empty.PRESENTED_IMAGE_SIMPLE}
                 />
@@ -1261,8 +1266,8 @@ const getCurrentStep = () => {
               {/* Left Column - Candidate Information */}
               <Col xs={24} xl={10}>
                 {/* Candidate Profile Card */}
-                <Card 
-                  style={{ 
+                <Card
+                  style={{
                     marginBottom: '24px',
                     background: 'white',
                     border: 'none',
@@ -1272,9 +1277,9 @@ const getCurrentStep = () => {
                   }}
                 >
                   <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                    <Avatar 
-                      size={80} 
-                      style={{ 
+                    <Avatar
+                      size={80}
+                      style={{
                         background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
                         marginBottom: '12px',
                         fontSize: '32px'
@@ -1296,37 +1301,37 @@ const getCurrentStep = () => {
                   </div>
 
                   <Descriptions column={1} size="small" styles={{ label: { fontWeight: '600', color: '#333' } }}>
-                    <Descriptions.Item 
+                    <Descriptions.Item
                       label={<><MailOutlined style={{ marginRight: '8px', color: '#0D7139' }} />Email</>}
                     >
                       {selectedCandidate.email}
                     </Descriptions.Item>
-                    <Descriptions.Item 
+                    <Descriptions.Item
                       label={<><PhoneOutlined style={{ marginRight: '8px', color: '#0D7139' }} />Phone</>}
                     >
                       {selectedCandidate.phone}
                     </Descriptions.Item>
-                    <Descriptions.Item 
+                    <Descriptions.Item
                       label={<><BankOutlined style={{ marginRight: '8px', color: '#0D7139' }} />Current Company</>}
                     >
                       {selectedCandidate.current_company}
                     </Descriptions.Item>
-                    <Descriptions.Item 
+                    <Descriptions.Item
                       label={<><TeamOutlined style={{ marginRight: '8px', color: '#0D7139' }} />Experience</>}
                     >
                       {selectedCandidate.experience}
                     </Descriptions.Item>
-                    <Descriptions.Item 
+                    <Descriptions.Item
                       label={<><EnvironmentOutlined style={{ marginRight: '8px', color: '#0D7139' }} />Location</>}
                     >
                       {selectedCandidate.current_location} → {selectedCandidate.preferred_location}
                     </Descriptions.Item>
-                    <Descriptions.Item 
+                    <Descriptions.Item
                       label={<><BookOutlined style={{ marginRight: '8px', color: '#0D7139' }} />Education</>}
                     >
                       {selectedCandidate.education}
                     </Descriptions.Item>
-                    <Descriptions.Item 
+                    <Descriptions.Item
                       label={<><CalendarOutlined style={{ marginRight: '8px', color: '#0D7139' }} />Notice Period</>}
                     >
                       {selectedCandidate.notice_period}
@@ -1372,8 +1377,8 @@ const getCurrentStep = () => {
                 </Card>
 
                 {/* Interview Process Steps */}
-                <Card 
-                  style={{ 
+                <Card
+                  style={{
                     background: 'white',
                     border: 'none',
                     borderRadius: '16px',
@@ -1384,38 +1389,38 @@ const getCurrentStep = () => {
                   <Title level={5} style={{ color: '#0D7139', marginBottom: '20px' }}>
                     Interview Process
                   </Title>
-                <Steps 
-  direction="vertical"
-  current={getCurrentStep()} // Add this function
-  size="small"
-  items={[
-    {
-      title: 'Interview Setup',
-      description: 'Schedule & Prepare Interview',
-      icon: <CalendarOutlined />,
-      status: selectedCandidate.interview_date ? 'finish' : 'process'
-    },
-    {
-      title: 'Conduct Assessment',
-      description: 'Evaluate Technical & Soft Skills',
-      icon: <UserOutlined />,
-      status: selectedCandidate.technical_rating ? 'finish' : 'wait'
-    },
-    {
-      title: 'Final Decision',
-      description: 'Select or Reject Candidate',
-      icon: <CheckCircleOutlined />,
-      status: selectedCandidate.status === 'selected' || selectedCandidate.status === 'rejected' ? 'finish' : 'wait'
-    }
-  ]}
-/>
+                  <Steps
+                    direction="vertical"
+                    current={getCurrentStep()} // Add this function
+                    size="small"
+                    items={[
+                      {
+                        title: 'Interview Setup',
+                        description: 'Schedule & Prepare Interview',
+                        icon: <CalendarOutlined />,
+                        status: selectedCandidate.interview_date ? 'finish' : 'process'
+                      },
+                      {
+                        title: 'Conduct Assessment',
+                        description: 'Evaluate Technical & Soft Skills',
+                        icon: <UserOutlined />,
+                        status: selectedCandidate.technical_rating ? 'finish' : 'wait'
+                      },
+                      {
+                        title: 'Final Decision',
+                        description: 'Select or Reject Candidate',
+                        icon: <CheckCircleOutlined />,
+                        status: selectedCandidate.status === 'selected' || selectedCandidate.status === 'rejected' ? 'finish' : 'wait'
+                      }
+                    ]}
+                  />
                 </Card>
               </Col>
 
               {/* Right Column - Interview Form */}
               <Col xs={24} xl={14}>
-                <Card 
-                  style={{ 
+                <Card
+                  style={{
                     background: 'white',
                     border: 'none',
                     borderRadius: '16px',
@@ -1432,17 +1437,17 @@ const getCurrentStep = () => {
                     form={form}
                     layout="vertical"
                     onFinish={handleInterviewSubmit}
-                 initialValues={{
-  technicalRating: 3,
-  communicationRating: 3,
-  problemSolvingRating: 3,
-  cultureFitRating: 3,
-  recommendation: 'proceed'
-}}
+                    initialValues={{
+                      technicalRating: 3,
+                      communicationRating: 3,
+                      problemSolvingRating: 3,
+                      cultureFitRating: 3,
+                      recommendation: 'proceed'
+                    }}
                   >
                     {/* Interview Details Section */}
-                    <Card 
-                      type="inner" 
+                    <Card
+                      type="inner"
                       title={
                         <span style={{ color: '#0D7139' }}>
                           <CalendarOutlined style={{ marginRight: '8px' }} />
@@ -1458,8 +1463,8 @@ const getCurrentStep = () => {
                             name="interviewDate"
                             rules={[{ required: true, message: 'Please select interview date' }]}
                           >
-                            <DatePicker 
-                              size="large" 
+                            <DatePicker
+                              size="large"
                               style={{ width: '100%' }}
                               format="DD MMM YYYY"
                               placeholder="Select interview date"
@@ -1472,8 +1477,8 @@ const getCurrentStep = () => {
                             name="interviewTime"
                             rules={[{ required: true, message: 'Please select interview time' }]}
                           >
-                            <TimePicker 
-                              size="large" 
+                            <TimePicker
+                              size="large"
                               style={{ width: '100%' }}
                               format="HH:mm"
                               minuteStep={15}
@@ -1488,166 +1493,166 @@ const getCurrentStep = () => {
                         name="interviewerName"
                         rules={[{ required: true, message: 'Please enter interviewer name' }]}
                       >
-                        <Input 
-                          size="large" 
+                        <Input
+                          size="large"
                           placeholder="Enter interviewer's full name"
                           prefix={<UserOutlined style={{ color: '#0D7139' }} />}
                         />
                       </Form.Item>
                     </Card>
 
-<Card 
-  type="inner" 
-  title={
-    <span style={{ color: '#0D7139' }}>
-      <StarOutlined style={{ marginRight: '8px' }} />
-      Performance Assessment
-    </span>
-  }
-  style={{ marginBottom: '24px', background: '#fafbfc' }}
->
-  <Space direction="vertical" style={{ width: '100%' }} size="large">
-    <Form.Item
-      label={
-        <span style={{ fontSize: '16px', fontWeight: '600' }}>
-          Technical Skills & Domain Knowledge
-        </span>
-      }
-      name="technicalRating"
-      rules={[
-        { required: true, message: 'Please rate technical skills' },
-        { 
-          validator: (_, value) => {
-            if (!value || value < 1 || value > 5) {
-              return Promise.reject(new Error('Rating must be between 1 and 5'));
-            }
-            return Promise.resolve();
-          }
-        }
-      ]}
-    >
-      <div>
-        <InputNumber
-          min={1}
-          max={5}
-          step={0.5}
-          style={{ width: '120px', fontSize: '16px' }}
-          placeholder="1-5"
-          addonAfter="⭐"
-        />
-        <Text style={{ marginLeft: '16px', color: '#666', fontSize: '14px' }}>
-          Rate technical competency, coding skills, and domain expertise (1-5 scale)
-        </Text>
-      </div>
-    </Form.Item>
+                    <Card
+                      type="inner"
+                      title={
+                        <span style={{ color: '#0D7139' }}>
+                          <StarOutlined style={{ marginRight: '8px' }} />
+                          Performance Assessment
+                        </span>
+                      }
+                      style={{ marginBottom: '24px', background: '#fafbfc' }}
+                    >
+                      <Space direction="vertical" style={{ width: '100%' }} size="large">
+                        <Form.Item
+                          label={
+                            <span style={{ fontSize: '16px', fontWeight: '600' }}>
+                              Technical Skills & Domain Knowledge
+                            </span>
+                          }
+                          name="technicalRating"
+                          rules={[
+                            { required: true, message: 'Please rate technical skills' },
+                            {
+                              validator: (_, value) => {
+                                if (!value || value < 1 || value > 5) {
+                                  return Promise.reject(new Error('Rating must be between 1 and 5'));
+                                }
+                                return Promise.resolve();
+                              }
+                            }
+                          ]}
+                        >
+                          <div>
+                            <InputNumber
+                              min={1}
+                              max={5}
+                              step={0.5}
+                              style={{ width: '120px', fontSize: '16px' }}
+                              placeholder="1-5"
+                              addonAfter="⭐"
+                            />
+                            <Text style={{ marginLeft: '16px', color: '#666', fontSize: '14px' }}>
+                              Rate technical competency, coding skills, and domain expertise (1-5 scale)
+                            </Text>
+                          </div>
+                        </Form.Item>
 
-    <Form.Item
-      label={
-        <span style={{ fontSize: '16px', fontWeight: '600' }}>
-          Communication & Presentation Skills
-        </span>
-      }
-      name="communicationRating"
-      rules={[
-        { required: true, message: 'Please rate communication skills' },
-        { 
-          validator: (_, value) => {
-            if (!value || value < 1 || value > 5) {
-              return Promise.reject(new Error('Rating must be between 1 and 5'));
-            }
-            return Promise.resolve();
-          }
-        }
-      ]}
-    >
-      <div>
-        <InputNumber
-          min={1}
-          max={5}
-          step={0.5}
-          style={{ width: '120px', fontSize: '16px' }}
-          placeholder="1-5"
-          addonAfter="⭐"
-        />
-        <Text style={{ marginLeft: '16px', color: '#666', fontSize: '14px' }}>
-          Rate verbal communication, clarity, and presentation abilities (1-5 scale)
-        </Text>
-      </div>
-    </Form.Item>
+                        <Form.Item
+                          label={
+                            <span style={{ fontSize: '16px', fontWeight: '600' }}>
+                              Communication & Presentation Skills
+                            </span>
+                          }
+                          name="communicationRating"
+                          rules={[
+                            { required: true, message: 'Please rate communication skills' },
+                            {
+                              validator: (_, value) => {
+                                if (!value || value < 1 || value > 5) {
+                                  return Promise.reject(new Error('Rating must be between 1 and 5'));
+                                }
+                                return Promise.resolve();
+                              }
+                            }
+                          ]}
+                        >
+                          <div>
+                            <InputNumber
+                              min={1}
+                              max={5}
+                              step={0.5}
+                              style={{ width: '120px', fontSize: '16px' }}
+                              placeholder="1-5"
+                              addonAfter="⭐"
+                            />
+                            <Text style={{ marginLeft: '16px', color: '#666', fontSize: '14px' }}>
+                              Rate verbal communication, clarity, and presentation abilities (1-5 scale)
+                            </Text>
+                          </div>
+                        </Form.Item>
 
-    <Form.Item
-      label={
-        <span style={{ fontSize: '16px', fontWeight: '600' }}>
-          Problem Solving & Analytical Thinking
-        </span>
-      }
-      name="problemSolvingRating"
-      rules={[
-        { required: true, message: 'Please rate problem solving skills' },
-        { 
-          validator: (_, value) => {
-            if (!value || value < 1 || value > 5) {
-              return Promise.reject(new Error('Rating must be between 1 and 5'));
-            }
-            return Promise.resolve();
-          }
-        }
-      ]}
-    >
-      <div>
-        <InputNumber
-          min={1}
-          max={5}
-          step={0.5}
-          style={{ width: '120px', fontSize: '16px' }}
-          placeholder="1-5"
-          addonAfter="⭐"
-        />
-        <Text style={{ marginLeft: '16px', color: '#666', fontSize: '14px' }}>
-          Rate analytical approach, logical reasoning, and problem-solving methodology (1-5 scale)
-        </Text>
-      </div>
-    </Form.Item>
+                        <Form.Item
+                          label={
+                            <span style={{ fontSize: '16px', fontWeight: '600' }}>
+                              Problem Solving & Analytical Thinking
+                            </span>
+                          }
+                          name="problemSolvingRating"
+                          rules={[
+                            { required: true, message: 'Please rate problem solving skills' },
+                            {
+                              validator: (_, value) => {
+                                if (!value || value < 1 || value > 5) {
+                                  return Promise.reject(new Error('Rating must be between 1 and 5'));
+                                }
+                                return Promise.resolve();
+                              }
+                            }
+                          ]}
+                        >
+                          <div>
+                            <InputNumber
+                              min={1}
+                              max={5}
+                              step={0.5}
+                              style={{ width: '120px', fontSize: '16px' }}
+                              placeholder="1-5"
+                              addonAfter="⭐"
+                            />
+                            <Text style={{ marginLeft: '16px', color: '#666', fontSize: '14px' }}>
+                              Rate analytical approach, logical reasoning, and problem-solving methodology (1-5 scale)
+                            </Text>
+                          </div>
+                        </Form.Item>
 
-    <Form.Item
-      label={
-        <span style={{ fontSize: '16px', fontWeight: '600' }}>
-          Culture Fit & Team Collaboration
-        </span>
-      }
-      name="cultureFitRating"
-      rules={[
-        { required: true, message: 'Please rate culture fit' },
-        { 
-          validator: (_, value) => {
-            if (!value || value < 1 || value > 5) {
-              return Promise.reject(new Error('Rating must be between 1 and 5'));
-            }
-            return Promise.resolve();
-          }
-        }
-      ]}
-    >
-      <div>
-        <InputNumber
-          min={1}
-          max={5}
-          step={0.5}
-          style={{ width: '120px', fontSize: '16px' }}
-          placeholder="1-5"
-          addonAfter="⭐"
-        />
-        <Text style={{ marginLeft: '16px', color: '#666', fontSize: '14px' }}>
-          Rate alignment with company values, team dynamics, and cultural adaptation (1-5 scale)
-        </Text>
-      </div>
-    </Form.Item>
-  </Space>
-</Card>
+                        <Form.Item
+                          label={
+                            <span style={{ fontSize: '16px', fontWeight: '600' }}>
+                              Culture Fit & Team Collaboration
+                            </span>
+                          }
+                          name="cultureFitRating"
+                          rules={[
+                            { required: true, message: 'Please rate culture fit' },
+                            {
+                              validator: (_, value) => {
+                                if (!value || value < 1 || value > 5) {
+                                  return Promise.reject(new Error('Rating must be between 1 and 5'));
+                                }
+                                return Promise.resolve();
+                              }
+                            }
+                          ]}
+                        >
+                          <div>
+                            <InputNumber
+                              min={1}
+                              max={5}
+                              step={0.5}
+                              style={{ width: '120px', fontSize: '16px' }}
+                              placeholder="1-5"
+                              addonAfter="⭐"
+                            />
+                            <Text style={{ marginLeft: '16px', color: '#666', fontSize: '14px' }}>
+                              Rate alignment with company values, team dynamics, and cultural adaptation (1-5 scale)
+                            </Text>
+                          </div>
+                        </Form.Item>
+                      </Space>
+                    </Card>
 
                     {/* Detailed Feedback Section */}
-                    <Card 
-                      type="inner" 
+                    <Card
+                      type="inner"
                       title={
                         <span style={{ color: '#0D7139' }}>
                           <FileTextOutlined style={{ marginRight: '8px' }} />
@@ -1802,9 +1807,9 @@ const getCurrentStep = () => {
 
               <Card style={{ marginBottom: '24px', background: '#f8f9fa', borderRadius: '12px' }}>
                 <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                  <Avatar 
-                    size={64} 
-                    style={{ 
+                  <Avatar
+                    size={64}
+                    style={{
                       background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
                       marginBottom: '8px',
                       fontSize: '24px'
@@ -1817,7 +1822,7 @@ const getCurrentStep = () => {
                   </Title>
                   <Text type="secondary">{interviewData.job_position}</Text>
                 </div>
-                
+
                 <Row gutter={[16, 16]} justify="center">
                   <Col xs={12} sm={6}>
                     <div style={{ textAlign: 'center' }}>
@@ -1973,16 +1978,16 @@ const getCurrentStep = () => {
                 </Col>
               </Row>
 
-              <div style={{ 
-                marginTop: '20px', 
-                padding: '16px', 
-                background: 'rgba(13, 113, 57, 0.05)', 
+              <div style={{
+                marginTop: '20px',
+                padding: '16px',
+                background: 'rgba(13, 113, 57, 0.05)',
                 borderRadius: '8px',
                 border: '1px dashed rgba(13, 113, 57, 0.2)'
               }}>
                 <Text style={{ fontSize: '13px', color: '#666', fontStyle: 'italic' }}>
                   <ExclamationCircleOutlined style={{ marginRight: '6px', color: '#faad14' }} />
-                  Note: Selected candidates will be moved to the Selected Candidates page where you can generate and send offer letters. 
+                  Note: Selected candidates will be moved to the Selected Candidates page where you can generate and send offer letters.
                   Rejected candidates will have their status updated accordingly.
                 </Text>
               </div>
