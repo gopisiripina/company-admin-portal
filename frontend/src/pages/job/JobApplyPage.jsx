@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import {Table,Card,Select,Input,DatePicker,Button,Tag,Space,Modal,Avatar,Row,Col,Typography,Divider,Tooltip,message,Spin,Alert} from 'antd';
-import {SearchOutlined,EyeOutlined,DownloadOutlined,UserOutlined,CalendarOutlined,ToolOutlined,ReloadOutlined,CheckCircleOutlined,CloseCircleOutlined,MailOutlined,LinkOutlined,CopyOutlined } from '@ant-design/icons';
+import { Table, Card, Select, Input, DatePicker, Button, Tag, Space, Modal, Avatar, Row, Col, Typography, Divider, Tooltip, message, Spin, Alert, Dropdown, Menu } from 'antd';
+import { SearchOutlined, EyeOutlined, DownloadOutlined, UserOutlined, CalendarOutlined, ToolOutlined, ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined, MailOutlined, LinkOutlined, CopyOutlined, MoreOutlined } from '@ant-design/icons';
 import ErrorPage from '../../error/ErrorPage';
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 const { Title, Text } = Typography;
 
 // Supabase configuration
-import { supabase} from '../../supabase/config';
+import { supabase } from '../../supabase/config';
 
 const JobApplyPage = ({ userRole }) => {
   // const userRole = userData?.role;
-  if (userRole !== 'superadmin' && userRole !== 'admin'&& userRole!=='hr') {
+  if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
     return <ErrorPage errorType="403" />;
   }
 
@@ -29,8 +29,8 @@ const JobApplyPage = ({ userRole }) => {
   const [resumeModalVisible, setResumeModalVisible] = useState(false);
   const [selectedApplicant, setSelectedApplicant] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-const [pageSize, setPageSize] = useState(5);
-const [totalApplicants, setTotalApplicants] = useState(0);
+  const [pageSize, setPageSize] = useState(5);
+  const [totalApplicants, setTotalApplicants] = useState(0);
   // Fetch all unique job postings from applications
   const fetchJobPostings = async () => {
     setJobsLoading(true);
@@ -45,7 +45,7 @@ const [totalApplicants, setTotalApplicants] = useState(0);
       // Get unique job postings
       const uniqueJobs = [];
       const seenJobIds = new Set();
-      
+
       data.forEach(item => {
         if (!seenJobIds.has(item.job_id)) {
           seenJobIds.add(item.job_id);
@@ -67,29 +67,29 @@ const [totalApplicants, setTotalApplicants] = useState(0);
 
   // Fetch applicants for selected job - FIXED VERSION
   const fetchApplicants = async (jobId, page = 1, pageSize = 10) => {
-  setLoading(true);
-  try {
-    // Calculate offset for pagination
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
+    setLoading(true);
+    try {
+      // Calculate offset for pagination
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
 
-    // Get total count first
-    const { count, error: countError } = await supabase
-      .from('job_applications')
-      .select('*', { count: 'exact', head: true })
-      .eq('job_id', jobId);
+      // Get total count first
+      const { count, error: countError } = await supabase
+        .from('job_applications')
+        .select('*', { count: 'exact', head: true })
+        .eq('job_id', jobId);
 
-    if (countError) throw countError;
+      if (countError) throw countError;
 
-    // Fetch paginated data
-    const { data, error } = await supabase
-      .from('job_applications')
-      .select('*')
-      .eq('job_id', jobId)
-      .order('applied_at', { ascending: false })
-      .range(from, to);
+      // Fetch paginated data
+      const { data, error } = await supabase
+        .from('job_applications')
+        .select('*')
+        .eq('job_id', jobId)
+        .order('applied_at', { ascending: false })
+        .range(from, to);
 
-    if (error) throw error;
+      if (error) throw error;
 
       // Transform data with proper status handling
       const transformedApplicants = data.map(app => ({
@@ -115,14 +115,14 @@ const [totalApplicants, setTotalApplicants] = useState(0);
         avatar: null
       }));
       setApplicants(transformedApplicants);
-    setTotalApplicants(count); // Add this state variable
-    setFilteredApplicants(transformedApplicants);
-  } catch (error) {
-    // ... error handling
-  } finally {
-    setLoading(false);
-  }
-};
+      setTotalApplicants(count); // Add this state variable
+      setFilteredApplicants(transformedApplicants);
+    } catch (error) {
+      // ... error handling
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // REPLACE the handleStatusChange function with this:
   const handleStatusChange = async (applicantId, newStatus) => {
@@ -146,9 +146,9 @@ const [totalApplicants, setTotalApplicants] = useState(0);
       // Perform the update
       const { data, error } = await supabase
         .from('job_applications')
-        .update({ 
+        .update({
           status: newStatus,
-          updated_at: new Date().toISOString() 
+          updated_at: new Date().toISOString()
         })
         .eq('id', applicantId)
         .select('*'); // Return all fields to verify update
@@ -169,23 +169,23 @@ const [totalApplicants, setTotalApplicants] = useState(0);
       const updatedApplicants = applicants.map(app =>
         app.id === applicantId ? { ...app, status: newStatus } : app
       );
-      
+
       setApplicants(updatedApplicants);
-      
+
       // Also update selectedApplicant if it's the same one
       if (selectedApplicant && selectedApplicant.id === applicantId) {
         setSelectedApplicant(prev => ({ ...prev, status: newStatus }));
       }
-      
+
       // Reapply filters to show updated data
       applyFiltersToData(updatedApplicants);
 
       message.success(`Status updated to ${newStatus}`);
-      
+
     } catch (error) {
       console.error('Error updating status:', error);
       message.error(`Failed to update status: ${error.message}`);
-      
+
       // Refresh data from server in case of error
       if (selectedJob) {
         fetchApplicants(selectedJob);
@@ -200,20 +200,20 @@ const [totalApplicants, setTotalApplicants] = useState(0);
         .from('job_applications')
         .select('id, status')
         .limit(1);
-      
+
       console.log('Read test:', { readData, readError });
-      
+
       // Test update access (you can comment this out after testing)
       if (readData && readData.length > 0) {
         const testId = readData[0].id;
         const currentStatus = readData[0].status;
-        
+
         const { data: updateData, error: updateError } = await supabase
           .from('job_applications')
           .update({ updated_at: new Date().toISOString() })
           .eq('id', testId)
           .select();
-        
+
         console.log('Update test:', { updateData, updateError });
       }
     } catch (error) {
@@ -222,16 +222,16 @@ const [totalApplicants, setTotalApplicants] = useState(0);
   };
 
   const handleJobSelect = (jobId) => {
-  setSelectedJob(jobId);
-  setCurrentPage(1); // Reset to first page
-  if (jobId) {
-    fetchApplicants(jobId, 1, pageSize);
-  } else {
-    setApplicants([]);
-    setFilteredApplicants([]);
-    setTotalApplicants(0);
-  }
-};
+    setSelectedJob(jobId);
+    setCurrentPage(1); // Reset to first page
+    if (jobId) {
+      fetchApplicants(jobId, 1, pageSize);
+    } else {
+      setApplicants([]);
+      setFilteredApplicants([]);
+      setTotalApplicants(0);
+    }
+  };
 
   // Separate function to apply filters to given data
   const applyFiltersToData = (dataToFilter) => {
@@ -269,8 +269,8 @@ const [totalApplicants, setTotalApplicants] = useState(0);
     // Skills filter
     if (skillsFilter.length > 0) {
       filtered = filtered.filter(app =>
-        skillsFilter.some(skill => 
-          app.skills.some(appSkill => 
+        skillsFilter.some(skill =>
+          app.skills.some(appSkill =>
             appSkill.toLowerCase().includes(skill.toLowerCase())
           )
         )
@@ -329,42 +329,60 @@ const [totalApplicants, setTotalApplicants] = useState(0);
       width: 200, // Set specific width
       render: (_, record) => (
         <Space direction="vertical" size="small">
-      <Space>
-        <Avatar size={32} icon={<UserOutlined />} />
-        <div>
-          <div style={{ fontWeight: 500, fontSize: '13px' }}>{record.name}</div>
-          <Text type="secondary" style={{ fontSize: '11px' }}>{record.email}</Text>
-          {record.currentPosition && (
-            <div style={{ fontSize: '10px', color: '#666' }}>
-              {record.currentPosition} {record.currentCompany && `at ${record.currentCompany}`}
+          <Space>
+            <Avatar size={32} icon={<UserOutlined />} />
+            <div>
+              <div style={{
+                fontWeight: 500,
+                fontSize: '13px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: '150px'  // Adjust based on your needs
+              }}>
+                {record.name}
+              </div>
+              <Text type="secondary" style={{
+                fontSize: '11px',
+                display: 'block',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                maxWidth: '150px'
+              }}>
+                {record.email}
+              </Text>
+              {record.currentPosition && (
+                <div style={{ fontSize: '10px', color: '#666' }}>
+                  {record.currentPosition} {record.currentCompany && `at ${record.currentCompany}`}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </Space>
-      {/* Show additional info on mobile */}
-      <div className="mobile-only" style={{ fontSize: '10px' }}>
-        <div>Applied: {record.appliedDate ? new Date(record.appliedDate).toLocaleDateString('en-US', { 
-          month: 'short', day: 'numeric' 
-        }) : 'N/A'}</div>
-        <div>Experience: {record.experience}</div>
-        <Tag color={getStatusColor(record.status)} style={{ fontSize: '10px', marginTop: '2px' }}>
-          {getStatusText(record.status)}
-        </Tag>
-      </div>
-    </Space>
+          </Space>
+          {/* Show additional info on mobile */}
+          <div className="mobile-only" style={{ fontSize: '10px' }}>
+            <div>Applied: {record.appliedDate ? new Date(record.appliedDate).toLocaleDateString('en-US', {
+              month: 'short', day: 'numeric'
+            }) : 'N/A'}</div>
+            <div>Experience: {record.experience}</div>
+            <Tag color={getStatusColor(record.status)} style={{ fontSize: '10px', marginTop: '2px' }}>
+              {getStatusText(record.status)}
+            </Tag>
+          </div>
+        </Space>
       ),
     },
     {
       title: 'Applied Date',
       dataIndex: 'appliedDate',
       key: 'appliedDate',
-      width: 120, 
+      width: 120,
       responsive: ['md'],
       render: (date) => (
         <div style={{ fontSize: '11px' }}>
           <CalendarOutlined style={{ color: '#1890ff', marginRight: '4px' }} />
-          {date ? new Date(date).toLocaleDateString('en-US', { 
-            month: 'short', day: 'numeric' 
+          {date ? new Date(date).toLocaleDateString('en-US', {
+            month: 'short', day: 'numeric'
           }) : 'N/A'}
         </div>
       ),
@@ -386,9 +404,9 @@ const [totalApplicants, setTotalApplicants] = useState(0);
       title: 'Skills',
       dataIndex: 'skills',
       key: 'skills',
-      width: 140, 
+      width: 140,
       responsive: ['xl'],
-      
+
       render: (skills) => (
         <div>
           {skills.slice(0, 2).map(skill => ( // Reduced from 3 to 2
@@ -397,7 +415,7 @@ const [totalApplicants, setTotalApplicants] = useState(0);
             </Tag>
           ))}
           {skills.length > 2 && (
-            <Tag color="default" style={{color:"#0D7139", fontSize: '10px' }}>+{skills.length - 2}</Tag>
+            <Tag color="default" style={{ color: "#0D7139", fontSize: '10px' }}>+{skills.length - 2}</Tag>
           )}
         </div>
       ),
@@ -406,7 +424,7 @@ const [totalApplicants, setTotalApplicants] = useState(0);
       title: 'Salary',
       dataIndex: 'expectedSalary',
       key: 'expectedSalary',
-      width: 100, 
+      width: 100,
       responsive: ['xl'],
       render: (salary) => (
         <Text style={{ fontSize: '11px' }}>{salary || 'Not specified'}</Text>
@@ -427,62 +445,75 @@ const [totalApplicants, setTotalApplicants] = useState(0);
     {
       title: 'Actions',
       key: 'actions',
-      width: 120,
+      width: 60,
       fixed: 'right',
-      render: (_, record) => (
-        <Space size="small">
-          <Tooltip title="View Details">
-            <Button 
-              type="text" 
+      align: 'center',
+      render: (_, record) => {
+        const menuItems = [
+          {
+            key: 'view',
+            icon: <EyeOutlined />,
+            label: 'View Details',
+            onClick: () => {
+              setSelectedApplicant(record);
+              setResumeModalVisible(true);
+            }
+          }
+        ];
+
+        if (record.resumeUrl) {
+          menuItems.push({
+            key: 'download',
+            icon: <DownloadOutlined />,
+            label: 'Download Resume',
+            onClick: () => window.open(record.resumeUrl, '_blank')
+          });
+        }
+
+        if (record.status === 'pending') {
+          menuItems.push(
+            { type: 'divider' },
+            {
+              key: 'shortlist',
+              icon: <CheckCircleOutlined style={{ color: '#52c41a' }} />,
+              label: 'Shortlist',
+              onClick: () => handleStatusChange(record.id, 'shortlisted')
+            },
+            {
+              key: 'reject',
+              icon: <CloseCircleOutlined style={{ color: '#ff4d4f' }} />,
+              label: 'Reject',
+              onClick: () => handleStatusChange(record.id, 'rejected')
+            }
+          );
+        }
+
+        return (
+          <Dropdown
+            menu={{ items: menuItems }}
+            trigger={['click']}
+            placement="bottomRight"
+          >
+            <Button
+              type="text"
+              icon={<MoreOutlined />}
               size="small"
-              icon={<EyeOutlined />} 
-              onClick={() => {
-                setSelectedApplicant(record);
-                setResumeModalVisible(true);
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto'
               }}
             />
-          </Tooltip>
-          {record.resumeUrl && (
-            <Tooltip title="Download Resume" >
-              <Button 
-                type="text" 
-                size="small"
-                icon={<DownloadOutlined/>}
-                onClick={() => window.open(record.resumeUrl, '_blank')}
-                
-              />
-            </Tooltip>
-          )}
-          {record.status === 'pending' && (
-            <>
-              <Tooltip title="Shortlist">
-                <Button 
-                  type="text" 
-                  size="small"
-                  icon={<CheckCircleOutlined />}
-                  style={{ color: '#52c41a' }}
-                  onClick={() => handleStatusChange(record.id, 'shortlisted')}
-                />
-              </Tooltip>
-              <Tooltip title="Reject">
-                <Button 
-                  type="text" 
-                  size="small"
-                  icon={<CloseCircleOutlined />}
-                  style={{ color: '#ff4d4f' }}
-                  onClick={() => handleStatusChange(record.id, 'rejected')}
-                />
-              </Tooltip>
-            </>
-          )}
-        </Space>
-      ),
+          </Dropdown>
+        );
+      }
     },
   ];
 
   if (jobsLoading) {
     return (
-      <div style={{ 
+      <div style={{
         padding: '16px', // Reduced from '24px'
         maxWidth: '100%', // Changed from '1200px' 
         margin: '0 auto',
@@ -497,15 +528,15 @@ const [totalApplicants, setTotalApplicants] = useState(0);
   }
 
   return (
-    
-    <div style={{ 
+
+    <div style={{
       padding: '16px', // Reduced from '24px'
       maxWidth: '100%', // Changed from '1200px' 
-      margin: '0 auto', 
-      width: '100%' 
+      margin: '0 auto',
+      width: '100%'
     }}>
 
-      
+
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
         <Title level={2} style={{ margin: 0, color: '#0D7139' }}>
@@ -551,10 +582,10 @@ const [totalApplicants, setTotalApplicants] = useState(0);
           </Col>
           <Col xs={24} sm={24} md={12} lg={16}>
             {selectedJob && (
-              <div style={{ 
-          textAlign: window.innerWidth < 768 ? 'left' : 'right', // Left align on mobile
-          marginTop: window.innerWidth < 768 ? '16px' : '0' // Add top margin on mobile
-        }}>
+              <div style={{
+                textAlign: window.innerWidth < 768 ? 'left' : 'right', // Left align on mobile
+                marginTop: window.innerWidth < 768 ? '16px' : '0' // Add top margin on mobile
+              }}>
                 <Space direction={window.innerWidth < 768 ? 'vertical' : 'horizontal'} size="middle">
                   <div>
                     <Text strong>{filteredApplicants.length}</Text>
@@ -646,7 +677,7 @@ const [totalApplicants, setTotalApplicants] = useState(0);
                 placeholder="Filter by skills"
                 value={skillsFilter}
                 onChange={setSkillsFilter}
-                style={{ width: '100%',color:"#0D7139" }}
+                style={{ width: '100%', color: "#0D7139" }}
                 maxTagCount={window.innerWidth < 768 ? 1 : 'responsive'}
               >
                 {allSkills.map(skill => (
@@ -674,49 +705,49 @@ const [totalApplicants, setTotalApplicants] = useState(0);
       {selectedJob && (
         <Card>
           <Table
-  columns={columns}
-  dataSource={filteredApplicants}
-  rowKey="id"
-  loading={loading}
-  pagination={{
-  current: currentPage,
-  pageSize: pageSize,
-  total: totalApplicants, // Use the total count from database
-  showSizeChanger: true,
-  showQuickJumper: true,
-  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} applications`,
-  pageSizeOptions: ['5', '10', '20', '50'],
-  onChange: (page, size) => {
-    setCurrentPage(page);
-    setPageSize(size);
-    fetchApplicants(selectedJob, page, size);
-  },
-  onShowSizeChange: (current, size) => {
-    setCurrentPage(1);
-    setPageSize(size);
-    fetchApplicants(selectedJob, 1, size);
-  },
-  itemRender: (current, type, originalElement) => {
-  if (type === 'page') {
-    return (
-      <a style={{
-        color: current === currentPage ? '#0D7139' : '#666',
-        backgroundColor: current === currentPage ? '#f6ffed' : 'white',
-        border: `1px solid ${current === currentPage ? '#0D7139' : '#d9d9d9'}`,
-        borderRadius: '6px',
-        fontWeight: current === currentPage ? 600 : 400
-      }}>
-        {current}
-      </a>
-    );
-  }
-  return originalElement;
-}
-}}
+            columns={columns}
+            dataSource={filteredApplicants}
+            rowKey="id"
+            loading={loading}
+            pagination={{
+              current: currentPage,
+              pageSize: pageSize,
+              total: totalApplicants, // Use the total count from database
+              showSizeChanger: true,
+              showQuickJumper: true,
+              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} applications`,
+              pageSizeOptions: ['5', '10', '20', '50'],
+              onChange: (page, size) => {
+                setCurrentPage(page);
+                setPageSize(size);
+                fetchApplicants(selectedJob, page, size);
+              },
+              onShowSizeChange: (current, size) => {
+                setCurrentPage(1);
+                setPageSize(size);
+                fetchApplicants(selectedJob, 1, size);
+              },
+              itemRender: (current, type, originalElement) => {
+                if (type === 'page') {
+                  return (
+                    <a style={{
+                      color: current === currentPage ? '#0D7139' : '#666',
+                      backgroundColor: current === currentPage ? '#f6ffed' : 'white',
+                      border: `1px solid ${current === currentPage ? '#0D7139' : '#d9d9d9'}`,
+                      borderRadius: '6px',
+                      fontWeight: current === currentPage ? 600 : 400
+                    }}>
+                      {current}
+                    </a>
+                  );
+                }
+                return originalElement;
+              }
+            }}
 
-  scroll={{ x: 'max-content' }} // Change this from { x: 800 }
-  size="small"
-/>
+            scroll={{ x: 'max-content' }} // Change this from { x: 800 }
+            size="small"
+          />
 
         </Card>
       )}
@@ -731,9 +762,9 @@ const [totalApplicants, setTotalApplicants] = useState(0);
             Close
           </Button>,
           selectedApplicant?.resumeUrl && (
-            <Button 
-              key="download" 
-              type="primary" 
+            <Button
+              key="download"
+              type="primary"
               icon={<DownloadOutlined />}
               onClick={() => window.open(selectedApplicant.resumeUrl, '_blank')}
             >
@@ -752,17 +783,17 @@ const [totalApplicants, setTotalApplicants] = useState(0);
                     <Text strong>Email:</Text>
                     <br />
                     <Text copyable={{
-    icon: <CopyOutlined style={{ color: '#0D7139' }} />,
-    tooltips: ['Copy', 'Copied!']
-  }} >{selectedApplicant.email}</Text>
+                      icon: <CopyOutlined style={{ color: '#0D7139' }} />,
+                      tooltips: ['Copy', 'Copied!']
+                    }} >{selectedApplicant.email}</Text>
                   </div>
                   <div>
                     <Text strong>Phone:</Text>
                     <br />
                     <Text copyable={{
-    icon: <CopyOutlined style={{ color: '#0D7139' }} />,
-    tooltips: ['Copy', 'Copied!']
-  }}>{selectedApplicant.phone}</Text>
+                      icon: <CopyOutlined style={{ color: '#0D7139' }} />,
+                      tooltips: ['Copy', 'Copied!']
+                    }}>{selectedApplicant.phone}</Text>
                   </div>
                   <div>
                     <Text strong>Location:</Text>
@@ -801,9 +832,9 @@ const [totalApplicants, setTotalApplicants] = useState(0);
                 </Space>
               </Col>
             </Row>
-            
+
             <Divider />
-            
+
             <div>
               <Text strong>Skills:</Text>
               <br />
@@ -822,8 +853,8 @@ const [totalApplicants, setTotalApplicants] = useState(0);
                 <div>
                   <Text strong>Portfolio:</Text>
                   <br />
-                  <Button 
-                    type="link" 
+                  <Button
+                    type="link"
                     icon={<LinkOutlined />}
                     onClick={() => window.open(selectedApplicant.portfolioUrl, '_blank')}
                     style={{ color: '#0D7139' }}
@@ -840,8 +871,8 @@ const [totalApplicants, setTotalApplicants] = useState(0);
                 <div>
                   <Text strong>LinkedIn:</Text>
                   <br />
-                  <Button 
-                    type="link" 
+                  <Button
+                    type="link"
                     icon={<LinkOutlined />}
                     onClick={() => window.open(selectedApplicant.linkedinUrl, '_blank')}
                     style={{ color: '#0D7139' }}
@@ -858,10 +889,10 @@ const [totalApplicants, setTotalApplicants] = useState(0);
                 <div>
                   <Text strong>Cover Letter:</Text>
                   <br />
-                  <div style={{ 
-                    marginTop: '8px', 
-                    padding: '12px', 
-                    background: '#f5f5f5', 
+                  <div style={{
+                    marginTop: '8px',
+                    padding: '12px',
+                    background: '#f5f5f5',
                     borderRadius: '6px',
                     whiteSpace: 'pre-wrap'
                   }}>
@@ -870,9 +901,9 @@ const [totalApplicants, setTotalApplicants] = useState(0);
                 </div>
               </>
             )}
-            
+
             <Divider />
-            
+
             <div>
               <Text strong>Current Status:</Text>
               <br />
@@ -887,15 +918,15 @@ const [totalApplicants, setTotalApplicants] = useState(0);
               <Text strong>Update Status:</Text>
               <br />
               <Space style={{ marginTop: '8px' }}>
-                <Button 
-                  type="primary" 
+                <Button
+                  type="primary"
                   icon={<CheckCircleOutlined />}
                   onClick={() => handleStatusChange(selectedApplicant.id, 'shortlisted')}
                   disabled={selectedApplicant.status === 'shortlisted'}
                 >
                   Shortlist
                 </Button>
-                <Button 
+                <Button
                   danger
                   icon={<CloseCircleOutlined />}
                   onClick={() => handleStatusChange(selectedApplicant.id, 'rejected')}
