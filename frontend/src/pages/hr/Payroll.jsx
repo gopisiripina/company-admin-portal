@@ -105,21 +105,18 @@ const [showPayCalculator, setShowPayCalculator] = useState(false);
   }, [expenses]);
 
   // Update parent only when user stops typing (debounced)
-  // useEffect(() => {
-  //   const timer = setTimeout(() => {
-  //     onChange(localExpenses);
-  //   }, 500);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onChange(localExpenses);
+    }, 500);
 
-  //   return () => clearTimeout(timer);
-  // }, [localExpenses]);
+    return () => clearTimeout(timer);
+  }, [localExpenses]);
 
   
 
   const addExpense = () => {
     setLocalExpenses([...localExpenses, { label: '', amount: 0 }]);
-    setLocalExpenses(newExpenses);
-    onChange(newExpenses); // Add this
-
   };
 
   const updateExpense = (index, field, value) => {
@@ -129,12 +126,10 @@ const [showPayCalculator, setShowPayCalculator] = useState(false);
   };
 
   const removeExpense = (index) => {
-  if (localExpenses.length > 1) {
-    const newExpenses = localExpenses.filter((_, i) => i !== index);
-    setLocalExpenses(newExpenses);
-    onChange(newExpenses); // Add this
-  }
-};
+    if (localExpenses.length > 1) {
+      setLocalExpenses(localExpenses.filter((_, i) => i !== index));
+    }
+  };
 
   return (
     <div>
@@ -154,7 +149,6 @@ const [showPayCalculator, setShowPayCalculator] = useState(false);
               placeholder="Expense label"
               value={expense.label}
               onChange={(e) => updateExpense(index, 'label', e.target.value)}
-              onBlur={() => onChange(localExpenses)}
             />
           </Col>
           <Col span={8}>
@@ -162,7 +156,6 @@ const [showPayCalculator, setShowPayCalculator] = useState(false);
               placeholder="Amount"
               value={expense.amount}
               onChange={(value) => updateExpense(index, 'amount', value || 0)}
-              onBlur={() => onChange(localExpenses)}
               style={{ width: '100%' }}
             />
           </Col>
@@ -413,8 +406,8 @@ const handleEmployeeSelect = async (userId) => {
         uanNumber: existingPayroll.uan_number,
         esiNumber: existingPayroll.esi_number,
         // Pay details (set to current month)
-        payPeriod: null,
-        payDate: null,
+        payPeriod: dayjs(),
+        payDate: dayjs(),
         paidDays: existingPayroll.paid_days,
         lopDays: existingPayroll.lop_days,
       };
@@ -2684,7 +2677,7 @@ if (printWindow) {
     </Button>,
     <Button key="save" type="primary" onClick={() => {
       saveMonthlyExpenses(monthlyExpensesData);
-      // setExpensesModalVisible(false);
+      setExpensesModalVisible(false);
     }}>
       Save Expenses
     </Button>,

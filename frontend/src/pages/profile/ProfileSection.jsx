@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, User, Settings, LogOut, Bell, Shield, HelpCircle } from 'lucide-react';
 import authService from '../../supabase/authService';
-import { useTheme } from '../../context/ThemeContext';
 
 const ProfileSection = ({ userData, onLogout, onProfileClick }) => {
-  const { isDarkMode } = useTheme();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -131,13 +129,13 @@ const ProfileSection = ({ userData, onLogout, onProfileClick }) => {
       height: avatarSize.height,
       borderRadius: '20%',
       objectFit: 'cover',
-      border: size === 'large' ? '3px solid var(--border)' : '2px solid var(--border)',
-      backgroundColor: isDarkMode ? 'var(--surface)' : '#1F4842'
+      border: size === 'large' ? '3px solid #e5e7eb' : '2px solid #e5e7eb',
+      backgroundColor: '#1F4842'
     };
 
     const initialsStyle = {
       ...baseAvatarStyle,
-      color: 'var(--text-primary)',
+      color: 'white',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -200,7 +198,7 @@ const ProfileSection = ({ userData, onLogout, onProfileClick }) => {
       height: indicatorSize,
       borderRadius: '50%',
       backgroundColor: isActive ? '#10b981' : '#ef4444',
-      border: isDarkMode ? '2px solid var(--card-bg)' : '2px solid white',
+      border: '2px solid white',
       position: 'absolute',
       bottom: screenSize === 'mobile' ? '1px' : '2px',
       right: '0px',
@@ -228,7 +226,7 @@ const ProfileSection = ({ userData, onLogout, onProfileClick }) => {
         borderRadius: '8px',
         cursor: 'pointer',
         transition: 'background-color 0.2s ease',
-        backgroundColor: isDropdownOpen ? (isDarkMode ? 'var(--surface)' : '#f3f4f6') : (isHovered ? (isDarkMode ? 'rgba(255,255,255,0.02)' : '#f9fafb') : 'transparent'),
+        backgroundColor: isDropdownOpen ? '#f3f4f6' : (isHovered ? '#f9fafb' : 'transparent'),
         border: 'none',
         outline: 'none'
       },
@@ -244,7 +242,7 @@ const ProfileSection = ({ userData, onLogout, onProfileClick }) => {
       profileName: {
         fontSize: screenSize === 'mobile' ? '12px' : '14px',
         fontWeight: '600',
-        color: isDarkMode ? 'var(--text-primary)' : '#1f2937',
+        color: '#1f2937',
         lineHeight: '1.2',
         whiteSpace: 'nowrap',
         overflow: 'hidden',
@@ -254,7 +252,7 @@ const ProfileSection = ({ userData, onLogout, onProfileClick }) => {
 
       profileRole: {
         fontSize: screenSize === 'mobile' ? '10px' : '12px',
-        color: isDarkMode ? 'var(--text-secondary)' : '#6b7280',
+        color: '#6b7280',
         lineHeight: '1.2',
         whiteSpace: 'nowrap',
         overflow: 'hidden',
@@ -264,7 +262,7 @@ const ProfileSection = ({ userData, onLogout, onProfileClick }) => {
 
       employeeId: {
         fontSize: screenSize === 'mobile' ? '10px' : '12px',
-        color: isDarkMode ? 'var(--text-secondary)' : '#6b7280',
+        color: '#6b7280',
         lineHeight: '1.2',
         whiteSpace: 'nowrap',
         overflow: 'hidden',
@@ -273,7 +271,7 @@ const ProfileSection = ({ userData, onLogout, onProfileClick }) => {
       },
 
       chevron: {
-        color: isDarkMode ? 'var(--text-secondary)' : '#6b7280',
+        color: '#6b7280',
         transition: 'transform 0.2s ease',
         transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
         ...(screenSize === 'mobile' && { display: 'none' }) // Hide chevron on mobile for space
@@ -284,10 +282,10 @@ const ProfileSection = ({ userData, onLogout, onProfileClick }) => {
         top: '100%',
         right: screenSize === 'mobile' ? '-10px' : '0',
         marginTop: '8px',
-        backgroundColor: isDarkMode ? 'var(--card-bg)' : 'white',
+        backgroundColor: 'white',
         borderRadius: '12px',
-        boxShadow: isDarkMode ? '0 10px 25px rgba(0,0,0,0.6)' : '0 10px 25px rgba(0, 0, 0, 0.1)',
-        border: '1px solid var(--border)',
+        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05)',
+        border: '1px solid #e5e7eb',
         minWidth: screenSize === 'mobile' ? '260px' : (screenSize === 'tablet' ? '270px' : '280px'),
         maxWidth: screenSize === 'mobile' ? '90vw' : 'none',
         zIndex: 1000,
@@ -296,11 +294,11 @@ const ProfileSection = ({ userData, onLogout, onProfileClick }) => {
 
       dropdownHeader: {
         padding: screenSize === 'mobile' ? '16px' : '20px',
-        borderBottom: '1px solid var(--border)',
+        borderBottom: '1px solid #e5e7eb',
         display: 'flex',
         alignItems: 'center',
         gap: screenSize === 'mobile' ? '12px' : '16px',
-        backgroundColor: isDarkMode ? 'var(--surface)' : '#f9fafb'
+        backgroundColor: '#f9fafb'
       },
 
       headerInfo: {
@@ -314,7 +312,7 @@ const ProfileSection = ({ userData, onLogout, onProfileClick }) => {
       headerName: {
         fontSize: screenSize === 'mobile' ? '14px' : '16px',
         fontWeight: '600',
-        color: isDarkMode ? 'var(--text-primary)' : '#1f2937',
+        color: '#1f2937',
         lineHeight: '1.2',
         marginBottom: '4px',
         wordBreak: 'break-word'
@@ -322,7 +320,7 @@ const ProfileSection = ({ userData, onLogout, onProfileClick }) => {
 
       headerEmail: {
         fontSize: screenSize === 'mobile' ? '12px' : '14px',
-        color: isDarkMode ? 'var(--text-secondary)' : '#6b7280',
+        color: '#6b7280',
         lineHeight: '1.2',
         wordBreak: 'break-all',
         marginBottom: '4px'
@@ -350,7 +348,7 @@ const ProfileSection = ({ userData, onLogout, onProfileClick }) => {
         cursor: isDisabled ? 'not-allowed' : 'pointer',
         transition: 'background-color 0.2s ease',
         fontSize: screenSize === 'mobile' ? '13px' : '14px',
-        color: isDisabled ? (isDarkMode ? 'var(--text-secondary)' : '#9ca3af') : (isDarkMode ? 'var(--text-primary)' : '#374151'),
+        color: isDisabled ? '#9ca3af' : '#374151',
         opacity: isDisabled ? 0.6 : 1
       }),
 
@@ -361,8 +359,8 @@ const ProfileSection = ({ userData, onLogout, onProfileClick }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: isDisabled ? (isDarkMode ? 'rgba(255,255,255,0.02)' : '#f3f4f6') : `${color}15`,
-        color: isDisabled ? (isDarkMode ? 'var(--text-secondary)' : '#9ca3af') : color
+        backgroundColor: isDisabled ? '#f3f4f6' : `${color}15`,
+        color: isDisabled ? '#9ca3af' : color
       }),
 
       backdrop: {
