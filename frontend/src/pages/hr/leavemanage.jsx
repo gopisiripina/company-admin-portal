@@ -280,7 +280,7 @@ const HRRequestDetailDrawer = ({ request, visible, onClose, onApprove, onReject,
         ? (isHalfDayLeave ? request.total_days : selectedDays.length)
         : 0;
     // --- END OF FIX ---
-
+    const certificateUrl = request?.medical_certificate || request?.medical_certificate_url;
 
     useEffect(() => {
     if (request?.user_id && request.start_date && request.end_date) {
@@ -542,46 +542,46 @@ const HRRequestDetailDrawer = ({ request, visible, onClose, onApprove, onReject,
     <Paragraph blockquote={"true"} style={{ margin: 0 }}>{request.reason}</Paragraph>
 </Descriptions.Item>
                     
-                    
-{(request.medical_certificate || request.attachment) && (
-  <>
-    <Divider>Attachments</Divider>
-    <Card size="small">
-      <Space direction="vertical" style={{ width: '100%' }}>
-        {request.medical_certificate && (
-          <div>
-            <Text strong>Medical Certificate:</Text>
-            <br />
-            <Button
-              type="link"
-              icon={<FileTextOutlined />}
-              onClick={() => window.open(request.medical_certificate, '_blank')}
-              style={{ padding: 0, height: 'auto' }}
-            >
-              View Medical Certificate
-            </Button>
-          </div>
-        )}
-        {request.attachment && (
-          <div>
-            <Text strong>Additional Document:</Text>
-            <br />
-            <Button
-              type="link"
-              icon={<FileTextOutlined />}
-              onClick={() => window.open(request.attachment, '_blank')}
-              style={{ padding: 0, height: 'auto' }}
-            >
-              View Attachment
-            </Button>
-          </div>
-        )}
-      </Space>
-    </Card>
-  </>
-)}
+ {(certificateUrl || request.attachment) && (
+                      <>
+                        <Divider>Attachments</Divider>
+                        <Card size="small">
+                          <Space direction="vertical" style={{ width: '100%' }}>
+                            {/* This inner part also uses the certificateUrl variable */}
+                            {certificateUrl && (
+                              <div>
+                                <Text strong>Medical Certificate:</Text>
+                                <br />
+                                <Button
+                                  type="link"
+                                  icon={<FileTextOutlined />}
+                                  onClick={() => window.open(certificateUrl, '_blank')}
+                                  style={{ padding: 0, height: 'auto' }}
+                                >
+                                  View Medical Certificate
+                                </Button>
+                              </div>
+                            )}
+                            {request.attachment && (
+                              <div>
+                                <Text strong>Additional Document:</Text>
+                                <br />
+                                <Button
+                                  type="link"
+                                  icon={<FileTextOutlined />}
+                                  onClick={() => window.open(request.attachment, '_blank')}
+                                  style={{ padding: 0, height: 'auto' }}
+                                >
+                                  View Attachment
+                                </Button>
+                              </div>
+                            )}
+                          </Space>
+                        </Card>
+                      </>
+                    )}
+                    {/* --- END OF FIX --- */}
                 </Descriptions>
-                
                 <Divider>HR Action: Select Days to Approve</Divider>
               <Card>
     <Calendar 
