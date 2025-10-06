@@ -2422,7 +2422,7 @@ const getCurrentBalance = (leaveType) => {
   switch (leaveType) {
 case 'Permission': 
   return leaveBalances.permission?.remaining || 0; 
-  case 'Casual Leave': 
+    case 'Casual Leave': 
       return leaveBalances.casualLeave?.remaining || 0;
     case 'Earned Leave': return leaveBalances.earnedLeave?.remaining || 0;
     case 'Medical Leave': return leaveBalances.medicalLeave?.remaining || 0;
