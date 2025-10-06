@@ -889,21 +889,7 @@ const renderEmailList = () => {
 
                         return (
                             <List.Item
-  style={{
-  cursor: 'pointer',
-  padding: '12px 16px',
-  backgroundColor: selectedEmail?.uid === email.uid 
-    ? '#e6f7ff' 
-    : email.unread 
-      ? '#d4fdd1ff'
-      : '#ffffff',
-  borderBottom: '1px solid #f0f0f0',
-  borderLeft: email.unread 
-    ? '4px solid #0D7139'
-    : '4px solid #d9d9d9',
-  overflow: 'hidden', // Add this
-  width: '100%' // Add this
-}}
+  className={`email-list-item ${selectedEmail?.uid === email.uid ? 'selected' : ''} ${email.unread ? 'unread' : ''}`}
   actions={!loading ? [
     <Button
       type="text"
@@ -921,7 +907,7 @@ const renderEmailList = () => {
   ] : []}
   onClick={() => handleEmailClick(email)}
 >
-  <List.Item.Meta
+    <List.Item.Meta
     avatar={
       <Badge  color="#0D7139">
         <Avatar icon={<UserOutlined />} style={{ marginTop: '4px' }} />
@@ -931,18 +917,7 @@ const renderEmailList = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Space>
           {email.unread && <Badge status="error" />}
-          <Text 
-  strong={email.unread}
-  style={{ 
-    display: 'block', // Add this
-    whiteSpace: 'nowrap', 
-    overflow: 'hidden', 
-    textOverflow: 'ellipsis',
-    maxWidth: isMobile ? '180px' : '100%', // Increase mobile width slightly
-    color: email.unread ? '#000' : '#666',
-    fontWeight: email.unread ? 'bold' : 'normal'
-  }}
->
+          <Text className={`email-subject ${email.unread ? 'unread' : ''}`} strong={email.unread} style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: isMobile ? '180px' : '100%' }}>
   {isSentFolder ? `To: ${email.to}` : email.from}
 </Text>
         </Space>
@@ -954,17 +929,7 @@ const renderEmailList = () => {
       </div>
     }
     description={
-      <Paragraph 
-  ellipsis={isMobile ? { rows: 1 } : { rows: 2 }} // Change to 1 row on mobile
-  style={{ 
-    margin: 0, 
-    fontSize: 14,
-    fontWeight: email.unread ? '500' : 'normal',
-    color: email.unread ? '#000' : '#666',
-    maxWidth: isMobile ? '200px' : '100%', // Add maxWidth for mobile
-    wordBreak: 'break-all' // Add this to handle long words
-  }}
->
+      <Paragraph ellipsis={isMobile ? { rows: 1 } : { rows: 2 }} className={`email-desc ${email.unread ? 'unread' : ''}`} style={{ margin: 0, fontSize: 14, maxWidth: isMobile ? '200px' : '100%', wordBreak: 'break-all' }}>
   {email.subject}
 </Paragraph>
     }

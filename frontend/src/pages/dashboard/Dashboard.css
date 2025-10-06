@@ -398,6 +398,22 @@
   padding-left: 24px;
 }
 
+/* Remove focus/active border for Attendance Overview button to avoid visible border when clicked */
+.attendance-overview-btn,
+.attendance-overview-btn:focus,
+.attendance-overview-btn:active,
+.attendance-overview-btn:hover {
+  box-shadow: none !important;
+  outline: none !important;
+  border: none !important;
+}
+
+/* For accessibility, provide a subtle focus ring only for keyboard users */
+.attendance-overview-btn:focus-visible {
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.12) !important;
+  outline: none !important;
+}
+
 /* Active/focused suggestion */
 .search-suggestion-item:active {
   transform: translateX(2px) scale(0.98);

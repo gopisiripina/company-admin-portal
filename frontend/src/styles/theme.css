@@ -76,3 +76,597 @@ body {
 }
 
 /* Add more base styles as needed */
+
+/* Dashboard and component-specific dark overrides
+   These gently override hardcoded light colors used in Dashboard.css
+   and Ant Design components when the app sets data-theme="dark" on :root.
+*/
+:root[data-theme="dark"] .dashboard-header {
+  background: rgba(8, 12, 20, 0.7) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+  box-shadow: 0 4px 25px rgba(0,0,0,0.6) !important;
+  color: var(--text-primary) !important;
+}
+
+:root[data-theme="dark"] .dashboard-main {
+  background: var(--background-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+:root[data-theme="dark"] .search-suggestions {
+  background: rgba(10,14,20,0.85) !important;
+  border: 1px solid rgba(255,255,255,0.04) !important;
+  color: var(--text-primary) !important;
+  backdrop-filter: blur(10px);
+}
+
+:root[data-theme="dark"] .search-suggestion-item {
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.02) !important;
+  background: transparent !important;
+}
+
+:root[data-theme="dark"] .search-suggestion-item:hover {
+  background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(13,148,136,0.12)) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Calendar tweaks for dark mode */
+:root[data-theme="dark"] .calendar-day.no-data {
+  background-color: var(--background-secondary) !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid rgba(255,255,255,0.03) !important;
+}
+
+:root[data-theme="dark"] .calendar-tooltip {
+  background: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.6) !important;
+}
+
+/* Make Ant Design cards, tables and common containers follow theme variables */
+:root[data-theme="dark"] .ant-card,
+:root[data-theme="dark"] .ant-table,
+:root[data-theme="dark"] .ant-layout,
+:root[data-theme="dark"] .sidebar,
+:root[data-theme="dark"] .ant-modal,
+:root[data-theme="dark"] .ant-dropdown,
+:root[data-theme="dark"] .ant-select-dropdown {
+  background: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+  box-shadow: var(--shadow) !important;
+}
+
+/* Typography helpers */
+:root[data-theme="dark"] .search-container,
+:root[data-theme="dark"] .search-icon,
+:root[data-theme="dark"] .search-suggestion-item,
+:root[data-theme="dark"] .calendar-day,
+:root[data-theme="dark"] .tooltip-date {
+  color: var(--text-primary) !important;
+}
+
+/* If some components use hardcoded backgrounds like white, this gentle selector
+   will prefer the theme variables. Use sparingly to avoid masking intended styles. */
+:root[data-theme="dark"] [class*="card"],
+:root[data-theme="dark"] [class*="panel"],
+:root[data-theme="dark"] [class*="container"] {
+  background: transparent !important;
+  color: var(--text-primary) !important;
+}
+
+/* Dashboard-specific color mappings (override hardcoded colors used in Dashboard.css) */
+:root[data-theme="dark"] .calendar-day.present {
+  background-color: #16a34a !important; /* green */
+  color: #e6eef8 !important;
+}
+
+:root[data-theme="dark"] .calendar-day.present:hover {
+  background-color: #15803d !important;
+}
+
+:root[data-theme="dark"] .calendar-day.checked-in {
+  background-color: #ea580c !important; /* orange */
+  color: #fff !important;
+}
+
+:root[data-theme="dark"] .calendar-day.checked-in:hover {
+  background-color: #c2410c !important;
+}
+
+:root[data-theme="dark"] .calendar-day.absent {
+  background-color: #ef4444 !important; /* red */
+  color: #fff !important;
+}
+
+:root[data-theme="dark"] .calendar-day.absent:hover {
+  background-color: #dc2626 !important;
+}
+
+:root[data-theme="dark"] .calendar-day.missing {
+  background-color: #f59e0b !important; /* amber */
+  color: #071022 !important;
+  font-weight: 600;
+}
+
+:root[data-theme="dark"] .calendar-day.holiday {
+  background-color: #7c3aed !important; /* purple */
+  color: #fff !important;
+}
+
+:root[data-theme="dark"] .calendar-day.non-working {
+  background-color: #475569 !important; /* muted */
+  color: #fff !important;
+}
+
+:root[data-theme="dark"] .calendar-day.no-data {
+  background-color: transparent !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid rgba(255,255,255,0.04) !important;
+}
+
+:root[data-theme="dark"] .calendar-day.today {
+  border: 2px solid var(--accent-color) !important;
+}
+
+/* Search & suggestion tweaks */
+:root[data-theme="dark"] .search-icon {
+  color: var(--text-secondary) !important;
+}
+
+:root[data-theme="dark"] .search-suggestion-item {
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.03) !important;
+}
+
+/* Replace bright hover gradient with subtle dark gradient for suggestions */
+:root[data-theme="dark"] .search-suggestion-item:hover {
+  background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(29,78,216,0.08)) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Muted text replacements */
+:root[data-theme="dark"] .muted,
+:root[data-theme="dark"] .search-suggestion-item .muted,
+:root[data-theme="dark"] .calendar-tooltip .tooltip-non-working {
+  color: var(--text-secondary) !important;
+}
+
+/* Stats up/down colors */
+:root[data-theme="dark"] .stats-change.up {
+  color: #10b981 !important; /* green */
+}
+
+:root[data-theme="dark"] .stats-change.down {
+  color: #ef4444 !important; /* red */
+}
+
+/* Activity dots preserve semantic colors but softened for dark bg */
+:root[data-theme="dark"] .activity-dot.user { background-color: rgba(59,130,246,0.95) !important; }
+:root[data-theme="dark"] .activity-dot.order { background-color: rgba(16,185,129,0.95) !important; }
+:root[data-theme="dark"] .activity-dot.payment { background-color: rgba(245,158,11,0.95) !important; }
+:root[data-theme="dark"] .activity-dot.message { background-color: rgba(139,92,246,0.95) !important; }
+:root[data-theme="dark"] .activity-dot.system { background-color: rgba(107,114,128,0.9) !important; }
+
+/* Panels and header text */
+:root[data-theme="dark"] .dashboard-header,
+:root[data-theme="dark"] .dashboard-main,
+:root[data-theme="dark"] .dashboard-card,
+:root[data-theme="dark"] .panel-title,
+:root[data-theme="dark"] .card-title {
+  color: var(--text-primary) !important;
+}
+
+/* Replace specific hardcoded light backgrounds (e.g., white cards) */
+:root[data-theme="dark"] .dashboard-card,
+:root[data-theme="dark"] .stats-card,
+:root[data-theme="dark"] .ant-card-body {
+  background: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid rgba(255,255,255,0.04) !important;
+}
+
+/* Buttons/labels that used darker text on light backgrounds */
+:root[data-theme="dark"] .label-light-bg {
+  color: var(--text-primary) !important;
+  background: rgba(255,255,255,0.03) !important;
+}
+
+/* Email client-specific dark-mode fixes */
+:root[data-theme="dark"] .ant-list-item {
+  background: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.04) !important;
+  border-left: 4px solid transparent !important; /* neutral default; unread indicator will be shown via badge */
+}
+
+:root[data-theme="dark"] .ant-list-item:hover {
+  background: rgba(255,255,255,0.02) !important;
+}
+
+:root[data-theme="dark"] .ant-list-item .ant-list-item-meta-title,
+:root[data-theme="dark"] .ant-list-item .ant-list-item-meta-title .ant-typography {
+  color: var(--text-primary) !important;
+}
+
+:root[data-theme="dark"] .ant-list-item .ant-list-item-meta-description,
+:root[data-theme="dark"] .ant-list-item .ant-list-item-meta-description .ant-typography {
+  color: var(--text-secondary) !important;
+}
+
+/* Unread indicator (attempt to match inline styling used in component) */
+:root[data-theme="dark"] .ant-list-item[data-unread="true"] {
+  border-left: 4px solid var(--accent) !important;
+}
+
+/* Badge and avatar colors */
+:root[data-theme="dark"] .ant-badge-count {
+  background: var(--accent) !important;
+  color: #071022 !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="dark"] .ant-avatar {
+  background: rgba(255,255,255,0.04) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Upload / Attach button styling for Compose and Reply forms */
+:root[data-theme="dark"] .ant-upload .ant-btn,
+:root[data-theme="dark"] .ant-upload .ant-btn:hover {
+  background: rgba(255,255,255,0.03) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid rgba(255,255,255,0.04) !important;
+}
+
+/* Card attachment action button (Download / Attach file buttons) */
+:root[data-theme="dark"] .ant-card .ant-card-actions .ant-btn,
+:root[data-theme="dark"] .ant-card .ant-card-extra .ant-btn {
+  background: var(--accent) !important;
+  color: #071022 !important;
+  border: none !important;
+}
+
+/* Email detail content box */
+:root[data-theme="dark"] .ant-modal .ant-card,
+:root[data-theme="dark"] .email-detail-content,
+:root[data-theme="dark"] .ant-modal .ant-card-body {
+  background: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid rgba(255,255,255,0.04) !important;
+}
+
+/* Make PaperClip/Icon colors readable */
+:root[data-theme="dark"] .anticon-paper-clip,
+:root[data-theme="dark"] .anticon {
+  color: var(--accent) !important;
+}
+
+/* Fallback for any inline white backgrounds used in header or cards */
+:root[data-theme="dark"] [style*="background: #fff"],
+:root[data-theme="dark"] [style*="background: #ffffff"] {
+  background: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Email list base styles (light by default) */
+.email-list-item {
+  cursor: pointer;
+  padding: 12px 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #f0f0f0;
+  border-left: 4px solid #d9d9d9;
+  overflow: hidden;
+  width: 100%;
+}
+.email-list-item.unread {
+  background: #d4fdd1ff; /* light green */
+  border-left-color: #0D7139;
+}
+.email-list-item.selected {
+  background: #e6f7ff;
+}
+.email-subject {
+  color: #000;
+  font-weight: normal;
+}
+.email-subject.unread {
+  color: #000;
+  font-weight: 700;
+}
+.email-desc {
+  color: #666;
+}
+.email-desc.unread {
+  color: #000;
+  font-weight: 500;
+}
+
+/* Dark-mode overrides for email UI */
+:root[data-theme="dark"] .email-list-item {
+  background: var(--card-bg) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.03) !important;
+  border-left: 4px solid rgba(255,255,255,0.02) !important;
+}
+:root[data-theme="dark"] .email-list-item.unread {
+  background: rgba(45, 163, 95, 0.08) !important; /* subtle green tint */
+  border-left: 4px solid var(--accent) !important;
+}
+:root[data-theme="dark"] .email-list-item.selected {
+  background: rgba(59,130,246,0.08) !important;
+}
+:root[data-theme="dark"] .email-subject {
+  color: var(--text-primary) !important;
+}
+:root[data-theme="dark"] .email-subject.unread {
+  color: var(--text-primary) !important;
+  font-weight: 700 !important;
+}
+:root[data-theme="dark"] .email-desc {
+  color: var(--text-secondary) !important;
+}
+:root[data-theme="dark"] .email-desc.unread {
+  color: var(--text-primary) !important;
+}
+
+/* Ensure Upload button and small inline buttons are visible in dark mode */
+:root[data-theme="dark"] .ant-btn,
+:root[data-theme="dark"] .ant-btn-primary {
+  color: var(--text-primary) !important;
+}
+
+/* ProfileSection theming */
+.profile-avatar-initials,
+.profile-avatar-fallback {
+  background: var(--surface) !important;
+  color: var(--text-primary) !important;
+  border: 2px solid var(--border) !important;
+}
+
+:root[data-theme="dark"] .profile-trigger,
+:root[data-theme="dark"] .profile-info,
+:root[data-theme="dark"] .profile-name,
+:root[data-theme="dark"] .profile-role {
+  color: var(--text-primary) !important;
+}
+
+/* Override specific inline background colors used in EmailClient.jsx header and detail card */
+:root[data-theme="dark"] header[style*="background: '#fff'"] ,
+:root[data-theme="dark"] header[style*="background: #fff"],
+:root[data-theme="dark"] .ant-card[style*="background: '#fafafa'"] ,
+:root[data-theme="dark"] .ant-card[style*="background: #fafafa"] {
+  background: var(--surface) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid rgba(255,255,255,0.04) !important;
+}
+
+/* ==========================================================
+   Global dark-mode fallbacks and Ant/component mappings
+   These rules are intentionally broad so components inherit theme
+   without changing every single CSS file. They use the CSS vars
+   defined earlier in this file.
+   ========================================================== */
+
+/* Base backgrounds and text for most page containers */
+:root[data-theme="dark"] html,
+:root[data-theme="dark"] body,
+:root[data-theme="dark"] #root,
+:root[data-theme="dark"] .app,
+:root[data-theme="dark"] .dashboard-main,
+:root[data-theme="dark"] .page-container {
+  background: var(--background-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Ant Design core components */
+:root[data-theme="dark"] .ant-layout,
+:root[data-theme="dark"] .ant-layout-content,
+:root[data-theme="dark"] .ant-layout-header,
+:root[data-theme="dark"] .ant-layout-sider {
+  background: var(--surface) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Cards */
+:root[data-theme="dark"] .ant-card,
+:root[data-theme="dark"] .ant-card-body,
+:root[data-theme="dark"] .card,
+:root[data-theme="dark"] .panel {
+  background: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow) !important;
+}
+
+/* Buttons */
+:root[data-theme="dark"] .ant-btn {
+  background: transparent !important;
+  border-color: rgba(255,255,255,0.04) !important;
+  color: var(--text-primary) !important;
+}
+:root[data-theme="dark"] .ant-btn-primary {
+  background: var(--accent) !important;
+  color: #071022 !important;
+  border: none !important;
+}
+
+/* Inputs / selects / textareas */
+:root[data-theme="dark"] .ant-input,
+:root[data-theme="dark"] .ant-input:focus,
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] .ant-select-selector,
+:root[data-theme="dark"] .ant-input:hover {
+  background: var(--surface) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid rgba(255,255,255,0.04) !important;
+}
+
+/* Forms / labels */
+:root[data-theme="dark"] .ant-form-item-label > label,
+:root[data-theme="dark"] label {
+  color: var(--text-secondary) !important;
+}
+
+/* Tables */
+:root[data-theme="dark"] .ant-table,
+:root[data-theme="dark"] .ant-table-thead > tr > th,
+:root[data-theme="dark"] .ant-table-tbody > tr > td {
+  background: transparent !important;
+  color: var(--text-primary) !important;
+  border-color: rgba(255,255,255,0.03) !important;
+}
+
+/* Modals and dropdowns */
+:root[data-theme="dark"] .ant-modal-content,
+:root[data-theme="dark"] .ant-modal-body,
+:root[data-theme="dark"] .ant-modal-header,
+:root[data-theme="dark"] .ant-dropdown-menu,
+:root[data-theme="dark"] .ant-popover-inner {
+  background: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid rgba(255,255,255,0.04) !important;
+}
+
+/* Tooltips */
+:root[data-theme="dark"] .ant-tooltip-inner,
+:root[data-theme="dark"] .tooltip,
+:root[data-theme="dark"] .calendar-tooltip {
+  background: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid rgba(255,255,255,0.04) !important;
+}
+
+/* Sidebar */
+:root[data-theme="dark"] .sidebar,
+:root[data-theme="dark"] .sidebar-navigation,
+:root[data-theme="dark"] .nav-item,
+:root[data-theme="dark"] .nav-item-label {
+  background: transparent !important;
+  color: var(--text-primary) !important;
+}
+
+/* Calendar generic classes (many pages use custom calendar styles) */
+:root[data-theme="dark"] .calendar-weekdays-container,
+:root[data-theme="dark"] .calendar-grid-container,
+:root[data-theme="dark"] .calendar-day {
+  background: transparent !important;
+  color: var(--text-primary) !important;
+  border: 1px solid rgba(255,255,255,0.03) !important;
+}
+
+/* Specific calendar status colors – keep semantic colors but readable on dark bg */
+:root[data-theme="dark"] .calendar-day.present { background-color: rgba(34,197,94,0.14) !important; color: var(--text-primary) !important; }
+:root[data-theme="dark"] .calendar-day.checked-in { background-color: rgba(249,115,22,0.14) !important; color: var(--text-primary) !important; }
+:root[data-theme="dark"] .calendar-day.absent { background-color: rgba(239,68,68,0.14) !important; color: var(--text-primary) !important; }
+:root[data-theme="dark"] .calendar-day.holiday { background-color: rgba(139,92,246,0.14) !important; color: var(--text-primary) !important; }
+
+/* Small UI helpers and semantic badges */
+:root[data-theme="dark"] .badge,
+:root[data-theme="dark"] .ant-badge-count,
+:root[data-theme="dark"] .ant-tag {
+  background: rgba(255,255,255,0.04) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Links */
+:root[data-theme="dark"] a {
+  color: var(--accent) !important;
+}
+
+/* Images and icons: ensure contrast where needed */
+:root[data-theme="dark"] img[alt],
+:root[data-theme="dark"] .icon {
+  filter: none !important;
+}
+
+/* Fallback: force text color inside any element with inline white bg to theme text */
+:root[data-theme="dark"] [style*="background: #fff"],
+:root[data-theme="dark"] [style*="background: #ffffff"],
+:root[data-theme="dark"] [style*="background: '#fff'"],
+:root[data-theme="dark"] [style*="background: '#ffffff'"] {
+  background: var(--card-bg) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Accessibility: ensure focus outlines are visible */
+:root[data-theme="dark"] :focus {
+  outline: 2px dashed rgba(255,255,255,0.08);
+  outline-offset: 2px;
+}
+
+/* Keep login page forced to light (existing rule handles it), ensure specificity */
+:root:has(.login-container) {
+  --background-primary: #ffffff !important;
+}
+
+/* ==================================================
+   Global UI chrome: disable thin decorative borders
+   and remove click-focused outlines while keeping
+   keyboard-accessible focus rings (:focus-visible).
+
+   This makes the Dashboard Attendance calendar and
+   other cards/tables appear without thin 1px divider
+   lines or the persistent ring shown when clicking
+   with mouse. Keyboard users still get a visible
+   focus ring via :focus-visible for accessibility.
+   ================================================== */
+
+/* Remove outlines / box-shadow when element receives
+   focus via mouse (but keep focus-visible for keyboard) */
+button:focus:not(:focus-visible),
+.ant-btn:focus:not(:focus-visible),
+a:focus:not(:focus-visible),
+input:focus:not(:focus-visible),
+textarea:focus:not(:focus-visible),
+.ant-input:focus:not(:focus-visible),
+.ant-select-selector:focus:not(:focus-visible) {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+/* Keep a clear accessible ring for keyboard users */
+button:focus-visible,
+.ant-btn:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+.ant-input:focus-visible,
+.ant-select-selector:focus-visible {
+  outline: 2px solid rgba(59,130,246,0.28) !important; /* subtle blue */
+  outline-offset: 2px !important;
+}
+
+/* Remove thin decorative borders and divider lines
+   commonly used on cards, lists and calendar cells so
+   the UI appears cleaner (applies globally; keep if you
+   want to limit to dashboard only change selectors). */
+.dashboard-main .calendar-grid-container,
+.dashboard-main .calendar-day,
+.dashboard-main .ant-card,
+.dashboard-main .panel,
+.dashboard-main .ant-table,
+.dashboard-main .ant-list-item,
+.dashboard-main .stats-card,
+.dashboard-main .dashboard-card {
+  border: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important; /* remove thin shadows as well */
+}
+
+/* Optionally apply the same clean chrome to the rest of the app */
+.ant-card,
+.ant-table,
+.ant-list-item,
+.card,
+.panel,
+.calendar-grid-container,
+.calendar-day {
+  border: none !important;
+  border-color: transparent !important;
+}
+
+
+
