@@ -1247,7 +1247,7 @@ const LeaveHistoryDrawer = ({ visible, onClose, leaveData, currentUser, onEdit, 
                 </Text>
               )}
               
-               {leave.totalHours > 0 && `      â€¢ ${formatPermissionHours(leave.totalHours)}`}
+               {leave.totalHours > 0 && `       • ${formatPermissionHours(leave.totalHours)}`}
             </Text>
           </Col>
           
@@ -3129,7 +3129,7 @@ const EmployeeDashboard = () => (
                     fontSize: 'clamp(12px, 3vw, 14px)',
                     display: 'block'
                   }}>
-                    {currentUser?.position}      â€¢ {currentUser?.department}
+                    {currentUser?.position}       • {currentUser?.department}
                   </Text>
                 </div>
               </div>
@@ -3364,14 +3364,14 @@ const EmployeeDashboard = () => (
                       <>
                         <br />
                         <span style={{ color: '#52c41a', fontSize: '11px' }}>
-                          Approved: {leave.approved_dates.length} day(s)      â€¢ {dayjs(leave.approved_dates[0]).format('MMM DD')} 
+                          Approved: {leave.approved_dates.length} day(s)       • {dayjs(leave.approved_dates[0]).format('MMM DD')} 
                           {leave.approved_dates.length > 1 && ` - ${dayjs(leave.approved_dates[leave.approved_dates.length - 1]).format('MMM DD')}`}
                         </span>
                       </>
                     )}
                     
-                    {leave.totalHours > 0 && `      â€¢ ${formatPermissionHours(leave.totalHours)}`}
-                    {leave.total_days > 0 && `      â€¢ ${leave.total_days} day${leave.total_days > 1 ? 's' : ''}`}
+                    {leave.totalHours > 0 && `       • ${formatPermissionHours(leave.totalHours)}`}
+                    {leave.total_days > 0 && `       • ${leave.total_days} day${leave.total_days > 1 ? 's' : ''}`}
                   </Text>
                 </div>
               </Space>
@@ -4438,7 +4438,7 @@ return (
                 {selectedLeave.users?.name || selectedLeave.employee_name || selectedLeave.employeeName}
               </div>
               <Text type="secondary">
-                {selectedLeave.users?.employee_id || selectedLeave.employee_code || selectedLeave.employeeCode}      â€¢ {selectedLeave.department}
+                {selectedLeave.users?.employee_id || selectedLeave.employee_code || selectedLeave.employeeCode}       • {selectedLeave.department}
               </Text>
             </div>
           </Space>
