@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import './EmployeeAttendancePage.css';
-import { 
-  Card, 
-  Button, 
-  DatePicker, 
-  Table, 
-  Checkbox, 
-  Modal, 
-  TimePicker, 
-  Row, 
-  Col, 
-  Typography, 
-  Space, 
-  Tag, 
-  Statistic, 
-  Select, 
+import {
+  Card,
+  Button,
+  DatePicker,
+  Table,
+  Checkbox,
+  Modal,
+  TimePicker,
+  Row,
+  Col,
+  Typography,
+  Space,
+  Tag,
+  Statistic,
+  Select,
   Input,
   message,
   Divider,
@@ -26,10 +26,10 @@ import {
   Tooltip,
   Spin
 } from 'antd';
-import { 
-  UserOutlined, 
-  TeamOutlined, 
-  CheckCircleOutlined, 
+import {
+  UserOutlined,
+  TeamOutlined,
+  CheckCircleOutlined,
   CloseCircleOutlined,
   ClockCircleOutlined,
   CalendarOutlined,
@@ -40,7 +40,7 @@ import {
   SearchOutlined,
   PrinterOutlined
 } from '@ant-design/icons';
-import { Building,MapPinHouse } from 'lucide-react';
+import { Building, MapPinHouse } from 'lucide-react';
 import dayjs from 'dayjs';
 import { supabase } from '../../supabase/config';
 import isBetween from 'dayjs/plugin/isBetween';
@@ -49,12 +49,12 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 const { Search } = Input;
 const { TabPane } = Tabs;
-dayjs.extend(isBetween); 
+dayjs.extend(isBetween);
 
-const EmployeeAttendancePage = ({ userRole = 'hr' }) => { 
+const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
   if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
-      return <ErrorPage errorType="403" />;
-    }
+    return <ErrorPage errorType="403" />;
+  }
   const [employeesData, setEmployeesData] = useState([]);
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const [attendanceData, setAttendanceData] = useState({});
@@ -75,7 +75,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
   const [totalEmployees, setTotalEmployees] = useState(0);
   const [leaveData, setLeaveData] = useState([]);
   const [onLeaveCount, setOnLeaveCount] = useState(0);
-
+  const [viewingMonth, setViewingMonth] = useState(dayjs());
   useEffect(() => {
     const getCurrentUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -90,7 +90,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
     };
     getCurrentUser();
   }, []);
-  
+
   const fetchOnLeaveCount = async (date, search, type) => {
     try {
       const dateKey = date.format('YYYY-MM-DD');
@@ -111,13 +111,13 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
       });
 
       const fullDayLeaveUsers = filteredLeaveUsers.filter(leave => {
-        const isFullDayLeave = !leave.sub_type || 
-          leave.sub_type === 'FDL' || 
+        const isFullDayLeave = !leave.sub_type ||
+          leave.sub_type === 'FDL' ||
           (leave.leave_type === 'Casual Leave' && !leave.sub_type);
-        
+
         const isPermission = leave.leave_type === 'permissions';
         const isExcuses = leave.leave_type === 'Excuses';
-        
+
         return isFullDayLeave && !isPermission && !isExcuses;
       });
 
@@ -137,11 +137,11 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
       if (search) {
         userQuery = userQuery.or(`name.ilike.%${search}%,employee_id.ilike.%${search}%,department.ilike.%${search}%`);
       }
-      
+
       if (type !== 'All') {
         const typeMapping = {
           'Full-time': 'full-time',
-          'Intern': 'internship', 
+          'Intern': 'internship',
           'Temporary': 'temporary'
         };
         userQuery = userQuery.eq('employee_type', typeMapping[type]);
@@ -162,7 +162,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
   const fetchLeaveData = async () => {
     try {
       console.log('Fetching leave data...');
-      
+
       // First, let's see what data exists
       const { data: allData, error: allError } = await supabase
         .from('leave_applications')
@@ -185,7 +185,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
         try {
           const dates = leave.approved_dates;
           const isValid = Array.isArray(dates) && dates.length > 0;
-          
+
           if (isValid) {
             console.log(`Valid leave for user ${leave.user_id} (${leave.employee_name}) - Code: ${leave.employee_code}:`, {
               leave_type: leave.leave_type,
@@ -196,20 +196,20 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
           } else {
             console.log(`Invalid approved_dates for ${leave.employee_name}:`, dates);
           }
-          
+
           return isValid;
         } catch (error) {
           console.error(`Error parsing approved_dates for ${leave.employee_name}:`, error);
           return false;
         }
       });
-      
+
       console.log(`Found ${validLeaveData.length} valid leave records`);
       setLeaveData(validLeaveData);
-      
+
       // Also log the current selected date for comparison
       console.log('Current selected date:', selectedDate.format('YYYY-MM-DD'));
-      
+
     } catch (error) {
       console.error('Error fetching leave data:', error);
       message.error('Failed to load leave data');
@@ -221,47 +221,47 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
   const fetchEmployees = async (page = 1, size = 5, search = '', type = 'All') => {
     try {
       setLoading(true);
-      
+
       let baseQuery = supabase
         .from('users')
         .select('*', { count: 'exact' })
         .in('employee_type', ['full-time', 'internship', 'temporary'])
         .not('role', 'in', '(superadmin,admin)');
-      
+
       if (search) {
         baseQuery = baseQuery.or(`name.ilike.%${search}%,employee_id.ilike.%${search}%,department.ilike.%${search}%`);
       }
-      
+
       if (type !== 'All') {
         const typeMapping = {
           'Full-time': 'full-time',
-          'Intern': 'internship', 
+          'Intern': 'internship',
           'Temporary': 'temporary'
         };
         baseQuery = baseQuery.eq('employee_type', typeMapping[type]);
       }
-      
+
       const { data, count, error } = await baseQuery.range((page - 1) * size, page * size - 1);
-      
+
       if (error) throw error;
-      
+
       setTotalEmployeeCount(count || 0);
       setTotalEmployees(count || 0);
-      
+
       const transformedData = data.map(user => ({
         id: user.id,
         name: user.name,
         employeeId: user.employee_id,
         department: user.department || 'N/A',
         position: user.position || 'N/A',
-        type: user.employee_type === 'internship' ? 'Intern' : 
-              user.employee_type === 'temporary' ? 'Temporary' : 'Full-time',
+        type: user.employee_type === 'internship' ? 'Intern' :
+          user.employee_type === 'temporary' ? 'Temporary' : 'Full-time',
         email: user.email,
         joinDate: user.start_date,
         avatar: user.profileimage,
         role: user.role
       }));
-      
+
       setEmployeesData(transformedData);
     } catch (error) {
       console.error('Error fetching employees:', error);
@@ -280,13 +280,13 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
         .select('*')
         .gte('date', startDate)
         .lte('date', endDate);
-      
+
       if (error) throw error;
-      
+
       if (!data || data.length === 0) {
         console.log('No attendance data found for the date range');
       }
-      
+
       const transformedData = {};
       data.forEach(record => {
         const dateKey = record.date;
@@ -302,7 +302,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
           reason: record.reason
         };
       });
-      
+
       if (shouldMerge) {
         setAttendanceData(prevData => ({
           ...prevData,
@@ -320,7 +320,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
   // Mark individual employee as absent
   const handleMarkIndividualAbsent = async (employee) => {
     const dateKey = selectedDate.format('YYYY-MM-DD');
-    
+
     try {
       const { error } = await supabase
         .from('attendance')
@@ -353,8 +353,8 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
     const dateKey = selectedDate.format('YYYY-MM-DD');
     const presentEmployeeIds = Object.keys(attendanceData[dateKey] || {})
       .filter(id => attendanceData[dateKey][id]?.present);
-    
-    const absentEmployees = employeesData.filter(emp => 
+
+    const absentEmployees = employeesData.filter(emp =>
       !presentEmployeeIds.includes(emp.id)
     );
 
@@ -432,18 +432,18 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
     }
 
     setLoading(true);
-    
+
     try {
       const dateKey = selectedDate.format('YYYY-MM-DD');
       const attendanceRecords = selectedEmployees.map(employeeId => {
         let totalHours = null;
         let checkOutValue = null;
-        
+
         if (checkInTime && checkOutTime && checkOutTime.isAfter(checkInTime)) {
           totalHours = checkOutTime.diff(checkInTime, 'hours', true);
           checkOutValue = checkOutTime.format('HH:mm:ss');
         }
-        
+
         return {
           user_id: employeeId,
           date: dateKey,
@@ -469,7 +469,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
       setSelectedEmployees([]);
       setCheckInTime(null);
       setCheckOutTime(null);
-      
+
       message.success(`Attendance updated for ${selectedEmployees.length} employee(s)`);
     } catch (error) {
       console.error('Error marking attendance:', error);
@@ -479,175 +479,221 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
     }
   };
 
-  const handleViewAttendance = (employee) => {
+  const handleViewAttendance = async (employee) => {
     if (!employee?.id) {
       console.error('Employee ID missing:', employee);
       message.error('Employee data not available');
       return;
     }
 
-    const dateKey = selectedDate.format('YYYY-MM-DD');
-    const attendance = attendanceData[dateKey]?.[employee.id];
-    const safeLeaveData = leaveData || [];
-    
-    const employeeMonthlyData = {};
-    Object.keys(attendanceData).forEach(date => {
-      const month = dayjs(date).format('YYYY-MM');
-      const employeeRecord = attendanceData[date][employee.id];
-      
-      const isOnLeave = safeLeaveData.some(leave => 
-        leave.user_id === employee.id &&
-        leave.approved_dates &&
-        Array.isArray(leave.approved_dates) &&
-        leave.approved_dates.includes(date)
-      );
+    let currentViewingMonth = selectedDate;
+    let modalInstance = null;
+    let currentAttendanceData = { ...attendanceData };
+    let isLoadingData = false; // Add loading state tracker
 
-      if (isOnLeave) {
-        return;
-      }
+    const renderModalContent = (monthToView, attendanceDataToUse, loading = false) => {
+      const dateKey = monthToView.format('YYYY-MM-DD');
+      const attendance = attendanceDataToUse[dateKey]?.[employee.id];
+      const safeLeaveData = leaveData || [];
 
-      if (employeeRecord) {
-        if (!employeeMonthlyData[month]) {
-          employeeMonthlyData[month] = { present: 0, absent: 0, missing: 0 };
-        }
-        
-        if (employeeRecord.present) {
-          if (employeeRecord.checkIn && !employeeRecord.checkOut) {
-            employeeMonthlyData[month].missing++;
-          } else {
-            employeeMonthlyData[month].present++;
+      // Calculate monthly data for the viewing month
+      const employeeMonthlyData = {};
+      Object.keys(attendanceDataToUse)
+        .filter(date => dayjs(date).isSame(monthToView, 'month'))
+        .forEach(date => {
+          const month = dayjs(date).format('YYYY-MM');
+          const employeeRecord = attendanceDataToUse[date][employee.id];
+
+          const isOnLeave = safeLeaveData.some(leave =>
+            leave.user_id === employee.id &&
+            leave.approved_dates &&
+            Array.isArray(leave.approved_dates) &&
+            leave.approved_dates.includes(date)
+          );
+
+          if (isOnLeave) {
+            return;
           }
-        } else {
-          employeeMonthlyData[month].absent++;
-        }
-      }
-    });
-    
-    Modal.info({
-      title: `${employee.name}'s Attendance Details`,
-      width: 800,
-      content: (
+
+          if (employeeRecord) {
+            if (!employeeMonthlyData[month]) {
+              employeeMonthlyData[month] = { present: 0, absent: 0, missing: 0 };
+            }
+
+            if (employeeRecord.present) {
+              if (employeeRecord.checkIn && !employeeRecord.checkOut) {
+                employeeMonthlyData[month].missing++;
+              } else {
+                employeeMonthlyData[month].present++;
+              }
+            } else {
+              employeeMonthlyData[month].absent++;
+            }
+          }
+        });
+
+      return (
         <div style={{ padding: '16px 0' }}>
-          <Space direction="vertical" size="large" style={{ width: '100%' }}>
-            <Card>
-              <Text strong>Status for {selectedDate.format('DD/MM/YYYY')}: </Text>
-              <Tag color={attendance?.present ? 'success' : 'error'}>
-                {attendance?.present ? 'Present' : 'Absent'}
-              </Tag>
-              {attendance?.present && (
-                <div style={{ marginTop: 8 }}>
-                  <Text strong>Hours: </Text>
-                  <Text>{typeof attendance.totalHours === 'number' ? attendance.totalHours.toFixed(1) : '0'}h</Text>
-                  <div style={{ marginTop: 4 }}>
-                    <Text strong>Location: </Text>
-                    <Tag color={attendance.location_coordinates ? 'orange' : 'green'}>
-                      {attendance.location_coordinates ? 'Out of Office' : 'In Office'}
-                    </Tag>
-                  </div>
-                </div>
-              )}
-            </Card>
+          <Spin spinning={loading} tip="Loading attendance data...">
+            <Space direction="vertical" size="large" style={{ width: '100%' }}>
+              <Card title={`Monthly Summary - ${monthToView.format('MMMM YYYY')}`}>
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <Statistic
+                      title="Days Present"
+                      value={employeeMonthlyData[monthToView.format('YYYY-MM')]?.present || 0}
+                      prefix={<CheckCircleOutlined />}
+                    />
+                  </Col>
+                  <Col span={12}>
+                    <Statistic
+                      title="Days Absent"
+                      value={employeeMonthlyData[monthToView.format('YYYY-MM')]?.absent || 0}
+                      prefix={<CloseCircleOutlined />}
+                      valueStyle={{ color: '#ff4d4f' }}
+                    />
+                  </Col>
+                  <Col span={12}>
+                    <Statistic
+                      title="Days Missing"
+                      value={employeeMonthlyData[monthToView.format('YYYY-MM')]?.missing || 0}
+                      prefix={<ClockCircleOutlined />}
+                      valueStyle={{ color: '#faad14' }}
+                    />
+                  </Col>
+                </Row>
+              </Card>
 
-            <Card title="Monthly Summary">
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Statistic 
-                    title="Days Present" 
-                    value={employeeMonthlyData[selectedDate.format('YYYY-MM')]?.present || 0} 
-                    prefix={<CheckCircleOutlined />}
-                  />
-                </Col>
-                <Col span={12}>
-                  <Statistic 
-                    title="Days Absent" 
-                    value={employeeMonthlyData[selectedDate.format('YYYY-MM')]?.absent || 0} 
-                    prefix={<CloseCircleOutlined />}
-                    valueStyle={{ color: '#ff4d4f' }}
-                  />
-                </Col>
-                <Col span={12}>
-                  <Statistic 
-                    title="Days Missing" 
-                    value={employeeMonthlyData[selectedDate.format('YYYY-MM')]?.missing || 0} 
-                    prefix={<ClockCircleOutlined />}
-                    valueStyle={{ color: '#faad14' }}
-                  />
-                </Col>
-              </Row>
-            </Card>
+              <Card title="Attendance Calendar">
+                <Calendar
+                  fullscreen={false}
+                  value={monthToView}
+                  onChange={async (newDate) => {
+                    if (!newDate.isSame(currentViewingMonth, 'month') && !isLoadingData) {
+                      currentViewingMonth = newDate;
+                      isLoadingData = true;
 
-            <Card title="Attendance Calendar">
-              <Calendar
-                fullscreen={false}
-                value={selectedDate}
-                dateFullCellRender={(date) => {
-                  const dayKey = date.format('YYYY-MM-DD');
-                  const dayAttendance = attendanceData[dayKey]?.[employee.id];
-                  const isToday = date.isSame(dayjs(), 'day');
+                      // Show loading state
+                      modalInstance.update({
+                        content: renderModalContent(newDate, currentAttendanceData, true)
+                      });
 
-                  let cellStyle = {
-                    width: '100%',
-                    height: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRadius: '6px',
-                    border: isToday ? '2px solid #1890ff' : '1px solid #d9d9d9',
-                    color: 'black'
-                  };
+                      const startDate = newDate.startOf('month').format('YYYY-MM-DD');
+                      const endDate = newDate.endOf('month').format('YYYY-MM-DD');
 
-                  const approvedLeave = leaveData.find(leave =>
-                    leave.user_id === employee.id &&
-                    leave.approved_dates &&
-                    Array.isArray(leave.approved_dates) &&
-                    leave.approved_dates.includes(date.format('YYYY-MM-DD'))
-                  );
+                      const { data, error } = await supabase
+                        .from('attendance')
+                        .select('*')
+                        .gte('date', startDate)
+                        .lte('date', endDate);
 
-                  if (approvedLeave) {
-                    const isFullDayLeave = !approvedLeave.sub_type || 
-                      approvedLeave.sub_type === 'FDL' || 
-                      (approvedLeave.leave_type === 'Casual Leave' && !approvedLeave.sub_type);
-                    
-                    const isPermission = approvedLeave.leave_type === 'permissions';
-                    
-                    if (isFullDayLeave && !isPermission) {
+                      if (!error && data) {
+                        const transformedData = {};
+                        data.forEach(record => {
+                          const dateKey = record.date;
+                          if (!transformedData[dateKey]) {
+                            transformedData[dateKey] = {};
+                          }
+                          transformedData[dateKey][record.user_id] = {
+                            present: record.is_present,
+                            checkIn: record.check_in,
+                            checkOut: record.check_out,
+                            totalHours: record.total_hours,
+                            location_coordinates: record.location_coordinates,
+                            reason: record.reason
+                          };
+                        });
+
+                        currentAttendanceData = transformedData;
+
+                        modalInstance.update({
+                          content: renderModalContent(newDate, transformedData, false)
+                        });
+                      }
+
+                      isLoadingData = false;
+                    }
+                  }}
+                  dateFullCellRender={(date) => {
+                    // ... rest of your dateFullCellRender code remains the same
+                    if (!date.isSame(monthToView, 'month')) {
+                      return <div style={{ color: '#d9d9d9' }}>{date.date()}</div>;
+                    }
+
+                    const dayKey = date.format('YYYY-MM-DD');
+                    const dayAttendance = attendanceDataToUse[dayKey]?.[employee.id];
+                    const isToday = date.isSame(dayjs(), 'day');
+
+                    let cellStyle = {
+                      width: '100%',
+                      height: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '6px',
+                      border: isToday ? '2px solid #1890ff' : '1px solid #d9d9d9',
+                      color: 'black'
+                    };
+
+                    const approvedLeave = leaveData.find(leave =>
+                      leave.user_id === employee.id &&
+                      leave.approved_dates &&
+                      Array.isArray(leave.approved_dates) &&
+                      leave.approved_dates.includes(date.format('YYYY-MM-DD'))
+                    );
+
+                    if (approvedLeave) {
+                      const isFullDayLeave = !approvedLeave.sub_type ||
+                        approvedLeave.sub_type === 'FDL' ||
+                        (approvedLeave.leave_type === 'Casual Leave' && !approvedLeave.sub_type);
+
+                      const isPermission = approvedLeave.leave_type === 'permissions';
+
+                      if (isFullDayLeave && !isPermission) {
+                        cellStyle.backgroundColor = '#e6f7ff';
+                        cellStyle.color = '#1890ff';
+                        cellStyle.border = `1px solid #91d5ff`;
+                      } else {
+                        cellStyle.backgroundColor = '#fff7e6';
+                        cellStyle.color = '#fa8c16';
+                        cellStyle.border = `1px solid #ffd591`;
+                      }
+                    }
+                    else if (dayAttendance?.present) {
+                      if (dayAttendance.checkIn && !dayAttendance.checkOut) {
+                        cellStyle.backgroundColor = '#fffbe6';
+                        cellStyle.color = '#faad14';
+                      } else {
+                        cellStyle.backgroundColor = '#f6ffed';
+                        cellStyle.color = '#52c41a';
+                      }
+                    } else if (dayAttendance && !dayAttendance.present) {
+                      cellStyle.backgroundColor = '#fff1f0';
+                      cellStyle.color = '#ff4d4f';
+                    } else if (isToday) {
                       cellStyle.backgroundColor = '#e6f7ff';
                       cellStyle.color = '#1890ff';
-                      cellStyle.border = `1px solid #91d5ff`;
-                    } else {
-                      // Different styling for partial leaves/permissions
-                      cellStyle.backgroundColor = '#fff7e6';
-                      cellStyle.color = '#fa8c16';
-                      cellStyle.border = `1px solid #ffd591`;
                     }
-                  } 
-                  else if (dayAttendance?.present) {
-                    if (dayAttendance.checkIn && !dayAttendance.checkOut) {
-                      cellStyle.backgroundColor = '#fffbe6';
-                      cellStyle.color = '#faad14';
-                    } else {
-                      cellStyle.backgroundColor = '#f6ffed';
-                      cellStyle.color = '#52c41a';
-                    }
-                  } else if (dayAttendance && !dayAttendance.present) {
-                    cellStyle.backgroundColor = '#fff1f0';
-                    cellStyle.color = '#ff4d4f';
-                  } else if (isToday) {
-                    cellStyle.backgroundColor = '#e6f7ff';
-                    cellStyle.color = '#1890ff';
-                  }
-                  
-                  return (
-                    <div style={cellStyle}>
-                      {date.date()}
-                    </div>
-                  );
-                }}
-              />
-            </Card>
-          </Space>
+
+                    return (
+                      <div style={cellStyle}>
+                        {date.date()}
+                      </div>
+                    );
+                  }}
+                />
+              </Card>
+            </Space>
+          </Spin>
         </div>
-      ),
+      );
+    };
+
+    // Show initial modal
+    modalInstance = Modal.info({
+      title: `${employee.name}'s Attendance Details`,
+      width: 800,
+      content: renderModalContent(currentViewingMonth, currentAttendanceData, false),
     });
   };
 
@@ -655,7 +701,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
   const handleUpdateTimes = (employee) => {
     const dateKey = selectedDate.format('YYYY-MM-DD');
     const attendance = attendanceData[dateKey]?.[employee.id];
-    
+
     setSelectedEmployees([employee.id]);
     setCheckInTime(attendance?.checkIn ? dayjs(`${dateKey} ${attendance.checkIn}`) : null);
     setCheckOutTime(attendance?.checkOut ? dayjs(`${dateKey} ${attendance.checkOut}`) : null);
@@ -674,7 +720,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
 
     Object.keys(dayData).forEach(userId => {
       const record = dayData[userId];
-      
+
       if (record.present) {
         const isUserOnLeave = leaveData.some(leave =>
           leave.user_id === userId &&
@@ -712,7 +758,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
         fetchOnLeaveCount(selectedDate, searchText, filterType)
       ]);
     };
-    
+
     loadData();
   }, [currentPage, pageSize, searchText, filterType]);
 
@@ -720,24 +766,24 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
   useEffect(() => {
     const startDate = selectedDate.startOf('month').format('YYYY-MM-DD');
     const endDate = selectedDate.endOf('month').format('YYYY-MM-DD');
-    
+
     setIsLoaded(false);
-    
+
     const loadAllData = async () => {
       try {
         // Load leave data first, then other data
         await fetchLeaveData();
-        
+
         await Promise.all([
           fetchAttendanceData(startDate, endDate),
           fetchOnLeaveCount(selectedDate, searchText, filterType)
         ]);
-        
+
         // Small delay to ensure state updates complete
         setTimeout(() => {
           setIsLoaded(true);
         }, 500); // Increased delay to ensure leave data is loaded
-        
+
       } catch (error) {
         console.error('Error loading data:', error);
         message.error('Failed to load data');
@@ -753,10 +799,10 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
     const loadInitialData = async () => {
       try {
         await fetchLeaveData(); // Load leave data first
-        
+
         const startDate = dayjs().startOf('month').format('YYYY-MM-DD');
         const endDate = dayjs().endOf('month').format('YYYY-MM-DD');
-        
+
         await Promise.all([
           fetchEmployees(currentPage, pageSize, searchText, filterType),
           fetchAttendanceData(startDate, endDate),
@@ -784,7 +830,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
       if (!monthly[month]) {
         monthly[month] = { present: 0, absent: 0, missing: 0, totalDays: 0 };
       }
-      
+
       Object.values(attendanceData[date]).forEach(record => {
         monthly[month].totalDays++;
         if (record.present) {
@@ -830,8 +876,8 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
 
   // Employee view (simplified)
   if (!['superadmin', 'admin', 'hr'].includes(userRole)) {
-    const currentEmployee = currentUser ? employeesData.find(emp => emp.id === currentUser.id) : null; 
-    
+    const currentEmployee = currentUser ? employeesData.find(emp => emp.id === currentUser.id) : null;
+
     if (!currentEmployee) {
       return <Spin size="large" style={{ display: 'block', margin: '50px auto' }} />;
     }
@@ -844,7 +890,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
         if (!employeeMonthlyData[month]) {
           employeeMonthlyData[month] = { present: 0, absent: 0, missing: 0, totalDays: 0 };
         }
-        
+
         const attendance = attendanceData[date][currentEmployee.id];
         employeeMonthlyData[month].totalDays++;
         if (attendance?.present) {
@@ -860,11 +906,11 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
     });
 
     const monthlyStats = employeeMonthlyData[currentMonth] || { present: 0, absent: 0, totalDays: 0 };
-    
+
     return (
       <div style={{ padding: '24px', backgroundColor: 'transparent', ...animationStyles.container }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <Card style={{ 
+          <Card style={{
             marginBottom: '24px',
             background: 'rgba(255, 255, 255, 0.95)',
             backdropFilter: 'blur(10px)',
@@ -904,7 +950,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                   valueStyle={{ color: '#faad14' }}
                   prefix={<ClockCircleOutlined />}
                 />
-                <Progress 
+                <Progress
                   percent={totalStats.total > 0 ? (totalStats.missing / totalStats.total) * 100 : 0}
                   strokeColor="#faad14"
                   showInfo={false}
@@ -947,7 +993,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
             </Col>
           </Row>
 
-          <Card style={{ 
+          <Card style={{
             background: 'rgba(255, 255, 255, 0.95)',
             backdropFilter: 'blur(10px)',
             border: 'none',
@@ -964,7 +1010,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
               dateCellRender={(date) => {
                 const dateKey = date.format('YYYY-MM-DD');
                 const attendance = attendanceData[dateKey]?.[currentEmployee?.id];
-                
+
                 if (attendance?.present) {
                   return <Badge status="success" />;
                 } else if (date.isBefore(dayjs(), 'day')) {
@@ -987,8 +1033,8 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
       key: 'name',
       render: (text, record) => (
         <Space>
-          <Avatar 
-            icon={<UserOutlined />} 
+          <Avatar
+            icon={<UserOutlined />}
             style={{ backgroundColor: record.type === 'Full-time' ? '#0D7139' : '#52c41a' }}
           />
           <div>
@@ -1022,7 +1068,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
         }
 
         const isOutOfOffice = attendance.location_coordinates;
-        
+
         return (
           <Space direction="vertical" size="small" style={{ width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1032,8 +1078,8 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
               </Tag>
             </div>
             {isOutOfOffice && attendance.reason && (
-              <div style={{ 
-                fontSize: '11px', 
+              <div style={{
+                fontSize: '11px',
                 color: '#666',
                 backgroundColor: '#fff7e6',
                 padding: '6px 8px',
@@ -1045,10 +1091,10 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                 {(() => {
                   try {
                     // Handle if reason is already an object (from JSONB) or string (needs parsing)
-                    const reasons = typeof attendance.reason === 'string' 
-                      ? JSON.parse(attendance.reason) 
+                    const reasons = typeof attendance.reason === 'string'
+                      ? JSON.parse(attendance.reason)
                       : attendance.reason;
-                      
+
                     return (
                       <div>
                         {reasons.check_in && (
@@ -1100,16 +1146,16 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
             record_employeeId: record.employeeId,
             approved_dates: leave.approved_dates
           });
-          
+
           // Try matching by user_id first, then by employee_code
           const userIdMatch = String(leave.user_id) === String(record.id);
           const employeeCodeMatch = leave.employee_code === record.employeeId;
           const userMatch = userIdMatch || employeeCodeMatch;
-          
-          const dateMatch = leave.approved_dates && 
-                           Array.isArray(leave.approved_dates) && 
-                           leave.approved_dates.includes(dateKey);
-          
+
+          const dateMatch = leave.approved_dates &&
+            Array.isArray(leave.approved_dates) &&
+            leave.approved_dates.includes(dateKey);
+
           console.log(`Match results:`, {
             userIdMatch,
             employeeCodeMatch,
@@ -1117,7 +1163,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
             dateMatch,
             overallMatch: userMatch && dateMatch
           });
-          
+
           return userMatch && dateMatch;
         });
 
@@ -1171,7 +1217,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
       render: (_, record) => {
         const dateKey = selectedDate.format('YYYY-MM-DD');
         const attendance = attendanceData[dateKey]?.[record.id];
-        
+
         if (attendance?.present && attendance.totalHours !== null) {
           let hours = 0;
           if (attendance.checkIn && attendance.checkOut) {
@@ -1183,18 +1229,18 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
           } else if (attendance.totalHours) {
             hours = Number(attendance.totalHours) || 0;
           }
-          
+
           const displayHours = Math.floor(hours || 0);
           const displayMinutes = Math.round(((hours || 0) - displayHours) * 60);
           const timeString = `${displayHours}:${String(displayMinutes).padStart(2, '0')}`;
-          
+
           return (
             <div>
               <Text style={{ fontWeight: 600 }}>{timeString}</Text>
               {hours < 8 && (
                 <div>
                   <Text type="danger" style={{ fontSize: '10px' }}>
-                    Short by {Math.floor(8-hours)}:{String(Math.round(((8-hours) - Math.floor(8-hours)) * 60)).padStart(2, '0')}
+                    Short by {Math.floor(8 - hours)}:{String(Math.round(((8 - hours) - Math.floor(8 - hours)) * 60)).padStart(2, '0')}
                   </Text>
                 </div>
               )}
@@ -1212,10 +1258,10 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
         if (!record?.id) {
           return <Spin size="small" />;
         }
-        
+
         const dateKey = selectedDate.format('YYYY-MM-DD');
         const attendance = attendanceData[dateKey]?.[record.id];
-        
+
         return (
           <Space>
             <Tooltip title="View Details">
@@ -1224,7 +1270,8 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                 size="small"
                 icon={<EyeOutlined />}
                 onClick={() => handleViewAttendance(record)}
-                disabled={loading}
+              // Remove this line or change condition:
+              // disabled={loading}
               />
             </Tooltip>
             {(attendance?.present || attendance?.checkIn) && (
@@ -1261,7 +1308,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
     <div style={{ padding: '24px', backgroundColor: 'transparent', ...animationStyles.container }}>
       <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
         {/* Header */}
-        <Card style={{ 
+        <Card style={{
           marginBottom: '24px',
           background: 'rgba(255, 255, 255, 0.95)',
           backdropFilter: 'blur(10px)',
@@ -1270,71 +1317,19 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
           ...animationStyles.headerCard
         }}>
-          <Row align="middle" justify="space-between">
-            <Col>
+          <Row align="middle" justify="space-between" gutter={[16, 16]}>
+            <Col xs={24} sm={24} md={12} lg={16}>
               <Title level={2} style={{ margin: 0, color: '#0D7139' }}>
                 <TeamOutlined style={{ marginRight: '12px' }} />
                 Attendance Management
               </Title>
               <Text type="secondary">Track and manage employee attendance</Text>
             </Col>
-            <Col>
-              <Space size="middle">
-                <Button 
-                  onClick={async () => {
-                    console.log('=== DATABASE TEST ===');
-                    
-                    // Test 1: Check if any approved leaves exist
-                    const { data: approvedLeaves } = await supabase
-                      .from('leave_applications')
-                      .select('user_id, employee_name, status, approved_dates')
-                      .eq('status', 'Approved');
-                    
-                    console.log('Approved leaves in DB:', approvedLeaves);
-                    
-                    // Test 2: Check employees table for matching IDs
-                    const employeeIds = employeesData.map(emp => emp.id);
-                    console.log('Current employee IDs on page:', employeeIds);
-                    
-                    // Test 3: Check for matching user_ids
-                    const leaveUserIds = approvedLeaves?.map(leave => leave.user_id) || [];
-                    console.log('Leave user_ids:', leaveUserIds);
-                    
-                    const matchingIds = employeeIds.filter(empId => leaveUserIds.includes(empId));
-                    console.log('Matching IDs between employees and leaves:', matchingIds);
-                    
-                    // Test 4: Manual leave fetch
-                    await fetchLeaveData();
-                    console.log('Leave data state after fetch:', leaveData);
-                  }}
-                  type="default"
-                >
-                  Test Database
-                </Button>
-                <Button 
-                  onClick={async () => {
-                    console.log('=== MANUAL LEAVE DATA TEST ===');
-                    await fetchLeaveData();
-                    console.log('Current leaveData state:', leaveData);
-                    console.log('Selected date:', selectedDate.format('YYYY-MM-DD'));
-                  }}
-                  type="default"
-                >
-                  Debug Leave Data
-                </Button>
-                <Button icon={<DownloadOutlined />} type="default">
-                  Export
-                </Button>
-                <Button icon={<PrinterOutlined />} type="default">
-                  Print
-                </Button>
-              </Space>
-            </Col>
           </Row>
         </Card>
 
         {/* Tabs */}
-        <Card style={{ 
+        <Card style={{
           marginBottom: '24px',
           background: 'rgba(255, 255, 255, 0.95)',
           backdropFilter: 'blur(10px)',
@@ -1373,7 +1368,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                           valueStyle={{ color: '#0D7139' }}
                           prefix={<CheckCircleOutlined />}
                         />
-                        <Progress 
+                        <Progress
                           percent={totalStats.total > 0 ? (totalStats.present / totalStats.total) * 100 : 0}
                           strokeColor="#0D7139"
                           showInfo={false}
@@ -1389,7 +1384,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                           valueStyle={{ color: '#ff4d4f' }}
                           prefix={<CloseCircleOutlined />}
                         />
-                        <Progress 
+                        <Progress
                           percent={totalStats.total > 0 ? (totalStats.absent / totalStats.total) * 100 : 0}
                           strokeColor="#ff4d4f"
                           showInfo={false}
@@ -1418,7 +1413,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
               </Row>
 
               {/* Controls */}
-              <Card style={{ 
+              <Card style={{
                 marginBottom: '24px',
                 borderRadius: '12px',
                 ...animationStyles.statsCard
@@ -1440,7 +1435,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                       </Select>
                     </Space>
                   </Col>
-                  
+
                   <Col xs={24} sm={12} lg={6}>
                     <Search
                       placeholder="Search employees..."
@@ -1449,11 +1444,11 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                       value={searchText}
                       onSearch={handleSearch}
                       onChange={(e) => setSearchText(e.target.value)}
-                      style={{ width: '100%'}}
+                      style={{ width: '100%' }}
                       enterButton={
-                        <Button 
-                          style={{ 
-                            backgroundColor: '#0D7139', 
+                        <Button
+                          style={{
+                            backgroundColor: '#0D7139',
                             borderColor: '#0D7139',
                             color: 'white'
                           }}
@@ -1463,24 +1458,24 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                       }
                     />
                   </Col>
-                  
+
                   <Col xs={24} sm={12} lg={6}>
                     <Button
                       type="default"
                       size="large"
                       onClick={handleMarkAbsent}
-                      style={{  
+                      style={{
                         background: 'linear-gradient(45deg, #8ac185 0%, #0D7139 100%)',
                         border: 'none',
                         borderRadius: '8px',
                         width: '100%',
-                        color:"white"
+                        color: "white"
                       }}
                     >
                       Mark Remaining as Absent
                     </Button>
                   </Col>
-                  
+
                   <Col xs={24} sm={12} lg={6}>
                     <Button
                       type="primary"
@@ -1492,7 +1487,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                         border: 'none',
                         borderRadius: '8px',
                         width: '100%',
-                        color:"white"
+                        color: "white"
                       }}
                     >
                       Mark Attendance ({selectedEmployees.length})
@@ -1502,7 +1497,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
               </Card>
 
               {/* Employee Table */}
-              <Card style={{ 
+              <Card style={{
                 background: 'rgba(255, 255, 255, 0.95)',
                 backdropFilter: 'blur(10px)',
                 border: 'none',
@@ -1535,7 +1530,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                     itemRender: (current, type, originalElement) => {
                       if (type === 'page') {
                         return (
-                          <a style={{ 
+                          <a style={{
                             color: current === currentPage ? '#0D7139' : '#666',
                             backgroundColor: current === currentPage ? '#f6ffed' : 'white',
                             border: `1px solid ${current === currentPage ? '#0D7139' : '#d9d9d9'}`,
@@ -1556,7 +1551,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
             </TabPane>
 
             <TabPane tab="Monthly View" key="monthly">
-              <Card style={{ 
+              <Card style={{
                 background: 'rgba(255, 255, 255, 0.95)',
                 backdropFilter: 'blur(10px)',
                 border: 'none',
@@ -1567,7 +1562,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                 <Title level={4} style={{ color: '#0D7139', marginBottom: '24px' }}>
                   Monthly Statistics
                 </Title>
-                
+
                 <Row gutter={[16, 16]}>
                   {Object.entries(monthlyData).map(([month, data]) => {
                     const attendanceRate = ((data.present / data.totalDays) * 100).toFixed(1);
@@ -1594,7 +1589,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                               <Text>Rate:</Text>
                               <Text style={{ color: '#0D7139', fontWeight: 600 }}>{attendanceRate}%</Text>
                             </div>
-                            <Progress 
+                            <Progress
                               percent={parseFloat(attendanceRate)}
                               strokeColor="#0D7139"
                               size="small"
@@ -1662,14 +1657,14 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                 </div>
               </Col>
             </Row>
-            
+
             <Divider />
-            
+
             <div style={{ marginBottom: '16px' }}>
               <Text strong>Selected Employees ({selectedEmployees.length})</Text>
-              <div style={{ 
-                marginTop: '8px', 
-                maxHeight: '200px', 
+              <div style={{
+                marginTop: '8px',
+                maxHeight: '200px',
                 overflowY: 'auto',
                 padding: '8px',
                 background: '#f5f5f5',
@@ -1678,25 +1673,25 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
                 {selectedEmployees.map(employeeId => {
                   const employee = employeesData.find(emp => emp.id === employeeId);
                   return (
-                    <div key={employeeId} style={{ 
-                      display: 'flex', 
+                    <div key={employeeId} style={{
+                      display: 'flex',
                       alignItems: 'center',
                       marginBottom: '8px',
                       padding: '4px 8px',
                       background: 'white',
                       borderRadius: '4px'
                     }}>
-                      <Avatar 
-                        size="small" 
-                        icon={<UserOutlined />} 
-                        style={{ 
+                      <Avatar
+                        size="small"
+                        icon={<UserOutlined />}
+                        style={{
                           backgroundColor: employee?.type === 'Full-time' ? '#0D7139' : '#52c41a',
                           marginRight: '8px'
-                        }} 
+                        }}
                       />
                       <span style={{ fontSize: '14px' }}>{employee?.name}</span>
-                      <Tag 
-                        size="small" 
+                      <Tag
+                        size="small"
                         color={employee?.type === 'Full-time' ? '#0D7139' : '#52c41a'}
                         style={{ marginLeft: 'auto' }}
                       >
@@ -1709,7 +1704,7 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
             </div>
 
             {checkInTime && checkOutTime && (
-              <div style={{ 
+              <div style={{
                 padding: '12px',
                 background: '#f0f9ff',
                 borderRadius: '8px',

@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Layout, 
-  Button, 
-  Form, 
-  Input, 
-  Select, 
-  DatePicker, 
-  Card, 
-  Typography, 
-  Space, 
-  Row, 
+import {
+  Layout,
+  Button,
+  Form,
+  Input,
+  Select,
+  DatePicker,
+  Card,
+  Typography,
+  Space,
+  Row,
   Col,
   message,
   Table,
@@ -21,14 +21,14 @@ import {
   Dropdown,
   Menu
 } from 'antd';
-import { 
-  PlusOutlined, 
-  FilePdfOutlined, 
-  MailOutlined, 
+import {
+  PlusOutlined,
+  FilePdfOutlined,
+  MailOutlined,
   UserOutlined,
   ArrowLeftOutlined,
-  DashboardOutlined, 
-  TeamOutlined, 
+  DashboardOutlined,
+  TeamOutlined,
   DownloadOutlined,
   SendOutlined,
   EditOutlined,
@@ -49,13 +49,13 @@ const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
 const baseUrl = import.meta.env.VITE_API_BASE_URL;
-const AppraisalLetterManagement = ({userRole}) => {
+const AppraisalLetterManagement = ({ userRole }) => {
   if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
     return <ErrorPage errorType="403" />;
   }
   const [currentPage, setCurrentPage] = useState(1);
-const [pageSize, setPageSize] = useState(5);
-const [totalEmployees, setTotalEmployees] = useState(0);
+  const [pageSize, setPageSize] = useState(5);
+  const [totalEmployees, setTotalEmployees] = useState(0);
   const [currentView, setCurrentView] = useState('dashboard');
   const [employees, setEmployees] = useState([]);
   const [form] = Form.useForm();
@@ -68,9 +68,9 @@ const [totalEmployees, setTotalEmployees] = useState(0);
     thisYear: 0
   });
   const [showAppraisalHistory, setShowAppraisalHistory] = useState(false);
-const [selectedEmployeeHistory, setSelectedEmployeeHistory] = useState(null);
-const [historyLoading, setHistoryLoading] = useState(false);
-const [employeeAppraisals, setEmployeeAppraisals] = useState([]);
+  const [selectedEmployeeHistory, setSelectedEmployeeHistory] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [employeeAppraisals, setEmployeeAppraisals] = useState([]);
   // Default letter template
   const defaultLetterContent = `Dear [EMPLOYEE_NAME],
 
@@ -104,7 +104,7 @@ Email ID: surya@myaccessio.com`;
         .select('*')
         .eq('role', 'employee')
         .order('name');
-      
+
       if (error) throw error;
       setUsers(data || []);
     } catch (error) {
@@ -114,16 +114,16 @@ Email ID: surya@myaccessio.com`;
       setLoading(false);
     }
   };
-const fetchEmployeeAppraisalHistory = async (userId) => {
-  // Fetch all appraisals for this user, ordered by date
-  const { data, error } = await supabase
-    .from('appraisals')
-    .select('*')
-    .eq('user_id', userId)
-    .order('effective_date', { ascending: false });
-  
-  return data;
-};
+  const fetchEmployeeAppraisalHistory = async (userId) => {
+    // Fetch all appraisals for this user, ordered by date
+    const { data, error } = await supabase
+      .from('appraisals')
+      .select('*')
+      .eq('user_id', userId)
+      .order('effective_date', { ascending: false });
+
+    return data;
+  };
   const fetchAppraisals = async () => {
     try {
       setLoading(true);
@@ -141,7 +141,7 @@ const fetchEmployeeAppraisalHistory = async (userId) => {
           )
         `)
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
       setAppraisals(data || []);
     } catch (error) {
@@ -152,50 +152,50 @@ const fetchEmployeeAppraisalHistory = async (userId) => {
   };
 
   // Add this with your other useEffect hooks
-useEffect(() => {
-  const fetchHistory = async () => {
-    if (selectedEmployeeHistory?.id && showAppraisalHistory) {
-      setHistoryLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('appraisals')
-          .select('*')
-          .eq('user_id', selectedEmployeeHistory.id)
-          .order('effective_date', { ascending: false });
-        
-        if (error) throw error;
-        setEmployeeAppraisals(data || []);
-      } catch (error) {
-        message.error('Error fetching appraisal history: ' + error.message);
-        setEmployeeAppraisals([]);
-      } finally {
-        setHistoryLoading(false);
-      }
-    }
-  };
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (selectedEmployeeHistory?.id && showAppraisalHistory) {
+        setHistoryLoading(true);
+        try {
+          const { data, error } = await supabase
+            .from('appraisals')
+            .select('*')
+            .eq('user_id', selectedEmployeeHistory.id)
+            .order('effective_date', { ascending: false });
 
-  if (showAppraisalHistory) {
-    fetchHistory();
-  }
-}, [showAppraisalHistory, selectedEmployeeHistory]);
+          if (error) throw error;
+          setEmployeeAppraisals(data || []);
+        } catch (error) {
+          message.error('Error fetching appraisal history: ' + error.message);
+          setEmployeeAppraisals([]);
+        } finally {
+          setHistoryLoading(false);
+        }
+      }
+    };
+
+    if (showAppraisalHistory) {
+      fetchHistory();
+    }
+  }, [showAppraisalHistory, selectedEmployeeHistory]);
   const fetchStats = async () => {
     try {
       const currentYear = dayjs().year();
-      
+
       // Count total appraisals this year
       const { data: thisYearData, error: yearError } = await supabase
         .from('appraisals')
         .select('id')
         .gte('effective_date', `${currentYear}-01-01`)
         .lt('effective_date', `${currentYear + 1}-01-01`);
-      
+
       if (yearError) throw yearError;
 
       // Count total appraisals
       const { data: totalData, error: totalError } = await supabase
         .from('appraisals')
         .select('id');
-      
+
       if (totalError) throw totalError;
 
       setStats({
@@ -213,7 +213,7 @@ useEffect(() => {
       await loadUsers();
       await fetchAppraisals();
     };
-    
+
     initializeData();
   }, []);
 
@@ -249,309 +249,309 @@ useEffect(() => {
         managerDesignation: 'Human Resources',
         letterContent: defaultLetterContent
       };
-      
+
       form.setFieldsValue(formValues);
     }
   };
 
   const renderAppraisalHistory = () => {
-  const historyColumns = [
-    {
-      title: 'Effective Date',
-      dataIndex: 'effective_date',
-      key: 'effective_date',
-      render: (date) => dayjs(date).format('DD MMM YYYY'),
-      sorter: (a, b) => dayjs(a.effective_date).unix() - dayjs(b.effective_date).unix(),
-    },
-    {
-      title: 'Previous Salary',
-      dataIndex: 'current_salary',
-      key: 'current_salary',
-      render: (amount) => (
-        <span style={{ color: '#8c8c8c' }}>
-          ₹{amount?.toLocaleString('en-IN') || '0'}
-        </span>
-      ),
-    },
-    {
-      title: 'New Salary',
-      dataIndex: 'new_salary',
-      key: 'new_salary',
-      render: (amount) => (
-        <span style={{ fontWeight: '600', color: '#059669' }}>
-          ₹{amount?.toLocaleString('en-IN') || '0'}
-        </span>
-      ),
-    },
-    {
-      title: 'Increase',
-      key: 'increase',
-      render: (_, record) => {
-        const increase = record.new_salary - record.current_salary;
-        const percentage = record.current_salary > 0 ? 
-          ((increase / record.current_salary) * 100).toFixed(2) : 0;
-        
-        return (
-          <div>
-            <div style={{ color: increase >= 0 ? '#059669' : '#dc2626', fontWeight: '600' }}>
-              {increase >= 0 ? '+' : ''}₹{increase.toLocaleString('en-IN')}
-            </div>
-            <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
-              ({increase >= 0 ? '+' : ''}{percentage}%)
-            </div>
-          </div>
-        );
-      },
-    },
-    {
-      title: 'Review Period',
-      dataIndex: 'review_period',
-      key: 'review_period',
-      responsive: ['lg'],
-    },
-    {
-      title: 'Manager',
-      dataIndex: 'manager_name',
-      key: 'manager_name',
-      responsive: ['md'],
-    },
-    {
-  title: 'Actions',
-  key: 'actions',
-  align: 'right',
-  render: (_, record) => {
-    const menuItems = [
+    const historyColumns = [
       {
-        key: 'create',
-        icon: <StarOutlined />,
-        label: 'Create Appraisal',
-        onClick: () => {
-          const formValues = {
-            userId: record.id,
-            employeeName: record.name,
-            employeeId: record.employee_id,
-            emailAddress: record.email,
-            department: record.department,
-            currentSalary: record.pay || 0,
-            newSalary: record.latest_appraisal?.new_salary || (record.pay || 0),
-            effectiveDate: dayjs(),
-            reviewPeriod: `${dayjs().subtract(1, 'year').format('MMM YYYY')} - ${dayjs().format('MMM YYYY')}`,
-            companyName: record.latest_appraisal?.company_name || 'MYACCESS PRIVATE LIMITED',
-            managerName: record.latest_appraisal?.manager_name || 'HR Manager',
-            managerDesignation: record.latest_appraisal?.manager_designation || 'Human Resources',
-            letterContent: record.latest_appraisal?.letter_content || defaultLetterContent
-          };
-          
-          form.setFieldsValue(formValues);
-          setCurrentView('createAppraisal');
-        }
-      }
-    ];
+        title: 'Effective Date',
+        dataIndex: 'effective_date',
+        key: 'effective_date',
+        render: (date) => dayjs(date).format('DD MMM YYYY'),
+        sorter: (a, b) => dayjs(a.effective_date).unix() - dayjs(b.effective_date).unix(),
+      },
+      {
+        title: 'Previous Salary',
+        dataIndex: 'current_salary',
+        key: 'current_salary',
+        render: (amount) => (
+          <span style={{ color: '#8c8c8c' }}>
+            ₹{amount?.toLocaleString('en-IN') || '0'}
+          </span>
+        ),
+      },
+      {
+        title: 'New Salary',
+        dataIndex: 'new_salary',
+        key: 'new_salary',
+        render: (amount) => (
+          <span style={{ fontWeight: '600', color: '#059669' }}>
+            ₹{amount?.toLocaleString('en-IN') || '0'}
+          </span>
+        ),
+      },
+      {
+        title: 'Increase',
+        key: 'increase',
+        render: (_, record) => {
+          const increase = record.new_salary - record.current_salary;
+          const percentage = record.current_salary > 0 ?
+            ((increase / record.current_salary) * 100).toFixed(2) : 0;
 
-    // Add history option if has appraisal
-    if (record.has_appraisal) {
-      menuItems.push(
-        { type: 'divider' },
-        {
-          key: 'history',
-          icon: <HistoryOutlined />,
-          label: 'View History',
-          onClick: () => {
-            setSelectedEmployeeHistory(record);
-            setShowAppraisalHistory(true);
-          }
-        }
-      );
-
-      if (record.latest_appraisal?.pdf_url) {
-        menuItems.push({
-          key: 'download',
-          icon: <DownloadOutlined />,
-          label: 'Download PDF',
-          onClick: () => window.open(record.latest_appraisal.pdf_url, '_blank')
-        });
-      }
-
-      menuItems.push(
-        {
-          key: 'generate',
-          icon: <FilePdfOutlined />,
-          label: 'Generate PDF',
-          onClick: () => {
-            if (record.latest_appraisal) {
-              generateAppraisalPDF(record.latest_appraisal);
-            }
-          }
+          return (
+            <div>
+              <div style={{ color: increase >= 0 ? '#059669' : '#dc2626', fontWeight: '600' }}>
+                {increase >= 0 ? '+' : ''}₹{increase.toLocaleString('en-IN')}
+              </div>
+              <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                ({increase >= 0 ? '+' : ''}{percentage}%)
+              </div>
+            </div>
+          );
         },
-        {
-          key: 'send',
-          icon: <SendOutlined />,
-          label: 'Send Email',
-          onClick: async () => {
-            if (record.latest_appraisal) {
-              const pdfBlob = await generateAppraisalPDF(record.latest_appraisal, true);
-              if (pdfBlob) {
-                await sendAppraisalEmail(record.latest_appraisal, pdfBlob);
+      },
+      {
+        title: 'Review Period',
+        dataIndex: 'review_period',
+        key: 'review_period',
+        responsive: ['lg'],
+      },
+      {
+        title: 'Manager',
+        dataIndex: 'manager_name',
+        key: 'manager_name',
+        responsive: ['md'],
+      },
+      {
+        title: 'Actions',
+        key: 'actions',
+        align: 'center',
+        render: (_, record) => {
+          const menuItems = [
+            {
+              key: 'create',
+              icon: <StarOutlined />,
+              label: 'Create Appraisal',
+              onClick: () => {
+                const formValues = {
+                  userId: record.id,
+                  employeeName: record.name,
+                  employeeId: record.employee_id,
+                  emailAddress: record.email,
+                  department: record.department,
+                  currentSalary: record.pay || 0,
+                  newSalary: record.latest_appraisal?.new_salary || (record.pay || 0),
+                  effectiveDate: dayjs(),
+                  reviewPeriod: `${dayjs().subtract(1, 'year').format('MMM YYYY')} - ${dayjs().format('MMM YYYY')}`,
+                  companyName: record.latest_appraisal?.company_name || 'MYACCESS PRIVATE LIMITED',
+                  managerName: record.latest_appraisal?.manager_name || 'HR Manager',
+                  managerDesignation: record.latest_appraisal?.manager_designation || 'Human Resources',
+                  letterContent: record.latest_appraisal?.letter_content || defaultLetterContent
+                };
+
+                form.setFieldsValue(formValues);
+                setCurrentView('createAppraisal');
               }
             }
+          ];
+
+          // Add history option if has appraisal
+          if (record.has_appraisal) {
+            menuItems.push(
+              { type: 'divider' },
+              {
+                key: 'history',
+                icon: <HistoryOutlined />,
+                label: 'View History',
+                onClick: () => {
+                  setSelectedEmployeeHistory(record);
+                  setShowAppraisalHistory(true);
+                }
+              }
+            );
+
+            if (record.latest_appraisal?.pdf_url) {
+              menuItems.push({
+                key: 'download',
+                icon: <DownloadOutlined />,
+                label: 'Download PDF',
+                onClick: () => window.open(record.latest_appraisal.pdf_url, '_blank')
+              });
+            }
+
+            menuItems.push(
+              {
+                key: 'generate',
+                icon: <FilePdfOutlined />,
+                label: 'Generate PDF',
+                onClick: () => {
+                  if (record.latest_appraisal) {
+                    generateAppraisalPDF(record.latest_appraisal);
+                  }
+                }
+              },
+              {
+                key: 'send',
+                icon: <SendOutlined />,
+                label: 'Send Email',
+                onClick: async () => {
+                  if (record.latest_appraisal) {
+                    const pdfBlob = await generateAppraisalPDF(record.latest_appraisal, true);
+                    if (pdfBlob) {
+                      await sendAppraisalEmail(record.latest_appraisal, pdfBlob);
+                    }
+                  }
+                }
+              }
+            );
           }
-        }
-      );
-    }
+
+          return (
+            <Dropdown
+              menu={{ items: menuItems }}
+              trigger={['click']}
+              placement="bottomRight"
+            >
+              <Button
+                type="text"
+                icon={<MoreOutlined />}
+                size="small"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              />
+            </Dropdown>
+          );
+        },
+      },
+    ];
 
     return (
-      <Dropdown
-        menu={{ items: menuItems }}
-        trigger={['click']}
-        placement="bottomRight"
-      >
-        <Button 
-          type="text" 
-          icon={<MoreOutlined />} 
-          size="small"
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center' 
-          }}
-        />
-      </Dropdown>
-    );
-  },
-},
-  ];
-
-  return (
-    <Modal
-      title={
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <Avatar 
-            style={{ backgroundColor: '#10b981', marginRight: '12px' }} 
-            icon={<UserOutlined />}
-          />
-          <div>
-            <div style={{ fontSize: '18px', fontWeight: '600' }}>
-              Appraisal History - {selectedEmployeeHistory?.name}
-            </div>
-            <div style={{ fontSize: '14px', color: '#8c8c8c', fontWeight: 'normal' }}>
-              Employee ID: {selectedEmployeeHistory?.employee_id} | Department: {selectedEmployeeHistory?.department || 'N/A'}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <Avatar
+              style={{ backgroundColor: '#10b981', marginRight: '12px' }}
+              icon={<UserOutlined />}
+            />
+            <div>
+              <div style={{ fontSize: '18px', fontWeight: '600' }}>
+                Appraisal History - {selectedEmployeeHistory?.name}
+              </div>
+              <div style={{ fontSize: '14px', color: '#8c8c8c', fontWeight: 'normal' }}>
+                Employee ID: {selectedEmployeeHistory?.employee_id} | Department: {selectedEmployeeHistory?.department || 'N/A'}
+              </div>
             </div>
           </div>
-        </div>
-      }
-      open={showAppraisalHistory}
-      onCancel={() => {
-        setShowAppraisalHistory(false);
-        setSelectedEmployeeHistory(null);
-        setEmployeeAppraisals([]);
-      }}
-      width={1200}
-      footer={[
-        <Button 
-          key="close" 
-          onClick={() => {
-            setShowAppraisalHistory(false);
-            setSelectedEmployeeHistory(null);
-            setEmployeeAppraisals([]);
-          }}
-        >
-          Close
-        </Button>,
-        <Button 
-          key="new" 
-          type="primary" 
-          icon={<PlusOutlined />}
-          onClick={() => {
-            const formValues = {
-              userId: selectedEmployeeHistory.id,
-              employeeName: selectedEmployeeHistory.name,
-              employeeId: selectedEmployeeHistory.employee_id,
-              emailAddress: selectedEmployeeHistory.email,
-              department: selectedEmployeeHistory.department,
-              currentSalary: selectedEmployeeHistory.pay || 0,
-              newSalary: selectedEmployeeHistory.pay || 0,
-              effectiveDate: dayjs(),
-              reviewPeriod: `${dayjs().subtract(1, 'year').format('MMM YYYY')} - ${dayjs().format('MMM YYYY')}`,
-              companyName: 'MYACCESS PRIVATE LIMITED',
-              managerName: 'HR Manager',
-              managerDesignation: 'Human Resources',
-              letterContent: defaultLetterContent
-            };
-            
-            form.setFieldsValue(formValues);
-            setShowAppraisalHistory(false);
-            setCurrentView('createAppraisal');
-          }}
-        >
-          Create New Appraisal
-        </Button>
-      ]}
-      style={{ top: 20 }}
-    >
-      <div style={{ marginBottom: '16px' }}>
-        {employeeAppraisals.length > 0 ? (
-          <div style={{ background: '#f6ffed', padding: '12px', borderRadius: '6px', marginBottom: '16px' }}>
-            <Text>
-              <strong>{employeeAppraisals.length}</strong> appraisal record(s) found for this employee.
-              {employeeAppraisals.length > 0 && (
-                <span style={{ marginLeft: '16px', color: '#059669' }}>
-                  Latest appraisal: {dayjs(employeeAppraisals[0].effective_date).format('DD MMM YYYY')}
-                </span>
-              )}
-            </Text>
-          </div>
-        ) : !historyLoading && (
-          <div style={{ background: '#fff3cd', padding: '12px', borderRadius: '6px', marginBottom: '16px' }}>
-            <Text>No appraisal records found for this employee.</Text>
-          </div>
-        )}
-      </div>
-
-      <Table
-        dataSource={employeeAppraisals}
-        columns={historyColumns}
-        rowKey="id"
-        loading={historyLoading}
-        pagination={{
-          pageSize: 10,
-          showSizeChanger: true,
-          showQuickJumper: true,
-          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} records`,
+        }
+        open={showAppraisalHistory}
+        onCancel={() => {
+          setShowAppraisalHistory(false);
+          setSelectedEmployeeHistory(null);
+          setEmployeeAppraisals([]);
         }}
-        scroll={{ x: 800 }}
-        size="small"
-        bordered
-      />
-    </Modal>
-  );
-};
+        width={1200}
+        footer={[
+          <Button
+            key="close"
+            onClick={() => {
+              setShowAppraisalHistory(false);
+              setSelectedEmployeeHistory(null);
+              setEmployeeAppraisals([]);
+            }}
+          >
+            Close
+          </Button>,
+          <Button
+            key="new"
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => {
+              const formValues = {
+                userId: selectedEmployeeHistory.id,
+                employeeName: selectedEmployeeHistory.name,
+                employeeId: selectedEmployeeHistory.employee_id,
+                emailAddress: selectedEmployeeHistory.email,
+                department: selectedEmployeeHistory.department,
+                currentSalary: selectedEmployeeHistory.pay || 0,
+                newSalary: selectedEmployeeHistory.pay || 0,
+                effectiveDate: dayjs(),
+                reviewPeriod: `${dayjs().subtract(1, 'year').format('MMM YYYY')} - ${dayjs().format('MMM YYYY')}`,
+                companyName: 'MYACCESS PRIVATE LIMITED',
+                managerName: 'HR Manager',
+                managerDesignation: 'Human Resources',
+                letterContent: defaultLetterContent
+              };
+
+              form.setFieldsValue(formValues);
+              setShowAppraisalHistory(false);
+              setCurrentView('createAppraisal');
+            }}
+          >
+            Create New Appraisal
+          </Button>
+        ]}
+        style={{ top: 20 }}
+      >
+        <div style={{ marginBottom: '16px' }}>
+          {employeeAppraisals.length > 0 ? (
+            <div style={{ background: '#f6ffed', padding: '12px', borderRadius: '6px', marginBottom: '16px' }}>
+              <Text>
+                <strong>{employeeAppraisals.length}</strong> appraisal record(s) found for this employee.
+                {employeeAppraisals.length > 0 && (
+                  <span style={{ marginLeft: '16px', color: '#059669' }}>
+                    Latest appraisal: {dayjs(employeeAppraisals[0].effective_date).format('DD MMM YYYY')}
+                  </span>
+                )}
+              </Text>
+            </div>
+          ) : !historyLoading && (
+            <div style={{ background: '#fff3cd', padding: '12px', borderRadius: '6px', marginBottom: '16px' }}>
+              <Text>No appraisal records found for this employee.</Text>
+            </div>
+          )}
+        </div>
+
+        <Table
+          dataSource={employeeAppraisals}
+          columns={historyColumns}
+          rowKey="id"
+          loading={historyLoading}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} records`,
+          }}
+          scroll={{ x: 800 }}
+          size="small"
+          bordered
+        />
+      </Modal>
+    );
+  };
   const numberToWords = (num) => {
-  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
-  const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
-  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-  
-  if (num === 0) return 'Zero';
-  if (num < 10) return ones[num];
-  if (num < 20) return teens[num - 10];
-  if (num < 100) return tens[Math.floor(num / 10)] + (num % 10 !== 0 ? ' ' + ones[num % 10] : '');
-  if (num < 1000) return ones[Math.floor(num / 100)] + ' Hundred' + (num % 100 !== 0 ? ' ' + numberToWords(num % 100) : '');
-  if (num < 100000) return numberToWords(Math.floor(num / 1000)) + ' Thousand' + (num % 1000 !== 0 ? ' ' + numberToWords(num % 1000) : '');
-  if (num < 10000000) return numberToWords(Math.floor(num / 100000)) + ' Lakh' + (num % 100000 !== 0 ? ' ' + numberToWords(num % 100000) : '');
-  
-  return numberToWords(Math.floor(num / 10000000)) + ' Crore' + (num % 10000000 !== 0 ? ' ' + numberToWords(num % 10000000) : '');
-};
+    const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+    const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+    if (num === 0) return 'Zero';
+    if (num < 10) return ones[num];
+    if (num < 20) return teens[num - 10];
+    if (num < 100) return tens[Math.floor(num / 10)] + (num % 10 !== 0 ? ' ' + ones[num % 10] : '');
+    if (num < 1000) return ones[Math.floor(num / 100)] + ' Hundred' + (num % 100 !== 0 ? ' ' + numberToWords(num % 100) : '');
+    if (num < 100000) return numberToWords(Math.floor(num / 1000)) + ' Thousand' + (num % 1000 !== 0 ? ' ' + numberToWords(num % 1000) : '');
+    if (num < 10000000) return numberToWords(Math.floor(num / 100000)) + ' Lakh' + (num % 100000 !== 0 ? ' ' + numberToWords(num % 100000) : '');
+
+    return numberToWords(Math.floor(num / 10000000)) + ' Crore' + (num % 10000000 !== 0 ? ' ' + numberToWords(num % 10000000) : '');
+  };
 
   const generateAppraisalPDF = async (appraisalData, returnBlob = false) => {
     try {
       // Calculate salary increase
       const annualSalary = appraisalData.new_salary * 12;
       const salaryIncrease = appraisalData.new_salary - appraisalData.current_salary;
-      const increasePercentage = appraisalData.current_salary > 0 ? 
+      const increasePercentage = appraisalData.current_salary > 0 ?
         ((salaryIncrease / appraisalData.current_salary) * 100).toFixed(2) : 0;
 
       // Replace placeholders in letter content
       let processedContent = appraisalData.letter_content
-      
+
         .replace(/\[EMPLOYEE_NAME\]/g, appraisalData.employee_name)
         .replace(/\[Department\]/g, appraisalData.department || 'N/A')
         .replace(/\[REVIEW_PERIOD\]/g, appraisalData.review_period)
@@ -650,77 +650,77 @@ useEffect(() => {
 
       // Generate PDF blob
       const pdfBlob = await new Promise((resolve) => {
-  const pdf = new jsPDF('p', 'mm', 'a4');
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  const margin = 10;
-  let yPosition = margin;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const margin = 10;
+        let yPosition = margin;
 
-  // Add company logo/header
-  pdf.addImage(myaccessRBG, 'PNG', margin, yPosition - 5, 80, 15);    
-  // Add employee info on right
-  pdf.setFont('helvetica', 'normal');
-pdf.setTextColor(0, 0, 0);
-pdf.setFontSize(10);
-pdf.text(appraisalData.employee_name, pageWidth - margin, yPosition, { align: 'right' });
-yPosition += 5;
-pdf.text(appraisalData.email_address, pageWidth - margin, yPosition, { align: 'right' });
-yPosition += 5;
-pdf.text(dayjs(appraisalData.effective_date).format('DD MMMM YYYY'), pageWidth - margin, yPosition, { align: 'right' });
+        // Add company logo/header
+        pdf.addImage(myaccessRBG, 'PNG', margin, yPosition - 5, 80, 15);
+        // Add employee info on right
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFontSize(10);
+        pdf.text(appraisalData.employee_name, pageWidth - margin, yPosition, { align: 'right' });
+        yPosition += 5;
+        pdf.text(appraisalData.email_address, pageWidth - margin, yPosition, { align: 'right' });
+        yPosition += 5;
+        pdf.text(dayjs(appraisalData.effective_date).format('DD MMMM YYYY'), pageWidth - margin, yPosition, { align: 'right' });
 
-yPosition += 20;
-  
-  // Add line separator
-  pdf.setDrawColor(224, 224, 224);
-  pdf.line(margin, yPosition, pageWidth - margin, yPosition);
-  yPosition += 15;
+        yPosition += 20;
 
-  // Add letter content with proper formatting
-  pdf.setFontSize(10); // Reduced from 11 to 10
-pdf.setFont('helvetica', 'normal');
+        // Add line separator
+        pdf.setDrawColor(224, 224, 224);
+        pdf.line(margin, yPosition, pageWidth - margin, yPosition);
+        yPosition += 15;
 
-// Increase left margin for content
-const contentMargin = margin + 4; // Add 10mm more left margin
+        // Add letter content with proper formatting
+        pdf.setFontSize(10); // Reduced from 11 to 10
+        pdf.setFont('helvetica', 'normal');
 
-// Process content and add with page breaks
-const contentText = processedContent.replace(/<br>/g, '\n').replace(/<[^>]*>/g, '');
-const lines = pdf.splitTextToSize(contentText, pageWidth - contentMargin - margin); // Adjust width for new margin
+        // Increase left margin for content
+        const contentMargin = margin + 4; // Add 10mm more left margin
 
-lines.forEach(line => {
-  if (yPosition > pageHeight - 30) {
-    pdf.addPage();
-    yPosition = margin;
-  }
-  pdf.text(line, contentMargin, yPosition); // Use contentMargin instead of margin
-  yPosition += 6;
-});
+        // Process content and add with page breaks
+        const contentText = processedContent.replace(/<br>/g, '\n').replace(/<[^>]*>/g, '');
+        const lines = pdf.splitTextToSize(contentText, pageWidth - contentMargin - margin); // Adjust width for new margin
 
-  // Add signature section
-  yPosition += 20;
-  if (yPosition > pageHeight - 50) {
-    pdf.addPage();
-    yPosition = margin;
-  }
-  
-  pdf.line(margin, yPosition, margin + 60, yPosition);
-  yPosition += 10;
-  pdf.setFontSize(9);
-  pdf.text('Candidate Signature', margin, yPosition);
-  yPosition += 5;
-  pdf.text(`Appraisal letter for ${appraisalData.employee_name}`, margin, yPosition);
-  yPosition += 5;
-  pdf.text('MyAccess Confidential', margin, yPosition);
-  
-  // Add footer
-  yPosition = pageHeight - 20;
-  pdf.setFontSize(8);
-  pdf.setTextColor(153, 153, 153);
-  const footerText = 'This is a system-generated document. For any queries, please contact HR department.';
-  pdf.text(footerText, pageWidth / 2, yPosition, { align: 'center' });
+        lines.forEach(line => {
+          if (yPosition > pageHeight - 30) {
+            pdf.addPage();
+            yPosition = margin;
+          }
+          pdf.text(line, contentMargin, yPosition); // Use contentMargin instead of margin
+          yPosition += 6;
+        });
 
-  const blob = pdf.output('blob');
-  resolve(blob);
-});
+        // Add signature section
+        yPosition += 20;
+        if (yPosition > pageHeight - 50) {
+          pdf.addPage();
+          yPosition = margin;
+        }
+
+        pdf.line(margin, yPosition, margin + 60, yPosition);
+        yPosition += 10;
+        pdf.setFontSize(9);
+        pdf.text('Candidate Signature', margin, yPosition);
+        yPosition += 5;
+        pdf.text(`Appraisal letter for ${appraisalData.employee_name}`, margin, yPosition);
+        yPosition += 5;
+        pdf.text('MyAccess Confidential', margin, yPosition);
+
+        // Add footer
+        yPosition = pageHeight - 20;
+        pdf.setFontSize(8);
+        pdf.setTextColor(153, 153, 153);
+        const footerText = 'This is a system-generated document. For any queries, please contact HR department.';
+        pdf.text(footerText, pageWidth / 2, yPosition, { align: 'center' });
+
+        const blob = pdf.output('blob');
+        resolve(blob);
+      });
 
       if (returnBlob) {
         return pdfBlob;
@@ -742,151 +742,151 @@ lines.forEach(line => {
   };
 
   const sendAppraisalEmail = async (appraisalData, pdfBlob) => {
-  try {
-    // Calculate salary increase for template data
-    const salaryIncrease = appraisalData.new_salary - appraisalData.current_salary;
-    const increasePercentage = appraisalData.current_salary > 0 ? 
-      ((salaryIncrease / appraisalData.current_salary) * 100).toFixed(2) : 0;
+    try {
+      // Calculate salary increase for template data
+      const salaryIncrease = appraisalData.new_salary - appraisalData.current_salary;
+      const increasePercentage = appraisalData.current_salary > 0 ?
+        ((salaryIncrease / appraisalData.current_salary) * 100).toFixed(2) : 0;
 
-    // Create FormData for multipart/form-data request
-    const formData = new FormData();
-    
-    // Add required fields
-    formData.append('recipientEmail', appraisalData.email_address);
-    formData.append('subject', `🎉 Performance Appraisal Letter - ${dayjs(appraisalData.effective_date).format('MMMM YYYY')}`);
-    
-    // Add template data as JSON string
-    const templateData = {
-      employee_name: appraisalData.employee_name,
-      company_name: appraisalData.company_name,
-      effective_date: dayjs(appraisalData.effective_date).format('MMMM YYYY'),
-      review_period: appraisalData.review_period,
-      salary_increase: salaryIncrease.toLocaleString('en-IN'),
-      performance_rating: 'Exceeds Expectations',
-      manager_message: `${appraisalData.employee_name} has consistently delivered exceptional results and shown great dedication throughout the review period.`,
-      hr_contact: 'hr@myaccessio.com'
-    };
-    
-    formData.append('templateData', JSON.stringify(templateData));
-    
-    // Add the PDF file
-    formData.append('appraisal', pdfBlob, `appraisal_letter_${appraisalData.employee_name.replace(/\s+/g, '_')}_${dayjs(appraisalData.effective_date).format('YYYY-MM')}.pdf`);
-    
-    console.log('Sending appraisal email to:', appraisalData.email_address);
-    
-    const response = await fetch(`${baseUrl}send-appraisal`, {
-      method: 'POST',
-      body: formData
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to send email');
+      // Create FormData for multipart/form-data request
+      const formData = new FormData();
+
+      // Add required fields
+      formData.append('recipientEmail', appraisalData.email_address);
+      formData.append('subject', `🎉 Performance Appraisal Letter - ${dayjs(appraisalData.effective_date).format('MMMM YYYY')}`);
+
+      // Add template data as JSON string
+      const templateData = {
+        employee_name: appraisalData.employee_name,
+        company_name: appraisalData.company_name,
+        effective_date: dayjs(appraisalData.effective_date).format('MMMM YYYY'),
+        review_period: appraisalData.review_period,
+        salary_increase: salaryIncrease.toLocaleString('en-IN'),
+        performance_rating: 'Exceeds Expectations',
+        manager_message: `${appraisalData.employee_name} has consistently delivered exceptional results and shown great dedication throughout the review period.`,
+        hr_contact: 'hr@myaccessio.com'
+      };
+
+      formData.append('templateData', JSON.stringify(templateData));
+
+      // Add the PDF file
+      formData.append('appraisal', pdfBlob, `appraisal_letter_${appraisalData.employee_name.replace(/\s+/g, '_')}_${dayjs(appraisalData.effective_date).format('YYYY-MM')}.pdf`);
+
+      console.log('Sending appraisal email to:', appraisalData.email_address);
+
+      const response = await fetch(`${baseUrl}send-appraisal`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send email');
+      }
+
+      const result = await response.json();
+      message.success(`Appraisal letter sent successfully to ${appraisalData.email_address}!`);
+      return result;
+    } catch (error) {
+      console.error('Error sending appraisal email:', error);
+      message.error('Error sending email: ' + error.message);
+      throw error;
     }
-    
-    const result = await response.json();
-    message.success(`Appraisal letter sent successfully to ${appraisalData.email_address}!`);
-    return result;
-  } catch (error) {
-    console.error('Error sending appraisal email:', error);
-    message.error('Error sending email: ' + error.message);
-    throw error;
-  }
-};
+  };
 
   const onFinish = async (values) => {
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const effectiveDateFormatted = values.effectiveDate.format('YYYY-MM-DD');
-    const pdfFilename = `appraisal_letter_${values.employeeName.replace(/\s+/g, '_')}_${effectiveDateFormatted}.pdf`;
+      const effectiveDateFormatted = values.effectiveDate.format('YYYY-MM-DD');
+      const pdfFilename = `appraisal_letter_${values.employeeName.replace(/\s+/g, '_')}_${effectiveDateFormatted}.pdf`;
 
-    // Generate PDF blob
-    const appraisalData = {
-      company_name: values.companyName,
-      employee_name: values.employeeName,
-      employee_id: values.employeeId,
-      email_address: values.emailAddress,
-      department: values.department,
-      current_salary: values.currentSalary,
-      new_salary: values.newSalary,
-      effective_date: effectiveDateFormatted,
-      review_period: values.reviewPeriod,
-      manager_name: values.managerName,
-      manager_designation: values.managerDesignation,
-      letter_content: values.letterContent,
-      user_id: values.userId
-    };
-    const pdfBlob = await generateAppraisalPDF(appraisalData, true);
+      // Generate PDF blob
+      const appraisalData = {
+        company_name: values.companyName,
+        employee_name: values.employeeName,
+        employee_id: values.employeeId,
+        email_address: values.emailAddress,
+        department: values.department,
+        current_salary: values.currentSalary,
+        new_salary: values.newSalary,
+        effective_date: effectiveDateFormatted,
+        review_period: values.reviewPeriod,
+        manager_name: values.managerName,
+        manager_designation: values.managerDesignation,
+        letter_content: values.letterContent,
+        user_id: values.userId
+      };
+      const pdfBlob = await generateAppraisalPDF(appraisalData, true);
 
-    // Upload PDF and get URL
-    let pdfUrl = null;
-    if (pdfBlob) {
-      pdfUrl = await uploadPDFToSupabase(pdfBlob, pdfFilename);
-    }
-
-    // Check if record already exists
-    const { data: existingRecord, error: checkError } = await supabase
-      .from('appraisals')
-      .select('id')
-      .eq('user_id', values.userId)
-      .eq('effective_date', effectiveDateFormatted)
-      .maybeSingle();
-
-    if (checkError && checkError.code !== 'PGRST116') {
-      throw checkError;
-    }
-
-    const appraisalInsertData = {
-      ...appraisalData,
-      pdf_url: pdfUrl,
-      pdf_filename: pdfFilename
-    };
-
-    let data, error;
-
-    if (existingRecord) {
-      // Update existing record
-      const { data: updateData, error: updateError } = await supabase
-        .from('appraisals')
-        .update(appraisalInsertData)
-        .eq('id', existingRecord.id)
-        .select();
-
-      data = updateData;
-      error = updateError;
-
-      if (!error) {
-        message.success('Appraisal data updated successfully!');
+      // Upload PDF and get URL
+      let pdfUrl = null;
+      if (pdfBlob) {
+        pdfUrl = await uploadPDFToSupabase(pdfBlob, pdfFilename);
       }
-    } else {
-      // Insert new record
-      const { data: insertData, error: insertError } = await supabase
+
+      // Check if record already exists
+      const { data: existingRecord, error: checkError } = await supabase
         .from('appraisals')
-        .insert([appraisalInsertData])
-        .select();
+        .select('id')
+        .eq('user_id', values.userId)
+        .eq('effective_date', effectiveDateFormatted)
+        .maybeSingle();
 
-      data = insertData;
-      error = insertError;
-
-      if (!error) {
-        message.success('Appraisal data saved successfully!');
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
       }
+
+      const appraisalInsertData = {
+        ...appraisalData,
+        pdf_url: pdfUrl,
+        pdf_filename: pdfFilename
+      };
+
+      let data, error;
+
+      if (existingRecord) {
+        // Update existing record
+        const { data: updateData, error: updateError } = await supabase
+          .from('appraisals')
+          .update(appraisalInsertData)
+          .eq('id', existingRecord.id)
+          .select();
+
+        data = updateData;
+        error = updateError;
+
+        if (!error) {
+          message.success('Appraisal data updated successfully!');
+        }
+      } else {
+        // Insert new record
+        const { data: insertData, error: insertError } = await supabase
+          .from('appraisals')
+          .insert([appraisalInsertData])
+          .select();
+
+        data = insertData;
+        error = insertError;
+
+        if (!error) {
+          message.success('Appraisal data saved successfully!');
+        }
+      }
+
+      if (error) throw error;
+
+      setCurrentView('dashboard');
+      form.resetFields();
+      fetchAppraisals();
+      fetchStats();
+    } catch (error) {
+      console.error('Error:', error);
+      message.error('Error: ' + error.message);
+    } finally {
+      setLoading(false);
     }
-
-    if (error) throw error;
-
-    setCurrentView('dashboard');
-    form.resetFields();
-    fetchAppraisals();
-    fetchStats();
-  } catch (error) {
-    console.error('Error:', error);
-    message.error('Error: ' + error.message);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleGeneratePDF = async () => {
     try {
@@ -905,7 +905,7 @@ lines.forEach(line => {
         manager_designation: values.managerDesignation,
         letter_content: values.letterContent
       };
-      
+
       await generateAppraisalPDF(appraisalData);
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -930,7 +930,7 @@ lines.forEach(line => {
         manager_designation: values.managerDesignation,
         letter_content: values.letterContent
       };
-      
+
       const pdfBlob = await generateAppraisalPDF(appraisalData, true);
       if (pdfBlob) {
         await sendAppraisalEmail(appraisalData, pdfBlob);
@@ -942,53 +942,53 @@ lines.forEach(line => {
   };
 
   const uploadPDFToSupabase = async (pdfBlob, filename) => {
-  try {
-    // Upload PDF to Supabase Storage
-    const { data, error } = await supabase.storage
-      .from('appraisal-letters')
-      .upload(filename, pdfBlob, {
-        cacheControl: '3600',
-        upsert: true,
-        contentType: 'application/pdf'
-      });
+    try {
+      // Upload PDF to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('appraisal-letters')
+        .upload(filename, pdfBlob, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: 'application/pdf'
+        });
 
-    if (error) throw error;
+      if (error) throw error;
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from('appraisal-letters')
-      .getPublicUrl(filename);
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('appraisal-letters')
+        .getPublicUrl(filename);
 
-    return urlData?.publicUrl || null;
-  } catch (error) {
-    message.error('Error uploading PDF: ' + error.message);
-    return null;
-  }
-};
+      return urlData?.publicUrl || null;
+    } catch (error) {
+      message.error('Error uploading PDF: ' + error.message);
+      return null;
+    }
+  };
 
   const getMergedAppraisalData = () => {
-  const allData = users.map(user => {
-    const latestAppraisal = appraisals
-      .filter(app => app.user_id === user.id)
-      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
-    
-    return {
-      ...user,
-      latest_appraisal: latestAppraisal,
-      has_appraisal: !!latestAppraisal,
-      last_appraisal_date: latestAppraisal?.effective_date || null,
-      salary_increase: latestAppraisal ? 
-        latestAppraisal.new_salary - latestAppraisal.current_salary : 0
-    };
-  });
-  
-  // Update total count
-  if (allData.length !== totalEmployees) {
-    setTotalEmployees(allData.length);
-  }
-  
-  return allData;
-};
+    const allData = users.map(user => {
+      const latestAppraisal = appraisals
+        .filter(app => app.user_id === user.id)
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+
+      return {
+        ...user,
+        latest_appraisal: latestAppraisal,
+        has_appraisal: !!latestAppraisal,
+        last_appraisal_date: latestAppraisal?.effective_date || null,
+        salary_increase: latestAppraisal ?
+          latestAppraisal.new_salary - latestAppraisal.current_salary : 0
+      };
+    });
+
+    // Update total count
+    if (allData.length !== totalEmployees) {
+      setTotalEmployees(allData.length);
+    }
+
+    return allData;
+  };
 
   const renderDashboard = () => (
     <div style={{ background: '#f7fafc', minHeight: '100vh', padding: '24px' }}>
@@ -1034,8 +1034,8 @@ lines.forEach(line => {
         <Col xs={24} sm={8}>
           <div className="stat-card">
             <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }}>
-              <div style={{ 
-                background: '#e6f7ff', 
+              <div style={{
+                background: '#e6f7ff',
                 color: '#1890ff',
                 padding: '12px',
                 borderRadius: '8px',
@@ -1053,8 +1053,8 @@ lines.forEach(line => {
         <Col xs={24} sm={8}>
           <div className="stat-card">
             <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }}>
-              <div style={{ 
-                background: '#f6ffed', 
+              <div style={{
+                background: '#f6ffed',
                 color: '#52c41a',
                 padding: '12px',
                 borderRadius: '8px',
@@ -1072,8 +1072,8 @@ lines.forEach(line => {
         <Col xs={24} sm={8}>
           <div className="stat-card">
             <Space align="start" style={{ width: '100%', justifyContent: 'space-between' }}>
-              <div style={{ 
-                background: '#fffbe6', 
+              <div style={{
+                background: '#fffbe6',
                 color: '#faad14',
                 padding: '12px',
                 borderRadius: '8px',
@@ -1094,53 +1094,53 @@ lines.forEach(line => {
       <Card style={{ borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
         <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
           <Title level={4} style={{ margin: 0, color: '#1e293b' }}>Employee Appraisal Records</Title>
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />} 
-            onClick={() => setCurrentView('createAppraisal')} 
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setCurrentView('createAppraisal')}
           >
             Create Appraisal Letter
           </Button>
         </div>
-        
+
         <Table
           dataSource={getMergedAppraisalData()}
           rowKey="id"
           loading={loading}
           scroll={{ x: 800 }}
-       pagination={{
-  current: currentPage,
-  pageSize: pageSize,
-  total: totalEmployees,
-  showSizeChanger: true,
-  showQuickJumper: true,
-  showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} employees`,
-  pageSizeOptions: ['5', '10', '20', '50'],
-  onChange: (page, size) => {
-    setCurrentPage(page);
-    setPageSize(size);
-  },
-  onShowSizeChange: (current, size) => {
-    setCurrentPage(1);
-    setPageSize(size);
-  },
-  itemRender: (current, type, originalElement) => {
-    if (type === 'page') {
-      return (
-        <a style={{
-          color: current === currentPage ? '#0D7139' : '#666',
-          backgroundColor: current === currentPage ? '#f6ffed' : 'white',
-          border: `1px solid ${current === currentPage ? '#0D7139' : '#d9d9d9'}`,
-          borderRadius: '6px',
-          fontWeight: current === currentPage ? 600 : 400
-        }}>
-          {current}
-        </a>
-      );
-    }
-    return originalElement;
-  }
-}}
+          pagination={{
+            current: currentPage,
+            pageSize: pageSize,
+            total: totalEmployees,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} employees`,
+            pageSizeOptions: ['5', '10', '20', '50'],
+            onChange: (page, size) => {
+              setCurrentPage(page);
+              setPageSize(size);
+            },
+            onShowSizeChange: (current, size) => {
+              setCurrentPage(1);
+              setPageSize(size);
+            },
+            itemRender: (current, type, originalElement) => {
+              if (type === 'page') {
+                return (
+                  <a style={{
+                    color: current === currentPage ? '#0D7139' : '#666',
+                    backgroundColor: current === currentPage ? '#f6ffed' : 'white',
+                    border: `1px solid ${current === currentPage ? '#0D7139' : '#d9d9d9'}`,
+                    borderRadius: '6px',
+                    fontWeight: current === currentPage ? 600 : 400
+                  }}>
+                    {current}
+                  </a>
+                );
+              }
+              return originalElement;
+            }
+          }}
           columns={[
             {
               title: 'Employee',
@@ -1186,9 +1186,9 @@ lines.forEach(line => {
                 const lastAppraisal = record.latest_appraisal;
                 if (!lastAppraisal) {
                   return (
-                    <span style={{ 
-                      padding: '4px 8px', 
-                      borderRadius: '4px', 
+                    <span style={{
+                      padding: '4px 8px',
+                      borderRadius: '4px',
                       background: '#fff3cd',
                       color: '#856404',
                       fontSize: '12px',
@@ -1198,12 +1198,12 @@ lines.forEach(line => {
                     </span>
                   );
                 }
-                
+
                 const isRecent = dayjs().diff(dayjs(lastAppraisal.effective_date), 'months') < 12;
                 return (
-                  <span style={{ 
-                    padding: '4px 8px', 
-                    borderRadius: '4px', 
+                  <span style={{
+                    padding: '4px 8px',
+                    borderRadius: '4px',
                     background: isRecent ? '#d1ecf1' : '#f8d7da',
                     color: isRecent ? '#0c5460' : '#721c24',
                     fontSize: '12px',
@@ -1215,104 +1215,107 @@ lines.forEach(line => {
               },
             },
             {
-  title: 'Actions',
-  key: 'actions',
-  align: 'right',
-  render: (_, record) => {
-    const menuItems = [
-      {
-        key: 'create',
-        icon: <StarOutlined />,
-        label: 'Create Appraisal',
-        onClick: () => {
-          const formValues = {
-            userId: record.id,
-            employeeName: record.name,
-            employeeId: record.employee_id,
-            emailAddress: record.email,
-            department: record.department,
-            currentSalary: record.pay || 0,
-            newSalary: record.latest_appraisal?.new_salary || (record.pay || 0),
-            effectiveDate: dayjs(),
-            reviewPeriod: `${dayjs().subtract(1, 'year').format('MMM YYYY')} - ${dayjs().format('MMM YYYY')}`,
-            companyName: record.latest_appraisal?.company_name || 'MYACCESS PRIVATE LIMITED',
-            managerName: record.latest_appraisal?.manager_name || 'HR Manager',
-            managerDesignation: record.latest_appraisal?.manager_designation || 'Human Resources',
-            letterContent: record.latest_appraisal?.letter_content || defaultLetterContent
-          };
-          
-          form.setFieldsValue(formValues);
-          setCurrentView('createAppraisal');
-        }
-      },
-      {
-        key: 'history',
-        icon: <HistoryOutlined />,
-        label: 'View History',
-        onClick: () => {
-          setSelectedEmployeeHistory(record);
-          setShowAppraisalHistory(true);
-        }
-      },
-      {
-        key: 'generate',
-        icon: <FilePdfOutlined />,
-        label: 'Generate PDF',
-        onClick: () => {
-          if (record.latest_appraisal) {
-            generateAppraisalPDF(record.latest_appraisal);
-          } else {
-            message.warning('No appraisal data found. Please create an appraisal first.');
-          }
-        }
-      },
-      {
-        key: 'send',
-        icon: <SendOutlined />,
-        label: 'Send Email',
-        onClick: async () => {
-          if (record.latest_appraisal) {
-            const pdfBlob = await generateAppraisalPDF(record.latest_appraisal, true);
-            if (pdfBlob) {
-              await sendAppraisalEmail(record.latest_appraisal, pdfBlob);
-            }
-          } else {
-            message.warning('No appraisal data found. Please create an appraisal first.');
-          }
-        }
-      }
-    ];
+              title: 'Actions',
+              key: 'actions',
+              align: 'center',
+              render: (_, record) => {
+                const menuItems = [
+                  {
+                    key: 'create',
+                    icon: <StarOutlined />,
+                    label: 'Create Appraisal',
+                    onClick: () => {
+                      const formValues = {
+                        userId: record.id,
+                        employeeName: record.name,
+                        employeeId: record.employee_id,
+                        emailAddress: record.email,
+                        department: record.department,
+                        currentSalary: record.pay || 0,
+                        newSalary: record.latest_appraisal?.new_salary || (record.pay || 0),
+                        effectiveDate: dayjs(),
+                        reviewPeriod: `${dayjs().subtract(1, 'year').format('MMM YYYY')} - ${dayjs().format('MMM YYYY')}`,
+                        companyName: record.latest_appraisal?.company_name || 'MYACCESS PRIVATE LIMITED',
+                        managerName: record.latest_appraisal?.manager_name || 'HR Manager',
+                        managerDesignation: record.latest_appraisal?.manager_designation || 'Human Resources',
+                        letterContent: record.latest_appraisal?.letter_content || defaultLetterContent
+                      };
 
-    // Add download option only if PDF URL exists
-    if (record.latest_appraisal?.pdf_url) {
-      menuItems.splice(3, 0, {
-        key: 'download',
-        icon: <DownloadOutlined />,
-        label: 'Download PDF',
-        onClick: () => window.open(record.latest_appraisal.pdf_url, '_blank')
-      });
-    }
+                      form.setFieldsValue(formValues);
+                      setCurrentView('createAppraisal');
+                    }
+                  },
+                  {
+                    key: 'history',
+                    icon: <HistoryOutlined />,
+                    label: 'View History',
+                    onClick: () => {
+                      setSelectedEmployeeHistory(record);
+                      setShowAppraisalHistory(true);
+                    }
+                  },
+                  {
+                    key: 'generate',
+                    icon: <FilePdfOutlined />,
+                    label: 'Generate PDF',
+                    onClick: () => {
+                      if (record.latest_appraisal) {
+                        generateAppraisalPDF(record.latest_appraisal);
+                      } else {
+                        message.warning('No appraisal data found. Please create an appraisal first.');
+                      }
+                    }
+                  },
+                  {
+                    key: 'send',
+                    icon: <SendOutlined />,
+                    label: 'Send Email',
+                    onClick: async () => {
+                      if (record.latest_appraisal) {
+                        const pdfBlob = await generateAppraisalPDF(record.latest_appraisal, true);
+                        if (pdfBlob) {
+                          await sendAppraisalEmail(record.latest_appraisal, pdfBlob);
+                        }
+                      } else {
+                        message.warning('No appraisal data found. Please create an appraisal first.');
+                      }
+                    }
+                  }
+                ];
 
-    return (
-      <Dropdown
-        menu={{ items: menuItems }}
-        trigger={['click']}
-        placement="bottomRight"
-      >
-        <Button 
-          type="text" 
-          icon={<MoreOutlined />} 
-          size="small"
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center' 
-          }}
-        />
-      </Dropdown>
-    );
-  },
-},
+                // Add download option only if PDF URL exists
+                if (record.latest_appraisal?.pdf_url) {
+                  menuItems.splice(3, 0, {
+                    key: 'download',
+                    icon: <DownloadOutlined />,
+                    label: 'Download PDF',
+                    onClick: () => window.open(record.latest_appraisal.pdf_url, '_blank')
+                  });
+                }
+
+                return (
+                  <Dropdown
+                    menu={{ items: menuItems }}
+                    trigger={['click']}
+                    placement="bottomRight"
+                  >
+                    <Button
+                      type="text"
+                      icon={<MoreOutlined />}
+                      size="small"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto',  // Add this
+                        width: '32px',      // Add this
+                        height: '32px'
+                      }}
+                    />
+                  </Dropdown>
+                );
+              },
+            },
           ]}
         />
       </Card>
@@ -1321,8 +1324,8 @@ lines.forEach(line => {
 
   const renderCreateAppraisal = () => (
     <>
-      <div style={{ 
-        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', 
+      <div style={{
+        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
         height: '120px',
         display: 'flex',
         alignItems: 'center',
@@ -1331,9 +1334,9 @@ lines.forEach(line => {
         color: 'white'
       }}>
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <Button 
-            type="text" 
-            icon={<ArrowLeftOutlined />} 
+          <Button
+            type="text"
+            icon={<ArrowLeftOutlined />}
             onClick={() => setCurrentView('dashboard')}
             style={{ color: 'white', marginRight: '20px', fontSize: '16px' }}
           >
@@ -1397,8 +1400,8 @@ lines.forEach(line => {
                   name="userId"
                   rules={[{ required: true, message: 'Please select an employee' }]}
                 >
-                  <Select 
-                    size="large" 
+                  <Select
+                    size="large"
                     placeholder="Select an employee"
                     showSearch
                     loading={users.length === 0}
@@ -1477,8 +1480,8 @@ lines.forEach(line => {
                   name="effectiveDate"
                   rules={[{ required: true, message: 'Please select effective date' }]}
                 >
-                  <DatePicker 
-                    size="large" 
+                  <DatePicker
+                    size="large"
                     style={{ width: '100%' }}
                     placeholder="Select effective date"
                   />
@@ -1490,9 +1493,9 @@ lines.forEach(line => {
                   name="currentSalary"
                   rules={[{ required: true, message: 'Please enter current salary' }]}
                 >
-                  <InputNumber 
-                    size="large" 
-                    style={{ width: '100%' }} 
+                  <InputNumber
+                    size="large"
+                    style={{ width: '100%' }}
                     formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                     parser={value => value.replace(/₹\s?|(,*)/g, '')}
                     min={0}
@@ -1509,9 +1512,9 @@ lines.forEach(line => {
                   name="newSalary"
                   rules={[{ required: true, message: 'Please enter new salary' }]}
                 >
-                  <InputNumber 
-                    size="large" 
-                    style={{ width: '100%' }} 
+                  <InputNumber
+                    size="large"
+                    style={{ width: '100%' }}
                     formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                     parser={value => value.replace(/₹\s?|(,*)/g, '')}
                     min={0}
@@ -1523,12 +1526,12 @@ lines.forEach(line => {
                 <div style={{ background: '#f8f9fa', padding: '16px', borderRadius: '8px', marginTop: '30px' }}>
                   <Text strong>Salary Increase: </Text>
                   <Text style={{ fontSize: '16px', color: '#059669', fontWeight: 'bold' }}>
-                    ₹{form.getFieldsValue().newSalary && form.getFieldsValue().currentSalary ? 
-                      (form.getFieldsValue().newSalary - form.getFieldsValue().currentSalary).toLocaleString('en-IN') : 
+                    ₹{form.getFieldsValue().newSalary && form.getFieldsValue().currentSalary ?
+                      (form.getFieldsValue().newSalary - form.getFieldsValue().currentSalary).toLocaleString('en-IN') :
                       '0'
                     }
-                    {form.getFieldsValue().newSalary && form.getFieldsValue().currentSalary && form.getFieldsValue().currentSalary > 0 ? 
-                      ` (${(((form.getFieldsValue().newSalary - form.getFieldsValue().currentSalary) / form.getFieldsValue().currentSalary) * 100).toFixed(2)}%)` : 
+                    {form.getFieldsValue().newSalary && form.getFieldsValue().currentSalary && form.getFieldsValue().currentSalary > 0 ?
+                      ` (${(((form.getFieldsValue().newSalary - form.getFieldsValue().currentSalary) / form.getFieldsValue().currentSalary) * 100).toFixed(2)}%)` :
                       ''
                     }
                   </Text>
@@ -1571,8 +1574,8 @@ lines.forEach(line => {
               rules={[{ required: true, message: 'Please enter letter content' }]}
               extra="Use placeholders: [EMPLOYEE_NAME], [REVIEW_PERIOD], [PREVIOUS_SALARY], [NEW_SALARY], [SALARY_INCREASE], [INCREASE_PERCENTAGE], [EFFECTIVE_DATE], [MANAGER_NAME], [MANAGER_DESIGNATION], [COMPANY_NAME]"
             >
-              <TextArea 
-                rows={12} 
+              <TextArea
+                rows={12}
                 placeholder="Enter letter content with placeholders"
                 style={{ fontSize: '14px', lineHeight: '1.6' }}
               />
@@ -1580,12 +1583,12 @@ lines.forEach(line => {
 
             <Form.Item>
               <Space size="large" style={{ width: '100%', justifyContent: 'center', marginTop: '40px' }}>
-                <Button 
+                <Button
                   size="large"
                   loading={loading}
                   onClick={handleGeneratePDF}
                   icon={<FilePdfOutlined />}
-                  style={{ 
+                  style={{
                     width: '160px',
                     height: '45px',
                     fontSize: '16px'
@@ -1593,14 +1596,14 @@ lines.forEach(line => {
                 >
                   Generate PDF
                 </Button>
-                <Button 
-                  type="primary" 
+                <Button
+                  type="primary"
                   size="large"
                   loading={loading}
                   onClick={handleSendEmail}
                   icon={<SendOutlined />}
-                  style={{ 
-                    background: '#10b981', 
+                  style={{
+                    background: '#10b981',
                     borderColor: '#10b981',
                     width: '160px',
                     height: '45px',
@@ -1609,13 +1612,13 @@ lines.forEach(line => {
                 >
                   Send Email
                 </Button>
-                <Button 
-                  type="primary" 
+                <Button
+                  type="primary"
                   htmlType="submit"
                   size="large"
                   loading={loading}
-                  style={{ 
-                    background: '#059669', 
+                  style={{
+                    background: '#059669',
                     borderColor: '#059669',
                     width: '120px',
                     height: '45px',
@@ -1624,9 +1627,9 @@ lines.forEach(line => {
                 >
                   Save
                 </Button>
-                <Button 
+                <Button
                   size="large"
-                  style={{ 
+                  style={{
                     width: '100px',
                     height: '45px',
                     fontSize: '16px'
