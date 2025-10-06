@@ -1280,7 +1280,7 @@ const LeaveHistoryDrawer = ({ visible, onClose, leaveData, currentUser, onEdit, 
   );
 };
 
-// --- START: REPLACE THE ENTIRE CompensatoryLeaveModal COMPONENT WITH THIS NEW VERSION ---
+
 
 const CompensatoryLeaveModal = ({ visible, onCancel, employees }) => {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
@@ -2439,21 +2439,25 @@ useEffect(() => {
 }, [form.getFieldValue('startDate'), form.getFieldValue('endDate'), form.getFieldValue('leaveType'), form.getFieldValue('subType')]);
 
 
-// In leavemanage.jsx, replace the existing handleApplyLeave function
+// In leavemanage.jsx, REPLACE the entire handleApplyLeave function with this one.
 
 const handleApplyLeave = async (values) => {
   setLoading(true);
   try {
-    const { editingId, ...leaveValues } = values; // Destructure the editingId
+    // CRITICAL FIX: Extract editingId from form FIRST
+    const editingId = form.getFieldValue('editingId');
+    
     const { startDate, endDate, leaveType, subType, startTime, endTime, session } = values;
-    const effectiveEndDate = (leaveType === 'Casual Leave' && subType === 'HDL') || leaveType === 'Permission' || leaveType === 'Excuses'
+    const effectiveEndDate = (leaveType === 'Casual Leave' && subType === 'HDL') || 
+                             leaveType === 'Permission' || 
+                             leaveType === 'Excuses'
                              ? startDate
                              : (endDate || startDate);
 
-    // 1. Fetch all potentially overlapping leaves first (includes the previous fix for 'approved_dates')
+    // 1. Fetch overlapping leaves
     const { data: overlappingLeaves, error: overlapError } = await supabase
       .from('leave_applications')
-      .select('id, leave_type, start_date, end_date, status, total_days, sub_type, approved_dates') // Ensure approved_dates is selected
+      .select('id, leave_type, start_date, end_date, status, total_days, sub_type, approved_dates')
       .eq('user_id', currentUserId)
       .in('status', ['Approved', 'Pending'])
       .lte('start_date', effectiveEndDate.format('YYYY-MM-DD'))
@@ -2461,25 +2465,27 @@ const handleApplyLeave = async (values) => {
 
     if (overlapError) throw overlapError;
 
-    // --- START OF THE DEFINITIVE FIX FOR 'PENDING LEAVE EXISTS' ---
-    // This logic now correctly checks for an actual date intersection with ONLY pending leaves.
+    // 2. Check for pending overlaps - EXCLUDE the leave being edited
     const hasPendingOverlap = overlappingLeaves?.some(leave => {
-        // Step 1: Ignore any leave that is not in 'Pending' status.
+        // CRITICAL: If editing, skip the current leave being edited
+        if (editingId && String(leave.id) === String(editingId)) {
+            return false;
+        }
+
+        // Only check Pending status
         if (leave.status !== 'Pending') {
             return false;
         }
-        
-        // Step 2: Check for a true date range intersection.
+
+        // Check for date range intersection
         const pendingStart = dayjs(leave.start_date);
         const pendingEnd = dayjs(leave.end_date);
         const newRequestStart = dayjs(startDate);
         const newRequestEnd = dayjs(effectiveEndDate);
 
-        // An overlap exists if the pending leave's start is before or on the new request's end,
-        // AND the new request's start is before or on the pending leave's end.
-        return pendingStart.isSameOrBefore(newRequestEnd, 'day') && newRequestStart.isSameOrBefore(pendingEnd, 'day');
+        return pendingStart.isSameOrBefore(newRequestEnd, 'day') && 
+               newRequestStart.isSameOrBefore(pendingEnd, 'day');
     });
-    // --- END OF THE DEFINITIVE FIX ---
 
     if (hasPendingOverlap) {
       Modal.warning({
@@ -2516,11 +2522,11 @@ if (leaveType === 'Permission') {
    const start = dayjs(startDate).startOf('day');
   const end = dayjs(effectiveEndDate).startOf('day');
   totalDays = end.diff(start, 'day') + 1; // +1 to include the start day
-  console.log('DEBUG handleApplyLeave Comp/Earned:', { 
-    start: start.format('YYYY-MM-DD'), 
-    end: end.format('YYYY-MM-DD'), 
+  console.log('DEBUG handleApplyLeave Comp/Earned:', {
+    start: start.format('YYYY-MM-DD'),
+    end: end.format('YYYY-MM-DD'),
     diff: end.diff(start, 'days'),
-    totalDays 
+    totalDays
   });
 
 } else if (leaveType === 'Casual Leave' || leaveType === 'Medical Leave') {
@@ -2533,10 +2539,11 @@ if (leaveType === 'Permission') {
 }
 
 console.log('DEBUG handleApplyLeave final totalDays:', { leaveType, totalDays });
-    
+
     // 4. Adjust the deduction amount based on existing approved leave
     const finalDeductionDays = Math.max(0, totalDays - alreadyApprovedDays);
 
+   // Correct
     if (totalDays > 0 && finalDeductionDays <= 0) {
       Modal.info({
         title: 'Leave Already Covered',
@@ -2582,13 +2589,13 @@ console.log('DEBUG handleApplyLeave final totalDays:', { leaveType, totalDays })
     if (values.attachment && values.attachment.length > 0) {
       attachmentUrl = await uploadFileToSupabase(values.attachment[0].originFileObj);
     }
-    
+
    let permissionHours = 0;
     if (values.leaveType === 'Permission' && values.startTime && values.endTime) {
         const diffInMinutes = values.endTime.diff(values.startTime, 'minute');
         permissionHours = Math.round((diffInMinutes / 60) * 100) / 100;
     }
-    
+
     let correctedSubType = subType;
     if (finalDeductionDays > 0 && finalDeductionDays < 1 && subType !== 'HDL') {
         correctedSubType = 'HDL - (Auto-Adjusted)';
@@ -2624,7 +2631,7 @@ console.log('DEBUG handleApplyLeave final totalDays:', { leaveType, totalDays })
             .update(leaveDataPayload)
             .eq('id', editingId);
         if (error) throw error;
-        setLeaveData(prevData => 
+        setLeaveData(prevData =>
             prevData.map(item => item.id === editingId ? {...item, ...leaveDataPayload} : item)
         );
         message.success('Leave application updated successfully!');
@@ -4474,8 +4481,7 @@ return (
            </Descriptions.Item>
         )}
 
-      // In the LeaveDetailsModal component, update the Duration section:
-// In LeaveDetailsModal component, update only the Duration section:
+    
 <Descriptions.Item label="Duration">
   <div>
     <Text strong>
@@ -4859,6 +4865,7 @@ useEffect(() => {
               </div>
             </div>
           </Space>
+          
         </Col>
         
         {/* --- THIS IS THE CORRECTED SECTION FOR THE BUTTONS --- */}
@@ -4887,8 +4894,6 @@ useEffect(() => {
                   Export Report
                 </Button>
               </Tooltip>
-              
-           
               
               <Tooltip title="Manually Allocate Compensatory Leave">
                 <Button
