@@ -5,7 +5,7 @@ import {
   Button,
   DatePicker,
   Table,
-  Modal,
+  Modal,List,
   TimePicker,
   Row,
   Col,
@@ -142,7 +142,631 @@ const fetcher = async (url) => {
     return await fetchLeaveBalances(userId);
   }
 };
+const HRMedicalApprovalModal = ({ visible, onCancel, requests, onSelectRequest, loading }) => {
+    return (
+        <Modal
+            title={`Pending Medical Leave Requests (${requests.length})`}
+            open={visible}
+            onCancel={onCancel}
+            footer={null}
+            width={800}
+        >
+            <List
+                loading={loading}
+                itemLayout="horizontal"
+                dataSource={requests}
+                renderItem={(item) => (
+                    <List.Item
+                        actions={[<Button type="primary" onClick={() => onSelectRequest(item)}>Review</Button>]}
+                    >
+                        <List.Item.Meta
+                            avatar={<Avatar src={item.users?.avatar_url} icon={<UserOutlined />} />}
+                            title={`${item.users?.name} (${item.users?.employee_id})`}
+                            description={`Requested: ${item.requested_days} day(s) from ${dayjs(item.start_date).format('DD MMM')} to ${dayjs(item.end_date).format('DD MMM')}`}
+                        />
+                    </List.Item>
+                )}
+            />
+        </Modal>
+    );
+};
 
+// In leavemanage.jsx, replace the existing HRRequestDetailDrawer component
+const countDeductibleDays = async (startDate, endDate) => {
+  try {
+    console.log('Calculating days between:', startDate.format('YYYY-MM-DD'), 'and', endDate.format('YYYY-MM-DD'));
+    
+    // Basic validation
+    if (!startDate || !endDate || !startDate.isValid() || !endDate.isValid()) {
+      console.error('Invalid dates provided');
+      return 0;
+    }
+
+    if (endDate.isBefore(startDate)) {
+      console.error('End date is before start date');
+      return 0;
+    }
+
+    // 1. Try to fetch holidays, but don't fail if it doesn't work
+    let holidays = new Set();
+    try {
+      holidays = await fetchCompanyCalendar();
+      console.log('Fetched holidays:', holidays.size);
+    } catch (error) {
+      console.warn('Could not fetch holidays, proceeding without them:', error);
+    }
+
+    // 2. Try to fetch working day configuration
+    let workingDaysConfig = {
+      monday: true, tuesday: true, wednesday: true,
+      thursday: true, friday: true, saturday: false, sunday: false
+    };
+
+    try {
+      const { data: configData, error: configError } = await supabase
+        .from('company_calendar')
+        .select('reason')
+        .eq('day_type', 'working_config')
+        .single();
+
+      if (!configError && configData?.reason) {
+        try {
+          const parsedConfig = JSON.parse(configData.reason);
+          if (parsedConfig.workingDays) {
+            workingDaysConfig = parsedConfig.workingDays;
+            console.log('Using custom working days config:', workingDaysConfig);
+          }
+        } catch (parseError) {
+          console.warn('Could not parse working days config, using default');
+        }
+      }
+    } catch (error) {
+      console.warn('Could not fetch working days config, using default:', error);
+    }
+
+    // 3. Calculate deductible days with safety checks
+    let deductibleDays = 0;
+    let current = dayjs(startDate);
+    const maxDays = 365; // Safety limit
+    let dayCount = 0;
+
+    while (current.isSameOrBefore(endDate, 'day') && dayCount < maxDays) {
+      try {
+        const dayName = current.format('dddd').toLowerCase();
+        const dateString = current.format('YYYY-MM-DD');
+        
+        const isHoliday = holidays.has(dateString);
+        const isWorkingDay = workingDaysConfig[dayName] === true;
+
+        if (isWorkingDay && !isHoliday) {
+          deductibleDays++;
+        }
+
+        current = current.add(1, 'day');
+        dayCount++;
+      } catch (dayError) {
+        console.error('Error processing day:', current.format('YYYY-MM-DD'), dayError);
+        current = current.add(1, 'day');
+        dayCount++;
+      }
+    }
+
+    console.log('Calculated deductible days:', deductibleDays);
+    return deductibleDays;
+
+  } catch (error) {
+    console.error('Error in countDeductibleDays:', error);
+    
+    // Ultimate fallback - simple day calculation
+    const simpleDays = dayjs(endDate).diff(dayjs(startDate), 'day') + 1;
+    console.log('Using fallback calculation:', simpleDays);
+    return Math.max(0, simpleDays);
+  }
+};
+const HRRequestDetailDrawer = ({ request, visible, onClose, onApprove, onReject, loading }) => {
+    const [selectedDays, setSelectedDays] = useState([]);
+    const [history, setHistory] = useState([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [hrComments, setHrComments] = useState('');
+    const [alreadyApprovedDates, setAlreadyApprovedDates] = useState(new Set());
+    
+    // --- START OF FIX ---
+    // More robustly identifies a half-day leave based on the total_days being a fraction.
+    const isHalfDayLeave = request?.total_days > 0 && request?.total_days < 1;
+
+    // Correctly calculates the count. If it's a half-day leave and its day is selected,
+    // use the fractional value from the request itself (e.g., 0.5). Otherwise, count the full days.
+    const approvedDaysCount = selectedDays.length > 0
+        ? (isHalfDayLeave ? request.total_days : selectedDays.length)
+        : 0;
+    // --- END OF FIX ---
+
+
+    useEffect(() => {
+    if (request?.user_id && request.start_date && request.end_date) {
+        const fetchOverlappingLeaves = async () => {
+            let query = supabase
+                .from('leave_applications')
+                .select('approved_dates, start_date, end_date')
+                .eq('user_id', request.user_id)
+                .eq('status', 'Approved')
+                .lte('start_date', request.end_date)
+                .gte('end_date', request.start_date);
+
+            if (typeof request.id === 'string' && request.id.length > 10) {
+                query = query.neq('id', request.id);
+            }
+
+            const { data, error } = await query;
+
+            if (error) {
+                console.error("Error fetching overlapping approved leaves:", error);
+                return;
+            }
+
+            const approvedDaysSet = new Set();
+            data.forEach(leave => {
+                // *** CHANGE: Only use approved_dates if available ***
+                if (leave.approved_dates && leave.approved_dates.length > 0) {
+                    // Only these specific dates are blocked
+                    leave.approved_dates.forEach(date => approvedDaysSet.add(date));
+                } 
+                // *** Remove the else block that was adding all dates in the range ***
+                // This means if approved_dates is empty or missing, no dates are blocked
+            });
+            setAlreadyApprovedDates(approvedDaysSet);
+        };
+        fetchOverlappingLeaves();
+    } else {
+        setAlreadyApprovedDates(new Set());
+    }
+}, [request]);
+
+      useEffect(() => {
+        const initializeDays = async () => {
+            if (request) {
+                // --- START OF FIX ---
+                // Determine if the leave type should include weekends/holidays.
+                const isCompOrEarned = request.leave_type === 'Compensatory Leave' || request.leave_type === 'Earned Leave';
+                // --- END OF FIX ---
+                
+                if (isHalfDayLeave) {
+                    const dateStr = dayjs(request.start_date).format('YYYY-MM-DD');
+                    setSelectedDays([dateStr]); 
+                    setHrComments(request.hr_comments || '');
+                    return; 
+                }
+
+                const start = dayjs(request.start_date);
+                const end = dayjs(request.end_date);
+                let initialSelection = [];
+                const holidays = await fetchCompanyCalendar();
+                const { data: configData } = await supabase
+                    .from('company_calendar')
+                    .select('reason')
+                    .eq('day_type', 'working_config')
+                    .single();
+                const defaultConfig = { monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false, sunday: false };
+                const workingDaysConfig = configData?.reason ? JSON.parse(configData.reason).workingDays || defaultConfig : defaultConfig;
+                
+                let current = start;
+                while (current.isSameOrBefore(end, 'day')) {
+                    const dateStr = current.format('YYYY-MM-DD');
+                    const dayName = current.format('dddd').toLowerCase();
+                    const isWorkingDay = workingDaysConfig[dayName] === true;
+                    const isHoliday = holidays.has(dateStr);
+                    
+                    // --- START OF FIX ---
+                    // The day should be selected IF:
+                    // 1. It's a Compensatory/Earned leave, OR
+                    // 2. It's a regular working day for other leave types.
+                    const shouldSelectDay = isCompOrEarned || (isWorkingDay && !isHoliday);
+
+                    if (shouldSelectDay && !alreadyApprovedDates.has(dateStr)) {
+                        initialSelection.push(dateStr);
+                    }
+                    // --- END OF FIX ---
+                    current = current.add(1, 'day');
+                }
+                
+                setSelectedDays(initialSelection);
+                setHrComments(request.hr_comments || '');
+            } else {
+                setSelectedDays([]);
+            }
+        };
+
+        if (visible) {
+            initializeDays();
+        }
+    }, [request, alreadyApprovedDates, visible, isHalfDayLeave]);
+
+
+    useEffect(() => {
+        if (request?.user_id) {
+            const fetchHistory = async () => {
+                setHistoryLoading(true);
+                try {
+                    const { data, error } = await supabase
+                        .from('leave_applications')
+                        .select('id, leave_type, start_date, end_date, total_days, status')
+                        .eq('user_id', request.user_id)
+                        .eq('status', 'Approved')
+                        .order('start_date', { ascending: false })
+                        .limit(5);
+                    if (error) throw error;
+                    setHistory(data || []);
+                } catch (error) {
+                    console.error("Error fetching leave history:", error);
+                } finally {
+                    setHistoryLoading(false);
+                }
+            };
+            fetchHistory();
+        }
+    }, [request]);
+
+    if (!request) return null;
+    
+    const leaveTypeForDisplay = request.leave_type || 'Medical Leave';
+    const config = getLeaveTypeConfig(leaveTypeForDisplay);
+
+ // In leavemanage.jsx, inside the HRRequestDetailDrawer component
+
+    const handleDaySelect = (date) => {
+        const dateStr = date.format('YYYY-MM-DD');
+        const startOfRequest = dayjs(request.start_date).startOf('day');
+        const endOfRequest = dayjs(request.end_date).endOf('day');
+
+        if (alreadyApprovedDates.has(dateStr)) {
+            message.info('This day is already covered by another approved leave.');
+            return;
+        }
+
+        if (date.isBetween(startOfRequest, endOfRequest, 'day', '[]')) {
+             // --- START OF FIX ---
+             const isCompOrEarned = request.leave_type === 'Compensatory Leave' || request.leave_type === 'Earned Leave';
+             const dayName = date.format('dddd').toLowerCase();
+
+             // Allow selection if it's a Comp/Earned leave, OR if it's not a Sunday for other leave types.
+             if (isCompOrEarned || dayName !== 'sunday') {
+                setSelectedDays(prev =>
+                    prev.includes(dateStr) ? prev.filter(d => d !== dateStr) : [...prev, dateStr]
+                );
+             }
+             // --- END OF FIX ---
+        }
+    };
+    
+   const dateFullCellRender = (date) => {
+    const dateStr = date.format('YYYY-MM-DD');
+    const startOfRequest = dayjs(request.start_date).startOf('day');
+    const endOfRequest = dayjs(request.end_date).endOf('day');
+
+    const style = {
+        width: '24px',
+        height: '24px', 
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: '4px',
+        transition: 'background-color 0.3s',
+        position: 'relative',
+        margin: '0 auto'
+    };
+
+    if (date.isBetween(startOfRequest, endOfRequest, 'day', '[]')) {
+        style.backgroundColor = '#e6f7ff';
+        style.cursor = 'pointer';
+    }
+    
+    if (selectedDays.includes(dateStr)) {
+        style.backgroundColor = config.color || '#1890ff';
+        style.color = '#fff';
+        style.fontWeight = 'bold';
+    }
+
+    if (alreadyApprovedDates.has(dateStr)) {
+        style.backgroundColor = '#f5f5f5';
+        style.color = '#bfbfbf';
+        style.cursor = 'not-allowed';
+    }
+
+    return (
+        <div style={style}>
+            {date.date()}
+        </div>
+    );
+};
+
+    // --- START OF FIX ---
+    // This function now validates using the corrected `approvedDaysCount`.
+    // It will correctly see the 0.5 value and allow the approval to proceed.
+    const handleApproveClick = () => {
+         if (approvedDaysCount <= 0) {
+            message.warning("Please select at least one day to approve.");
+            return;
+        }
+        onApprove(request, selectedDays, hrComments);
+    };
+    // --- END OF FIX ---
+
+    return (
+        <Drawer
+            title="Review Leave Request"
+            width={window.innerWidth > 768 ? 600 : '95%'}
+            onClose={onClose}
+            open={visible}
+            destroyOnClose
+            footer={
+                <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+                    <Button onClick={onClose} disabled={loading}>Cancel</Button>
+                    <Popconfirm
+                        title="Reject this request?"
+                        description="This action cannot be undone."
+                        onConfirm={() => onReject(request, hrComments || 'Rejected by HR.')}
+                        disabled={loading}
+                    >
+                        <Button danger loading={loading}>Reject</Button>
+                    </Popconfirm>
+                    {/* --- START OF FIX --- */}
+                    {/* The button text now correctly displays fractional days (e.g., 0.5). */}
+                    <Button type="primary" onClick={handleApproveClick} loading={loading} style={{ background: config.color, borderColor: config.color }}>
+                        Approve ({approvedDaysCount} Day{approvedDaysCount !== 1 ? 's' : ''})
+                    </Button>
+                    {/* --- END OF FIX --- */}
+                </Space>
+            }
+        >
+             <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                <Card bordered={false} style={{ background: '#fafafa' }}>
+                     <Space align="center" size="middle">
+                        <Avatar size={48} src={request.users?.avatar_url} icon={<UserOutlined />} />
+                        <div>
+                            <Title level={5} style={{ margin: 0 }}>{request.users?.name}</Title>
+                            <Text type="secondary">{request.users?.employee_id}</Text>
+                        </div>
+                    </Space>
+                </Card>
+                <Descriptions bordered layout="vertical" size="small">
+                    <Descriptions.Item label="Leave Type" span={3}>
+                       <Tag color={config.color} icon={config.icon}>{leaveTypeForDisplay}</Tag>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Originally Requested" span={3}>
+                        <Text strong>{`${dayjs(request.start_date).format('DD MMM')} to ${dayjs(request.end_date).format('DD MMM YYYY')}`}</Text>
+                        <Tag color="blue" style={{ marginLeft: 8 }}>{request.requested_days || request.total_days} days</Tag>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Reason" span={3}>
+    {/* The 'blockquote' prop was causing a warning. 
+        Passing it as a string as suggested by the warning resolves the issue. */}
+    <Paragraph blockquote={"true"} style={{ margin: 0 }}>{request.reason}</Paragraph>
+</Descriptions.Item>
+                    
+                    
+{(request.medical_certificate || request.attachment) && (
+  <>
+    <Divider>Attachments</Divider>
+    <Card size="small">
+      <Space direction="vertical" style={{ width: '100%' }}>
+        {request.medical_certificate && (
+          <div>
+            <Text strong>Medical Certificate:</Text>
+            <br />
+            <Button
+              type="link"
+              icon={<FileTextOutlined />}
+              onClick={() => window.open(request.medical_certificate, '_blank')}
+              style={{ padding: 0, height: 'auto' }}
+            >
+              View Medical Certificate
+            </Button>
+          </div>
+        )}
+        {request.attachment && (
+          <div>
+            <Text strong>Additional Document:</Text>
+            <br />
+            <Button
+              type="link"
+              icon={<FileTextOutlined />}
+              onClick={() => window.open(request.attachment, '_blank')}
+              style={{ padding: 0, height: 'auto' }}
+            >
+              View Attachment
+            </Button>
+          </div>
+        )}
+      </Space>
+    </Card>
+  </>
+)}
+                </Descriptions>
+                
+                <Divider>HR Action: Select Days to Approve</Divider>
+              <Card>
+    <Calendar 
+        fullscreen={false} 
+        // FIX: Renamed 'dateFullCellRender' to 'fullCellRender'
+        fullCellRender={dateFullCellRender} 
+        onSelect={!isHalfDayLeave ? handleDaySelect : () => {}} 
+    />
+</Card>
+                 <Statistic
+                    title="Total Days Selected for Approval"
+                    value={approvedDaysCount}
+                    suffix="day(s)"
+                    valueStyle={{ color: '#0D7139', fontWeight: 600 }}
+                    style={{ textAlign: 'center', padding: '16px', background: '#f6ffed', borderRadius: '8px' }}
+                />
+                
+                <Input.TextArea 
+                    rows={3} 
+                    placeholder="Add HR comments (optional)..." 
+                    value={hrComments}
+                    onChange={(e) => setHrComments(e.target.value)}
+                />
+
+                <Divider>Recent Approved Leave History</Divider>
+             <Spin spinning={historyLoading}>
+    {history.length > 0 ? (
+        <Timeline
+            items={history.map(leave => ({
+                key: leave.id,
+                children: (
+                    <>
+                        <Text strong>{leave.leave_type}</Text> - {leave.total_days} day(s)
+                        <br/>
+                        <Text type="secondary" style={{fontSize: 12}}>{dayjs(leave.start_date).format('DD MMM')} to {dayjs(leave.end_date).format('DD MMM YYYY')}</Text>
+                    </>
+                )
+            }))}
+        />
+    ) : ( <Empty description="No recent approved leaves."/> )}
+</Spin>
+             </Space>
+        </Drawer>
+    );
+};
+// In leavemanage.jsx, inside the LeaveManagementPage component
+
+// const handleApproveMedicalRequest = async (request, approvedDaysArray, hrComments) => {
+//     setLoading(true);
+//     try {
+//         const employeeId = request.user_id;
+//         const userData = request.users;
+//         const approvedDaysCount = approvedDaysArray.length;
+
+//         if (!userData) throw new Error("Could not find the employee's details.");
+//         if (approvedDaysCount <= 0) {
+//             message.warning("Please select at least one day to approve.");
+//             setLoading(false);
+//             return;
+//         }
+
+//         const sortedDays = [...approvedDaysArray].sort();
+//         const startDate = dayjs(sortedDays[0]);
+//         const endDate = dayjs(sortedDays[sortedDays.length - 1]);
+
+//         // 1. Update the employee's balance with the granted days
+//         const { data: currentBalance, error: fetchError } = await supabase
+//             .from('leave_balances')
+//             .select('medical_extra_granted')
+//             .eq('user_id', employeeId)
+//             .single();
+
+//         if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+
+//         const newExtraGranted = (currentBalance?.medical_extra_granted || 0) + approvedDaysCount;
+//         await supabase
+//             .from('leave_balances')
+//             .update({ medical_extra_granted: newExtraGranted })
+//             .eq('user_id', employeeId);
+
+//         // 2. Create the official leave application record
+//         const newLeaveApplication = {
+//             user_id: employeeId,
+//             employee_name: userData.name,
+//             employee_code: userData.employee_id,
+//             leave_type: 'Medical Leave',
+//             start_date: startDate.format('YYYY-MM-DD'),
+//             end_date: endDate.format('YYYY-MM-DD'),
+//             total_days: approvedDaysCount,
+//             reason: `(HR Granted) ${request.reason}`,
+//             medical_certificate: request.medical_certificate_url,
+//             status: 'Approved',
+//             approved_by: currentUser?.name || 'HR',
+//             approved_date: new Date().toISOString(),
+//             hr_comments: hrComments,
+//             approved_dates: approvedDaysArray,
+//             initial_approved_dates: approvedDaysArray,
+//         };
+
+//         const { data: insertedLeave, error: insertError } = await supabase
+//             .from('leave_applications')
+//             .insert(newLeaveApplication)
+//             .select('*, users!inner(*)') // Fetch user data along with the new leave
+//             .single();
+
+//         if (insertError) throw insertError;
+
+//         // 3. Update the original request's status to 'Approved'
+//         await supabase.from('medical_leave_requests').update({
+//             status: 'Approved',
+//             approved_days: approvedDaysCount,
+//             hr_comments: hrComments,
+//         }).eq('id', request.id);
+
+//         message.success(`Request approved. A leave record for ${approvedDaysCount} day(s) has been created.`);
+
+//         // 4. Refresh UI State
+//         setLeaveData(prevData => [insertedLeave, ...prevData]);
+//         setPendingMedicalRequests(prev => prev.filter(r => r.id !== request.id));
+//         setSelectedMedicalRequest(null);
+//         setSelectedRequestForReview(null);
+
+//     } catch (error) {
+//         console.error('Error approving extra medical request:', error);
+//         message.error(`Failed to approve request: ${error.message}`);
+//     } finally {
+//         setLoading(false);
+//     }
+// };
+
+// const handleRejectMedicalRequest = async (request, reason) => {
+//     if (!request) return;
+//     setLoading(true);
+//     try {
+//         await supabase.from('medical_leave_requests').update({
+//             status: 'Rejected',
+//             hr_comments: reason,
+//         }).eq('id', request.id);
+
+//         message.success('Request has been rejected.');
+//         setPendingMedicalRequests(prev => prev.filter(r => r.id !== request.id));
+//         setSelectedMedicalRequest(null);
+//         setSelectedRequestForReview(null);
+//     } catch (error) {
+//         message.error('Failed to reject request.');
+//     } finally {
+//         setLoading(false);
+//     }
+// };
+// // Add this debugging function temporarily
+// const debugDatabaseStructure = async () => {
+//   try {
+//     console.log('=== DEBUGGING DATABASE STRUCTURE ===');
+    
+//     // Check company_calendar table structure
+//     const { data: calendarData, error: calendarError } = await supabase
+//       .from('company_calendar')
+//       .select('*')
+//       .limit(5);
+    
+//     console.log('Calendar table sample:', calendarData);
+//     console.log('Calendar error:', calendarError);
+    
+//     // Check for holidays specifically
+//     const { data: holidayData, error: holidayError } = await supabase
+//       .from('company_calendar')
+//       .select('*')
+//       .eq('day_type', 'holiday');
+    
+//     console.log('Holiday data:', holidayData);
+//     console.log('Holiday error:', holidayError);
+    
+//     // Check for working config
+//     const { data: configData, error: configError } = await supabase
+//       .from('company_calendar')
+//       .select('*')
+//       .eq('day_type', 'working_config');
+    
+//     console.log('Working config data:', configData);
+//     console.log('Working config error:', configError);
+    
+//   } catch (error) {
+//     console.error('Debug error:', error);
+//   }
+// };
 const fetchCompanyCalendar = async () => {
   try {
     const { data, error } = await supabase
@@ -150,13 +774,21 @@ const fetchCompanyCalendar = async () => {
       .select('date, day_type')
       .eq('day_type', 'holiday');
 
-    if (error) throw error;
-    // Return a set of holiday dates for quick lookup
+    if (error) {
+      console.error('Error fetching company calendar:', error);
+      return new Set(); // Return empty set instead of throwing
+    }
+    
+    // Ensure data is valid before processing
+    if (!data || !Array.isArray(data)) {
+      console.warn('Invalid calendar data received:', data);
+      return new Set();
+    }
+    
     return new Set(data.map(d => d.date));
   } catch (error) {
     console.error('Error fetching company calendar:', error);
-    message.error('Failed to fetch company calendar');
-    return new Set();
+    return new Set(); // Always return a Set, never throw
   }
 };
 
@@ -249,7 +881,6 @@ const fetchLeaveApplications = async (userId = null) => {
     let query;
 
     if (userId) {
-      // ✅ FIX: Added .eq('user_id', userId) to correctly filter for the current employee
       query = supabase
         .from('leave_applications')
         .select(`
@@ -335,34 +966,44 @@ const fetchLeaveBalances = async (userId) => {
     if (data) {
       const currentYear = dayjs().year();
       const lastUpdatedYear = dayjs(data.last_updated || data.created_at).year();
-      const currentMonth = dayjs().month();
+      const currentMonth = dayjs().month(); // 0-indexed (Jan=0, Dec=11)
       const lastMonthlyReset = dayjs(data.last_monthly_reset).month();
       const updates = {};
       let shouldUpdate = false;
 
-      // --- NEW: Monthly Renewal Logic ---
-      // Check if the month has changed since the last monthly reset
-      if (currentMonth !== lastMonthlyReset) {
-        updates.permission_remaining = 2; // Reset permissions to 2
-        updates.excuses_remaining = 1;     // Reset excuses to 1
-        updates.last_monthly_reset = new Date().toISOString();
+      // --- START OF FIX: Corrected Monthly Renewal Logic ---
+      // This logic now correctly detects a change in the calendar month.
+      if (currentMonth !== lastMonthlyReset || dayjs(data.last_monthly_reset).year() < currentYear) {
+        updates.permission_remaining = 4; // Reset to 4 hours
+        updates.excuses_remaining = 1;    // Reset to 1 excuse
+        updates.last_monthly_reset = new Date().toISOString(); // IMPORTANT: Update the timestamp
         shouldUpdate = true;
-        console.log(`Monthly renewal triggered for user ${userId}.`);
+        console.log(`Monthly renewal triggered for user ${userId}. Permissions and Excuses have been reset.`);
       }
+      // --- END OF FIX ---
 
-      // --- EXISTING: Yearly Renewal Logic (with slight modification) ---
+
+      // --- START OF FIX: Corrected Yearly Renewal Logic ---
+      // This block now implements your specific carry-forward and reset rules.
       if (currentYear > lastUpdatedYear) {
-        const newCasualTotal = data.casual_remaining + 12;
+        // 1. Casual Leave: Carries over the remaining balance and adds it to the new 12 days.
+        const newCasualTotal = 12 + (data.casual_remaining || 0);
         updates.casual_total = newCasualTotal;
         updates.casual_remaining = newCasualTotal;
+
+        // 2. Medical Leave: Forfeits unused days and resets to 12.
         updates.medical_total = 12;
         updates.medical_remaining = 12;
+        
+        // 3. Update the yearly timestamp
         updates.last_updated = new Date().toISOString();
         shouldUpdate = true;
-        console.log(`Yearly renewal triggered for user ${userId}.`);
+        console.log(`Yearly renewal triggered for user ${userId}. Casual leave carried over, Medical leave reset.`);
       }
+      // --- END OF FIX ---
 
-      // If any updates are needed, perform them
+
+      // If any renewal logic was triggered, send the update to the database.
       if (shouldUpdate) {
         const { error: updateError } = await supabase
           .from('leave_balances')
@@ -371,11 +1012,13 @@ const fetchLeaveBalances = async (userId) => {
         
         if (updateError) throw updateError;
         
-        // Fetch the newly updated data to reflect on the UI immediately
+        // Fetch the newly updated data immediately to ensure the UI shows the correct values.
+        console.log('Balances updated, refetching data...');
         return await fetchLeaveBalances(userId);
       }
     }
 
+    // If no updates were needed, return the original data.
     return data;
   } catch (error) {
     console.error("Error fetching or updating leave balances:", error);
@@ -439,12 +1082,13 @@ const calculateLeaveBalances = async (userId, currentUser) => {
   const totalMedicalUsed = (balanceData.medical_used || 0) + (balanceData.medical_extra_used || 0);
 
   return {
-    permission: {
-      total: balanceData.permission_total,
-      used: balanceData.permission_used,
-      remaining: balanceData.permission_remaining,
-      monthlyLimit: 2
-    },
+   // Replace the permission object structure
+permission: {
+  total: 4, // Changed from 2 to 4 (hours)
+  used: balanceData.permission_used || 0, // Now in hours
+  remaining: balanceData.permission_remaining || 0, // Now in hours
+  monthlyLimit: 4 // Changed from 2 to 4
+},
     casualLeave: {
       total: balanceData.casual_total,
       used: balanceData.casual_used,
@@ -489,17 +1133,18 @@ const calculateLeaveBalances = async (userId, currentUser) => {
 };
 // In leavemanage.jsx
 
-// 1. ADD THIS NEW COMPONENT before the main LeaveManagementPage component
-const LeaveHistoryDrawer = ({ visible, onClose, leaveData, currentUser }) => {
+const LeaveHistoryDrawer = ({ visible, onClose, leaveData, currentUser, onEdit, onCancel }) => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [typeFilter, setTypeFilter] = useState('All');
 
   const filteredHistory = useMemo(() => {
-    return leaveData.filter(leave => {
-      const statusMatch = statusFilter === 'All' || leave.status === statusFilter;
-      const typeMatch = typeFilter === 'All' || leave.leave_type === typeFilter;
-      return statusMatch && typeMatch;
-    });
+    return leaveData
+      .filter(leave => {
+        const statusMatch = statusFilter === 'All' || leave.status === statusFilter;
+        const typeMatch = typeFilter === 'All' || leave.leave_type === typeFilter;
+        return statusMatch && typeMatch;
+      })
+      .sort((a, b) => dayjs(b.start_date).diff(dayjs(a.start_date)));
   }, [leaveData, statusFilter, typeFilter]);
 
   const leaveTypes = useMemo(() => [...new Set(leaveData.map(l => l.leave_type))], [leaveData]);
@@ -516,7 +1161,7 @@ const LeaveHistoryDrawer = ({ visible, onClose, leaveData, currentUser }) => {
       onClose={onClose}
       open={visible}
       width={window.innerWidth > 768 ? 500 : '90%'}
-      destroyOnHidden
+      destroyOnClose // Use destroyOnClose to reset state
     >
       {/* Filter Controls */}
       <Card style={{ marginBottom: '16px', background: '#fafafa' }} size="small">
@@ -550,34 +1195,82 @@ const LeaveHistoryDrawer = ({ visible, onClose, leaveData, currentUser }) => {
         </Row>
       </Card>
 
-      {/* Leave List */}
-      {filteredHistory.length > 0 ? (
+        {filteredHistory.length > 0 ? (
         <div style={{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto', paddingRight: '8px' }}>
           <Timeline>
-            {filteredHistory.map(leave => {
-              const config = getLeaveTypeConfig(leave.leave_type);
-              return (
-                <Timeline.Item key={leave.id} dot={config.icon} color={config.color}>
-                  <div style={{ marginBottom: '12px' }}>
-                    <p style={{ margin: 0, fontWeight: 'bold' }}>
-                      {leave.leave_type}
-                      <Tag color={
-                        leave.status === 'Approved' ? 'success' :
-                        leave.status === 'Rejected' ? 'error' : 'warning'
-                      } style={{ marginLeft: '8px' }}>
-                        {leave.status}
+     
+{filteredHistory.map(leave => {
+  const config = getLeaveTypeConfig(leave.leave_type);
+  return (
+    <Timeline.Item key={leave.id} dot={config.icon} color={config.color}>
+      <div style={{ marginBottom: '12px' }}>
+        <Row justify="space-between" align="top">
+          <Col>
+            <p style={{ margin: 0, fontWeight: 'bold' }}>
+              {leave.leave_type}
+              <Tag color={
+                leave.status === 'Approved' ? 'success' :
+                leave.status === 'Rejected' ? 'error' : 'warning'
+              } style={{ marginLeft: '8px' }}>
+                {leave.status}
+              </Tag>
+            </p>
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              {/* Show original requested dates */}
+              Applied: {dayjs(leave.start_date).format('MMM DD')} - {dayjs(leave.end_date).format('MMM DD, YYYY')}
+              
+              {/* Show exact approved dates if available */}
+              {leave.status === 'Approved' && leave.approved_dates && leave.approved_dates.length > 0 && (
+                <>
+                  <br />
+                  <span style={{ color: '#52c41a', fontSize: '11px', fontWeight: 'bold' }}>
+                    HR Approved Days: 
+                  </span>
+                  <div style={{ marginTop: '4px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                    {leave.approved_dates.sort().map(date => (
+                      <Tag key={date} color="success" size="small" style={{ fontSize: '10px', margin: '1px' }}>
+                        {dayjs(date).format('MMM DD')}
                       </Tag>
-                    </p>
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                      {dayjs(leave.start_date).format('MMM DD, YYYY')} - {dayjs(leave.end_date).format('MMM DD, YYYY')}
-                    </Text>
-                     <Paragraph ellipsis={{ rows: 2, expandable: true, symbol: 'more' }} style={{ fontSize: '13px', marginTop: '4px', color: '#666' }}>
-                      Reason: {leave.reason}
-                    </Paragraph>
+                    ))}
                   </div>
-                </Timeline.Item>
-              );
-            })}
+                  <Text style={{ color: '#52c41a', fontSize: '10px', display: 'block', marginTop: '2px' }}>
+                    Total: {leave.approved_dates.length} day(s) approved
+                  </Text>
+                </>
+              )}
+              
+              {/* Show if some days were not approved */}
+              {leave.status === 'Approved' && leave.approved_dates && leave.approved_dates.length > 0 && 
+               leave.approved_dates.length < leave.total_days && (
+                <Text style={{ color: '#fa8c16', fontSize: '10px', display: 'block', marginTop: '2px' }}>
+                  ({leave.total_days - leave.approved_dates.length} day(s) not granted by HR)
+                </Text>
+              )}
+              
+               {leave.totalHours > 0 && `       • ${formatPermissionHours(leave.totalHours)}`}
+            </Text>
+          </Col>
+          
+          <Col>
+            {leave.status === 'Pending' && (
+              <Space>
+                <Tooltip title="Edit Request">
+                  <Button icon={<EditOutlined />} size="small" type="text" onClick={() => onEdit(leave)} />
+                </Tooltip>
+                <Tooltip title="Cancel Request">
+                  <Button icon={<DeleteOutlined />} size="small" type="text" danger onClick={() => onCancel(leave)} />
+                </Tooltip>
+              </Space>
+            )}
+          </Col>
+        </Row>
+        <Paragraph ellipsis={{ rows: 2, expandable: true, symbol: 'more' }} style={{ fontSize: '13px', marginTop: '4px', color: '#666' }}>
+          Reason: {leave.reason}
+        </Paragraph>
+      </div>
+    </Timeline.Item>
+  );
+})}
           </Timeline>
         </div>
       ) : (
@@ -855,6 +1548,31 @@ const CompensatoryLeaveModal = ({ visible, onCancel, employees }) => {
     </Drawer>
   );
 };
+
+
+const handleEditLeave = (leave) => {
+    if (leave.isExtraRequest) {
+        message.info("Extra medical requests cannot be edited. Please cancel and submit a new one if changes are needed.");
+        return;
+    }
+    
+    // This will now correctly access the 'form' instance
+    form.setFieldsValue({
+        leaveType: leave.leave_type,
+        subType: leave.sub_type,
+        startDate: dayjs(leave.start_date),
+        endDate: dayjs(leave.end_date),
+        startTime: leave.start_time ? dayjs(leave.start_time, 'HH:mm') : null,
+        endTime: leave.end_time ? dayjs(leave.end_time, 'HH:mm') : null,
+        reason: leave.reason,
+        session: leave.sub_type?.split(' - ')[1],
+    });
+    
+    form.setFieldValue('editingId', leave.id);
+    
+    setLeaveHistoryDrawer(false);
+    setApplyLeaveModal(true);
+};
 // --- END: REPLACE THE ENTIRE CompensatoryLeaveModal COMPONENT ---
 const LeaveManagementPage = ({ userRole = 'hr', currentUserId = '1' }) => {
   // if (userRole !== 'superadmin' && userRole !== 'admin' && userRole !== 'hr') {
@@ -864,14 +1582,13 @@ const LeaveManagementPage = ({ userRole = 'hr', currentUserId = '1' }) => {
   const [leaveData, setLeaveData] = useState([]);
   const [leaveBalanceRaw, setLeaveBalanceRaw] = useState(null);
   const [dataLoaded, setDataLoaded] = useState(false);
-  const [medicalLeaveModal, setMedicalLeaveModal] = useState(false);
   const [selectedEmployeeForMedical, setSelectedEmployeeForMedical] = useState(null);
-  const [medicalForm] = Form.useForm();
   const [filteredLeaves, setFilteredLeaves] = useState([]);
   const [loading, setLoading] = useState(false); // <--- setLoading is defined here
   const [isLoaded, setIsLoaded] = useState(false);
   const [leaveBalances, setLeaveBalances] = useState({});
   const [casualSubType, setCasualSubType] = useState('');
+    const [extraMedicalRequest, setExtraMedicalRequest] = useState(null);
 
   // Modal states
   const [applyLeaveModal, setApplyLeaveModal] = useState(false);
@@ -894,6 +1611,19 @@ const LeaveManagementPage = ({ userRole = 'hr', currentUserId = '1' }) => {
   const [pageSize, setPageSize] = useState(10);
   const [currentUser, setCurrentUser] = useState(null);
    const [compOffModalVisible, setCompOffModalVisible] = useState(false);
+   const [extraMedicalRequestModal, setExtraMedicalRequestModal] = useState(false);
+const [hrMedicalApprovalModal, setHrMedicalApprovalModal] = useState(false);
+const [pendingMedicalRequests, setPendingMedicalRequests] = useState([]);
+const [selectedMedicalRequest, setSelectedMedicalRequest] = useState(null);
+const [hrApprovalForm] = Form.useForm();
+ const [extraMedicalRequestDrawer, setExtraMedicalRequestDrawer] = useState(false);
+ const [isEditDrawerVisible, setIsEditDrawerVisible] = useState(false);
+const [editingLeave, setEditingLeave] = useState(null);
+const [editForm] = Form.useForm();
+const [selectedRequestForReview, setSelectedRequestForReview] = useState(null);
+const [isAdjustDrawerVisible, setIsAdjustDrawerVisible] = useState(false); // Renamed for clarity
+
+
 
 
 useEffect(() => {
@@ -948,25 +1678,34 @@ useEffect(() => {
     }, 100);
     return () => clearTimeout(timer);
   }, []);
-
 useEffect(() => {
-  // Only load data ONCE when component mounts and user is available
+    // This effect clears the 'Approved' or 'Rejected' status after 5 seconds to show the button again.
+    if (extraMedicalRequest?.status === 'Approved' || extraMedicalRequest?.status === 'Rejected') {
+        const timer = setTimeout(() => {
+            setExtraMedicalRequest(null); // Resetting the status will make the button reappear
+        }, 5000); // Display the status for 5 seconds
+
+        return () => clearTimeout(timer); // Clean up the timer if the component unmounts
+    }
+}, [extraMedicalRequest]);
+useEffect(() => {
   if (!dataLoaded && currentUser?.id && activeTab === 'dashboard') {
     const loadInitialData = async () => {
       setLoading(true);
       try {
-        // FIRST: Initialize balance if it doesn't exist (only for employee)
         if (userRole === 'employee') {
           await initializeUserLeaveBalance(currentUserId);
         }
         
-        // THEN: Load data
-        const leaves = await fetchLeaveApplications(userRole === 'employee' ? currentUserId : null);
+        // --- CHANGE: Use a new combined fetch function ---
+        const leaves = userRole === 'employee' 
+          ? await fetchCombinedEmployeeHistory(currentUserId)
+          : await fetchLeaveApplications(null);
         
-        // Only calculate balances for employee view
         let balances = {};
         if (userRole === 'employee') {
           balances = await calculateLeaveBalances(currentUserId, currentUser);
+          await fetchLastExtraMedicalRequest(currentUserId);
         }
         
         setLeaveData(leaves);
@@ -984,6 +1723,246 @@ useEffect(() => {
     loadInitialData();
   }
 }, [currentUser?.id, dataLoaded, activeTab, userRole]);
+// Move these functions INSIDE the LeaveManagementPage component (around line 600)
+const handleCancelLeave = async (leave) => {
+    Modal.confirm({
+        title: 'Are you sure you want to cancel this leave request?',
+        icon: <ExclamationCircleOutlined />,
+        content: 'This action cannot be undone.',
+        okText: 'Yes, Cancel It',
+        okType: 'danger',
+        async onOk() {
+            try {
+                const tableToDeleteFrom = leave.isExtraRequest ? 'medical_leave_requests' : 'leave_applications';
+                
+                const { error } = await supabase
+                    .from(tableToDeleteFrom)
+                    .delete()
+                    .eq('id', leave.id);
+
+                if (error) throw error;
+
+                // Update state immediately
+                setLeaveData(prevData => prevData.filter(item => item.id !== leave.id));
+                message.success('Leave request cancelled successfully.');
+
+            } catch (error) {
+                console.error('Error cancelling leave:', error);
+                message.error('Failed to cancel the leave request.');
+            }
+        },
+    });
+};
+
+const handleEditLeave = (leave) => {
+    if (leave.isExtraRequest) {
+        message.info("Extra medical requests cannot be edited. Please cancel and submit a new one if changes are needed.");
+        return;
+    }
+    
+    // Access the form instance correctly
+    form.setFieldsValue({
+        leaveType: leave.leave_type,
+        subType: leave.sub_type,
+        startDate: dayjs(leave.start_date),
+        endDate: dayjs(leave.end_date),
+        startTime: leave.start_time ? dayjs(leave.start_time, 'HH:mm') : null,
+        endTime: leave.end_time ? dayjs(leave.end_time, 'HH:mm') : null,
+        reason: leave.reason,
+        session: leave.sub_type?.split(' - ')[1],
+        editingId: leave.id // Set the editing ID
+    });
+    
+    setLeaveHistoryDrawer(false);
+    setApplyLeaveModal(true);
+};
+const LeaveEditDrawer = ({ visible, onClose, leave, onSave, loading }) => {
+    const [form] = Form.useForm();
+    const [adjustedDays, setAdjustedDays] = useState(0);
+
+    useEffect(() => {
+        if (leave) {
+            const startDate = dayjs(leave.start_date);
+            const endDate = dayjs(leave.end_date);
+            form.setFieldsValue({
+                dates: [startDate, endDate],
+                hr_comments: leave.hr_comments || '',
+            });
+            setAdjustedDays(leave.total_days);
+        }
+    }, [leave, form]);
+    
+    const handleDateChange = async (dates) => {
+        if (dates && dates.length === 2) {
+            const [start, end] = dates;
+            const days = await countDeductibleDays(start, end);
+            setAdjustedDays(days);
+        } else {
+            setAdjustedDays(0);
+        }
+    };
+
+    if (!leave) return null;
+
+    return (
+        <Drawer
+            title="Adjust Leave Dates"
+            width={500}
+            onClose={onClose}
+            open={visible}
+            destroyOnClose
+            footer={
+                <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+                    <Button onClick={onClose} disabled={loading}>Cancel</Button>
+                    <Button type="primary" onClick={() => form.submit()} loading={loading}>Save Changes</Button>
+                </Space>
+            }
+        >
+            <Form form={form} layout="vertical" onFinish={(values) => onSave(leave, values, adjustedDays)}>
+                <Descriptions bordered column={1} size="small" style={{ marginBottom: 24 }}>
+                    <Descriptions.Item label="Employee">{leave.users?.name}</Descriptions.Item>
+                    <Descriptions.Item label="Leave Type">{leave.leave_type}</Descriptions.Item>
+                    <Descriptions.Item label="Original Total Days">
+                        <Tag color="blue">{leave.total_days}</Tag>
+                    </Descriptions.Item>
+                </Descriptions>
+
+                <Form.Item name="dates" label="Adjusted Start and End Dates" rules={[{ required: true }]}>
+                    <RangePicker style={{ width: '100%' }} onChange={handleDateChange} />
+                </Form.Item>
+                
+                <Statistic
+                    title="New Total Deductible Days"
+                    value={adjustedDays}
+                    suffix="day(s)"
+                    valueStyle={{ color: '#0D7139' }}
+                    style={{ textAlign: 'center', marginBottom: 24, padding: '10px', background: '#f6ffed', borderRadius: '8px' }}
+                />
+
+                <Form.Item name="hr_comments" label="Reason for Adjustment (HR Comments)">
+                    <Input.TextArea rows={4} placeholder="e.g., Employee returned to work early." />
+                </Form.Item>
+            </Form>
+        </Drawer>
+    );
+};
+// In leavemanage.jsx, replace the existing handleAdjustLeave function with this one.
+// In leavemanage.jsx, replace the existing handleAdjustLeave function with this one.
+const handleAdjustLeave = async (originalLeave, newApprovedDays, dayDifference) => {
+    setLoading(true);
+    try {
+        // --- START OF FIX ---
+        // We add a check here. If the leave is an extra request, we will
+        // completely skip the logic that updates the employee's leave balance.
+        if (!originalLeave.isExtraRequest) {
+            // This logic now ONLY runs for REGULAR leave types (Casual, standard Medical, etc.)
+            const { data: balance } = await supabase
+                .from('leave_balances')
+                .select('*').eq('user_id', originalLeave.user_id).single();
+
+            if (!balance) throw new Error("User's leave balance not found.");
+
+            const updates = {};
+            const fieldMap = {
+                'Casual Leave': 'casual', 'Medical Leave': 'medical',
+                'Earned Leave': 'earned', 'Compensatory Leave': 'compensatory', 'Excuses': 'excuses' 
+            };
+            const field = fieldMap[originalLeave.leave_type];
+
+            // Step 1: Update the user's balance based on the calculated difference.
+          if (field && dayDifference !== 0) {
+        // For refunds (dayDifference > 0), we ADD back to remaining and SUBTRACT from used
+        // For revokes (dayDifference < 0), we SUBTRACT from remaining and ADD to used
+        updates[`${field}_used`] = Math.max(0, (balance[`${field}_used`] || 0) - dayDifference);
+        updates[`${field}_remaining`] = (balance[`${field}_remaining`] || 0) + dayDifference;
+        
+        await supabase.from('leave_balances').update(updates).eq('user_id', originalLeave.user_id);
+    }
+}
+        // If originalLeave.isExtraRequest is true, the entire block above is skipped.
+        // --- END OF FIX ---
+
+
+        // Step 2: ALWAYS update the original leave application record.
+        // This part runs for ALL leave types, including extra medical, which is correct.
+        const newTotalDaysForRecord = originalLeave.total_days - dayDifference;
+
+        const { error: updateError } = await supabase
+            .from('leave_applications')
+            .update({
+                total_days: newTotalDaysForRecord,
+                approved_dates: newApprovedDays,
+            })
+            .eq('id', originalLeave.id);
+
+        if (updateError) throw updateError;
+
+        // Step 3: Update the UI state to reflect the changes.
+        const updatedLeaveData = { 
+            ...originalLeave, 
+            total_days: newTotalDaysForRecord, 
+            approved_dates: newApprovedDays 
+        };
+        
+        setLeaveData(prev => prev.map(l => l.id === originalLeave.id ? updatedLeaveData : l));
+        setFilteredLeaves(prev => prev.map(l => l.id === originalLeave.id ? updatedLeaveData : l));
+        
+        if (dayDifference > 0) {
+            // Give a specific message for extra leaves
+            const messageText = originalLeave.isExtraRequest
+                ? `${dayDifference} day(s) have been adjusted. The record is retained without updating the balance.`
+                : `${dayDifference} day(s) refunded successfully. The record is retained.`;
+            message.success(messageText);
+        } else if (dayDifference < 0) {
+            message.success(`${Math.abs(dayDifference)} day(s) have been re-deducted.`);
+        }
+
+        setIsAdjustDrawerVisible(false);
+        setEditingLeave(null);
+
+    } catch (error) {
+        console.error("Error adjusting leave:", error);
+        message.error("Failed to adjust leave record.");
+    } finally {
+        setLoading(false);
+    }
+};
+
+const fetchCombinedEmployeeHistory = async (userId) => {
+    // 1. Fetch regular leave applications
+    const { data: regularLeaves, error: regularError } = await supabase
+        .from('leave_applications')
+        .select('*')
+        .eq('user_id', userId);
+
+    if (regularError) throw regularError;
+
+    // 2. Fetch ONLY PENDING extra medical leave requests
+    const { data: medicalRequests, error: medicalError } = await supabase
+        .from('medical_leave_requests')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('status', 'Pending'); // <-- CRUCIAL FIX: Only fetch pending requests
+        
+    if (medicalError) throw medicalError;
+
+    // 3. Map PENDING medical requests to a common format
+    const formattedMedicalRequests = medicalRequests.map(req => ({
+        ...req, 
+        leave_type: 'Medical Leave (Extra)',
+        total_days: req.requested_days,
+        applied_date: req.created_at,
+        sub_type: 'Extra Request',
+        isExtraRequest: true, // Flag to identify these for cancellation logic
+    }));
+
+    // 4. Combine and sort the data
+    const combinedData = [...(regularLeaves || []), ...formattedMedicalRequests];
+    combinedData.sort((a, b) => dayjs(b.applied_date || b.created_at).diff(dayjs(a.applied_date || a.created_at)));
+
+    return combinedData;
+}
+
  useEffect(() => {
   let filtered = leaveData;
   
@@ -1026,243 +2005,350 @@ useEffect(() => {
     },
   };
 // Add this component before LeaveManagementPage
-const HRMedicalLeaveModal = ({ visible, onCancel, employees, onAllocate, loading }) => {
-  const [form] = Form.useForm();
-  
-  return (
-    <Modal
-      title={
-        <Space>
-          <MedicineBoxOutlined style={{ color: '#ff4d4f' }} />
-          <span>Allocate Additional Medical Leave</span>
-        </Space>
-      }
-      open={visible}
-      onCancel={onCancel}
-      footer={[
-        <Button key="cancel" onClick={onCancel}>Cancel</Button>,
-        <Button 
-          key="allocate" 
-          type="primary" 
-          onClick={() => form.submit()}
-          loading={loading}
-          style={{ background: '#ff4d4f', borderColor: '#ff4d4f' }}
-        >
-          Allocate Leave
-        </Button>
-      ]}
-      width={600}
-      destroyOnHidden
-    >
-      <Form form={form} layout="vertical" onFinish={onAllocate}>
-        <Form.Item
-          name="employeeId"
-          label="Select Employee"
-          rules={[{ required: true, message: 'Please select an employee' }]}
-        >
-          <Select 
-            placeholder="Choose employee"
-            showSearch
-            filterOption={(input, option) =>
-              option.children.toLowerCase().includes(input.toLowerCase())
-            }
-          >
-            {employees.map(emp => (
-              <Option key={emp.id} value={emp.id}>
-                <Space>
-                  <Avatar size="small" style={{ backgroundColor: '#ff4d4f' }}>
-                    {emp.name.charAt(0)}
-                  </Avatar>
-                  {emp.name} ({emp.employee_id})
-                </Space>
-              </Option>
-            ))}
-          </Select>
-        </Form.Item>
+// In leavemanage.jsx, add these new functions inside the LeaveManagementPage component
+// In leavemanage.jsx, add this new function inside the LeaveManagementPage component
 
-        <Form.Item
-          name="extraDays"
-          label="Additional Medical Leave Days"
-          rules={[
-            { required: true, message: 'Please enter number of days' },
-            { type: 'number', min: 1, max: 30, message: 'Days must be between 1-30' }
-          ]}
-        >
-          <InputNumber
-            style={{ width: '100%' }}
-            placeholder="Enter number of additional days"
-            min={1}
-            max={30}
-          />
-        </Form.Item>
+const fetchLastExtraMedicalRequest = async (userId) => {
+    try {
+        const { data, error } = await supabase
+            .from('medical_leave_requests')
+            .select('status')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false }) // Get the most recent one
+            .limit(1)
+            .single();
 
-        {/* <Form.Item
-          name="medicalCertificate"
-          label="Medical Certificate (Required)"
-          rules={[{ required: true, message: 'Medical certificate is required' }]}
-          valuePropName="fileList"
-          getValueFromEvent={(e) => Array.isArray(e) ? e : e && e.fileList}
-        >
-          <Upload
-            listType="picture-card"
-            maxCount={1}
-            beforeUpload={() => false}
-            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-          >
-            <div>
-              <UploadOutlined />
-              <div style={{ marginTop: 8 }}>Upload Certificate</div>
-            </div>
-          </Upload>
-        </Form.Item> */}
+        if (error && error.code !== 'PGRST116') { // 'PGRST116' means no rows found, which is not an error here
+            throw error;
+        }
 
-        <Form.Item
-          name="reason"
-          label="HR Comments/Reason"
-          rules={[{ required: true, message: 'Please provide reason for allocation' }]}
-        >
-          <TextArea
-            rows={3}
-            placeholder="Reason for granting additional medical leave..."
-            maxLength={300}
-            showCount
-          />
-        </Form.Item>
-
-        <Alert
-          message="This will add extra medical leave days to the selected employee's balance."
-          type="warning"
-          showIcon
-          style={{ marginTop: '16px' }}
-        />
-      </Form>
-    </Modal>
-  );
+        setExtraMedicalRequest(data); // This will be the request object { status: '...' } or null
+    } catch (error) {
+        console.error("Error fetching last extra medical leave request:", error);
+        setExtraMedicalRequest(null); // Ensure state is null on error
+    }
 };
 
-const handleAllocateMedicalLeave = async (values) => {
-    setLoading(true);
+const fetchPendingMedicalRequests = async () => {
+    if (userRole === 'employee') return;
     try {
-      const { employeeId, extraDays, reason, medicalCertificate } = values;
+        const { data, error } = await supabase
+            .from('medical_leave_requests')
+            .select(`
+                *,
+                users:user_id (
+                    id,
+                    name,
+                    employee_id,
+                    department,
+                    email,
+                    start_date,
+                    employee_type
+                )
+            `)
+            .eq('status', 'Pending');
 
-      // 1. Upload the certificate
-      if (!medicalCertificate || medicalCertificate.length === 0) {
-        message.error('Medical certificate is required.');
-        setLoading(false);
-        return;
-      }
-      const certificateUrl = await uploadFileToSupabase(medicalCertificate[0].originFileObj);
+        if (error) throw error;
+        
+        // Log to verify medical_certificate_url is present
+        console.log('Fetched medical requests with certificates:', data);
+        
+        setPendingMedicalRequests(data || []);
+    } catch (error) {
+        console.error('Error fetching pending medical requests:', error);
+        message.error(`Could not fetch pending requests: ${error.message}`);
+    }
+};
 
-      // 2. Get the user's current leave balance
-      const { data: currentBalance, error: fetchError } = await supabase
-        .from('leave_balances')
-        .select('medical_extra_granted, medical_remaining')
-        .eq('user_id', employeeId)
-        .single();
+const handleExtraMedicalRequestSubmit = async (values) => {
+    try {
+        const { startDate, endDate, reason, medicalCertificate } = values;
 
-      if (fetchError) {
-        // If no record exists, initialize it first
-        await initializeUserLeaveBalance(employeeId);
-        // Then retry fetching
-        const { data: newBalance, error: newFetchError } = await supabase
-            .from('leave_balances')
-            .select('medical_extra_granted, medical_remaining')
-            .eq('user_id', employeeId)
-            .single();
-        if (newFetchError) throw newFetchError;
-        Object.assign(currentBalance, newBalance);
-      }
-      
-      // 3. Calculate new totals
-      const newExtraGranted = (currentBalance?.medical_extra_granted || 0) + extraDays;
-      const newRemaining = (currentBalance?.medical_remaining || 0) + extraDays;
+        const { data: overlappingLeaves, error: overlapError } = await supabase
+            .from('leave_applications')
+            .select('id')
+            .eq('user_id', currentUserId)
+            .in('status', ['Approved', 'Pending'])
+            .lte('start_date', endDate.format('YYYY-MM-DD'))
+            .gte('end_date', startDate.format('YYYY-MM-DD'));
 
-      // 4. Update the leave_balances table
-      const { error: updateError } = await supabase
-        .from('leave_balances')
-        .update({
-          medical_extra_granted: newExtraGranted,
-          medical_remaining: newRemaining,
-          // Optional: You could add a log of this specific allocation
-          // allocation_history: supabase.sql`allocation_history || ${JSON.stringify({ date: new Date(), days: extraDays, reason, certificateUrl })}::jsonb`
-        })
-        .eq('user_id', employeeId);
+        if (overlapError) throw overlapError;
 
-      if (updateError) throw updateError;
-      
-      message.success(`${extraDays} additional medical leave days allocated successfully!`);
-      
-      // 5. Close modal and reset form
-      setMedicalLeaveModal(false);
-      medicalForm.resetFields();
-      
-      // 6. Refresh data for the current view
-      if (userRole === 'employee' && currentUserId === employeeId) {
-        const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
-        setLeaveBalances(updatedBalances);
-      }
+        if (overlappingLeaves && overlappingLeaves.length > 0) {
+             message.error('You already have a leave application for these dates. Please check your history.');
+             return; 
+        }
+
+        const calculatedDays = await countDeductibleDays(startDate, endDate);
+        if (calculatedDays <= 0) {
+            message.error("The selected date range contains no working days.");
+            return;
+        }
+
+        const certificateUrl = await uploadFileToSupabase(medicalCertificate[0].originFileObj, 'medical-certificates');
+
+        const newRequest = {
+            user_id: currentUserId,
+            start_date: startDate.format('YYYY-MM-DD'),
+            end_date: endDate.format('YYYY-MM-DD'),
+            reason,
+            medical_certificate_url: certificateUrl,
+            requested_days: calculatedDays,
+            status: 'Pending',
+        };
+
+        const { data: insertedRequest, error } = await supabase.from('medical_leave_requests').insert(newRequest).select().single();
+        if (error) throw error;
+        
+        // --- START: NEW INSTANT UI UPDATE LOGIC ---
+        // Manually add the new pending request to the local state to show it immediately
+        const newLeaveForHistory = {
+            ...insertedRequest,
+            leave_type: 'Medical Leave (Extra)',
+            total_days: insertedRequest.requested_days,
+            applied_date: insertedRequest.created_at,
+            sub_type: 'Extra Request',
+            isExtraRequest: true,
+        };
+        setLeaveData(prevData => [newLeaveForHistory, ...prevData]);
+        // --- END: NEW INSTANT UI UPDATE LOGIC ---
+
+        setExtraMedicalRequest({ status: 'Pending' }); 
+        message.success('Your request for additional medical leave has been submitted to HR.');
+        
+        setExtraMedicalRequestDrawer(false); 
+        form.resetFields();
 
     } catch (error) {
-      console.error('Error allocating medical leave:', error);
-      message.error('Failed to allocate medical leave. Please try again.');
+        console.error('Error submitting extra medical leave request:', error);
+        message.error('Failed to submit your request.');
+    } 
+};
+// In leavemanage.jsx, replace the existing handleApproveMedicalRequest function
+
+// In leavemanage.jsx, replace the entire handleApproveMedicalRequest function with this one.
+
+// In leavemanage.jsx
+// This is a new function from the previous step, now with the required fix.
+// Make sure this function exists inside your LeaveManagementPage component.
+
+// In leavemanage.jsx
+// Replace the existing handleApproveMedicalRequest function with this one.
+
+const handleApproveMedicalRequest = async (request, approvedDaysArray, hrComments) => {
+    setLoading(true);
+    try {
+        const employeeId = request.user_id;
+        const userData = request.users;
+        const approvedDaysCount = approvedDaysArray.length;
+
+        if (!userData) throw new Error("Could not find the employee's details.");
+        if (approvedDaysCount <= 0) {
+            message.warning("Please select at least one day to approve.");
+            setLoading(false);
+            return;
+        }
+
+        const sortedDays = [...approvedDaysArray].sort();
+        const startDate = dayjs(sortedDays[0]);
+        const endDate = dayjs(sortedDays[sortedDays.length - 1]);
+
+        const newLeaveApplication = {
+            user_id: employeeId,
+            employee_name: userData.name,
+            employee_code: userData.employee_id,
+            department: userData.department || 'General',
+            position: userData.position || 'Employee', 
+            leave_type: 'Medical Leave',
+            start_date: startDate.format('YYYY-MM-DD'),
+            end_date: endDate.format('YYYY-MM-DD'),
+            total_days: approvedDaysCount,
+            reason: `(HR Granted) ${request.reason}`,
+            medical_certificate: request.medical_certificate_url,
+            status: 'Approved',
+            approved_by: currentUser?.name || 'HR',
+            approved_date: new Date().toISOString(),
+            hr_comments: hrComments,
+            approved_dates: approvedDaysArray, // FIX: Ensure this is included
+            initial_approved_dates: approvedDaysArray,
+            isExtraRequest: true
+        };
+
+        const { data: insertedLeave, error: insertError } = await supabase
+            .from('leave_applications')
+            .insert(newLeaveApplication)
+            .select('*, users!inner(*)')
+            .single();
+
+        if (insertError) throw insertError;
+
+        await supabase.from('medical_leave_requests').update({
+            status: 'Approved',
+            approved_days: approvedDaysCount,
+            hr_comments: hrComments,
+        }).eq('id', request.id);
+
+        message.success(`Request approved. Extra medical leave for ${approvedDaysCount} day(s) granted.`);
+
+        // FIX: Add the new leave record with all fields including approved_dates
+        setLeaveData(prevData => [insertedLeave, ...prevData]);
+        setFilteredLeaves(prevData => [insertedLeave, ...prevData]);
+        
+        setPendingMedicalRequests(prev => prev.filter(r => r.id !== request.id));
+        setSelectedMedicalRequest(null);
+        setSelectedRequestForReview(null);
+
+    } catch (error) {
+        console.error('Error approving extra medical request:', error);
+        message.error(`Failed to approve request: ${error.message}`);
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
+};
+
+
+// Add a simple reject handler as well
+const handleRejectMedicalRequest = async (reason) => {
+    if (!selectedMedicalRequest) return;
+    setLoading(true);
+    try {
+        await supabase.from('medical_leave_requests').update({
+            status: 'Rejected',
+            hr_comments: reason,
+            approved_by: currentUser?.id
+        }).eq('id', selectedMedicalRequest.id);
+        
+        message.success('Request has been rejected.');
+        setHrMedicalApprovalModal(false);
+        setSelectedMedicalRequest(null);
+        fetchPendingMedicalRequests(); // Refresh list
+    } catch (error) {
+        message.error('Failed to reject request.');
+    } finally {
+        setLoading(false);
+    }
+};
+// In leavemanage.jsx...
+
+// In leavemanage.jsx...
+
+const RequestExtraMedicalLeaveDrawer = ({ visible, onCancel, onSubmit }) => {
+    const [form] = Form.useForm();
+    const [daysCount, setDaysCount] = useState(0);
+    const [isSubmitting, setIsSubmitting] = useState(false); // Internal loading state
+
+    const calculateDays = async () => {
+        const { startDate, endDate } = form.getFieldsValue();
+        if (startDate && endDate && (endDate.isAfter(startDate) || endDate.isSame(startDate))) {
+            const deductibleDays = await countDeductibleDays(startDate, endDate);
+            setDaysCount(deductibleDays);
+        } else {
+            setDaysCount(0);
+        }
+    };
+
+    const handleFormSubmit = async (values) => {
+        setIsSubmitting(true);
+        try {
+            await onSubmit(values);
+            // On successful submission, the parent will close the drawer via the 'visible' prop
+        } catch (error) {
+            // Error is handled in the parent, but we must stop loading here
+            console.error("Submission failed in drawer:", error);
+        } finally {
+            setIsSubmitting(false); // Stop loading regardless of outcome
+        }
+    };
+    
+    // --- START: MODIFIED SECTION ---
+    const handleValuesChange = (changedValues, allValues) => {
+        // If the startDate is changed, automatically update the endDate
+        if (changedValues.startDate) {
+            form.setFieldsValue({ endDate: changedValues.startDate });
+        }
+        calculateDays();
+    };
+    // --- END: MODIFIED SECTION ---
+
+
+    return (
+        <Drawer
+            title="Request Additional Medical Leave"
+            width={window.innerWidth > 768 ? 500 : '95%'}
+            onClose={onCancel}
+            open={visible}
+            destroyOnClose
+            footer={
+                <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+                    <Button onClick={onCancel} disabled={isSubmitting}>Cancel</Button>
+                    <Button type="primary" onClick={() => form.submit()} loading={isSubmitting}>
+                        Submit to HR
+                    </Button>
+                </Space>
+            }
+        >
+            {/* --- START: MODIFIED SECTION --- */}
+            <Form form={form} layout="vertical" onFinish={handleFormSubmit} onValuesChange={handleValuesChange}>
+            {/* --- END: MODIFIED SECTION --- */}
+                <Alert
+                    message="Your standard medical leave balance is zero."
+                    description="Please fill this form to request additional leave. Your request and medical certificate will be reviewed by HR."
+                    type="warning"
+                    showIcon
+                    style={{ marginBottom: 24 }}
+                />
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <Form.Item name="startDate" label="From Date" rules={[{ required: true }]}>
+                            <DatePicker style={{ width: '100%' }} />
+                        </Form.Item>
+                    </Col>
+                    <Col span={12}>
+                        <Form.Item name="endDate" label="To Date" rules={[{ required: true }]}>
+                            {/* --- START: MODIFIED SECTION --- */}
+                            <DatePicker 
+                                style={{ width: '100%' }}
+                                disabledDate={(current) => {
+                                    const startDate = form.getFieldValue('startDate');
+                                    return current && startDate && current < startDate;
+                                }}
+                             />
+                             {/* --- END: MODIFIED SECTION --- */}
+                        </Form.Item>
+                    </Col>
+                </Row>
+                {daysCount > 0 && (
+                    <Statistic
+                        title="Total Working Days in Request"
+                        value={daysCount}
+                        suffix="day(s)"
+                        style={{ textAlign: 'center', marginBottom: 24, padding: '10px', background: '#f6ffed', borderRadius: '8px' }}
+                    />
+                )}
+                <Form.Item name="reason" label="Reason for Leave" rules={[{ required: true }]}>
+                    <Input.TextArea rows={3} placeholder="Describe the medical reason..." />
+                </Form.Item>
+                <Form.Item
+                    name="medicalCertificate"
+                    label="Medical Certificate (Required)"
+                    rules={[{ required: true, message: 'A medical certificate is mandatory' }]}
+                    valuePropName="fileList"
+                    getValueFromEvent={(e) => Array.isArray(e) ? e : e && e.fileList}
+                >
+                    <Upload listType="picture-card" maxCount={1} beforeUpload={() => false}>
+                        <div><PlusOutlined /> <div style={{ marginTop: 8 }}>Upload</div></div>
+                    </Upload>
+                </Form.Item>
+            </Form>
+        </Drawer>
+    );
+};
+
+
 // Helper to count only working days (exclude weekends + holidays)
 // In leavemanage.jsx, replace the existing countDeductibleDays function
 
-const countDeductibleDays = async (startDate, endDate) => {
-  // 1. Fetch all public holidays
-  const holidays = await fetchCompanyCalendar(); // Fetches all dates marked as 'holiday'
 
-  // 2. Fetch the dynamic working day configuration set by HR
-  const { data: configData, error: configError } = await supabase
-    .from('company_calendar')
-    .select('reason') // We only need the JSON data from the 'reason' column
-    .eq('day_type', 'working_config') // Fetch the correct configuration type
-    .single();
-
-  // Handle potential errors while fetching the configuration
-  if (configError && configError.code !== 'PGRST116') { // PGRST116 means no row was found, which is okay
-    console.error('Error fetching working day configuration:', configError);
-    // Fallback to a simple day count if the configuration is unavailable
-    return dayjs(endDate).diff(dayjs(startDate), 'day') + 1;
-  }
-
-  // 3. Define a default schedule in case no configuration is set in the database yet
-  const defaultConfig = {
-    monday: true, tuesday: true, wednesday: true,
-    thursday: true, friday: true, saturday: false, sunday: false
-  };
-
-  // 4. Safely parse the configuration from the database, or use the default
-  // This now correctly looks inside the nested JSON for the "workingDays" object
-  const workingDaysConfig = configData?.reason
-    ? JSON.parse(configData.reason).workingDays || defaultConfig
-    : defaultConfig;
-
-  // 5. Iterate through the date range to count only the deductible days
-  let deductibleDays = 0;
-  let current = dayjs(startDate);
-
-  while (current.isSameOrBefore(endDate, 'day')) {
-    const dayName = current.format('dddd').toLowerCase(); // e.g., 'monday', 'tuesday'
-    const isHoliday = holidays.has(current.format('YYYY-MM-DD'));
-    
-    // Check if the current day is marked as a working day in the fetched configuration
-    const isWorkingDay = workingDaysConfig[dayName];
-
-    // A day is only deducted if it is a configured working day AND not a public holiday
-    if (isWorkingDay && !isHoliday) {
-      deductibleDays++;
-    }
-
-    current = current.add(1, 'day');
-  }
-
-  return deductibleDays;
-};
 
 
 // In leavemanage.jsx, replace the existing calculateLeaveDays function
@@ -1280,35 +2366,53 @@ const calculateLeaveDays = async () => {
     return;
   }
 
-  let days = 0;
+  // In calculateLeaveDays function, replace the day calculation logic:
 
-  if (leaveType === 'Permission') {
-    days = 0; // Permissions are in hours.
-  } else if (leaveType === 'Excuses') {
-    days = 1; // An excuse is always treated as 1 unit/day for deduction.
-  } else if (leaveType === 'Casual Leave' && subType === 'HDL') {
-    // FIX: A half-day leave is always 0.5 days.
-    days = 0.5;
-  } else if (leaveType === 'Casual Leave' && subType === 'FDL') {
-    // Use the working day counter for Full Day Casual Leave
-    days = await countDeductibleDays(startDate, endDate || startDate);
-  }
-   else if (leaveType === 'Medical Leave') {
-    days = await countDeductibleDays(startDate, endDate || startDate);
-  } else {
-    // Default calculation for other leave types
-    const start = dayjs(startDate);
-    const end = dayjs(endDate || startDate);
-    days = end.diff(start, 'days') + 1;
-  }
+let days = 0;
 
-  setCalculatedDays(days);
+if (!startDate || !leaveType) {
+  setCalculatedDays(0);
+  setBalanceWarning('');
+  return;
+}
+
+if (leaveType === 'Permission') {
+  days = 0;
+} else if (leaveType === 'Excuses') {
+  days = 1;
+} else if (leaveType === 'Casual Leave' && subType === 'HDL') {
+  days = 0.5;
+} else if (leaveType === 'Compensatory Leave' || leaveType === 'Earned Leave') {
+  // FIXED: Count ALL days including weekends/holidays
+const start = dayjs(startDate).startOf('day');
+  const end = dayjs(endDate || startDate).startOf('day');
+  days = end.diff(start, 'day') + 1; // +1 to include the start day
+  console.log('DEBUG Comp/Earned:', { 
+    start: start.format('YYYY-MM-DD'), 
+    end: end.format('YYYY-MM-DD'), 
+    diff: end.diff(start, 'days'),
+    days 
+  });
+
+} else if (leaveType === 'Casual Leave' && subType === 'FDL') {
+  days = await countDeductibleDays(startDate, endDate || startDate);
+} else if (leaveType === 'Medical Leave') {
+  days = await countDeductibleDays(startDate, endDate || startDate);
+} else {
+  // Fallback for other types
+  const start = dayjs(startDate);
+  const end = dayjs(endDate || startDate);
+  days = end.diff(start, 'days') + 1;
+}
+
+setCalculatedDays(days);
+console.log('DEBUG calculateLeaveDays final:', { leaveType, subType, days });
 
   const currentBalance = getCurrentBalance(leaveType);
   if (days > 0 && days > currentBalance && leaveType !== 'On Duty' && leaveType !== 'Overtime') {
-    setBalanceWarning(`❌ You don’t have enough balance for ${leaveType}. Only ${currentBalance} available.`);
+    setBalanceWarning(`ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ You don't have enough balance for ${leaveType}. Only ${currentBalance} available.`);
   } else if (days > 0) {
-    setBalanceWarning(`✅ This will deduct ${days} day(s) from your ${leaveType} balance.`);
+    setBalanceWarning(`ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ This will deduct ${days} day(s) from your ${leaveType} balance.`);
   } else {
     setBalanceWarning('');
   }
@@ -1316,8 +2420,10 @@ const calculateLeaveDays = async () => {
 // Helper function to get current balance
 const getCurrentBalance = (leaveType) => {
   switch (leaveType) {
-    case 'Permission': return leaveBalances.permission?.remaining || 0;
-    case 'Casual Leave': return leaveBalances.casualLeave?.remaining || 0;
+case 'Permission': 
+  return leaveBalances.permission?.remaining || 0; 
+  case 'Casual Leave': 
+      return leaveBalances.casualLeave?.remaining || 0;
     case 'Earned Leave': return leaveBalances.earnedLeave?.remaining || 0;
     case 'Medical Leave': return leaveBalances.medicalLeave?.remaining || 0;
     case 'Maternity Leave': return leaveBalances.maternityLeave?.remaining || 0;
@@ -1338,81 +2444,129 @@ useEffect(() => {
 const handleApplyLeave = async (values) => {
   setLoading(true);
   try {
-    const { startDate, endDate, leaveType, subType, startTime, endTime, reason, session } = values;
+    const { editingId, ...leaveValues } = values; // Destructure the editingId
+    const { startDate, endDate, leaveType, subType, startTime, endTime, session } = values;
+    const effectiveEndDate = (leaveType === 'Casual Leave' && subType === 'HDL') || leaveType === 'Permission' || leaveType === 'Excuses'
+                             ? startDate
+                             : (endDate || startDate);
 
-    // --- START: NEW VALIDATION LOGIC FOR SAME-DAY LEAVE ---
-    const { data: existingLeavesOnDate } = await supabase
+    // 1. Fetch all potentially overlapping leaves first (includes the previous fix for 'approved_dates')
+    const { data: overlappingLeaves, error: overlapError } = await supabase
       .from('leave_applications')
-      .select('total_days')
+      .select('id, leave_type, start_date, end_date, status, total_days, sub_type, approved_dates') // Ensure approved_dates is selected
       .eq('user_id', currentUserId)
-      .eq('start_date', startDate.format('YYYY-MM-DD'))
-      .eq('status', 'Approved');
+      .in('status', ['Approved', 'Pending'])
+      .lte('start_date', effectiveEndDate.format('YYYY-MM-DD'))
+      .gte('end_date', startDate.format('YYYY-MM-DD'));
 
-    let alreadyApprovedDays = 0;
-    if (existingLeavesOnDate) {
-      alreadyApprovedDays = existingLeavesOnDate.reduce((sum, leave) => sum + leave.total_days, 0);
-    }
+    if (overlapError) throw overlapError;
 
-    if (alreadyApprovedDays >= 1) {
-      message.error(`You already have a full day of approved leave on ${startDate.format('DD/MM/YYYY')}.`);
+    // --- START OF THE DEFINITIVE FIX FOR 'PENDING LEAVE EXISTS' ---
+    // This logic now correctly checks for an actual date intersection with ONLY pending leaves.
+    const hasPendingOverlap = overlappingLeaves?.some(leave => {
+        // Step 1: Ignore any leave that is not in 'Pending' status.
+        if (leave.status !== 'Pending') {
+            return false;
+        }
+        
+        // Step 2: Check for a true date range intersection.
+        const pendingStart = dayjs(leave.start_date);
+        const pendingEnd = dayjs(leave.end_date);
+        const newRequestStart = dayjs(startDate);
+        const newRequestEnd = dayjs(effectiveEndDate);
+
+        // An overlap exists if the pending leave's start is before or on the new request's end,
+        // AND the new request's start is before or on the pending leave's end.
+        return pendingStart.isSameOrBefore(newRequestEnd, 'day') && newRequestStart.isSameOrBefore(pendingEnd, 'day');
+    });
+    // --- END OF THE DEFINITIVE FIX ---
+
+    if (hasPendingOverlap) {
+      Modal.warning({
+        title: 'Pending Leave Exists',
+        content: `You already have a pending leave request covering this period. Please wait for it to be processed before submitting another.`,
+        onOk: () => setLeaveHistoryDrawer(true),
+        okText: 'View History'
+      });
       setLoading(false);
       return;
     }
-    // --- END: NEW VALIDATION LOGIC ---
 
-    if (leaveType === 'Permission' && startTime && endTime) {
-      const hours = endTime.diff(startTime, 'hours');
-      if (hours > 2) {
-        message.error('Permission cannot be applied for more than 2 hours.');
-        setLoading(false);
-        return;
-      }
-    }
+    // 3. Calculate already approved days from the fetched leaves (This is from the previous fix and remains correct)
+    const alreadyApprovedDays = overlappingLeaves
+      ?.filter(leave => leave.status === 'Approved' && leave.approved_dates?.includes(startDate.format('YYYY-MM-DD')))
+      .reduce((sum, leave) => {
+          // Handle half-day logic
+          const dayValue = (leave.sub_type && leave.sub_type.includes('HDL')) ? 0.5 : 1;
+          return sum + dayValue;
+      }, 0) || 0;
 
-    let totalDays = 0;
 
-    if (leaveType === 'Permission') {
-      totalDays = 0;
-    } else if (leaveType === 'Excuses') {
-      totalDays = 1;
-    } else if (leaveType === 'Casual Leave' && subType === 'HDL') {
-      totalDays = 0.5;
-    } else if (leaveType === 'Casual Leave' || leaveType === 'Medical Leave') {
-      totalDays = await countDeductibleDays(startDate, endDate || startDate);
-    } else {
-      const start = dayjs(startDate);
-      const end = dayjs(endDate || startDate);
-      totalDays = end.diff(start, 'days') + 1;
-    }
+    // In handleApplyLeave, find the totalDays calculation and replace:
+
+let totalDays = 0;
+
+if (leaveType === 'Permission') {
+  totalDays = 0;
+} else if (leaveType === 'Excuses') {
+  totalDays = 1;
+} else if (leaveType === 'Casual Leave' && subType === 'HDL') {
+  totalDays = 0.5;
+} else if (leaveType === 'Compensatory Leave' || leaveType === 'Earned Leave') {
+   const start = dayjs(startDate).startOf('day');
+  const end = dayjs(effectiveEndDate).startOf('day');
+  totalDays = end.diff(start, 'day') + 1; // +1 to include the start day
+  console.log('DEBUG handleApplyLeave Comp/Earned:', { 
+    start: start.format('YYYY-MM-DD'), 
+    end: end.format('YYYY-MM-DD'), 
+    diff: end.diff(start, 'days'),
+    totalDays 
+  });
+
+} else if (leaveType === 'Casual Leave' || leaveType === 'Medical Leave') {
+  totalDays = await countDeductibleDays(startDate, effectiveEndDate);
+} else {
+  // Fallback for other types (Maternity, On Duty, etc.)
+  const start = dayjs(startDate);
+  const end = dayjs(effectiveEndDate);
+  totalDays = end.diff(start, 'days') + 1;
+}
+
+console.log('DEBUG handleApplyLeave final totalDays:', { leaveType, totalDays });
     
-    // --- ADJUST DEDUCTION AMOUNT BASED ON EXISTING LEAVE ---
+    // 4. Adjust the deduction amount based on existing approved leave
     const finalDeductionDays = Math.max(0, totalDays - alreadyApprovedDays);
-    if (totalDays > 0 && finalDeductionDays < totalDays) {
-        message.info(`Adjusted deduction: Only ${finalDeductionDays} day(s) will be deducted as you already have approved leave on this day.`);
+
+    if (totalDays > 0 && finalDeductionDays <= 0) {
+      Modal.info({
+        title: 'Leave Already Covered',
+        content: `The dates you selected are already covered by an approved leave. No new application will be created.`
+      });
+      setLoading(false);
+      return;
     }
 
+    if (totalDays > 0 && finalDeductionDays < totalDays) {
+      message.info(`Adjusted deduction: Only ${finalDeductionDays} day(s) will be deducted as you already have approved leave on this day.`);
+    }
 
+    // 5. Use the 'finalDeductionDays' for balance validation (No changes below this line)
     const currentBalance = getCurrentBalance(leaveType);
     const isValidationRequired = !['On Duty', 'Overtime'].includes(leaveType);
 
-    if (isValidationRequired) {
-      if (leaveType === 'Casual Leave' && subType === 'HDL' && currentBalance < 0.5) {
-        message.error(`You don't have enough ${leaveType}. Need 0.5 days, but only ${currentBalance} available.`);
-        setLoading(false);
-        return;
-      } else if (finalDeductionDays > currentBalance && !(leaveType === 'Casual Leave' && subType === 'HDL')) {
-        message.error(`You don't have enough ${leaveType}. Only ${currentBalance} available.`);
-        setLoading(false);
-        return;
-      }
-    }
-    
+   // THE PROPOSED NEW CODE
+if (isValidationRequired && finalDeductionDays > currentBalance) {
+    message.error(`You don't have enough ${leaveType}. You need ${finalDeductionDays} day(s), but only ${currentBalance} are available.`);
+    setLoading(false);
+    return;
+}
+
     const { data: userData } = await supabase
       .from('users')
       .select('*')
       .eq('id', currentUserId)
       .single();
-      
+
     if (!userData) {
       message.error('User information not found');
       setLoading(false);
@@ -1429,8 +2583,19 @@ const handleApplyLeave = async (values) => {
     if (values.attachment && values.attachment.length > 0) {
       attachmentUrl = await uploadFileToSupabase(values.attachment[0].originFileObj);
     }
+    
+   let permissionHours = 0;
+    if (values.leaveType === 'Permission' && values.startTime && values.endTime) {
+        const diffInMinutes = values.endTime.diff(values.startTime, 'minute');
+        permissionHours = Math.round((diffInMinutes / 60) * 100) / 100;
+    }
+    
+    let correctedSubType = subType;
+    if (finalDeductionDays > 0 && finalDeductionDays < 1 && subType !== 'HDL') {
+        correctedSubType = 'HDL - (Auto-Adjusted)';
+    }
 
-    const newLeave = {
+   const leaveDataPayload  = {
       user_id: currentUserId,
       employee_name: userData.name,
       employee_code: userData.employee_id,
@@ -1440,47 +2605,55 @@ const handleApplyLeave = async (values) => {
       join_date: userData.start_date,
       employee_type: userData.employee_type,
       leave_type: values.leaveType,
-      sub_type: subType === 'HDL' ? `${subType} - ${session}` : subType,
+      sub_type: correctedSubType === 'HDL' ? `${correctedSubType} - ${session}` : correctedSubType,
       start_date: values.startDate.format('YYYY-MM-DD'),
       end_date: subType === 'HDL' ? values.startDate.format('YYYY-MM-DD') : (values.endDate || values.startDate).format('YYYY-MM-DD'),
       start_time: values.startTime ? values.startTime.format('HH:mm') : null,
       end_time: values.endTime ? values.endTime.format('HH:mm') : null,
-      total_days: finalDeductionDays, // Use the final adjusted days
-      total_hours: values.leaveType === 'Permission' && values.startTime && values.endTime ? 
-                  values.endTime.diff(values.startTime, 'hours', true) : 0,
+      total_days: finalDeductionDays, // Use the adjusted days for the record
+      total_hours: permissionHours,
       reason: values.reason,
       medical_certificate: medicalCertificateUrl,
       attachment: attachmentUrl,
+      status: 'Pending',
       working_days_at_application: currentUser?.workingDays || 0
     };
-      
-    const { error } = await supabase
-      .from('leave_applications')
-      .insert([newLeave])
-      .select()
-      .single();
-    
-    if (error) throw error;
-    
+
+    if (editingId) {
+        const { error } = await supabase
+            .from('leave_applications')
+            .update(leaveDataPayload)
+            .eq('id', editingId);
+        if (error) throw error;
+        setLeaveData(prevData => 
+            prevData.map(item => item.id === editingId ? {...item, ...leaveDataPayload} : item)
+        );
+        message.success('Leave application updated successfully!');
+    } else {
+      const { error } = await supabase
+        .from('leave_applications')
+       .insert([leaveDataPayload]);
+      if (error) throw error;
+      message.success('Leave application submitted successfully!');
+    }
+
     clearCache();
-    
-    const updatedLeaves = await fetchLeaveApplications(userRole === 'employee' ? currentUserId : null);
+    const updatedLeaves = await fetchCombinedEmployeeHistory(currentUserId);
     setLeaveData(updatedLeaves);
-    
+
     if (userRole === 'employee') {
       const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
       setLeaveBalances(updatedBalances);
     }
-    
+
     setApplyLeaveModal(false);
     form.resetFields();
     setBalanceWarning('');
     setCalculatedDays(0);
-    message.success('Leave application submitted successfully!');
 
   } catch (error) {
-    console.error('Error submitting leave:', error);
-    message.error('Failed to submit leave application');
+    console.error('Error submitting/updating leave:', error);
+    message.error('Failed to process leave application.');
   } finally {
     setLoading(false);
   }
@@ -1490,7 +2663,7 @@ const handleApplyLeave = async (values) => {
 {balanceWarning && (
   <Alert
     message={balanceWarning}
-    type={balanceWarning.includes('❌') ? 'error' : 'success'}
+    type={balanceWarning.includes('ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢') ? 'error' : 'success'}
     showIcon
     style={{ marginBottom: '16px' }}
   />
@@ -1512,25 +2685,29 @@ const updateLeaveBalance = async (userId, leaveType, days, subType = null) => {
     }
 
     const updates = { updated_at: new Date().toISOString() };
+    // FIX: Define 'actualDays' here to make it available throughout the function's scope.
+    // It's initialized with the default 'days' value.
+    let actualDays = days;
         
     switch (leaveType) {
       case 'Permission':
-        updates.permission_used = (currentBalances.permission_used || 0) + 1;
-        updates.permission_remaining = Math.max(0, (currentBalances.permission_remaining || 2) - 1);
+        const hoursUsed = days; // 'days' parameter now represents hours for Permission
+        updates.permission_used = (currentBalances.permission_used || 0) + hoursUsed;
+        updates.permission_remaining = Math.max(0, (currentBalances.permission_remaining || 4) - hoursUsed);
+        // FIX: Re-assign the value for logging purposes.
+        actualDays = hoursUsed;
         break;
         
       case 'Casual Leave':
-        // FIX: Use the actual days value for HDL (0.5) or FDL (varies)
-        const actualDays = subType && subType.includes('HDL') ? 0.5 : days;
+        // FIX: Re-assign the value, remove the block-scoped 'const'.
+        actualDays = subType && subType.includes('HDL') ? 0.5 : days;
         updates.casual_used = (currentBalances.casual_used || 0) + actualDays;
         updates.casual_remaining = Math.max(0, (currentBalances.casual_remaining || 12) - actualDays);
         break;
         
       case 'Earned Leave':
         updates.earned_used = (currentBalances.earned_used || 0) + days;
-        // FIX: Calculate remaining based on current earned leave total
-        const currentEarnedTotal = await calculateEarnedLeaveTotal(userId);
-        updates.earned_remaining = Math.max(0, currentEarnedTotal - ((currentBalances.earned_used || 0) + days));
+        updates.earned_remaining = Math.max(0, (currentBalances.earned_remaining || 0) - days);
         break;
         
       case 'Medical Leave':
@@ -1545,9 +2722,7 @@ const updateLeaveBalance = async (userId, leaveType, days, subType = null) => {
         
       case 'Compensatory Leave':
         updates.compensatory_used = (currentBalances.compensatory_used || 0) + days;
-        // FIX: Calculate remaining based on current compensatory leave total
-        const currentCompTotal = await calculateCompensatoryLeaveTotal(userId);
-        updates.compensatory_remaining = Math.max(0, currentCompTotal - ((currentBalances.compensatory_used || 0) + days));
+        updates.compensatory_remaining = Math.max(0, (currentBalances.compensatory_remaining || 0) - days);
         break;
         
       case 'Excuses':
@@ -1556,7 +2731,7 @@ const updateLeaveBalance = async (userId, leaveType, days, subType = null) => {
         break;
       
       default:
-        return; // No balance update needed for On Duty, Overtime, etc.
+        return;
     }
 
     const { error: updateError } = await supabase
@@ -1567,12 +2742,33 @@ const updateLeaveBalance = async (userId, leaveType, days, subType = null) => {
     if (updateError) {
       console.error('Error updating leave balances:', updateError.message);
     } else {
-      console.log(`Leave balance updated: ${actualDays || days} days deducted for user:`, userId);
+      // FIX: Use the correctly scoped 'actualDays' variable.
+      console.log(`Leave balance updated: ${actualDays} days deducted for user:`, userId);
     }
 
   } catch (error) {
     console.error('Error in updateLeaveBalance:', error);
   }
+};
+// Add this new helper function
+const formatPermissionHours = (decimalHours) => {
+  if (!decimalHours || decimalHours <= 0) {
+    return '';
+  }
+  // Convert decimal hours to total minutes to avoid floating point issues
+  const totalMinutes = Math.round(decimalHours * 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  const parts = [];
+  if (hours > 0) {
+    parts.push(`${hours}h`);
+  }
+  if (minutes > 0) {
+    parts.push(`${minutes}m`);
+  }
+
+  return parts.length > 0 ? parts.join(' ') : '0m';
 };
 const calculateEarnedLeaveTotal = async (userId) => {
   // Cache holidays to prevent repeated fetching
@@ -1656,10 +2852,10 @@ const initializeUserLeaveBalance = async (userId) => {
       .from('leave_balances')
       .insert([{
         user_id: userId,
-        employee_name: userData.name,
-        permission_total: 2,
-        permission_used: 0,
-        permission_remaining: 2,
+    employee_name: userData.name,
+    permission_total: 4, // Changed from 2
+    permission_used: 0, // Now stores hours
+    permission_remaining: 4, // Changed from 2
         // --- UPDATED: Use prorated values for the first year ---
         casual_total: proratedLeaves,
         casual_used: 0,
@@ -1692,76 +2888,198 @@ const initializeUserLeaveBalance = async (userId) => {
     console.error('Error in initializeUserLeaveBalance:', error);
   }
 };
-// Update the handleLeaveAction function:
-const handleLeaveAction = async (leaveId, action, reason = null) => {
-  setLoading(true);
-  try {
-    // Get the leave details first
-    const { data: leaveDetails, error: fetchError } = await supabase
-      .from('leave_applications')
-      .select('*')
-      .eq('id', leaveId)
-      .single();
-    
-    if (fetchError) throw fetchError;
+// In leavemanage.jsx
+// In leavemanage.jsx, replace the existing handleApproveLeave function
+const handleApproveLeave = async (leave, selectedDays, comments) => {
+    setLoading(true);
+    try {
+        // Handle Permission leave differently (no day selection needed)
+        if (leave.leave_type === 'Permission') {
+            const updates = {
+                status: 'Approved',
+                approved_by: currentUser?.name || 'Admin',
+                approved_date: new Date().toISOString(),
+                hr_comments: comments || 'Permission approved',
+            };
 
-    const updates = {
-      status: action === 'approve' ? 'Approved' : 'Rejected',
-      approved_by: action === 'approve' ? (currentUser?.name || 'Admin') : null,
-      rejected_by: action === 'reject' ? (currentUser?.name || 'Admin') : null,
-      approved_date: action === 'approve' ? new Date().toISOString().split('T')[0] : null,
-      rejection_reason: action === 'reject' ? reason : null,
-    };
-    
-    const { error } = await supabase
-      .from('leave_applications')
-      .update(updates)
-      .eq('id', leaveId);
-    
-    if (error) throw error;
-    
-    // Update balance if approved
-  // In handleLeaveAction function, after updating balance:
-if (action === 'approve') {
-  // FIX: Pass the sub_type to handle HDL correctly
-  const totalDays = leaveDetails.leave_type === 'Permission' ? 0 : leaveDetails.total_days;
-  await updateLeaveBalance(
-    leaveDetails.user_id, 
-    leaveDetails.leave_type, 
-    totalDays, 
-    leaveDetails.sub_type // Pass sub_type for HDL detection
-  );
-  
-  // Force refresh balances for the affected user
-  if (leaveDetails.user_id === currentUserId) {
-    // Clear cache to ensure fresh calculation
-    clearCache();
-    const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
-    setLeaveBalances(updatedBalances);
-  }
-}
-    
-    // Force immediate UI refresh (backup to realtime)
-    setTimeout(async () => {
-      const updatedLeaves = await fetchLeaveApplications(userRole === 'employee' ? currentUserId : null);
-      setLeaveData(updatedLeaves);
-      
-      // Update balances for the affected user
-      if (userRole === 'employee' && leaveDetails.user_id === currentUserId) {
-        const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
-        setLeaveBalances(updatedBalances);
-      }
-    }, 300);
-    
-    message.success(`Leave ${action}d successfully!`);
-  } catch (error) {
-    console.error(`Error ${action}ing leave:`, error);
-    message.error(`Failed to ${action} leave. Please try again.`);
-  } finally {
-    setLoading(false);
-  }
+            const { error } = await supabase
+                .from('leave_applications')
+                .update(updates)
+                .eq('id', leave.id);
+
+            if (error) throw error;
+
+            // Update leave balance with hours
+            await updateLeaveBalance(leave.user_id, leave.leave_type, leave.total_hours, leave.sub_type);
+
+            setLeaveData(prev => prev.map(l => 
+                l.id === leave.id 
+                    ? { ...l, ...updates }
+                    : l
+            ));
+            
+            setFilteredLeaves(prev => prev.map(l => 
+                l.id === leave.id 
+                    ? { ...l, ...updates }
+                    : l
+            ));
+
+            message.success(`Permission approved for ${leave.total_hours} hours.`);
+            return; // Exit early for Permission
+        }
+
+        // --- START OF FIX ---
+        // For half-day leaves, we must use the original fractional value (0.5).
+        // For all other leaves, the new total is the count of days HR explicitly selected.
+        const isHalfDay = leave.sub_type && leave.sub_type.includes('HDL');
+        const newTotalDays = isHalfDay ? leave.total_days : selectedDays.length;
+        // --- END OF FIX ---
+
+        if (newTotalDays <= 0 && !isHalfDay) { // Allow 0.5 to pass
+             message.error("Cannot approve leave with zero days selected.");
+             setLoading(false);
+             return;
+        }
+
+        // The start and end dates are determined by what HR selects in the UI.
+        const sortedDays = selectedDays.sort((a, b) => new Date(a) - new Date(b));
+        const newStartDate = sortedDays[0];
+        const newEndDate = sortedDays[sortedDays.length - 1];
+
+        const updates = {
+            status: 'Approved',
+            approved_by: currentUser?.name || 'Admin',
+            approved_date: new Date().toISOString(),
+            hr_comments: comments,
+            start_date: newStartDate,
+            end_date: newEndDate,
+            total_days: newTotalDays, // Use the CORRECT calculated value
+            approved_dates: selectedDays,
+            initial_approved_dates: selectedDays,
+        };
+
+        const { error } = await supabase
+            .from('leave_applications')
+            .update(updates)
+            .eq('id', leave.id);
+
+        if (error) throw error;
+
+        // The correct deduction amount (e.g., 3 days) is now passed to the balance update function.
+        await updateLeaveBalance(leave.user_id, leave.leave_type, newTotalDays, leave.sub_type);
+
+        setSelectedRequestForReview(null);
+        
+        setLeaveData(prev => prev.map(l => 
+            l.id === leave.id 
+                ? { ...l, ...updates }
+                : l
+        ));
+        
+        setFilteredLeaves(prev => prev.map(l => 
+            l.id === leave.id 
+                ? { ...l, ...updates }
+                : l
+        ));
+
+        message.success(`Leave approved for ${newTotalDays} days.`);
+
+    } catch (error) {
+        console.error('Error approving leave:', error);
+        message.error('Failed to approve leave.');
+    } finally {
+        setLoading(false);
+    }
 };
- 
+// Update the handleLeaveAction function:
+const handleLeaveAction = async (leave, selectedDays, comments) => {
+    // This function now handles approvals from the new calendar drawer. Rejection can be simpler.
+    setLoading(true);
+    try {
+        // Sort days to find the new start and end date for the record
+        const sortedDays = selectedDays.sort((a, b) => new Date(a) - new Date(b));
+        const newStartDate = sortedDays[0];
+        const newEndDate = sortedDays[sortedDays.length - 1];
+        const newTotalDays = selectedDays.length;
+
+        const updates = {
+            status: 'Approved',
+            approved_by: currentUser?.name || 'Admin',
+            approved_date: new Date().toISOString(),
+            // CRUCIAL: Store the exact approved dates
+            // NOTE: You must add a column named `approved_dates` of type `jsonb` or `text[]` to your `leave_applications` table in Supabase.
+            approved_dates: selectedDays,
+            hr_comments: comments,
+            start_date: newStartDate,
+            end_date: newEndDate,
+            total_days: newTotalDays,
+        };
+        
+        const { error } = await supabase
+            .from('leave_applications')
+            .update(updates)
+            .eq('id', leave.id);
+        
+        if (error) throw error;
+        
+        // Update the employee's balance with the new total days
+        await updateLeaveBalance(leave.user_id, leave.leave_type, newTotalDays, leave.sub_type);
+        
+        // This closes the drawer by resetting the state in the parent component
+        setSelectedMedicalRequest(null); 
+        
+        // Refresh data on screen
+        setLeaveData(prev => prev.map(l => l.id === leave.id ? { ...l, ...updates } : l));
+
+        message.success(`Leave approved for ${newTotalDays} days.`);
+
+    } catch (error) {
+        console.error('Error approving leave:', error);
+        message.error('Failed to approve leave.');
+    } finally {
+        setLoading(false);
+    }
+};
+const handleRejectLeave = async (leaveId, reason) => {
+    setLoading(true);
+    try {
+        const updates = { 
+            status: 'Rejected', 
+            rejection_reason: reason, 
+            rejected_by: currentUser?.name || 'Admin',
+            rejected_date: new Date().toISOString()
+        };
+        
+        const { error } = await supabase
+            .from('leave_applications')
+            .update(updates)
+            .eq('id', leaveId);
+
+        if (error) throw error;
+
+        // FIX: Update both leaveData and filteredLeaves immediately
+        setLeaveData(prev => prev.map(l => 
+            l.id === leaveId 
+                ? { ...l, ...updates }
+                : l
+        ));
+        
+        setFilteredLeaves(prev => prev.map(l => 
+            l.id === leaveId 
+                ? { ...l, ...updates }
+                : l
+        ));
+
+        message.success('Leave has been rejected.');
+        setSelectedRequestForReview(null);
+        
+    } catch (error) {
+        console.error('Error rejecting leave:', error);
+        message.error('Failed to reject leave.');
+    } finally {
+        setLoading(false);
+    }
+};
   // Get permission time icon
   const getPermissionTimeIcon = (timeSlot) => {
     const icons = {
@@ -1812,7 +3130,7 @@ const EmployeeDashboard = () => (
                     fontSize: 'clamp(12px, 3vw, 14px)',
                     display: 'block'
                   }}>
-                    {currentUser?.position} • {currentUser?.department}
+                    {currentUser?.position}       • {currentUser?.department}
                   </Text>
                 </div>
               </div>
@@ -1901,21 +3219,21 @@ const EmployeeDashboard = () => (
                     }}>
                       {leaveTypeNames[key]}
                     </Title>
-                    <div style={{ marginBottom: '8px' }}>
-                      <Text style={{ 
-                        fontSize: 'clamp(16px, 4vw, 20px)', 
-                        fontWeight: 'bold', 
-                        color: config.color 
-                      }}>
-                        {balance.remaining}
-                      </Text>
-                      <Text type="secondary" style={{ 
-                        fontSize: 'clamp(10px, 2vw, 12px)', 
-                        marginLeft: '2px' 
-                      }}>
-                        / {key === 'medicalLeave' ? balance.totalAvailable || balance.total : balance.total}
-                      </Text>
-                    </div>
+                  <div style={{ marginBottom: '8px' }}>
+  <Text style={{ 
+    fontSize: 'clamp(16px, 4vw, 20px)', 
+    fontWeight: 'bold', 
+    color: config.color 
+  }}>
+      {key === 'permission' ? formatPermissionHours(balance.remaining) : balance.remaining}
+  </Text>
+  <Text type="secondary" style={{ 
+    fontSize: 'clamp(10px, 2vw, 12px)', 
+    marginLeft: '2px' 
+  }}>
+    / {key === 'permission' ? balance.total + 'h' : (key === 'medicalLeave' ? balance.totalAvailable || balance.total : balance.total)}
+  </Text>
+</div>
                     {key === 'medicalLeave' && balance.extraGranted > 0 && (
                       <div style={{ marginTop: '4px' }}>
                         <Text style={{ fontSize: '9px', color: '#ff4d4f' }}>
@@ -1931,9 +3249,42 @@ const EmployeeDashboard = () => (
                     />
                     <div style={{ marginTop: '6px' }}>
                       <Text type="secondary" style={{ fontSize: 'clamp(9px, 2vw, 11px)' }}>
-                        Used: {balance.used}
+                       Used: {key === 'permission' ? formatPermissionHours(balance.used) : balance.used}
                       </Text>
                     </div>
+                  <div style={{ minHeight: '38px', marginTop: '10px' }}>
+  {key === 'medicalLeave' && balance.remaining <= 0 && (
+    <>
+      {extraMedicalRequest?.status === 'Pending' && (
+        <Tag icon={<ClockCircleOutlined />} color="warning" style={{ width: '100%', padding: '5px', fontSize: '12px' }}>
+          Request Pending
+        </Tag>
+      )}
+      {extraMedicalRequest?.status === 'Approved' && (
+        <Tag icon={<CheckCircleOutlined />} color="success" style={{ width: '100%', padding: '5px', fontSize: '12px' }}>
+          Request Approved
+        </Tag>
+      )}
+      {extraMedicalRequest?.status === 'Rejected' && (
+        <Tag icon={<CloseCircleOutlined />} color="error" style={{ width: '100%', padding: '5px', fontSize: '12px' }}>
+          Request Rejected
+        </Tag>
+      )}
+      {!extraMedicalRequest && ( // Only show button if there is no request status to display
+        <Button
+          type="primary"
+          danger
+          block
+          size="small"
+          icon={<PlusOutlined />}
+          onClick={() => setExtraMedicalRequestDrawer(true)}
+        >
+          Request Extra Leave
+        </Button>
+      )}
+    </>
+  )}
+</div>
                   </div>
                 </Card>
               </Col>
@@ -1970,62 +3321,76 @@ const EmployeeDashboard = () => (
           {!loading && filteredLeaves.length === 0 ? (
             <Empty description="No recent applications found." />
           ) : (
-            <Timeline
-              items={filteredLeaves.slice(0, 5).map(leave => {
-                const config = getLeaveTypeConfig(leave.leaveType);
-                return {
-                  key: leave.id,
-                  dot: <div style={{ 
-                    width: '12px', 
-                    height: '12px', 
-                    borderRadius: '50%', 
-                    background: config.gradient,
-                    border: '2px solid white', 
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)' 
-                  }} />,
-                  children: (
-                    <Card 
-                      size="small" 
-                      style={{ 
-                        marginBottom: '8px',
-                        borderRadius: '8px',
-                        border: `1px solid ${config.color}20`,
-                        background: `linear-gradient(135deg, ${config.color}08 0%, ${config.color}03 100%)`
-                      }}
-                      styles={{ body: { padding: '12px' } }}
-                    >
-                      <Row align="middle" justify="space-between">
-                        <Col flex="auto">
-                          <Space>
-                            {config.icon}
-                            <div>
-                              <Text strong style={{ color: config.color }}>
-                                {leave.leaveType}
-                                {leave.subType && ` (${leave.subType})`}
-                              </Text>
-                              <br />
-                              <Text type="secondary" style={{ fontSize: '12px' }}>
-                                {dayjs(leave.startDate).format('MMM DD')} - {dayjs(leave.endDate).format('MMM DD, YYYY')}
-                                {leave.totalHours > 0 && ` • ${leave.totalHours}h`}
-                                {leave.totalDays > 0 && ` • ${leave.totalDays} day${leave.totalDays > 1 ? 's' : ''}`}
-                              </Text>
-                            </div>
-                          </Space>
-                        </Col>
-                        <Col>
-                          <Tag 
-                            color={leave.status === 'Approved' ? 'success' : 
-                                  leave.status === 'Rejected' ? 'error' : 'warning'}
-                          >
-                            {leave.status}
-                          </Tag>
-                        </Col>
-                      </Row>
-                    </Card>
-                  )
-                };
-              })}
-            />
+            // In the EmployeeDashboard component, update the Timeline items mapping:
+<Timeline
+  items={filteredLeaves.slice(0, 5).map(leave => {
+    const config = getLeaveTypeConfig(leave.leave_type || leave.leaveType);
+    return {
+      key: leave.id,
+      dot: <div style={{ 
+        width: '12px', 
+        height: '12px', 
+        borderRadius: '50%', 
+        background: config.gradient,
+        border: '2px solid white', 
+        boxShadow: '0 2px 8px rgba(0,0,0,0.15)' 
+      }} />,
+      children: (
+        <Card 
+          size="small" 
+          style={{ 
+            marginBottom: '8px',
+            borderRadius: '8px',
+            border: `1px solid ${config.color}20`,
+            background: `linear-gradient(135deg, ${config.color}08 0%, ${config.color}03 100%)`
+          }}
+          styles={{ body: { padding: '12px' } }}
+        >
+          <Row align="middle" justify="space-between">
+            <Col flex="auto">
+              <Space>
+                {config.icon}
+                <div>
+                  <Text strong style={{ color: config.color }}>
+                    {leave.leave_type || leave.leaveType}
+                    {(leave.sub_type || leave.subType) && ` (${leave.sub_type || leave.subType})`}
+                  </Text>
+                  <br />
+                  <Text type="secondary" style={{ fontSize: '12px' }}>
+                    {/* Show original dates */}
+                    Applied: {dayjs(leave.start_date || leave.startDate).format('MMM DD')} - {dayjs(leave.end_date || leave.endDate).format('MMM DD, YYYY')}
+                    
+                    {/* Show approved dates if available */}
+                    {leave.status === 'Approved' && leave.approved_dates && leave.approved_dates.length > 0 && (
+                      <>
+                        <br />
+                        <span style={{ color: '#52c41a', fontSize: '11px' }}>
+                          Approved: {leave.approved_dates.length} day(s)       • {dayjs(leave.approved_dates[0]).format('MMM DD')} 
+                          {leave.approved_dates.length > 1 && ` - ${dayjs(leave.approved_dates[leave.approved_dates.length - 1]).format('MMM DD')}`}
+                        </span>
+                      </>
+                    )}
+                    
+                    {leave.totalHours > 0 && `       • ${formatPermissionHours(leave.totalHours)}`}
+                    {leave.total_days > 0 && `       • ${leave.total_days} day${leave.total_days > 1 ? 's' : ''}`}
+                  </Text>
+                </div>
+              </Space>
+            </Col>
+            <Col>
+              <Tag 
+                color={leave.status === 'Approved' ? 'success' : 
+                      leave.status === 'Rejected' ? 'error' : 'warning'}
+              >
+                {leave.status}
+              </Tag>
+            </Col>
+          </Row>
+        </Card>
+      )
+    };
+  })}
+/>
           )}
         </div>
       </Card>
@@ -2171,7 +3536,7 @@ const getTableColumns = () => {
                 fontWeight: 500,
                 color: '#1565c0'
               }}>
-                {record.total_hours}h
+                {formatPermissionHours(record.total_hours)}
               </div>
             ) : record.total_days > 0 && (
               <div style={{
@@ -2295,100 +3660,93 @@ const getTableColumns = () => {
     },
 
     // Actions Column (Enhanced)
-    {
-      title: (
-        <div style={{ textAlign: 'center' }}>
-          <Text style={{ fontWeight: 600, color: '#6b7280' }}>Actions</Text>
-        </div>
-      ),
-      key: 'actions',
-      render: (_, record) => (
-        <Space size={4} direction={isMobile ? 'vertical' : 'horizontal'}>
-          <Tooltip title="View Details">
-            <Button
-              type="text"
-              icon={<EyeOutlined />}
-              size="small"
-              onClick={() => {
-                setSelectedLeave(record);
-                setLeaveDetailsModal(true);
-              }}
-              style={{ 
-                color: '#0D7139',
-                border: '1px solid transparent',
-                borderRadius: '8px',
-                padding: '4px 8px',
-                transition: 'all 0.3s ease'
-              }}
-              className="action-btn"
-            />
+  {
+  title: (
+    <div style={{ textAlign: 'center' }}>
+      <Text style={{ fontWeight: 600, color: '#6b7280' }}>Actions</Text>
+    </div>
+  ),
+  key: 'actions',
+  render: (_, record) => (
+    <Space size={4} direction={isMobile ? 'vertical' : 'horizontal'} style={{ justifyContent: 'center', width: '100%' }}>
+      <Tooltip title="View Details">
+        <Button
+          type="text"
+          icon={<EyeOutlined />}
+          size="small"
+          onClick={() => {
+            setSelectedLeave(record);
+            setLeaveDetailsModal(true);
+          }}
+        />
+      </Tooltip>
+      
+     {userRole !== 'employee' && record.status === 'Pending' && (
+  <Tooltip title={record.leave_type === 'Permission' ? 'Approve Permission' : 'Review & Approve'}>
+    <Button
+      type="text"
+      icon={<CheckCircleOutlined />}
+      size="small"
+      style={{ color: '#52c41a' }}
+      onClick={() => {
+        // Direct approval for Permission leave
+        if (record.leave_type === 'Permission') {
+          Modal.confirm({
+            title: 'Approve Permission Request?',
+            content: `Approve ${formatPermissionHours(record.total_hours)} permission for ${record.users?.name || record.employee_name}?`,
+            icon: <CheckCircleOutlined style={{ color: '#52c41a' }} />,
+            okText: 'Approve',
+            cancelText: 'Cancel',
+            onOk: async () => {
+              await handleApproveLeave(record, [], ''); // Empty array for selectedDays since it's permission
+            }
+          });
+        } else {
+          // Open drawer for other leave types
+          setSelectedRequestForReview(record);
+        }
+      }}
+    />
+  </Tooltip>
+)}
+{userRole !== 'employee' && record.status === 'Approved' && record.leave_type !== 'Permission' && (
+    <Tooltip title="Adjust Approved Days">
+        <Button
+          type="text"
+          icon={<EditOutlined />}
+          size="small"
+          style={{ color: '#722ed1' }}
+          onClick={() => {
+              setEditingLeave(record);
+              setIsAdjustDrawerVisible(true);
+          }}
+        />
+    </Tooltip>
+)}
+      
+      {userRole !== 'employee' && record.status === 'Pending' && (
+          <Tooltip title="Reject Leave">
+            <Popconfirm
+              title="Reject this leave application?"
+              onConfirm={() => handleRejectLeave(record.id, 'Rejected by HR')}
+              okText="Yes, Reject"
+              cancelText="No"
+              okButtonProps={{ danger: true }}
+            >
+              <Button
+                type="text"
+                icon={<CloseCircleOutlined />}
+                size="small"
+                danger
+              />
+            </Popconfirm>
           </Tooltip>
-          
-          {userRole !== 'employee' && record.status === 'Pending' && (
-            <>
-              <Tooltip title="Approve Leave">
-                <Popconfirm
-                  title="Approve this leave application?"
-                  description="This action cannot be undone."
-                  onConfirm={() => handleLeaveAction(record.id, 'approve')}
-                  okText="Approve"
-                  cancelText="Cancel"
-                  okButtonProps={{ 
-                    style: { 
-                      background: '#52c41a',
-                      borderColor: '#52c41a'
-                    }
-                  }}
-                >
-                  <Button
-                    type="text"
-                    icon={<CheckCircleOutlined />}
-                    size="small"
-                    style={{ 
-                      color: '#52c41a',
-                      border: '1px solid transparent',
-                      borderRadius: '8px',
-                      padding: '4px 8px',
-                      transition: 'all 0.3s ease'
-                    }}
-                    className="action-btn approve-btn"
-                  />
-                </Popconfirm>
-              </Tooltip>
-              
-              <Tooltip title="Reject Leave">
-                <Popconfirm
-                  title="Reject this leave application?"
-                  description="Please provide rejection reason in the details modal."
-                  onConfirm={() => handleLeaveAction(record.id, 'reject', 'Leave rejected by HR')}
-                  okText="Reject"
-                  cancelText="Cancel"
-                  okButtonProps={{ 
-                    danger: true 
-                  }}
-                >
-                  <Button
-                    type="text"
-                    icon={<CloseCircleOutlined />}
-                    size="small"
-                    style={{ 
-                      color: '#ff4d4f',
-                      border: '1px solid transparent',
-                      borderRadius: '8px',
-                      padding: '4px 8px',
-                      transition: 'all 0.3s ease'
-                    }}
-                    className="action-btn reject-btn"
-                  />
-                </Popconfirm>
-              </Tooltip>
-            </>
-          )}
-        </Space>
-      ),
-      width: isMobile ? 50 : (userRole === 'employee' ? 80 : 140),
-      fixed: !isMobile ? 'right' : false,
-    },
+      )}
+    </Space>
+  ),
+  width: isMobile ? 60 : 120,
+  fixed: !isMobile ? 'right' : false,
+},
   ];
 
   return baseColumns;
@@ -2500,7 +3858,7 @@ const completeStyles = professionalStyles + actionButtonStyles;
         initialValues={{
           startDate: dayjs(),
           endDate: dayjs(),
-          subType: 'FDL',
+          
         }}
         // --- START: NEW onFieldsChange HANDLER ---
         onFieldsChange={(changedFields, allFields) => {
@@ -2533,12 +3891,13 @@ const completeStyles = professionalStyles + actionButtonStyles;
                 }}
                 size="large"
               >
-                 <Option value="Permission" disabled={isPermissionDisabled}>
-                  <Space>
-                    <ClockCircleOutlined style={{ color: '#1890ff' }} />
-                    Permission ({leaveBalances.permission?.remaining} remaining)
-                  </Space>
-                </Option>
+                
+<Option value="Permission" disabled={isPermissionDisabled}>
+  <Space>
+    <ClockCircleOutlined style={{ color: '#1890ff' }} />
+    Permission ({formatPermissionHours(leaveBalances.permission?.remaining)} remaining)
+  </Space>
+</Option>
                 <Option value="Casual Leave" disabled={isCasualDisabled}>
                   <Space>
                     <CalendarOutlined style={{ color: '#52c41a' }} />
@@ -2575,7 +3934,7 @@ const completeStyles = professionalStyles + actionButtonStyles;
                     Excuses ({leaveBalances.excuses?.remaining || 0} remaining)
                   </Space>
                 </Option>
-                <Option value="On Duty">
+                {/* <Option value="On Duty">
                   <Space>
                     <TeamOutlined style={{ color: '#13c2c2' }} />
                     On Duty
@@ -2586,7 +3945,7 @@ const completeStyles = professionalStyles + actionButtonStyles;
                     <ThunderboltOutlined style={{ color: '#a0d911' }} />
                     Overtime
                   </Space>
-                </Option>
+                </Option> */}
               </Select>
             </Form.Item>
           </Col>
@@ -2626,52 +3985,52 @@ const completeStyles = professionalStyles + actionButtonStyles;
             </Col>
           )}
           
-          {selectedLeaveType === 'Permission' && (
-            <Col xs={24} md={12}>
-              <Form.Item
-                name="subType"
-                label="Permission Time Slot"
-                rules={[{ required: true, message: 'Please select time slot' }]}
-              >
-                <Select 
-                  placeholder="Select time slot"
-                  
-                  size="large"
-                >
-                  <Option value="Morning">
-                    <Space>
-                      <SunOutlined style={{ color: '#faad14' }} />
-                      Morning 
-                    </Space>
-                  </Option>
-                  <Option value="Before Lunch">
-                    <Space>
-                      <CoffeeOutlined style={{ color: '#8c4a2b' }} />
-                      Before Lunch 
-                    </Space>
-                  </Option>
-                  <Option value="Middle">
-                    <Space>
-                      <ClockCircleFilled style={{ color: '#1890ff' }} />
-                      Middle
-                    </Space>
-                  </Option>
-                  <Option value="After Lunch">
-                    <Space>
-                      <CoffeeOutlined style={{ color: '#52c41a' }} />
-                      After Lunch
-                    </Space>
-                  </Option>
-                  <Option value="Evening">
-                    <Space>
-                      <MoonOutlined style={{ color: '#722ed1' }} />
-                      Evening
-                    </Space>
-                  </Option>
-                </Select>
-              </Form.Item>
-            </Col>
-          )}
+
+{selectedLeaveType === 'Permission' && (
+  <Col xs={24} md={12}>
+    <Form.Item
+      name="subType"
+      label="Permission Time Slot"
+      rules={[{ required: true, message: 'Please select time slot' }]}
+    >
+      <Select 
+        placeholder="Select time slot"
+        size="large"
+      >
+        <Option value="Morning">
+          <Space>
+            <SunOutlined style={{ color: '#faad14' }} />
+            Morning 
+          </Space>
+        </Option>
+        <Option value="Before Lunch">
+          <Space>
+            <CoffeeOutlined style={{ color: '#8c4a2b' }} />
+            Before Lunch 
+          </Space>
+        </Option>
+        <Option value="Middle">
+          <Space>
+            <ClockCircleFilled style={{ color: '#1890ff' }} />
+            Middle
+          </Space>
+        </Option>
+        <Option value="After Lunch">
+          <Space>
+            <CoffeeOutlined style={{ color: '#52c41a' }} />
+            After Lunch
+          </Space>
+        </Option>
+        <Option value="Evening">
+          <Space>
+            <MoonOutlined style={{ color: '#722ed1' }} />
+            Evening
+          </Space>
+        </Option>
+      </Select>
+    </Form.Item>
+  </Col>
+)}
 
         </Row>
         
@@ -2806,34 +4165,201 @@ const completeStyles = professionalStyles + actionButtonStyles;
             </div>
           </Upload>
         </Form.Item>
-         {selectedLeaveType && (
-          <Alert
-            message={`Available Balance: ${
-              selectedLeaveType === 'Permission' ? leaveBalances.permission.remaining + ' permissions' :
-              selectedLeaveType === 'Casual Leave' ? leaveBalances.casualLeave.remaining + ' days' :
-              selectedLeaveType === 'Earned Leave' ? leaveBalances.earnedLeave.remaining + ' days' :
-              selectedLeaveType === 'Medical Leave' ? leaveBalances.medicalLeave.remaining + ' days' :
-              selectedLeaveType === 'Maternity Leave' ? leaveBalances.maternityLeave.remaining + ' days' :
-              selectedLeaveType === 'Compensatory Leave' ? leaveBalances.compensatoryLeave.remaining + ' days' :
-              selectedLeaveType === 'Excuses' ? leaveBalances.excuses.remaining + ' excuses' : 'Check with HR'
-            }`}
-            type={
-              (selectedLeaveType === 'Permission' && leaveBalances.permission.remaining <= 0) ||
-              (selectedLeaveType === 'Casual Leave' && leaveBalances.casualLeave.remaining < 0.5) ||
-              (selectedLeaveType === 'Earned Leave' && leaveBalances.earnedLeave.remaining <= 0) ||
-              (selectedLeaveType === 'Medical Leave' && leaveBalances.medicalLeave.remaining <= 0) ||
-              (selectedLeaveType === 'Excuses' && leaveBalances.excuses.remaining <= 0)
-                ? 'warning' : 'info'
-            }
-            showIcon
-            style={{ marginBottom: '16px' }}
-          />
-        )}
+        {selectedLeaveType && (
+  <Alert
+    message={`Available Balance: ${
+      selectedLeaveType === 'Permission' ? leaveBalances.permission.remaining.toFixed(1) + ' hours' :
+      selectedLeaveType === 'Casual Leave' ? leaveBalances.casualLeave.remaining + ' days' :
+      selectedLeaveType === 'Earned Leave' ? leaveBalances.earnedLeave.remaining + ' days' :
+      selectedLeaveType === 'Medical Leave' ? leaveBalances.medicalLeave.remaining + ' days' :
+      selectedLeaveType === 'Maternity Leave' ? leaveBalances.maternityLeave.remaining + ' days' :
+      selectedLeaveType === 'Compensatory Leave' ? leaveBalances.compensatoryLeave.remaining + ' days' :
+      selectedLeaveType === 'Excuses' ? leaveBalances.excuses.remaining + ' excuses' : 'Check with HR'
+    }`}
+    type={
+      (selectedLeaveType === 'Permission' && leaveBalances.permission.remaining <= 0) ||
+      (selectedLeaveType === 'Casual Leave' && leaveBalances.casualLeave.remaining < 0.5) ||
+      (selectedLeaveType === 'Earned Leave' && leaveBalances.earnedLeave.remaining <= 0) ||
+      (selectedLeaveType === 'Medical Leave' && leaveBalances.medicalLeave.remaining <= 0) ||
+      (selectedLeaveType === 'Excuses' && leaveBalances.excuses.remaining <= 0)
+        ? 'warning' : 'info'
+    }
+    showIcon
+    style={{ marginBottom: '16px' }}
+  />
+)}
       </Form>
     );
   };
 
+// In leavemanage.jsx, replace the entire "LeaveAdjustDrawer" component.
 
+const LeaveAdjustDrawer = ({ visible, onClose, leave, onSave, loading }) => {
+    const [currentlyApprovedDays, setCurrentlyApprovedDays] = useState([]);
+
+    useEffect(() => {
+        if (leave) {
+            // Initialize with the currently approved dates from the leave record
+            setCurrentlyApprovedDays(leave.approved_dates || []);
+        }
+    }, [leave]);
+
+    if (!leave) return null;
+
+    // --- START OF FIX ---
+    // The value of the record as it currently exists in the database.
+    const originalDaysValueForThisRecord = leave.total_days || 0;
+    
+    // The days that were part of the very first approval, to define the calendar's boundaries.
+    const initialScopeDays = leave.initial_approved_dates || leave.approved_dates || [];
+
+    const handleDayToggle = (date) => {
+        const dateStr = date.format('YYYY-MM-DD');
+        // Prevent toggling days that weren't part of the original approval scope.
+        if (!initialScopeDays.includes(dateStr)) {
+            message.info("This day was not part of the original leave approval.");
+            return;
+        }
+        // Add or remove the date from the list of currently approved days.
+        setCurrentlyApprovedDays(prev =>
+            prev.includes(dateStr)
+                ? prev.filter(d => d !== dateStr)
+                : [...prev, dateStr]
+        );
+    };
+
+    const dateCellRender = (date) => {
+        const dateStr = date.format('YYYY-MM-DD');
+        // Only render overlays for days within the original leave's scope.
+        if (!initialScopeDays.includes(dateStr)) {
+            return null;
+        }
+
+        const isCurrentlyApproved = currentlyApprovedDays.includes(dateStr);
+        const overlayStyle = {
+            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+            borderRadius: '4px', cursor: 'pointer', transition: 'all 0.2s ease',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: '2px solid transparent'
+        };
+
+        let tooltipTitle = '';
+
+        if (isCurrentlyApproved) {
+            overlayStyle.backgroundColor = 'rgba(82, 196, 26, 0.15)';
+            overlayStyle.border = '2px solid #52c41a';
+            tooltipTitle = 'Approved. Click to mark for REFUND.';
+        } else {
+            overlayStyle.backgroundColor = 'rgba(191, 191, 191, 0.3)';
+            overlayStyle.border = '2px dashed #d9d9d9';
+            overlayStyle.textDecoration = 'line-through';
+            tooltipTitle = 'Refunded. Click to REVOKE refund.';
+        }
+
+        return (
+            <Tooltip title={tooltipTitle}>
+                <div style={overlayStyle}></div>
+            </Tooltip>
+        );
+    };
+    
+    // Correctly determine if the leave was a half-day leave.
+    const isHalfDayLeave = leave.sub_type?.includes('HDL');
+
+    // Recalculate the new value based on the current selection in the UI.
+    // This is the crucial change.
+    const newValueForThisRecord = isHalfDayLeave
+        ? currentlyApprovedDays.length * 0.5
+        : currentlyApprovedDays.length;
+
+    // Calculate the difference between the old value and the new value.
+    // This will be positive for a refund and negative for a revoke.
+    const dayDifference = originalDaysValueForThisRecord - newValueForThisRecord;
+    
+    // --- END OF FIX ---
+
+    const handleSaveChanges = () => {
+        // Pass the calculated difference to the onSave handler (handleAdjustLeave)
+        onSave(leave, currentlyApprovedDays, dayDifference);
+    };
+
+    let buttonText = "No Changes Made";
+    let buttonType = "default";
+    let popconfirmTitle = "Are you sure?";
+
+    if (dayDifference > 0) {
+        buttonText = `Confirm Refund of ${dayDifference} Day(s)`;
+        buttonType = "primary";
+        popconfirmTitle = `This will return ${dayDifference} day(s) to the employee's balance. Proceed?`;
+    } else if (dayDifference < 0) {
+        buttonText = `Confirm Revoke of ${Math.abs(dayDifference)} Day(s)`;
+        buttonType = "danger";
+        popconfirmTitle = `This will REVOKE the refund and re-deduct ${Math.abs(dayDifference)} day(s) from the employee's balance. Are you sure?`;
+    }
+
+    return (
+        <Drawer
+            title="Adjust & Refund Approved Leave"
+            width={500}
+            onClose={onClose}
+            open={visible}
+            destroyOnClose
+            footer={
+                <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+                    <Button onClick={onClose} disabled={loading}>Cancel</Button>
+                    <Popconfirm
+                        title={popconfirmTitle}
+                        onConfirm={handleSaveChanges}
+                        okText="Yes, Confirm"
+                        cancelText="No"
+                        disabled={dayDifference === 0}
+                    >
+                        <Button type={buttonType} loading={loading} disabled={dayDifference === 0}>
+                            {buttonText}
+                        </Button>
+                    </Popconfirm>
+                </Space>
+            }
+        >
+            <Alert
+                message="Click a day to toggle its status"
+                description={
+                     <div>
+                        - Clicking a <Tag color="success">Green Day</Tag> marks it for REFUND (it turns Grey).<br/>
+                        - Clicking a <Tag color="default">Grey Day</Tag> REVOKES the refund (it turns Green again).
+                    </div>
+                }
+                type="info" showIcon style={{ marginBottom: 24 }}
+            />
+            <Descriptions bordered column={1} size="small">
+                <Descriptions.Item label="Employee">{leave.users?.name}</Descriptions.Item>
+                <Descriptions.Item label="Current Value of This Leave Record">
+                    <Tag color="purple">{originalDaysValueForThisRecord} days</Tag>
+                </Descriptions.Item>
+            </Descriptions>
+            
+            <Card style={{ marginTop: 24 }}>
+                <Calendar 
+                    fullscreen={false} 
+                    onSelect={handleDayToggle} 
+                    cellRender={(current, info) => {
+                        if (info.type === 'date') {
+                            return dateCellRender(current);
+                        }
+                        return null;
+                    }}
+                />
+            </Card>
+
+            <Statistic
+                title="New Value of This Record (After Save)"
+                value={newValueForThisRecord}
+                valueStyle={{ color: dayDifference !== 0 ? (dayDifference > 0 ? '#fa8c16' : '#ff4d4f') : '#333' , fontWeight: 600 }}
+                style={{ textAlign: 'center', marginTop: 24, padding: '10px', background: '#fafafa' }}
+            />
+        </Drawer>
+    );
+};
     // Leave Details Modal Component
   const LeaveDetailsModal = () => {
   if (!selectedLeave) return null;
@@ -2913,7 +4439,7 @@ return (
                 {selectedLeave.users?.name || selectedLeave.employee_name || selectedLeave.employeeName}
               </div>
               <Text type="secondary">
-                {selectedLeave.users?.employee_id || selectedLeave.employee_code || selectedLeave.employeeCode} • {selectedLeave.department}
+                {selectedLeave.users?.employee_id || selectedLeave.employee_code || selectedLeave.employeeCode}       • {selectedLeave.department}
               </Text>
             </div>
           </Space>
@@ -2949,24 +4475,73 @@ return (
            </Descriptions.Item>
         )}
 
-        <Descriptions.Item label="Duration">
-          <div>
-            <Text strong>
-              {dayjs(selectedLeave.start_date || selectedLeave.startDate).format('DD MMM YYYY')}
-              {(selectedLeave.end_date || selectedLeave.endDate) !== (selectedLeave.start_date || selectedLeave.startDate) &&
-                ` - ${dayjs(selectedLeave.end_date || selectedLeave.endDate).format('DD MMM YYYY')}`}
-            </Text>
-            <br />
-            <Text type="secondary">
-              {(selectedLeave.total_hours || selectedLeave.totalHours) > 0 ?
-                `${selectedLeave.total_hours || selectedLeave.totalHours} hours` :
-                `${selectedLeave.total_days || selectedLeave.totalDays} day${(selectedLeave.total_days || selectedLeave.totalDays) > 1 ? 's' : ''}`}
-              {(selectedLeave.start_time || selectedLeave.startTime) && (selectedLeave.end_time || selectedLeave.endTime) && (
-                <> • {selectedLeave.start_time || selectedLeave.startTime} - {selectedLeave.end_time || selectedLeave.endTime}</>
-              )}
-            </Text>
-          </div>
-        </Descriptions.Item>
+      // In the LeaveDetailsModal component, update the Duration section:
+// In LeaveDetailsModal component, update only the Duration section:
+<Descriptions.Item label="Duration">
+  <div>
+    <Text strong>
+      Applied Dates: {dayjs(selectedLeave.start_date || selectedLeave.startDate).format('DD MMM YYYY')}
+      {(selectedLeave.end_date || selectedLeave.endDate) !== (selectedLeave.start_date || selectedLeave.startDate) &&
+        ` - ${dayjs(selectedLeave.end_date || selectedLeave.endDate).format('DD MMM YYYY')}`}
+    </Text>
+    
+    {/* Show approved/rejected dates breakdown for approved requests */}
+    {selectedLeave.status === 'Approved' && selectedLeave.approved_dates && selectedLeave.approved_dates.length > 0 && (
+      <div style={{ marginTop: '12px' }}>
+        <Text type="success" strong>HR Approved Dates:</Text>
+        <div style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+          {selectedLeave.approved_dates.sort().map(date => (
+            <Tag key={date} color="success">
+              {dayjs(date).format('DD MMM')}
+            </Tag>
+          ))}
+        </div>
+        
+        {/* Show rejected/not granted dates */}
+        {(() => {
+          const start = dayjs(selectedLeave.start_date);
+          const end = dayjs(selectedLeave.end_date);
+          const allRequestedDates = [];
+          let current = start;
+          while (current.isSameOrBefore(end)) {
+            allRequestedDates.push(current.format('YYYY-MM-DD'));
+            current = current.add(1, 'day');
+          }
+          const notApprovedDates = allRequestedDates.filter(date => 
+            !selectedLeave.approved_dates.includes(date)
+          );
+          
+          return notApprovedDates.length > 0 && (
+            <div style={{ marginTop: '8px' }}>
+              <Text type="danger" strong>Not Granted:</Text>
+              <div style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                {notApprovedDates.map(date => (
+                  <Tag key={date} color="error">
+                    {dayjs(date).format('DD MMM')}
+                  </Tag>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+        
+        <div style={{ marginTop: '8px' }}>
+          <Text type="secondary">
+            Total Days Approved: {selectedLeave.approved_dates.length} / {selectedLeave.total_days + (selectedLeave.approved_dates.length - selectedLeave.total_days)} requested
+          </Text>
+        </div>
+      </div>
+    )}
+    
+    {selectedLeave.hr_comments && selectedLeave.status === 'Approved' && (
+      <div style={{ marginTop: '8px', padding: '8px', background: '#f6ffed', borderRadius: '4px' }}>
+        <Text type="secondary" style={{ fontSize: '12px' }}>
+          <strong>HR Comments:</strong> {selectedLeave.hr_comments}
+        </Text>
+      </div>
+    )}
+  </div>
+</Descriptions.Item>
 
         <Descriptions.Item label="Reason">
           <Paragraph style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
@@ -3050,6 +4625,8 @@ useEffect(() => {
 }, [])
 // In leavemanage.jsx
 
+// In leavemanage.jsx
+
 useEffect(() => {
   // Only set up realtime after initial data is loaded and for the dashboard tab
   if (!dataLoaded || activeTab !== 'dashboard' || !currentUser?.id) return;
@@ -3060,66 +4637,121 @@ useEffect(() => {
   const leaveChannel = supabase
     .channel('realtime-leave-applications')
     .on('postgres_changes', {
-      event: '*',
+      event: '*', // Listen for insert, update, delete
       schema: 'public',
       table: 'leave_applications',
       // Filter for employee's own applications OR all applications for HR
       ...(userRole === 'employee' && { filter: `user_id=eq.${currentUserId}` })
     }, async (payload) => {
-      console.log('🔄 Realtime: Leave application change detected!', payload);
-      
-      try {
-        // Fetch updated leave data
-        const updatedLeaves = await fetchLeaveApplications(userRole === 'employee' ? currentUserId : null);
-        setLeaveData(updatedLeaves);
-        
-        // If this is an employee and it's their own application, also update balances
-        if (userRole === 'employee' && payload.new?.user_id === currentUserId) {
-          console.log('🔄 Updating balances for employee after leave change');
-          const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
-          setLeaveBalances(updatedBalances);
+      console.log('Realtime: Leave application change detected!', payload);
+
+      // --- START OF FIX ---
+      // This logic directly updates the local state without a refetch, ensuring all data is current.
+      const newRecord = payload.new;
+      const oldRecord = payload.old;
+
+      setLeaveData(currentLeaves => {
+        let updatedLeaves = [...currentLeaves];
+
+        if (payload.eventType === 'INSERT') {
+          // Add the new leave to the top of the list
+          updatedLeaves.unshift(newRecord);
         }
-      } catch (error) {
-        console.error('Error handling leave application change:', error);
+        
+        else if (payload.eventType === 'UPDATE') {
+          // Find the index of the leave that was updated
+          const index = updatedLeaves.findIndex(leave => leave.id === newRecord.id);
+          if (index !== -1) {
+            // Replace the old record with the new one from the payload
+            updatedLeaves[index] = newRecord;
+          } else {
+            // If for some reason it wasn't in the list, add it
+            updatedLeaves.unshift(newRecord);
+          }
+        }
+        
+        else if (payload.eventType === 'DELETE') {
+          // Filter out the deleted leave
+          updatedLeaves = updatedLeaves.filter(leave => leave.id !== oldRecord.id);
+        }
+
+        // Re-sort the array by date to maintain consistent order
+        updatedLeaves.sort((a, b) => dayjs(b.applied_date || b.created_at).diff(dayjs(a.applied_date || a.created_at)));
+
+        return updatedLeaves;
+      });
+      // --- END OF FIX ---
+      
+      // Balance updates should still happen as they rely on fresh calculations
+      if (userRole === 'employee' && (newRecord?.user_id === currentUserId || oldRecord?.user_id === currentUserId)) {
+        console.log('Updating balances for employee after leave change');
+        try {
+            const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
+            setLeaveBalances(updatedBalances);
+        } catch (error) {
+            console.error("Error recalculating balances on realtime update:", error);
+        }
       }
     })
     .subscribe();
 
-  // --- LEAVE BALANCES SUBSCRIPTION ---
+  // --- LEAVE BALANCES SUBSCRIPTION (remains the same) ---
   const balanceChannel = supabase
     .channel('realtime-leave-balances')
     .on('postgres_changes', {
       event: '*',
       schema: 'public',
       table: 'leave_balances',
-      // Only listen to current user's balance changes for employees
       ...(userRole === 'employee' && { filter: `user_id=eq.${currentUserId}` })
     }, async (payload) => {
-      console.log('🔄 Realtime: Leave balance change detected!', payload);
-      
+      console.log('Realtime: Leave balance change detected!', payload);
       try {
-        // For employees, only update if it's their balance
         if (userRole === 'employee') {
           if (payload.new?.user_id === currentUserId || payload.old?.user_id === currentUserId) {
             const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
             setLeaveBalances(updatedBalances);
-            console.log('✅ Employee balance updated via realtime');
+            console.log('Employee balance updated via realtime');
           }
-        } else {
-          // For HR, this might trigger other updates
-          console.log('HR detected balance change for user:', payload.new?.user_id);
         }
       } catch (error) {
         console.error('Error handling balance change:', error);
       }
     })
     .subscribe();
+    
+   // --- MEDICAL REQUEST SUBSCRIPTION (remains the same as it handles a more complex, two-table update) ---
+   let medicalRequestChannel;
+  if (userRole === 'employee') {
+    medicalRequestChannel = supabase
+      .channel('realtime-medical-requests-employee')
+      .on('postgres_changes', {
+        event: 'UPDATE', 
+        schema: 'public',
+        table: 'medical_leave_requests',
+        filter: `user_id=eq.${currentUserId}`
+      }, async (payload) => {
+        console.log('Realtime: Extra medical request status updated!', payload);
+        
+        await fetchLastExtraMedicalRequest(currentUserId);
+        const updatedHistory = await fetchCombinedEmployeeHistory(currentUserId);
+        setLeaveData(updatedHistory);
+        
+        if (payload.new.status === 'Approved') {
+           const updatedBalances = await calculateLeaveBalances(currentUserId, currentUser);
+           setLeaveBalances(updatedBalances);
+        }
+      })
+      .subscribe();
+  }
 
   // Enhanced cleanup function
-  return () => {
-    console.log('🧹 Cleaning up realtime subscriptions');
+ return () => {
+    console.log('Cleaning up realtime subscriptions');
     supabase.removeChannel(leaveChannel);
     supabase.removeChannel(balanceChannel);
+    if (medicalRequestChannel) {
+      supabase.removeChannel(medicalRequestChannel);
+    }
   };
 }, [dataLoaded, currentUserId, userRole, currentUser?.id, activeTab]);
 // Add cache clearing utility
@@ -3257,23 +4889,7 @@ useEffect(() => {
                 </Button>
               </Tooltip>
               
-              <Tooltip title="Allocate Additional Medical Leave">
-                  <Button
-                  icon={<MedicineBoxOutlined />}
-                  onClick={() => setMedicalLeaveModal(true)} 
-                  style={{
-                      height: '44px',
-                      borderRadius: '12px',
-                      background: 'linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%)',
-                      border: 'none',
-                      color: 'white',
-                      fontWeight: 600,
-                      boxShadow: '0 4px 16px rgba(255, 77, 79, 0.24)',
-                  }}
-                  >
-                  Medical Leave
-                  </Button>
-              </Tooltip>
+           
               
               <Tooltip title="Manually Allocate Compensatory Leave">
                 <Button
@@ -3291,6 +4907,28 @@ useEffect(() => {
                 >
                   Allocate Comp Off
                 </Button>
+              </Tooltip>
+                 <Tooltip title="Review Extra Medical Leave Requests">
+                  <Button
+                      icon={<MedicineBoxOutlined />}
+                      onClick={() => {
+                          fetchPendingMedicalRequests(); // Fetch latest requests
+                          setHrMedicalApprovalModal(true);
+                      }}
+                      style={{
+                          height: '44px',
+                          borderRadius: '12px',
+                          background: 'linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%)',
+                          border: 'none',
+                          color: 'white',
+                          fontWeight: 600,
+                          boxShadow: '0 4px 16px rgba(255, 77, 79, 0.24)',
+                      }}
+                  >
+                      <Badge count={pendingMedicalRequests.length} size="small" offset={[10, -5]}>
+                          <span>Leave Requests</span>
+                      </Badge>
+                  </Button>
               </Tooltip>
           </Space>
         </Col>
@@ -3775,7 +5413,7 @@ useEffect(() => {
   activeKey={activeTab} 
   onChange={setActiveTab}
   style={{ marginBottom: '24px' }}
-  destroyOnHidden={false} // ✅ This prevents tab content from being destroyed/recreated
+  destroyOnHidden={false} 
   items={[
           userRole === 'employee' ? {
             key: 'dashboard',
@@ -3858,33 +5496,85 @@ useEffect(() => {
 
       {/* Leave History Drawer */}
     {/* Remove this entire component usage */}
-      <LeaveHistoryDrawer
+  <LeaveHistoryDrawer
         visible={leaveHistoryDrawer}
         onClose={() => setLeaveHistoryDrawer(false)}
         leaveData={leaveData} 
         currentUser={currentUser}
-      />      
+        onEdit={handleEditLeave}     // <-- Pass the function here
+        onCancel={handleCancelLeave} // <-- Pass the function here
+      />
+      
        <ExportReportModal 
   visible={exportModalVisible}
   onCancel={() => setExportModalVisible(false)}
   leaveData={filteredLeaves}
 />
-    <HRMedicalLeaveModal
-        visible={medicalLeaveModal}
-        onCancel={() => {
-          setMedicalLeaveModal(false);
-          medicalForm.resetFields();
-        }}
-        employees={employees}
-        onAllocate={handleAllocateMedicalLeave}
-        loading={loading}
-      />
+ 
        <CompensatoryLeaveModal
         visible={compOffModalVisible}
         onCancel={() => setCompOffModalVisible(false)}
         employees={employees}
         currentUser={currentUser}
       />
+       <RequestExtraMedicalLeaveDrawer
+          visible={extraMedicalRequestDrawer}
+          onCancel={() => setExtraMedicalRequestDrawer(false)}
+          onSubmit={handleExtraMedicalRequestSubmit}
+      />
+
+     <HRMedicalApprovalModal
+    visible={hrMedicalApprovalModal}
+    onCancel={() => {
+        setHrMedicalApprovalModal(false);
+        setSelectedMedicalRequest(null);
+    }}
+    requests={pendingMedicalRequests}
+    onSelectRequest={(req) => {
+        setSelectedMedicalRequest(req);
+        setHrMedicalApprovalModal(false); // Close the modal
+        // The drawer will automatically open because selectedMedicalRequest is now set
+    }}
+    loading={loading}
+/>
+
+
+<HRRequestDetailDrawer
+    visible={!!(selectedRequestForReview || selectedMedicalRequest)}
+    onClose={() => {
+        setSelectedRequestForReview(null);
+        setSelectedMedicalRequest(null);
+    }}
+    request={selectedRequestForReview || selectedMedicalRequest}
+    onApprove={(request, selectedDays, comments) => {
+        // This logic correctly routes to the right approval function.
+        // `requested_days` only exists on extra medical requests.
+        if (request.hasOwnProperty('requested_days')) {
+            handleApproveMedicalRequest(request, selectedDays, comments);
+        } else {
+            handleApproveLeave(request, selectedDays, comments);
+        }
+    }}
+    onReject={(request, reason) => {
+        // This logic correctly routes to the right rejection function.
+        if (request.hasOwnProperty('requested_days')) {
+            handleRejectMedicalRequest(request, reason);
+        } else {
+            handleRejectLeave(request.id, reason);
+        }
+    }}
+    loading={loading}
+/>
+      <LeaveAdjustDrawer
+        visible={isAdjustDrawerVisible}
+        onClose={() => {
+            setIsAdjustDrawerVisible(false);
+            setEditingLeave(null);
+        }}
+        leave={editingLeave}
+        onSave={handleAdjustLeave} // <-- Use the new handler
+        loading={loading}
+    />
     </div>
   );
 };
