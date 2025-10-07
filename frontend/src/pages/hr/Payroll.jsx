@@ -95,6 +95,7 @@ const PayrollManagement = ({ userRole }) => {
   const [selectedViewMonth, setSelectedViewMonth] = useState(dayjs());
 const [thisMonthModalVisible, setThisMonthModalVisible] = useState(false);
 const [totalPayrollEditModalVisible, setTotalPayrollEditModalVisible] = useState(false);
+const [workingDaysData, setWorkingDaysData] = useState({});
 
 const fetchHTMLTemplate = async () => {
   try {
@@ -382,6 +383,7 @@ const fetchPayrollForMonth = async (monthYear) => {
     const initializeData = async () => {
       await loadUsers();
       await fetchEmployees(currentPage, pageSize);
+      await fetchWorkingDaysForEmployees();
       const currentMonth = dayjs().format('YYYY-MM');
       await fetchExpenses(currentMonth);
       await fetchStats(); // Add await here
@@ -389,6 +391,7 @@ const fetchPayrollForMonth = async (monthYear) => {
 
     initializeData();
   }, [currentPage, pageSize]);
+
 
   const handleEmployeeSelect = async (userId) => {
     const selectedUser = users.find(user => user.id === userId);
@@ -1455,6 +1458,115 @@ const htmlContent = htmlTemplate
     }
   };
 
+  const fetchWorkingDaysForEmployees = async () => {
+  try {
+    const currentMonth = dayjs().format('YYYY-MM');
+    const startOfMonth = dayjs().startOf('month').format('YYYY-MM-DD');
+    const endOfMonth = dayjs().endOf('month').format('YYYY-MM-DD');
+
+    // First, try to get working days from company calendar
+    const { data: calendarData, error: calendarError } = await supabase
+      .from('company_calendar')
+      .select('date, day_type, holiday_name')
+      .gte('date', startOfMonth)
+      .lte('date', endOfMonth)
+      .order('date');
+
+    if (calendarError) throw calendarError;
+
+    const totalWorkingDaysFromCalendar = (calendarData || []).filter(day => 
+      day.day_type !== 'holiday' && day.holiday_name !== 'Working Configuration'
+    ).length;
+
+    let finalTotalWorkingDays = totalWorkingDaysFromCalendar;
+
+    // If no calendar data, calculate manually using working configuration
+    if (totalWorkingDaysFromCalendar === 0) {
+      // Fetch working configuration
+      const { data: configData, error: configError } = await supabase
+        .from('company_calendar')
+        .select('*')
+        .eq('holiday_name', 'Working Configuration')
+        .limit(1)
+        .maybeSingle();
+
+      let workingConfig = null;
+      if (configData && configData.reason) {
+        workingConfig = typeof configData.reason === 'string' 
+          ? JSON.parse(configData.reason) 
+          : configData.reason;
+      }
+
+      // Calculate working days manually based on config
+      if (workingConfig?.workingDays) {
+        const start = dayjs().startOf('month');
+        const end = dayjs().endOf('month');
+        let workingDays = 0;
+        
+        let currentDate = start;
+        while (currentDate.isBefore(end) || currentDate.isSame(end, 'day')) {
+          const dayName = currentDate.format('dddd').toLowerCase();
+          
+          if (workingConfig.workingDays[dayName]) {
+            workingDays++;
+          }
+          
+          currentDate = currentDate.add(1, 'day');
+        }
+        
+        finalTotalWorkingDays = workingDays;
+      } else {
+        // Ultimate fallback
+        finalTotalWorkingDays = 26; // Default working days
+      }
+    }
+
+    // Fetch ALL users
+    const { data: allUsers, error: usersError } = await supabase
+      .from('users')
+      .select('id, name, employee_id, email, role')
+      .in('role', ['employee']);
+
+    if (usersError) throw usersError;
+
+    // Fetch attendance for all employees
+    const workingDaysMap = {};
+
+    for (const user of allUsers || []) {
+      const { data: attendanceData, error: attendanceError } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('date', startOfMonth)
+        .lte('date', endOfMonth);
+
+      if (attendanceError) {
+        console.error(`Error fetching attendance for user ${user.id}:`, attendanceError);
+        workingDaysMap[user.id] = {
+          actual: 0,
+          total: finalTotalWorkingDays
+        };
+        continue;
+      }
+
+      const actualWorkingDays = (attendanceData || []).filter(att => att.is_present).length;
+
+      workingDaysMap[user.id] = {
+        actual: actualWorkingDays,
+        total: finalTotalWorkingDays
+      };
+    }
+
+    console.log('Working days calculated:', finalTotalWorkingDays); // Debug log
+    console.log('Working days map:', workingDaysMap); // Debug log
+
+    setWorkingDaysData(workingDaysMap);
+  } catch (error) {
+    console.error('Error fetching working days:', error);
+    message.error('Error fetching working days: ' + error.message);
+  }
+};
+
   const onFinish = async (values) => {
     try {
       setLoading(true);
@@ -1612,7 +1724,9 @@ const htmlContent = htmlTemplate
         hasPayroll: !!mostRecentPayroll,
         hasPayrollData: hasPayrollData,
         totalUserPayrolls: userPayrolls.length,
-        currentMonthRecord: !!mostRecentPayroll  // This is now "most recent" not "current month"
+        currentMonthRecord: !!mostRecentPayroll,
+        actual_working_days: workingDaysData[user.id]?.actual || 0,
+  total_working_days: workingDaysData[user.id]?.total || 0,
       };
     });
   };
@@ -1935,6 +2049,22 @@ const htmlContent = htmlTemplate
                   );
                 },
               },
+              {
+  title: 'Working Days',
+  key: 'working_days',
+  width: 130,
+  render: (_, record) => {
+    // You'll need to fetch attendance data for each employee
+    // This requires adding state and fetching logic similar to PayCalculator
+    return (
+      <div>
+        <div>{record.actual_working_days || 0}/{record.total_working_days || 0}</div>
+        <div style={{ fontSize: '11px', color: '#666' }}>Present/Total</div>
+      </div>
+    );
+  },
+  responsive: ['md'],
+},
               {
                 title: 'Actions',
                 key: 'actions',
