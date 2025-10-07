@@ -96,6 +96,16 @@ const PayrollManagement = ({ userRole }) => {
 const [thisMonthModalVisible, setThisMonthModalVisible] = useState(false);
 const [totalPayrollEditModalVisible, setTotalPayrollEditModalVisible] = useState(false);
 
+const fetchHTMLTemplate = async () => {
+  try {
+    const response = await fetch('/public/1.html'); // Adjust path based on where you store the file
+    return await response.text();
+  } catch (error) {
+    console.error('Error loading HTML template:', error);
+    return null;
+  }
+};
+
 const fetchPayrollForMonth = async (monthYear) => {
   try {
     const { data: monthlyData, error } = await supabase
@@ -1278,248 +1288,107 @@ const fetchPayrollForMonth = async (monthYear) => {
       return `${num.toLocaleString('en-IN')} Only`;
     };
 
-    const htmlContent = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MyAccess Payslip</title>
-</head>
-<body style="font-family: Arial, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
-    
-    <div style="max-width: 800px; margin: 0 auto; background-color: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden;">
-        
-        <div style="background-color: white; padding: 20px; border-bottom: 1px solid #e0e0e0;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div style="flex: 1;">
-    <div style="display: flex; align-items: center; margin-bottom: 10px;">
-        <img src="${myaccessLogo}" alt="MYACCESS" style="height: 40px; width: auto; margin-right: 10px; border-radius: 4px;" />
-        <h1 style="margin: 0; font-size: 18px; font-weight: bold; color: #333;">${employeeData.company_name}</h1>
-    </div>
-    <div style="font-size: 11px; color: #666; line-height: 1.5;">
-        ${employeeData.company_address ? employeeData.company_address.replace(/\n/g, '<br/>') : ''}
-    </div>
-    <div style="font-size: 11px; color: #666; margin-top: 4px;">
-        ${employeeData.city || ''}
-    </div>
-</div>
-                <div style="text-align: right;">
-                    <div style="font-size: 12px; color: #666; margin-bottom: 5px;">Payslip For the Month</div>
-                    <div style="font-size: 18px; font-weight: bold; color: #333;">${dayjs(employeeData.pay_period).format('MMMM YYYY')}</div>
-                </div>
-            </div>
-        </div>
+    // Load HTML template
+let htmlTemplate = await fetchHTMLTemplate();
 
-        <div style="display: flex; padding: 20px; gap: 20px;">
-            <div style="flex: 1;">
-                <h3 style="margin: 0 0 15px 0; font-size: 14px; color: #666; font-weight: normal;">EMPLOYEE SUMMARY</h3>
-                
-                <div style="margin-bottom: 12px;">
-                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">Employee Name</span>
-                    <span style="font-size: 12px; color: #333;">: ${employeeData.employee_name}</span>
-                </div>
-                
-                <div style="margin-bottom: 12px;">
-                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">Employee ID</span>
-                    <span style="font-size: 12px; color: #333;">: ${employeeData.employee_id}</span>
-                </div>
-                
-                <div style="margin-bottom: 12px;">
-                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">Pay Period</span>
-                    <span style="font-size: 12px; color: #333;">: ${dayjs(employeeData.pay_period).format('MMMM YYYY')}</span>
-                </div>
-                
-                <div style="margin-bottom: 12px;">
-                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">Pay Date</span>
-                    <span style="font-size: 12px; color: #333;">: ${dayjs(employeeData.pay_date).format('YYYY-MM-DD')}</span>
-                </div>
-            </div>
-            
-            <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; min-width: 200px; overflow: hidden;">
-                <div style="padding: 20px; position: relative;">
-                    <div style="position: absolute; top: 0; left: 0; right: 0; height: 85px; background-color: #e8f5e8;"></div>
-                    <div style="position: relative; z-index: 1;">
-                        <div style="border-left: 4px solid #4caf50; padding-left: 12px; margin-bottom: 15px;">
-                            <div style="font-size: 24px; font-weight: bold; color: #2e7d32; margin-bottom: 5px;">Rs.${netPay.toLocaleString('en-IN')}</div>
-                            <div style="font-size: 12px; color: #4caf50;">Employee Net Pay</div>
-                        </div>
-                        
-                        <div style="border-top: 1px dashed #ccc; padding-top: 15px;">
-                            <div style="margin-bottom: 8px;">
-                                <span style="display: inline-block; width: 80px; font-size: 12px; color: #666;">Paid Days</span>
-                                <span style="font-size: 12px; color: #333;">: ${employeeData.paid_days}</span>
-                            </div>
-                            <div>
-                                <span style="display: inline-block; width: 80px; font-size: 12px; color: #666;">LOP Days</span>
-                                <span style="font-size: 12px; color: #333;">: ${employeeData.lop_days}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div style="display: flex; padding: 0 20px 20px 20px; gap: 40px;">
-            <div style="flex: 1;">
-                <div style="margin-bottom: 12px;">
-                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">Gender</span>
-                    <span style="font-size: 12px; color: #333;">: ${employeeData.gender}</span>
-                </div>
-                
-                <div style="margin-bottom: 12px;">
-                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">Designation</span>
-                    <span style="font-size: 12px; color: #333;">: ${employeeData.designation}</span>
-                </div>
-                
-                <div style="margin-bottom: 12px;">
-                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">Transaction ID</span>
-                    <span style="font-size: 12px; color: #333;">: ${employeeData.transaction_id}</span>
-                </div>
-                
-                <div style="margin-bottom: 12px;">
-                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">PAN Number</span>
-                    <span style="font-size: 12px; color: #333;">: ${employeeData.pan_number}</span>
-                </div>
-            </div>
-            
-            <div style="flex: 1;">
-                <div style="margin-bottom: 12px;">
-                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">Employee Bank</span>
-                    <span style="font-size: 12px; color: #333;">: ${employeeData.employee_bank}</span>
-                </div>
-                
-                <div style="margin-bottom: 12px;">
-                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">Bank Account</span>
-                    <span style="font-size: 12px; color: #333;">: ${employeeData.bank_account}</span>
-                </div>
-                
-                <div style="margin-bottom: 12px;">
-                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">UAN Number</span>
-                    <span style="font-size: 12px; color: #333;">: ${employeeData.uan_number}</span>
-                </div>
-                
-                <div style="margin-bottom: 12px;">
-                    <span style="display: inline-block; width: 120px; font-size: 12px; color: #666;">ESI Number</span>
-                    <span style="font-size: 12px; color: #333;">: ${employeeData.esi_number}</span>
-                </div>
-            </div>
-        </div>
-
-        <div style="margin: 20px; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; background-color: white;">
-            <div style="display: flex;">
-                <div style="flex: 1; padding: 20px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px dotted #ddd;">
-                        <span style="font-size: 14px; font-weight: bold; color: #333;">EARNINGS</span>
-                        <span style="font-size: 14px; font-weight: bold; color: #333;">AMOUNT</span>
-                    </div>
-                    
-                    ${earningsArray.map(item =>
-      `<div style="margin-bottom: 15px;">
-                            <div style="display: flex; justify-content: space-between;">
-                                <span style="font-size: 13px; color: #333;">${item.label}</span>
-                                <span style="font-size: 13px; color: #333; font-weight: 600;">Rs.${(item.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                            </div>
-                        </div>`
-    ).join('')}
-                    
-                    <div style="padding-top: 15px; border-top: 1px solid #e0e0e0;">
-                        <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                            <span style="font-size: 14px; font-weight: bold; color: #333;">Gross Earnings</span>
-                            <span style="font-size: 14px; font-weight: bold; color: #333; margin-left: auto;">Rs.${totalEarnings.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div style="flex: 1; padding: 20px; border-left: 1px solid #e0e0e0;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px dotted #ddd;">
-                        <span style="font-size: 14px; font-weight: bold; color: #333;">DEDUCTIONS</span>
-                        <span style="font-size: 14px; font-weight: bold; color: #333;">AMOUNT</span>
-                    </div>
-                    
-                    ${deductionsArray.map(item =>
-      `<div style="margin-bottom: 15px;">
-                            <div style="display: flex; justify-content: space-between;">
-                                <span style="font-size: 13px; color: #333;">${item.label}</span>
-                                <span style="font-size: 13px; color: #333; font-weight: 600;">Rs.${(item.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                            </div>
-                        </div>`
-    ).join('')}
-                    
-                    <div style="padding-top: 15px; border-top: 1px solid #e0e0e0;">
-                        <div style="display: flex; justify-content: space-between; align-items: baseline;">
-                            <span style="font-size: 14px; font-weight: bold; color: #333;">Total Deductions</span>
-                            <span style="font-size: 14px; font-weight: bold; color: #333; margin-left: auto;">Rs.${totalDeductions.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div style="margin: 20px; border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; background-color: white;">
-            <div style="padding: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <div style="font-size: 16px; font-weight: bold; color: #333; margin-bottom: 5px;">TOTAL NET PAYABLE</div>
-                        <div style="font-size: 13px; color: #666;">Gross Earnings - Total Deductions</div>
-                    </div>
-                    <div style="background-color: #e8f5e8; padding: 15px 20px; border-radius: 8px;">
-                        <div style="font-size: 26px; font-weight: bold; color: #2e7d32;">Rs.${netPay.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div style="margin: 0 20px 20px 20px; text-align: center;">
-            <div style="font-size: 12px; color: #666;">Amount In Words : Indian Rupee ${numberToWords(netPay)}</div>
-        </div>
-        
-    </div>
-
-</body>
-</html>
-  `;
-
+if (!htmlTemplate) {
+  message.error('Failed to load payslip template');
+  return;
+}
+const companyLogoUrl = myaccessLogo; 
+// Replace template variables with actual data
+const htmlContent = htmlTemplate
+.replace(/{{company_logo}}/g, companyLogoUrl)
+  .replace(/{{company_name}}/g, employeeData.company_name || 'MYACCESS PRIVATE LIMITED')
+.replace(/{{company_name}}/g, employeeData.company_name || 'MYACCESS PRIVATE LIMITED')
+  .replace(/{{company_address}}/g, employeeData.company_address || 'NASSCOM CoE - IoT & AU, Andhra University Visakhapatnam - 530003')
+  .replace(/{{city}}/g, employeeData.city || 'Andhra Pradesh')
+  .replace(/{{country}}/g, employeeData.country || 'India')
+  .replace(/{{pay_period}}/g, dayjs(employeeData.pay_period).format('MMMM YYYY'))
+  .replace(/{{employee_name}}/g, employeeData.employee_name)
+  .replace(/{{employee_id}}/g, employeeData.employee_id)
+  .replace(/{{employee_gender}}/g, employeeData.gender)
+  .replace(/{{employee_designation}}/g, employeeData.designation)
+  .replace(/{{transaction_id}}/g, employeeData.transaction_id)
+  .replace(/{{PAN_number}}/g, employeeData.pan_number)
+  .replace(/{{bank_name}}/g, employeeData.employee_bank)
+  .replace(/{{bank_account_number}}/g, employeeData.bank_account)
+  .replace(/{{UAN_number}}/g, employeeData.uan_number)
+  .replace(/{{ESI_number}}/g, employeeData.esi_number)
+  .replace(/{{pay_date}}/g, dayjs(employeeData.pay_date).format('YYYY-MM-DD'))
+  .replace(/{{paid_days}}/g, employeeData.paid_days)
+  .replace(/{{lop_days}}/g, employeeData.lop_days)
+  .replace(/{{net_pay}}/g, netPay.toLocaleString('en-IN'))
+  .replace(/{{basic_pay}}/g, (earningsArray.find(e => e.label === 'Basic')?.amount || 0).toLocaleString('en-IN'))
+  .replace(/{{house_rent_allowance}}/g, (earningsArray.find(e => e.label === 'House Rent Allowance')?.amount || 0).toLocaleString('en-IN'))
+  .replace(/{{DA_pay}}/g, (earningsArray.find(e => e.label === 'DA')?.amount || 0).toLocaleString('en-IN'))
+  .replace(/{{others_pay}}/g, (earningsArray.find(e => e.label === 'Others')?.amount || 0).toLocaleString('en-IN'))
+  .replace(/{{income_tax_deduction}}/g, (deductionsArray.find(d => d.label === 'Income Tax')?.amount || 0).toLocaleString('en-IN'))
+  .replace(/{{PF_deduction}}/g, (deductionsArray.find(d => d.label === 'Provident Fund')?.amount || 0).toLocaleString('en-IN'))
+  .replace(/{{ESI_deduction}}/g, (deductionsArray.find(d => d.label === 'ESI')?.amount || 0).toLocaleString('en-IN'))
+  .replace(/{{gross_pay}}/g, totalEarnings.toLocaleString('en-IN'))
+  .replace(/{{total_deductions}}/g, totalDeductions.toLocaleString('en-IN'))
+  .replace(/{{net_pay_in_words}}/g, numberToWords(netPay));
+  
     // Generate PDF blob
-    const pdfBlob = await new Promise((resolve) => {
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = htmlContent;
-      tempDiv.style.position = 'absolute';
-      tempDiv.style.left = '-9999px';
-      tempDiv.style.width = '800px';
-      tempDiv.style.background = 'white';
-      document.body.appendChild(tempDiv);
+    const pdfBlob = await new Promise(async(resolve) => {
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = htmlContent;
+  tempDiv.style.position = 'absolute';
+  tempDiv.style.left = '-9999px';
+  tempDiv.style.width = '935px'; // Match your HTML template width
+  tempDiv.style.background = 'white';
+  tempDiv.style.boxSizing = 'border-box';
+  document.body.appendChild(tempDiv);
+  await document.fonts.ready;
+  
+  html2canvas(tempDiv, {
+    scale: 2, // Higher quality
+    useCORS: true,
+    allowTaint: true,
+    backgroundColor: '#ffffff',
+    logging: false,
+    imageTimeout: 30000,
+    width: 935, // Match template width
+    windowWidth: 935
+  }).then(canvas => {
+    document.body.removeChild(tempDiv);
 
-      html2canvas(tempDiv, {
-        scale: 1.5, // Reduce from 2 to 1.5
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false, // Disable logging for better performance
-        imageTimeout: 30000
-      }).then(canvas => {
-        document.body.removeChild(tempDiv);
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const imgData = canvas.toDataURL('image/jpeg', 0.85);
 
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const imgData = canvas.toDataURL('image/jpeg', 0.8); // Use JPEG with 80% quality instead of PNG
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    
+    // Calculate to fit A4 with equal margins
+    const margin = 10; // 10mm margins on all sides
+    const contentWidth = pdfWidth - (2 * margin);
+    const contentHeight = pdfHeight - (2 * margin);
+    
+    // Maintain aspect ratio
+    const canvasRatio = canvas.height / canvas.width;
+    let imgWidth = contentWidth;
+    let imgHeight = imgWidth * canvasRatio;
+    
+    // If height exceeds available space, scale by height instead
+    if (imgHeight > contentHeight) {
+      imgHeight = contentHeight;
+      imgWidth = imgHeight / canvasRatio;
+    }
+    
+    // Center horizontally, align to top margin
+    const imgX = margin + (contentWidth - imgWidth) / 2;
+    const imgY = margin;
 
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
-        const imgWidth = canvas.width;
-        const imgHeight = canvas.height;
-        const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-        const imgX = (pdfWidth - imgWidth * ratio) / 2;
-        const imgY = 0;
-
-        pdf.addImage(imgData, 'JPEG', imgX, imgY, imgWidth * ratio, imgHeight * ratio); // Use JPEG
-        const blob = pdf.output('blob');
-        resolve(blob);
-      }).catch(error => {
-        document.body.removeChild(tempDiv);
-        console.error('Error generating PDF:', error);
-        resolve(new Blob());
-      });
-    });
+    pdf.addImage(imgData, 'JPEG', imgX, imgY, imgWidth, imgHeight);
+    const blob = pdf.output('blob');
+    resolve(blob);
+  }).catch(error => {
+    document.body.removeChild(tempDiv);
+    console.error('Error generating PDF:', error);
+    resolve(new Blob());
+  });
+});
 
     // When PDF is generated successfully and returnBlob is true, store PDF in Supabase Storage
     try {
