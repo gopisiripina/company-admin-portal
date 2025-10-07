@@ -415,69 +415,74 @@ const EmployeeAttendancePage = ({ userRole = 'hr' }) => {
     }
   };
 
-  // Handle mark attendance
-  const handleMarkAttendance = () => {
-    if (selectedEmployees.length === 0) {
-      message.warning('Please select at least one employee');
-      return;
-    }
-    setTimeModalVisible(true);
-  };
+ // Handle mark attendance
+const handleMarkAttendance = () => {
+  if (selectedEmployees.length === 0) {
+    message.warning('Please select at least one employee');
+    return;
+  }
+  // Reset states before opening modal
+  setCheckInTime(null);
+  setCheckOutTime(null);
+  setLoading(false); // Ensure loading is false when opening modal
+  setTimeModalVisible(true);
+};
 
-  // Submit attendance
-  const handleSubmitAttendance = async () => {
-    if (!checkInTime) {
-      message.error('Please select check-in time');
-      return;
-    }
+ // Submit attendance
+const handleSubmitAttendance = async () => {
+  if (!checkInTime) {
+    message.error('Please select check-in time');
+    return;
+  }
 
-    setLoading(true);
+  setLoading(true);
 
-    try {
-      const dateKey = selectedDate.format('YYYY-MM-DD');
-      const attendanceRecords = selectedEmployees.map(employeeId => {
-        let totalHours = null;
-        let checkOutValue = null;
+  try {
+    const dateKey = selectedDate.format('YYYY-MM-DD');
+    const attendanceRecords = selectedEmployees.map(employeeId => {
+      let totalHours = null;
+      let checkOutValue = null;
 
-        if (checkInTime && checkOutTime && checkOutTime.isAfter(checkInTime)) {
-          totalHours = checkOutTime.diff(checkInTime, 'hours', true);
-          checkOutValue = checkOutTime.format('HH:mm:ss');
-        }
+      if (checkInTime && checkOutTime && checkOutTime.isAfter(checkInTime)) {
+        totalHours = checkOutTime.diff(checkInTime, 'hours', true);
+        checkOutValue = checkOutTime.format('HH:mm:ss');
+      }
 
-        return {
-          user_id: employeeId,
-          date: dateKey,
-          check_in: checkInTime.format('HH:mm:ss'),
-          check_out: checkOutValue,
-          total_hours: totalHours,
-          is_present: true
-        };
-      });
+      return {
+        user_id: employeeId,
+        date: dateKey,
+        check_in: checkInTime.format('HH:mm:ss'),
+        check_out: checkOutValue,
+        total_hours: totalHours,
+        is_present: true
+      };
+    });
 
-      const { error } = await supabase
-        .from('attendance')
-        .upsert(attendanceRecords, { onConflict: 'user_id,date' });
+    const { error } = await supabase
+      .from('attendance')
+      .upsert(attendanceRecords, { onConflict: 'user_id,date' });
 
-      if (error) throw error;
+    if (error) throw error;
 
-      await fetchAttendanceData(
-        selectedDate.startOf('month').format('YYYY-MM-DD'),
-        selectedDate.endOf('month').format('YYYY-MM-DD')
-      );
+    await fetchAttendanceData(
+      selectedDate.startOf('month').format('YYYY-MM-DD'),
+      selectedDate.endOf('month').format('YYYY-MM-DD')
+    );
 
-      setTimeModalVisible(false);
-      setSelectedEmployees([]);
-      setCheckInTime(null);
-      setCheckOutTime(null);
-
-      message.success(`Attendance updated for ${selectedEmployees.length} employee(s)`);
-    } catch (error) {
-      console.error('Error marking attendance:', error);
-      message.error('Failed to mark attendance');
-    } finally {
-      setLoading(false);
-    }
-  };
+    message.success(`Attendance updated for ${selectedEmployees.length} employee(s)`);
+    
+    // Close modal and reset states
+    setTimeModalVisible(false);
+    setSelectedEmployees([]);
+    setCheckInTime(null);
+    setCheckOutTime(null);
+  } catch (error) {
+    console.error('Error marking attendance:', error);
+    message.error('Failed to mark attendance');
+  } finally {
+    setLoading(false); // Always reset loading state
+  }
+};
 
   const handleViewAttendance = async (employee) => {
     if (!employee?.id) {
