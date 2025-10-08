@@ -63,76 +63,118 @@ const JobApplicationPage = ({ userRole, jobId }) => {
   const [formProgress, setFormProgress] = useState(0);
   const [fileList, setFileList] = useState([]);
   const [submitted, setSubmitted] = useState(false);
-
+  const [currentJobId, setCurrentJobId] = useState(null);
   // Extract job ID from URL if not passed as prop
   const getCurrentJobId = () => {
-    if (jobId) return jobId;
-    const path = window.location.pathname;
-    const match = path.match(/\/job-application\/(\d+)/);
-    return match ? match[1] : null;
-  };
+  if (jobId) {
+    console.log('Using jobId prop:', jobId);
+    return jobId;
+  }
   
-  const currentJobId = getCurrentJobId();
+  const path = window.location.pathname;
+  const href = window.location.href;
   
-  useEffect(() => {
+  
+  const match = path.match(/\/job-application\/(\d+)/);
+  
+  if (match) {
+    return parseInt(match[1]);
+  }
+  
+  console.log('🔍 No match found, returning null');
+  return null;
+};
+  
+  
+ useEffect(() => {
+  const jobIdFromUrl = getCurrentJobId();
+  console.log('Job ID extracted:', jobIdFromUrl);
+  setCurrentJobId(jobIdFromUrl);
+}, []);
+
+useEffect(() => {
+  if (currentJobId) {
     fetchJobData();
-  }, [currentJobId]);
+  }
+}, [currentJobId]);
+
+// ✅ Add a new useEffect to update form when jobData is loaded:
+useEffect(() => {
+  if (jobData?.id) {
+    form.setFieldsValue({ jobId: jobData.id });
+  }
+}, [jobData]);
 
   const fetchJobData = async () => {
-    setLoading(true);
-    try {
-      let jobInfo = null;
+  setLoading(true);
+  try {
+    let jobInfo = null;
 
-      // If jobId is provided, try to fetch from job_postings table
-      if (currentJobId) {
-        try {
-          const { data: jobPosting, error } = await supabase
-            .from('job_postings')
-            .select('*')
-            .eq('id', currentJobId)
-            .single();
+    // Debug logs
+    console.log('currentJobId:', currentJobId);
+    console.log('Type of currentJobId:', typeof currentJobId);
 
-          if (error) {
-            console.error('Error fetching job posting:', error);
-            throw error;
-          }
+    if (currentJobId) {
+      try {
+        // Query job_descriptions directly
+        const { data: jobDesc, error } = await supabase
+          .from('job_descriptions')
+          .select('*')
+          .eq('id', parseInt(currentJobId))
+          .single();
 
-          // Use the job posting data directly
-          jobInfo = {
-            id: jobPosting.id,
-            title: jobPosting.title || jobPosting.job_title,
-            company: jobPosting.company || jobPosting.company_name || "MyAccess",
-            location: jobPosting.location || "Location TBD",
-            type: jobPosting.type || jobPosting.employment_type || "Full-time",
-            salary: jobPosting.salary || jobPosting.salary_range || "Competitive",
-            description: jobPosting.description || jobPosting.job_description || "Great opportunity to join our team",
-            requirements: jobPosting.requirements || jobPosting.required_skills || []
-          };
-        } catch (error) {
-          console.error('Error fetching job from database:', error);
-          // If database fetch fails, fall back to URL parameters
-          jobInfo = getJobInfoFromParams();
+        console.log('Job description found:', jobDesc);
+        console.log('Query error:', error);
+
+        if (error) {
+          console.error('Error fetching job description:', error);
+          throw error;
         }
-      }
-      // If no jobId but query params exist (from job posting)
-      else if (searchParams.get('title')) {
-        jobInfo = getJobInfoFromParams();
-      }
-      // Fallback to default
-      else {
-        jobInfo = getDefaultJobInfo();
-      }
 
-      setJobData(jobInfo);
-    } catch (error) {
-      console.error('Error fetching job data:', error);
-      message.error('Failed to load job information');
-      // Set default job info even on error
-      setJobData(getDefaultJobInfo());
-    } finally {
-      setLoading(false);
+        if (!jobDesc) {
+          throw new Error('Job description not found');
+        }
+
+        // Map job_descriptions to jobInfo
+        jobInfo = {
+          id: jobDesc.id,
+          title: jobDesc.job_title,
+          company: jobDesc.college_name || "MyAccess",
+          location: jobDesc.location || "Location TBD",
+          type: jobDesc.employment_type || "Full-time",
+          salary: jobDesc.salary_range || "Competitive",
+          description: jobDesc.job_description || "Great opportunity to join our team",
+          requirements: jobDesc.required_skills ? (Array.isArray(jobDesc.required_skills) ? jobDesc.required_skills : [jobDesc.required_skills]) : []
+        };
+
+        console.log('Final jobInfo:', jobInfo);
+
+      } catch (error) {
+        console.error('Error fetching job from database:', error);
+        // If database fetch fails, fall back to URL parameters
+        jobInfo = getJobInfoFromParams();
+        jobInfo.id = parseInt(currentJobId); // Ensure id is set from URL
+      }
     }
-  };
+    // If no jobId but query params exist (from job posting)
+    else if (searchParams.get('title')) {
+      jobInfo = getJobInfoFromParams();
+    }
+    // Fallback to default
+    else {
+      jobInfo = getDefaultJobInfo();
+    }
+
+    setJobData(jobInfo);
+  } catch (error) {
+    console.error('Error fetching job data:', error);
+    message.error('Failed to load job information');
+    // Set default job info even on error
+    setJobData(getDefaultJobInfo());
+  } finally {
+    setLoading(false);
+  }
+};
 
   const getJobInfoFromParams = () => {
     return {
@@ -160,62 +202,80 @@ const JobApplicationPage = ({ userRole, jobId }) => {
     };
   };
 
+
   const calculateProgress = () => {
     const values = form.getFieldsValue();
-    const requiredFields = ['fullName', 'email', 'phone', 'experience', 'expectedSalary'];
+    const requiredFields = ['fullName', 'email', 'phone', 'experience', 'expectedSalary','jobId'];
     const completedFields = requiredFields.filter(field => values[field]).length;
     const progress = (completedFields / requiredFields.length) * 100;
     setFormProgress(progress);
   };
 
   const handleSubmit = async (values) => {
-    setLoading(true);
+  setLoading(true);
+  
+  // Debug logs
+  console.log('Form values:', values);
+  console.log('values.jobId:', values.jobId);
+  console.log('jobData:', jobData);
+  console.log('jobData.id:', jobData?.id);
+  
+  try {
+    let resumeUrl = null;
     
-    try {
-      let resumeUrl = null;
-      
-      if (fileList.length > 0) {
-        resumeUrl = await uploadResumeToStorage(fileList[0], Date.now().toString());
-      }
-
-      const applicationData = {
-        job_id: currentJobId ? parseInt(currentJobId) : null,
-        job_title: jobData?.title || 'Unknown Position',
-        full_name: values.fullName,
-        email: values.email,
-        phone: values.phone,
-        location: values.location || null,
-        current_position: values.currentPosition || null,
-        current_company: values.currentCompany || null,
-        experience_years: values.experience,
-        education: values.education || null,
-        availability: values.availability || null,
-        skills: values.skills || null,
-        expected_salary: values.expectedSalary,
-        portfolio_url: values.portfolioUrl || null,
-        linkedin_url: values.linkedinUrl || null,
-        cover_letter: values.coverLetter || null,
-        resume_url: resumeUrl,
-        status: 'pending'
-      };
-
-      const { data, error } = await supabase
-        .from('job_applications')
-        .insert([applicationData])
-        .select();
-      
-      if (error) throw error;
-      
-      message.success('Application submitted successfully!');
-      setSubmitted(true);
-      
-    } catch (error) {
-      console.error('Submission error:', error);
-      message.error(`Failed to submit application: ${error.message}`);
-    } finally {
-      setLoading(false);
+    if (fileList.length > 0) {
+      resumeUrl = await uploadResumeToStorage(fileList[0], Date.now().toString());
     }
-  };
+
+    const applicationData = {
+      job_id: values.jobId ? parseInt(values.jobId) : (jobData?.id ? parseInt(jobData.id) : null),
+      job_title: jobData?.title || 'Unknown Position',
+      full_name: values.fullName,
+      email: values.email,
+      phone: values.phone,
+      location: values.location || null,
+      current_position: values.currentPosition || null,
+      current_company: values.currentCompany || null,
+      experience_years: values.experience,
+      education: values.education || null,
+      availability: values.availability || null,
+      skills: values.skills || null,
+      expected_salary: values.expectedSalary,
+      portfolio_url: values.portfolioUrl || null,
+      linkedin_url: values.linkedinUrl || null,
+      cover_letter: values.coverLetter || null,
+      resume_url: resumeUrl,
+      status: 'pending'
+    };
+
+    // Debug log
+    console.log('applicationData being sent:', applicationData);
+    console.log('applicationData.job_id:', applicationData.job_id);
+
+    // Validate job_id before submitting
+    if (!applicationData.job_id) {
+      message.error('Job ID is required. Please ensure a valid job is selected.');
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('job_applications')
+      .insert([applicationData])
+      .select();
+    
+    if (error) throw error;
+    
+    message.success('Application submitted successfully!');
+    setSubmitted(true);
+    
+  } catch (error) {
+    console.error('Submission error:', error);
+    message.error(`Failed to submit application: ${error.message}`);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleFileChange = ({ fileList: newFileList }) => {
     setFileList(newFileList);
