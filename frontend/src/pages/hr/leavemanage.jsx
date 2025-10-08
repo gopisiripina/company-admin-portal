@@ -5072,91 +5072,101 @@ const CancelledLogsModal = ({ visible, onCancel }) => {
           
         </Col>
         
-        {/* --- THIS IS THE CORRECTED SECTION FOR THE BUTTONS --- */}
-        <Col xs={24} md={10} lg={8}>
-          <Space 
-            size={[8, 16]} 
-            wrap 
-            style={{ width: '100%', justifyContent: 'flex-end' }}
+     {/* Replace the existing button section in HRDashboard */}
+<Col xs={24} md={10} lg={8}>
+  <Row gutter={[12, 12]}>
+    {/* First Column - Left Side Buttons */}
+    <Col xs={12}>
+      <Space direction="vertical" size={12} style={{ width: '100%' }}>
+        <Tooltip title="Export Leave Reports">
+          <Button
+            type="primary"
+            icon={<DownloadOutlined />}
+            onClick={() => setExportModalVisible(true)}
+            block
+            style={{
+              height: '44px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #0D7139 0%, #52c41a 100%)',
+              border: 'none',
+              fontWeight: 600,
+              boxShadow: '0 4px 16px rgba(13, 113, 57, 0.24)',
+            }}
           >
-              <Tooltip title="Export Leave Reports">
-                <Button
-                  type="primary"
-                  icon={<DownloadOutlined />}
-                  onClick={() => setExportModalVisible(true)}
-                  style={{
-                    height: '44px',
-                    borderRadius: '12px',
-                    background: 'linear-gradient(135deg, #0D7139 0%, #52c41a 100%)',
-                    border: 'none',
-                    fontWeight: 600,
-                    boxShadow: '0 4px 16px rgba(13, 113, 57, 0.24)',
-                    transition: 'all 0.3s ease'
-                  }}
-                  className="professional-primary-btn"
-                >
-                  Export Report
-                </Button>
-              </Tooltip>
-              <Tooltip title="View Employee Cancelled Leave Logs">
-    <Button
-      icon={<DeleteOutlined />}
-      onClick={() => setCancelledLogsModal(true)}
-      style={{
-        height: '44px',
-        borderRadius: '12px',
-        background: 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)',
-        border: 'none',
-        color: 'white',
-        fontWeight: 600,
-        boxShadow: '0 4px 16px rgba(107, 114, 128, 0.24)',
-      }}
-    >
-      Cancelled Logs
-    </Button>
-</Tooltip>
-              
-              <Tooltip title="Manually Allocate Compensatory Leave">
-                <Button
-                  icon={<FaIndianRupeeSign />}
-                  onClick={() => setCompOffModalVisible(true)}
-                  style={{
-                    height: '44px',
-                    borderRadius: '12px',
-                    background: 'linear-gradient(135deg, #722ed1 0%, #9254de 100%)',
-                    border: 'none',
-                    color: 'white',
-                    fontWeight: 600,
-                    boxShadow: '0 4px 16px rgba(114, 46, 209, 0.24)',
-                  }}
-                >
-                  Allocate Comp Off
-                </Button>
-              </Tooltip>
-                 <Tooltip title="Review Extra Medical Leave Requests">
-                  <Button
-                      icon={<MedicineBoxOutlined />}
-                      onClick={() => {
-                          fetchPendingMedicalRequests(); // Fetch latest requests
-                          setHrMedicalApprovalModal(true);
-                      }}
-                      style={{
-                          height: '44px',
-                          borderRadius: '12px',
-                          background: 'linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%)',
-                          border: 'none',
-                          color: 'white',
-                          fontWeight: 600,
-                          boxShadow: '0 4px 16px rgba(255, 77, 79, 0.24)',
-                      }}
-                  >
-                      <Badge count={pendingMedicalRequests.length} size="small" offset={[10, -5]}>
-                          <span>Leave Requests</span>
-                      </Badge>
-                  </Button>
-              </Tooltip>
-          </Space>
-        </Col>
+            Export Report
+          </Button>
+        </Tooltip>
+        
+        <Tooltip title="Manually Allocate Compensatory Leave">
+          <Button
+           
+            onClick={() => setCompOffModalVisible(true)}
+            block
+            style={{
+              height: '44px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #722ed1 0%, #9254de 100%)',
+              border: 'none',
+              color: 'white',
+              fontWeight: 600,
+              boxShadow: '0 4px 16px rgba(114, 46, 209, 0.24)',
+            }}
+          >
+            Allocate Comp Off
+          </Button>
+        </Tooltip>
+      </Space>
+    </Col>
+    
+    {/* Second Column - Right Side Buttons */}
+    <Col xs={12}>
+      <Space direction="vertical" size={12} style={{ width: '100%' }}>
+        <Tooltip title="View Employee Cancelled Leave Logs">
+          <Button
+            icon={<DeleteOutlined />}
+            onClick={() => setCancelledLogsModal(true)}
+            block
+            style={{
+              height: '44px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)',
+              border: 'none',
+              color: 'white',
+              fontWeight: 600,
+              boxShadow: '0 4px 16px rgba(107, 114, 128, 0.24)',
+            }}
+          >
+            Cancelled Logs
+          </Button>
+        </Tooltip>
+        
+        <Tooltip title="Review Extra Medical Leave Requests">
+          <Button
+            icon={<MedicineBoxOutlined />}
+            onClick={() => {
+              fetchPendingMedicalRequests();
+              setHrMedicalApprovalModal(true);
+            }}
+            block
+            style={{
+              height: '44px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%)',
+              border: 'none',
+              color: 'white',
+              fontWeight: 600,
+              boxShadow: '0 4px 16px rgba(255, 77, 79, 0.24)',
+            }}
+          >
+            <Badge count={pendingMedicalRequests.length} size="small" offset={[10, -5]}>
+              <span>Leave Requests</span>
+            </Badge>
+          </Button>
+        </Tooltip>
+      </Space>
+    </Col>
+  </Row>
+</Col>
         {/* --- END OF CORRECTED SECTION --- */}
       </Row>
     </Card>
