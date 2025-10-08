@@ -702,7 +702,7 @@ setDocumentsLoading(false);
             </Col>
           </Row>
         </Card>
-        {loading ? (
+          {loading ? (
   <div style={{ textAlign: 'center', marginTop: '50px', padding: '40px' }}>
     <Spin 
       size="large" 
@@ -723,12 +723,7 @@ setDocumentsLoading(false);
     <p style={{ color: '#0D7139', fontSize: '16px', fontWeight: '500', marginTop: '16px' }}>
       Loading employee data...
     </p>
-    <style jsx>{`
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-    `}</style>
+    {/* The invalid <style jsx> tag has been removed. */}
   </div>
 ) : (
           filteredEmployees.length > 0 ? (

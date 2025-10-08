@@ -280,7 +280,7 @@ const HRRequestDetailDrawer = ({ request, visible, onClose, onApprove, onReject,
         ? (isHalfDayLeave ? request.total_days : selectedDays.length)
         : 0;
     // --- END OF FIX ---
-
+    const certificateUrl = request?.medical_certificate || request?.medical_certificate_url;
 
     useEffect(() => {
     if (request?.user_id && request.start_date && request.end_date) {
@@ -542,46 +542,46 @@ const HRRequestDetailDrawer = ({ request, visible, onClose, onApprove, onReject,
     <Paragraph blockquote={"true"} style={{ margin: 0 }}>{request.reason}</Paragraph>
 </Descriptions.Item>
                     
-                    
-{(request.medical_certificate || request.attachment) && (
-  <>
-    <Divider>Attachments</Divider>
-    <Card size="small">
-      <Space direction="vertical" style={{ width: '100%' }}>
-        {request.medical_certificate && (
-          <div>
-            <Text strong>Medical Certificate:</Text>
-            <br />
-            <Button
-              type="link"
-              icon={<FileTextOutlined />}
-              onClick={() => window.open(request.medical_certificate, '_blank')}
-              style={{ padding: 0, height: 'auto' }}
-            >
-              View Medical Certificate
-            </Button>
-          </div>
-        )}
-        {request.attachment && (
-          <div>
-            <Text strong>Additional Document:</Text>
-            <br />
-            <Button
-              type="link"
-              icon={<FileTextOutlined />}
-              onClick={() => window.open(request.attachment, '_blank')}
-              style={{ padding: 0, height: 'auto' }}
-            >
-              View Attachment
-            </Button>
-          </div>
-        )}
-      </Space>
-    </Card>
-  </>
-)}
+ {(certificateUrl || request.attachment) && (
+                      <>
+                        <Divider>Attachments</Divider>
+                        <Card size="small">
+                          <Space direction="vertical" style={{ width: '100%' }}>
+                            {/* This inner part also uses the certificateUrl variable */}
+                            {certificateUrl && (
+                              <div>
+                                <Text strong>Medical Certificate:</Text>
+                                <br />
+                                <Button
+                                  type="link"
+                                  icon={<FileTextOutlined />}
+                                  onClick={() => window.open(certificateUrl, '_blank')}
+                                  style={{ padding: 0, height: 'auto' }}
+                                >
+                                  View Medical Certificate
+                                </Button>
+                              </div>
+                            )}
+                            {request.attachment && (
+                              <div>
+                                <Text strong>Additional Document:</Text>
+                                <br />
+                                <Button
+                                  type="link"
+                                  icon={<FileTextOutlined />}
+                                  onClick={() => window.open(request.attachment, '_blank')}
+                                  style={{ padding: 0, height: 'auto' }}
+                                >
+                                  View Attachment
+                                </Button>
+                              </div>
+                            )}
+                          </Space>
+                        </Card>
+                      </>
+                    )}
+                    {/* --- END OF FIX --- */}
                 </Descriptions>
-                
                 <Divider>HR Action: Select Days to Approve</Divider>
               <Card>
     <Calendar 
@@ -1247,7 +1247,7 @@ const LeaveHistoryDrawer = ({ visible, onClose, leaveData, currentUser, onEdit, 
                 </Text>
               )}
               
-               {leave.totalHours > 0 && `       • ${formatPermissionHours(leave.totalHours)}`}
+               {leave.totalHours > 0 && `        • ${formatPermissionHours(leave.totalHours)}`}
             </Text>
           </Col>
           
@@ -1280,7 +1280,7 @@ const LeaveHistoryDrawer = ({ visible, onClose, leaveData, currentUser, onEdit, 
   );
 };
 
-// --- START: REPLACE THE ENTIRE CompensatoryLeaveModal COMPONENT WITH THIS NEW VERSION ---
+
 
 const CompensatoryLeaveModal = ({ visible, onCancel, employees }) => {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
@@ -1456,7 +1456,7 @@ const CompensatoryLeaveModal = ({ visible, onCancel, employees }) => {
     } else if (isAllocated) {
       style.backgroundColor = '#d3adf7';
     } else if (isEligible) {
-      style.backgroundColor = '#f9f0ff';
+      style.backgroundColor = '#b7eb8f';
     }
     
     return <div className="ant-picker-cell-inner" style={style}>{date.date()}</div>;
@@ -1488,7 +1488,7 @@ const CompensatoryLeaveModal = ({ visible, onCancel, employees }) => {
               <Card title="Click on days to select/deselect for batch actions">
                  <Calendar fullscreen={false} value={selectedMonth} dateFullCellRender={dateCellRender} onSelect={onDateSelect} />
                  <Space style={{ marginTop: '16px' }} wrap>
-                    <Badge color="#f9f0ff" text="Eligible" />
+                    <Badge color="#b7eb8f" text="Eligible" />
                     <Badge color="#d3adf7" text="Allocated" />
                     <Badge color="#f6ffed" text="Selected to Add" />
                     <Badge color="#fff1f0" text="Selected to Revoke" />
@@ -1622,6 +1622,13 @@ const [editingLeave, setEditingLeave] = useState(null);
 const [editForm] = Form.useForm();
 const [selectedRequestForReview, setSelectedRequestForReview] = useState(null);
 const [isAdjustDrawerVisible, setIsAdjustDrawerVisible] = useState(false); // Renamed for clarity
+const [cancelLeaveModal, setCancelLeaveModal] = useState(false);
+const [leaveToCancel, setLeaveToCancel] = useState(null);
+const [cancelForm] = Form.useForm();
+const [cancelledLogsModal, setCancelledLogsModal] = useState(false); // For HR
+const [cancelledLogs, setCancelledLogs] = useState([]);
+const [cancelledLogsLoaded, setCancelledLogsLoaded] = useState(false);
+
 
 
 
@@ -1723,37 +1730,62 @@ useEffect(() => {
     loadInitialData();
   }
 }, [currentUser?.id, dataLoaded, activeTab, userRole]);
-// Move these functions INSIDE the LeaveManagementPage component (around line 600)
-const handleCancelLeave = async (leave) => {
-    Modal.confirm({
-        title: 'Are you sure you want to cancel this leave request?',
-        icon: <ExclamationCircleOutlined />,
-        content: 'This action cannot be undone.',
-        okText: 'Yes, Cancel It',
-        okType: 'danger',
-        async onOk() {
-            try {
-                const tableToDeleteFrom = leave.isExtraRequest ? 'medical_leave_requests' : 'leave_applications';
-                
-                const { error } = await supabase
-                    .from(tableToDeleteFrom)
-                    .delete()
-                    .eq('id', leave.id);
+// In LeaveManagementPage, REPLACE the existing handleCancelLeave function
 
-                if (error) throw error;
-
-                // Update state immediately
-                setLeaveData(prevData => prevData.filter(item => item.id !== leave.id));
-                message.success('Leave request cancelled successfully.');
-
-            } catch (error) {
-                console.error('Error cancelling leave:', error);
-                message.error('Failed to cancel the leave request.');
-            }
-        },
-    });
+const handleCancelLeave = (leave) => {
+    setLeaveToCancel(leave);
+    setCancelLeaveModal(true);
 };
+// In leavemanage.jsx, replace the existing submitLeaveCancellation function
+const submitLeaveCancellation = async (values) => {
+    if (!leaveToCancel) return;
+    setLoading(true);
+    try {
+        const { cancellation_reason } = values;
+        
+        if (leaveToCancel.isExtraRequest) {
+            const { error } = await supabase
+                .from('medical_leave_requests')
+                .update({
+                    status: 'Cancelled',
+                    hr_comments: cancellation_reason,
+                })
+                .eq('id', leaveToCancel.id);
 
+            if (error) throw error;
+            setLeaveData(prevData => prevData.filter(item => item.id !== leaveToCancel.id));
+        } else {
+            // FIX: Change status to 'Cancelled' instead of 'Rejected'
+            const { data, error } = await supabase
+                .from('leave_applications')
+                .update({
+                    status: 'Cancelled', // Changed from 'Rejected'
+                    cancellation_reason: cancellation_reason,
+                    cancelled_at: new Date().toISOString()
+                })
+                .eq('id', leaveToCancel.id)
+                .select('*, users!inner(*)')
+                .single();
+
+            if (error) throw error;
+
+            setLeaveData(prevData => prevData.map(item => 
+                item.id === leaveToCancel.id ? data : item
+            ));
+        }
+
+        message.success('Leave request has been cancelled.');
+        setCancelLeaveModal(false);
+        setLeaveToCancel(null);
+        cancelForm.resetFields();
+
+    } catch (error) {
+        console.error('Error cancelling leave:', error);
+        message.error('Failed to cancel the leave request.');
+    } finally {
+        setLoading(false);
+    }
+};
 const handleEditLeave = (leave) => {
     if (leave.isExtraRequest) {
         message.info("Extra medical requests cannot be edited. Please cancel and submit a new one if changes are needed.");
@@ -2410,9 +2442,9 @@ console.log('DEBUG calculateLeaveDays final:', { leaveType, subType, days });
 
   const currentBalance = getCurrentBalance(leaveType);
   if (days > 0 && days > currentBalance && leaveType !== 'On Duty' && leaveType !== 'Overtime') {
-    setBalanceWarning(`ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ You don't have enough balance for ${leaveType}. Only ${currentBalance} available.`);
+    setBalanceWarning(`ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¾ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ You don't have enough balance for ${leaveType}. Only ${currentBalance} available.`);
   } else if (days > 0) {
-    setBalanceWarning(`ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ This will deduct ${days} day(s) from your ${leaveType} balance.`);
+    setBalanceWarning(`ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ This will deduct ${days} day(s) from your ${leaveType} balance.`);
   } else {
     setBalanceWarning('');
   }
@@ -2439,21 +2471,25 @@ useEffect(() => {
 }, [form.getFieldValue('startDate'), form.getFieldValue('endDate'), form.getFieldValue('leaveType'), form.getFieldValue('subType')]);
 
 
-// In leavemanage.jsx, replace the existing handleApplyLeave function
+// In leavemanage.jsx, REPLACE the entire handleApplyLeave function with this one.
 
 const handleApplyLeave = async (values) => {
   setLoading(true);
   try {
-    const { editingId, ...leaveValues } = values; // Destructure the editingId
+    // CRITICAL FIX: Extract editingId from form FIRST
+    const editingId = form.getFieldValue('editingId');
+    
     const { startDate, endDate, leaveType, subType, startTime, endTime, session } = values;
-    const effectiveEndDate = (leaveType === 'Casual Leave' && subType === 'HDL') || leaveType === 'Permission' || leaveType === 'Excuses'
+    const effectiveEndDate = (leaveType === 'Casual Leave' && subType === 'HDL') || 
+                             leaveType === 'Permission' || 
+                             leaveType === 'Excuses'
                              ? startDate
                              : (endDate || startDate);
 
-    // 1. Fetch all potentially overlapping leaves first (includes the previous fix for 'approved_dates')
+    // 1. Fetch overlapping leaves
     const { data: overlappingLeaves, error: overlapError } = await supabase
       .from('leave_applications')
-      .select('id, leave_type, start_date, end_date, status, total_days, sub_type, approved_dates') // Ensure approved_dates is selected
+      .select('id, leave_type, start_date, end_date, status, total_days, sub_type, approved_dates')
       .eq('user_id', currentUserId)
       .in('status', ['Approved', 'Pending'])
       .lte('start_date', effectiveEndDate.format('YYYY-MM-DD'))
@@ -2461,25 +2497,27 @@ const handleApplyLeave = async (values) => {
 
     if (overlapError) throw overlapError;
 
-    // --- START OF THE DEFINITIVE FIX FOR 'PENDING LEAVE EXISTS' ---
-    // This logic now correctly checks for an actual date intersection with ONLY pending leaves.
+    // 2. Check for pending overlaps - EXCLUDE the leave being edited
     const hasPendingOverlap = overlappingLeaves?.some(leave => {
-        // Step 1: Ignore any leave that is not in 'Pending' status.
+        // CRITICAL: If editing, skip the current leave being edited
+        if (editingId && String(leave.id) === String(editingId)) {
+            return false;
+        }
+
+        // Only check Pending status
         if (leave.status !== 'Pending') {
             return false;
         }
-        
-        // Step 2: Check for a true date range intersection.
+
+        // Check for date range intersection
         const pendingStart = dayjs(leave.start_date);
         const pendingEnd = dayjs(leave.end_date);
         const newRequestStart = dayjs(startDate);
         const newRequestEnd = dayjs(effectiveEndDate);
 
-        // An overlap exists if the pending leave's start is before or on the new request's end,
-        // AND the new request's start is before or on the pending leave's end.
-        return pendingStart.isSameOrBefore(newRequestEnd, 'day') && newRequestStart.isSameOrBefore(pendingEnd, 'day');
+        return pendingStart.isSameOrBefore(newRequestEnd, 'day') && 
+               newRequestStart.isSameOrBefore(pendingEnd, 'day');
     });
-    // --- END OF THE DEFINITIVE FIX ---
 
     if (hasPendingOverlap) {
       Modal.warning({
@@ -2516,11 +2554,11 @@ if (leaveType === 'Permission') {
    const start = dayjs(startDate).startOf('day');
   const end = dayjs(effectiveEndDate).startOf('day');
   totalDays = end.diff(start, 'day') + 1; // +1 to include the start day
-  console.log('DEBUG handleApplyLeave Comp/Earned:', { 
-    start: start.format('YYYY-MM-DD'), 
-    end: end.format('YYYY-MM-DD'), 
+  console.log('DEBUG handleApplyLeave Comp/Earned:', {
+    start: start.format('YYYY-MM-DD'),
+    end: end.format('YYYY-MM-DD'),
     diff: end.diff(start, 'days'),
-    totalDays 
+    totalDays
   });
 
 } else if (leaveType === 'Casual Leave' || leaveType === 'Medical Leave') {
@@ -2533,10 +2571,11 @@ if (leaveType === 'Permission') {
 }
 
 console.log('DEBUG handleApplyLeave final totalDays:', { leaveType, totalDays });
-    
+
     // 4. Adjust the deduction amount based on existing approved leave
     const finalDeductionDays = Math.max(0, totalDays - alreadyApprovedDays);
 
+   // Correct
     if (totalDays > 0 && finalDeductionDays <= 0) {
       Modal.info({
         title: 'Leave Already Covered',
@@ -2582,13 +2621,13 @@ console.log('DEBUG handleApplyLeave final totalDays:', { leaveType, totalDays })
     if (values.attachment && values.attachment.length > 0) {
       attachmentUrl = await uploadFileToSupabase(values.attachment[0].originFileObj);
     }
-    
+
    let permissionHours = 0;
     if (values.leaveType === 'Permission' && values.startTime && values.endTime) {
         const diffInMinutes = values.endTime.diff(values.startTime, 'minute');
         permissionHours = Math.round((diffInMinutes / 60) * 100) / 100;
     }
-    
+
     let correctedSubType = subType;
     if (finalDeductionDays > 0 && finalDeductionDays < 1 && subType !== 'HDL') {
         correctedSubType = 'HDL - (Auto-Adjusted)';
@@ -2624,7 +2663,7 @@ console.log('DEBUG handleApplyLeave final totalDays:', { leaveType, totalDays })
             .update(leaveDataPayload)
             .eq('id', editingId);
         if (error) throw error;
-        setLeaveData(prevData => 
+        setLeaveData(prevData =>
             prevData.map(item => item.id === editingId ? {...item, ...leaveDataPayload} : item)
         );
         message.success('Leave application updated successfully!');
@@ -2662,7 +2701,7 @@ console.log('DEBUG handleApplyLeave final totalDays:', { leaveType, totalDays })
 {balanceWarning && (
   <Alert
     message={balanceWarning}
-    type={balanceWarning.includes('ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¾ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢') ? 'error' : 'success'}
+    type={balanceWarning.includes('ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬ ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬ ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¾ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢') ? 'error' : 'success'}
     showIcon
     style={{ marginBottom: '16px' }}
   />
@@ -3129,7 +3168,7 @@ const EmployeeDashboard = () => (
                     fontSize: 'clamp(12px, 3vw, 14px)',
                     display: 'block'
                   }}>
-                    {currentUser?.position}       • {currentUser?.department}
+                    {currentUser?.position}        • {currentUser?.department}
                   </Text>
                 </div>
               </div>
@@ -3364,14 +3403,14 @@ const EmployeeDashboard = () => (
                       <>
                         <br />
                         <span style={{ color: '#52c41a', fontSize: '11px' }}>
-                          Approved: {leave.approved_dates.length} day(s)       • {dayjs(leave.approved_dates[0]).format('MMM DD')} 
+                          Approved: {leave.approved_dates.length} day(s)        • {dayjs(leave.approved_dates[0]).format('MMM DD')} 
                           {leave.approved_dates.length > 1 && ` - ${dayjs(leave.approved_dates[leave.approved_dates.length - 1]).format('MMM DD')}`}
                         </span>
                       </>
                     )}
                     
-                    {leave.totalHours > 0 && `       • ${formatPermissionHours(leave.totalHours)}`}
-                    {leave.total_days > 0 && `       • ${leave.total_days} day${leave.total_days > 1 ? 's' : ''}`}
+                    {leave.totalHours > 0 && `        • ${formatPermissionHours(leave.totalHours)}`}
+                    {leave.total_days > 0 && `        • ${leave.total_days} day${leave.total_days > 1 ? 's' : ''}`}
                   </Text>
                 </div>
               </Space>
@@ -3585,7 +3624,12 @@ const getTableColumns = () => {
             color: '#faad14', 
             bg: 'linear-gradient(135deg, #fffbe6 0%, #fff1b8 100%)',
             icon: <ClockCircleOutlined />
-          }
+          },
+           'Cancelled': {
+        color: '#8c8c8c',
+        bg: 'linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%)',
+        icon: <DeleteOutlined />
+      }
         };
         
         const config = statusConfig[record.status] || statusConfig['Pending'];
@@ -4438,7 +4482,7 @@ return (
                 {selectedLeave.users?.name || selectedLeave.employee_name || selectedLeave.employeeName}
               </div>
               <Text type="secondary">
-                {selectedLeave.users?.employee_id || selectedLeave.employee_code || selectedLeave.employeeCode}       • {selectedLeave.department}
+                {selectedLeave.users?.employee_id || selectedLeave.employee_code || selectedLeave.employeeCode}        • {selectedLeave.department}
               </Text>
             </div>
           </Space>
@@ -4474,8 +4518,7 @@ return (
            </Descriptions.Item>
         )}
 
-      // In the LeaveDetailsModal component, update the Duration section:
-// In LeaveDetailsModal component, update only the Duration section:
+    
 <Descriptions.Item label="Duration">
   <div>
     <Text strong>
@@ -4693,6 +4736,39 @@ useEffect(() => {
       }
     })
     .subscribe();
+    const cancelledLogsChannel = supabase
+    .channel('realtime-cancelled-logs')
+    .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'leave_applications',
+        filter: 'status=eq.Cancelled'
+    }, async (payload) => {
+        console.log('Realtime: Leave cancelled!', payload);
+        
+        // Only update if the cancelled date is in the current month view
+        const cancelledDate = dayjs(payload.new.cancelled_at);
+        const currentViewMonth = dayjs(cancelledLogs[0]?.cancelled_at || new Date());
+        
+        if (cancelledDate.isSame(currentViewMonth, 'month')) {
+            // Fetch user data for the new cancelled leave
+            const { data: userData } = await supabase
+                .from('users')
+                .select('name, employee_id')
+                .eq('id', payload.new.user_id)
+                .single();
+            
+            const updatedRecord = {
+                ...payload.new,
+                users: userData
+            };
+            
+            setCancelledLogs(prev => [updatedRecord, ...prev].sort((a, b) => 
+                dayjs(b.cancelled_at).diff(dayjs(a.cancelled_at))
+            ));
+        }
+    })
+    .subscribe();
 
   // --- LEAVE BALANCES SUBSCRIPTION (remains the same) ---
   const balanceChannel = supabase
@@ -4748,6 +4824,7 @@ useEffect(() => {
     console.log('Cleaning up realtime subscriptions');
     supabase.removeChannel(leaveChannel);
     supabase.removeChannel(balanceChannel);
+    supabase.removeChannel(cancelledLogsChannel);
     if (medicalRequestChannel) {
       supabase.removeChannel(medicalRequestChannel);
     }
@@ -4777,6 +4854,139 @@ useEffect(() => {
 
     fetchEmployees();
 }, [userRole, activeTab, employees.length]);
+
+// In leavemanage.jsx, replace the existing CancelledLogsModal component with this corrected version
+
+const CancelledLogsModal = ({ visible, onCancel }) => {
+    const [loading, setLoading] = useState(false);
+    const [filterDate, setFilterDate] = useState(dayjs());
+
+    const fetchLogs = async (date) => {
+        if (!date) return;
+        setLoading(true);
+        try {
+            const startDate = date.startOf('month').format('YYYY-MM-DD');
+            const endDate = date.endOf('month').format('YYYY-MM-DD');
+
+            const { data, error } = await supabase
+                .from('leave_applications')
+                .select('*, users(name, employee_id)')
+                .eq('status', 'Cancelled')
+                .gte('cancelled_at', startDate)
+                .lte('cancelled_at', endDate)
+                .order('cancelled_at', { ascending: false });
+
+            if (error) throw error;
+            setCancelledLogs(data || []); // Update parent state
+        } catch (error) {
+            console.error("Error fetching cancellation logs:", error);
+            message.error(`Failed to fetch logs: ${error.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+     useEffect(() => {
+        // Only fetch if modal is visible AND it's the first time OR month changed
+        if (visible && (!cancelledLogsLoaded || filterDate.month() !== dayjs(cancelledLogs[0]?.cancelled_at).month())) {
+            fetchLogs(filterDate);
+            setCancelledLogsLoaded(true);
+        }
+    }, [visible, filterDate]);;
+
+    const columns = [
+        {
+            title: 'Employee',
+            key: 'employee',
+            render: (_, record) => (
+                <Space>
+                    {/* --- START OF FIX --- */}
+                    {/* The Avatar now uses the first letter of the name as a fallback instead of a URL */}
+                    <Avatar style={{ backgroundColor: '#0D7139' }}>
+                        {record.users?.name?.charAt(0) || <UserOutlined />}
+                    </Avatar>
+                    {/* --- END OF FIX --- */}
+                    <div>
+                        <Text strong>{record.users?.name}</Text>
+                        <br />
+                        <Text type="secondary">{record.users?.employee_id}</Text>
+                    </div>
+                </Space>
+            )
+        },
+        {
+            title: 'Leave Type',
+            dataIndex: 'leave_type',
+            key: 'leave_type',
+            render: (type) => {
+                const config = getLeaveTypeConfig(type);
+                return <Tag color={config.color} icon={config.icon}>{type}</Tag>
+            }
+        },
+        {
+            title: 'Original Dates',
+            key: 'dates',
+            render: (_, record) => (
+                <span>
+                    {dayjs(record.start_date).format('DD MMM')} - {dayjs(record.end_date).format('DD MMM YYYY')}
+                </span>
+            )
+        },
+        {
+            title: 'Cancelled On',
+            dataIndex: 'cancelled_at',
+            key: 'cancelled_at',
+            sorter: (a, b) => dayjs(a.cancelled_at).diff(dayjs(b.cancelled_at)),
+            render: (date) => dayjs(date).format('DD MMM YYYY, hh:mm A')
+        },
+        {
+            title: 'Reason for Cancellation',
+            dataIndex: 'cancellation_reason',
+            key: 'cancellation_reason',
+            ellipsis: true,
+            render: (reason) => <Text type="danger">{reason}</Text>
+        },
+    ];
+
+    return (
+        <Modal
+            title="Cancelled Leave Logs"
+            open={visible}
+            onCancel={onCancel}
+            footer={<Button onClick={onCancel}>Close</Button>}
+            width={1200}
+        >
+            <Card style={{ marginBottom: 16 }} bordered={false} size="small">
+                <DatePicker.MonthPicker
+                    value={filterDate}
+                    onChange={(date) => setFilterDate(date)}
+                    style={{ width: '200px' }}
+                />
+            </Card>
+            <Table
+                columns={columns}
+               dataSource={cancelledLogs}
+                loading={loading}
+                rowKey="id"
+                pagination={{ pageSize: 10 }}
+                scroll={{ x: 'max-content' }}
+                expandable={{
+                    expandedRowRender: (record) => (
+                         <Descriptions bordered size="small" column={1}>
+                            <Descriptions.Item label="Original Reason Provided by Employee">
+                                 <Typography.Paragraph style={{ margin: 0 }}>
+                                    {record.reason || <Text type="secondary">No reason provided.</Text>}
+                                 </Typography.Paragraph>
+                            </Descriptions.Item>
+                        </Descriptions>
+                    ),
+                    rowExpandable: (record) => !!record.reason,
+                }}
+                locale={{ emptyText: "No cancelled requests found for the selected month." }}
+            />
+        </Modal>
+    );
+};
   // HR/Admin Dashboard Component
    const HRDashboard = () => (
   <div style={animationStyles.container}>
@@ -4859,6 +5069,7 @@ useEffect(() => {
               </div>
             </div>
           </Space>
+          
         </Col>
         
         {/* --- THIS IS THE CORRECTED SECTION FOR THE BUTTONS --- */}
@@ -4887,8 +5098,23 @@ useEffect(() => {
                   Export Report
                 </Button>
               </Tooltip>
-              
-           
+              <Tooltip title="View Employee Cancelled Leave Logs">
+    <Button
+      icon={<DeleteOutlined />}
+      onClick={() => setCancelledLogsModal(true)}
+      style={{
+        height: '44px',
+        borderRadius: '12px',
+        background: 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)',
+        border: 'none',
+        color: 'white',
+        fontWeight: 600,
+        boxShadow: '0 4px 16px rgba(107, 114, 128, 0.24)',
+      }}
+    >
+      Cancelled Logs
+    </Button>
+</Tooltip>
               
               <Tooltip title="Manually Allocate Compensatory Leave">
                 <Button
@@ -5206,6 +5432,12 @@ useEffect(() => {
           Rejected
         </Space>
       </Option>
+      <Option value="Cancelled">
+    <Space>
+      <div style={{ width: '8px', height: '8px', background: '#8c8c8c', borderRadius: '50%' }} />
+      Cancelled
+    </Space>
+  </Option>
     </Select>
   </Col>
   
@@ -5315,6 +5547,7 @@ useEffect(() => {
             if (record.status === 'Pending') return 'pending-row';
             if (record.status === 'Approved') return 'approved-row';
             if (record.status === 'Rejected') return 'rejected-row';
+             if (record.status === 'Cancelled') return 'cancelled-row';
             return '';
           }}
           locale={{
@@ -5537,7 +5770,10 @@ useEffect(() => {
     loading={loading}
 />
 
-
+<CancelledLogsModal
+    visible={cancelledLogsModal}
+    onCancel={() => setCancelledLogsModal(false)}
+/>
 <HRRequestDetailDrawer
     visible={!!(selectedRequestForReview || selectedMedicalRequest)}
     onClose={() => {
@@ -5574,6 +5810,36 @@ useEffect(() => {
         onSave={handleAdjustLeave} // <-- Use the new handler
         loading={loading}
     />
+      <Modal
+      title="Confirm Leave Cancellation"
+      open={cancelLeaveModal}
+      onCancel={() => {
+        setCancelLeaveModal(false);
+        setLeaveToCancel(null);
+        cancelForm.resetFields();
+      }}
+      okText="Submit Cancellation"
+      onOk={() => cancelForm.submit()}
+      confirmLoading={loading}
+      destroyOnClose
+    >
+      <Form form={cancelForm} layout="vertical" onFinish={submitLeaveCancellation}>
+        <Alert
+          message="Mandatory Action"
+          description="Please provide a clear reason for cancelling this leave request for the record."
+          type="warning"
+          showIcon
+          style={{ marginBottom: 24 }}
+        />
+        <Form.Item
+          name="cancellation_reason"
+          label="Reason for Cancellation"
+          rules={[{ required: true, message: 'This field is mandatory.' }]}
+        >
+          <Input.TextArea rows={4} placeholder="e.g., Change of plans, urgent work deadline, etc." />
+        </Form.Item>
+      </Form>
+    </Modal>
     </div>
   );
 };
@@ -5585,6 +5851,14 @@ const professionalStyles = `
     color: #0D7139 !important;
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  }
+  .cancelled-row {
+    background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%) !important;
+    border-left: 4px solid #8c8c8c !important;
+  }
+
+  .ant-table-tbody > tr:hover.cancelled-row > td {
+    background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%) !important;
   }
 
   .professional-primary-btn:hover {
