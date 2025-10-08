@@ -1464,7 +1464,7 @@ const htmlContent = htmlTemplate
     const startOfMonth = dayjs().startOf('month').format('YYYY-MM-DD');
     const endOfMonth = dayjs().endOf('month').format('YYYY-MM-DD');
 
-    // First, try to get working days from company calendar
+    // First, fetch calendar data
     const { data: calendarData, error: calendarError } = await supabase
       .from('company_calendar')
       .select('date, day_type, holiday_name')
@@ -1474,14 +1474,46 @@ const htmlContent = htmlTemplate
 
     if (calendarError) throw calendarError;
 
-    const totalWorkingDaysFromCalendar = (calendarData || []).filter(day => 
-      day.day_type !== 'holiday' && day.holiday_name !== 'Working Configuration'
+    // NOW calculate after calendarData is available
+    const daysInMonth = dayjs().daysInMonth();
+
+    // Count actual holidays (not Working Configuration)
+    const holidaysCount = (calendarData || []).filter(day => 
+      day.day_type === 'holiday' && day.holiday_name !== 'Working Configuration'
     ).length;
 
-    let finalTotalWorkingDays = totalWorkingDaysFromCalendar;
+    // Count non-working days (Sundays, etc.) from working configuration
+    let nonWorkingDaysCount = 0;
+    const { data: configData } = await supabase
+      .from('company_calendar')
+      .select('*')
+      .eq('holiday_name', 'Working Configuration')
+      .limit(1)
+      .maybeSingle();
 
+    if (configData && configData.reason) {
+      const workingConfig = typeof configData.reason === 'string' 
+        ? JSON.parse(configData.reason) 
+        : configData.reason;
+      
+      // Count Sundays and other non-working days
+      const start = dayjs().startOf('month');
+      const end = dayjs().endOf('month');
+      let currentDate = start;
+      
+      while (currentDate.isBefore(end) || currentDate.isSame(end, 'day')) {
+        const dayName = currentDate.format('dddd').toLowerCase();
+        if (!workingConfig.workingDays[dayName]) {
+          nonWorkingDaysCount++;
+        }
+        currentDate = currentDate.add(1, 'day');
+      }
+    }
+
+    // Total working days = Total days - Holidays - Non-working days
+    let finalTotalWorkingDays = daysInMonth - holidaysCount - nonWorkingDaysCount;
     // If no calendar data, calculate manually using working configuration
-    if (totalWorkingDaysFromCalendar === 0) {
+    if (finalTotalWorkingDays === 0) {
       // Fetch working configuration
       const { data: configData, error: configError } = await supabase
         .from('company_calendar')
@@ -1499,23 +1531,23 @@ const htmlContent = htmlTemplate
 
       // Calculate working days manually based on config
       if (workingConfig?.workingDays) {
-        const start = dayjs().startOf('month');
-        const end = dayjs().endOf('month');
-        let workingDays = 0;
-        
-        let currentDate = start;
-        while (currentDate.isBefore(end) || currentDate.isSame(end, 'day')) {
-          const dayName = currentDate.format('dddd').toLowerCase();
-          
-          if (workingConfig.workingDays[dayName]) {
-            workingDays++;
-          }
-          
-          currentDate = currentDate.add(1, 'day');
-        }
-        
-        finalTotalWorkingDays = workingDays;
-      } else {
+  const start = dayjs().startOf('month');
+  const end = dayjs().endOf('month');
+  let workingDays = 0;
+  
+  let currentDate = start;
+  while (currentDate.isBefore(end) || currentDate.isSame(end, 'day')) {
+    const dayName = currentDate.format('dddd').toLowerCase();
+    
+    if (workingConfig.workingDays[dayName]) {
+      workingDays++;
+    }
+    
+    currentDate = currentDate.add(1, 'day');
+  }
+  
+  finalTotalWorkingDays = workingDays;
+} else {
         // Ultimate fallback
         finalTotalWorkingDays = 26; // Default working days
       }
@@ -1543,8 +1575,8 @@ const htmlContent = htmlTemplate
       if (attendanceError) {
         console.error(`Error fetching attendance for user ${user.id}:`, attendanceError);
         workingDaysMap[user.id] = {
-          actual: 0,
-          total: finalTotalWorkingDays
+  actual: actualWorkingDays,
+  total: finalTotalWorkingDays
         };
         continue;
       }
@@ -1556,10 +1588,6 @@ const htmlContent = htmlTemplate
         total: finalTotalWorkingDays
       };
     }
-
-    console.log('Working days calculated:', finalTotalWorkingDays); // Debug log
-    console.log('Working days map:', workingDaysMap); // Debug log
-
     setWorkingDaysData(workingDaysMap);
   } catch (error) {
     console.error('Error fetching working days:', error);
@@ -1699,7 +1727,7 @@ const htmlContent = htmlTemplate
 
       if (mostRecentPayroll) {
         // Debug log to see what data structure we have
-        console.log('Payroll data for', user.name, ':', mostRecentPayroll);
+        // console.log('Payroll data for', user.name, ':', mostRecentPayroll);
 
         const earningsArray = mostRecentPayroll.earnings || [];
         const deductionsArray = mostRecentPayroll.deductions || [];
@@ -1716,18 +1744,18 @@ const htmlContent = htmlTemplate
       }
 
       return {
-        key: user.id,
-        ...user,
-        pay_period: mostRecentPayroll?.pay_period || null,
-        net_pay: netPay,
-        pay_date: mostRecentPayroll?.pay_date || null,
-        hasPayroll: !!mostRecentPayroll,
-        hasPayrollData: hasPayrollData,
-        totalUserPayrolls: userPayrolls.length,
-        currentMonthRecord: !!mostRecentPayroll,
-        actual_working_days: workingDaysData[user.id]?.actual || 0,
+  key: user.id,
+  ...user,
+  pay_period: mostRecentPayroll?.pay_period || null,
+  net_pay: netPay,
+  pay_date: mostRecentPayroll?.pay_date || null,
+  hasPayroll: !!mostRecentPayroll,
+  hasPayrollData: hasPayrollData,
+  totalUserPayrolls: userPayrolls.length,
+  currentMonthRecord: !!mostRecentPayroll,
+  actual_working_days: workingDaysData[user.id]?.actual || 0,
   total_working_days: workingDaysData[user.id]?.total || 0,
-      };
+};
     });
   };
 
@@ -2035,8 +2063,6 @@ const htmlContent = htmlTemplate
                 dataIndex: 'net_pay',
                 key: 'net_pay',
                 render: (amount, record) => {
-                  // Add debug logging
-                  console.log(`Employee: ${record.name}, HasPayrollData: ${record.hasPayrollData}, NetPay: ${amount}, TotalPayrolls: ${record.totalUserPayrolls}`);
 
                   if (!record.hasPayrollData) {
                     return <span style={{ color: '#999', fontStyle: 'italic' }}>No payroll</span>;
