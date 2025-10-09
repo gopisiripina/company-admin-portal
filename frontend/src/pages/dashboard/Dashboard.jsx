@@ -183,9 +183,19 @@ const openCameraModal = () => {
         return;
     }
 
+    // NEW: Check if user has check-out but no check-in
+    if (todayRecord && todayRecord.check_out && !todayRecord.check_in) {
+        Modal.warning({
+            title: 'Cannot Mark Attendance',
+            content: 'You have already marked check-out without check-in. Please contact the administrator to update your check-in time.',
+            okText: 'Understood'
+        });
+        return;
+    }
+
     const isCheckingOut = todayRecord && todayRecord.check_in;
     
-    // Add confirmation for checkout
+    // If already checked in, confirm check-out
     if (isCheckingOut) {
         Modal.confirm({
             title: 'Confirm Check-Out',
@@ -197,9 +207,30 @@ const openCameraModal = () => {
             }
         });
     } else {
-        proceedWithCamera('check-in');
+        // NEW: No check-in yet, show both options
+        Modal.confirm({
+            title: 'Select Attendance Type',
+            content: 'You have not marked check-in yet. Would you like to:',
+            okText: 'Check-In',
+            cancelText: 'Check-Out Only',
+            onOk: () => {
+                proceedWithCamera('check-in');
+            },
+            onCancel: () => {
+                // Show warning before allowing check-out without check-in
+                Modal.confirm({
+                    title: 'Warning',
+                    content: 'Are you sure you want to mark check-out without check-in? You will need to contact administrator to update check-in later.',
+                    okText: 'Yes, Check-Out',
+                    cancelText: 'Go Back',
+                    onOk: () => {
+                        proceedWithCamera('check-out');
+                    }
+                });
+            }
+        });
     }
-};
+};  
 
 // Add this new helper function
 const proceedWithCamera = (type) => {
@@ -929,65 +960,78 @@ const markAttendance = async () => {
       throw new Error('Failed to check existing attendance record');
     }
 
-    let attendancePayload; // FIX: Corrected variable name from 'attendanceData'
+    let attendancePayload;
     let message;
 
-     // Base data for the record
     const baseData = {
       user_id: userData.id,
       date: today,
       is_present: true,
     };
 
-    // Add manual check-in details if they exist
     if (manualReason && userLocation) {
-    baseData.location_coordinates = userLocation;
-}
+      baseData.location_coordinates = userLocation;
+    }
 
     if (!existingRecord) {
-  // First time today - Check In
-  const reasonData = manualReason ? { check_in: manualReason } : {};
-  
-  attendancePayload = {
-    ...baseData,
-    check_in: currentTime,
-    reason: Object.keys(reasonData).length > 0 ? JSON.stringify(reasonData) : null
-  };
-  message = 'Check-in successful! Your attendance has been recorded.';
-} else if (existingRecord.check_in && !existingRecord.check_out) {
-  // Already checked in - Check Out
-  const checkInTime = new Date(`${today}T${existingRecord.check_in}`);
-  const checkOutTime = new Date(`${today}T${currentTime}`);
-  const totalHours = (checkOutTime - checkInTime) / (1000 * 60 * 60);
+      // No record exists yet
+      if (attendanceType === 'check-out') {
+        // MODIFIED: Allow check-out without check-in with warning message
+        const reasonData = manualReason ? { check_out: manualReason } : {};
+        reasonData.checkout_without_checkin = true; // Flag for admin
+        
+        attendancePayload = {
+          ...baseData,
+          check_out: currentTime,
+          reason: JSON.stringify(reasonData)
+        };
+        message = 'Check-out marked successfully! Please contact administrator to update your check-in time.';
+      } else {
+        // Regular check-in
+        const reasonData = manualReason ? { check_in: manualReason } : {};
+        
+        attendancePayload = {
+          ...baseData,
+          check_in: currentTime,
+          reason: Object.keys(reasonData).length > 0 ? JSON.stringify(reasonData) : null
+        };
+        message = 'Check-in successful! Your attendance has been recorded.';
+      }
+    } else if (existingRecord.check_in && !existingRecord.check_out) {
+      // Already checked in - Check Out
+      const checkInTime = new Date(`${today}T${existingRecord.check_in}`);
+      const checkOutTime = new Date(`${today}T${currentTime}`);
+      const totalHours = (checkOutTime - checkInTime) / (1000 * 60 * 60);
 
-  const hours = Math.floor(totalHours);
-  const minutes = Math.round((totalHours - hours) * 60);
-  const formattedTotalHours = `${hours}:${minutes.toString().padStart(2, '0')}`;
+      const hours = Math.floor(totalHours);
+      const minutes = Math.round((totalHours - hours) * 60);
+      const formattedTotalHours = `${hours}:${minutes.toString().padStart(2, '0')}`;
 
-  // Parse existing reason or create new one
-  let reasonData = {};
-  if (existingRecord.reason) {
-    try {
-      reasonData = JSON.parse(existingRecord.reason);
-    } catch (e) {
-      reasonData = {};
-    }
-  }
-  
-  // Add check-out reason if manual reason exists
-  if (manualReason) {
-    reasonData.check_out = manualReason;
-  }
+      let reasonData = {};
+      if (existingRecord.reason) {
+        try {
+          reasonData = JSON.parse(existingRecord.reason);
+        } catch (e) {
+          reasonData = {};
+        }
+      }
+      
+      if (manualReason) {
+        reasonData.check_out = manualReason;
+      }
 
-  attendancePayload = {
-    ...existingRecord,
-    ...baseData,
-    check_out: currentTime,
-    total_hours: formattedTotalHours,
-    reason: Object.keys(reasonData).length > 0 ? JSON.stringify(reasonData) : existingRecord.reason
-  };
-  message = `Check-out successful! Total hours worked: ${totalHours.toFixed(2)} hours`;
-} else {
+      attendancePayload = {
+        ...existingRecord,
+        ...baseData,
+        check_out: currentTime,
+        total_hours: formattedTotalHours,
+        reason: Object.keys(reasonData).length > 0 ? JSON.stringify(reasonData) : existingRecord.reason
+      };
+      message = `Check-out successful! Total hours worked: ${totalHours.toFixed(2)} hours`;
+    } else if (existingRecord.check_out && !existingRecord.check_in) {
+      // MODIFIED: Already checked out without check-in
+      throw new Error('You have already marked check-out without check-in. Please contact administrator to update your check-in time.');
+    } else {
       throw new Error('You have already completed check-in and check-out for today.');
     }
 
@@ -997,7 +1041,6 @@ const markAttendance = async () => {
 
     if (attendanceError) throw attendanceError;
     
-    // Reset manual reason state after successful submission
     setManualReason(''); 
     setUserLocation(null);
 
@@ -1010,7 +1053,6 @@ const markAttendance = async () => {
       content: message,
     });
 
-    // Clear the global flag at the end
     window.attendanceProcessing = false;
 
   } catch (error) {
@@ -1018,13 +1060,12 @@ const markAttendance = async () => {
     setVerificationError(error.message);
     setShowRetryButton(true);
     
-    // Clear flag on error too
     window.attendanceProcessing = false;
   } finally {
     setIsVerifying(false);
     setIsProcessing(false);
   }
-};
+};  
 const handleRetry = () => {
   setVerificationError('');
   setShowRetryButton(false);
@@ -1263,14 +1304,29 @@ for (let day = 1; day <= daysInMonth; day++) {
   const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   const attendanceInfo = attendanceMap[dateStr];
   const isToday = currentDate.toDateString() === new Date(year, month, day).toDateString();
-  
+    const targetDate = new Date(year, month, day); // ADD THIS LINE
+
   const { dayClass, tooltipText } = getAttendanceStatus(dateStr, attendanceInfo, currentDate);
-  
+  const isPastWorkingDay = targetDate < currentDate && isWorkingDay(targetDate) && !isHoliday(dateStr);
+  const hasNoAttendance = !attendanceInfo || (!attendanceInfo.checkIn && !attendanceInfo.checkOut);
+  const isClickable = isPastWorkingDay && hasNoAttendance;
   calendarDays.push(
-    <div 
-      key={`day-${day}`}  // Add this key
-      className={`calendar-day ${dayClass} ${isToday ? 'today' : ''}`}
-      title={tooltipText}
+  <div 
+    key={`day-${day}`}
+    className={`calendar-day ${dayClass} ${isToday ? 'today' : ''}`}
+    title={tooltipText}
+    onClick={() => {
+      // NEW: Allow clicking on past working days without attendance
+      const isPastWorkingDay = targetDate < currentDate && isWorkDay && !isHol;
+      const hasNoAttendance = !attendanceInfo || (!attendanceInfo.checkIn && !attendanceInfo.checkOut);
+      
+      if (isPastWorkingDay && hasNoAttendance) {
+        // Set the selected date and open modal
+        setCurrentMonth(targetDate);
+        openCameraModal();
+      }
+    }}
+    style={{ cursor: isPastWorkingDay && hasNoAttendance ? 'pointer' : 'default' }}
         onMouseEnter={(e) => {
           const tooltip = document.createElement('div');
           tooltip.className = 'calendar-tooltip';

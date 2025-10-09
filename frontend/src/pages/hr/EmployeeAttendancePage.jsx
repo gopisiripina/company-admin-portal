@@ -620,72 +620,77 @@ const handleSubmitAttendance = async () => {
                     }
                   }}
                   dateFullCellRender={(date) => {
-                    // ... rest of your dateFullCellRender code remains the same
-                    if (!date.isSame(monthToView, 'month')) {
-                      return <div style={{ color: '#d9d9d9' }}>{date.date()}</div>;
-                    }
+  if (!date.isSame(monthToView, 'month')) {
+    return <div style={{ color: '#d9d9d9' }}>{date.date()}</div>;
+  }
 
-                    const dayKey = date.format('YYYY-MM-DD');
-                    const dayAttendance = attendanceDataToUse[dayKey]?.[employee.id];
-                    const isToday = date.isSame(dayjs(), 'day');
+  const dayKey = date.format('YYYY-MM-DD');
+  const dayAttendance = attendanceDataToUse[dayKey]?.[employee.id];
+  const isToday = date.isSame(dayjs(), 'day');
 
-                    let cellStyle = {
-                      width: '100%',
-                      height: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: '6px',
-                      border: isToday ? '2px solid #1890ff' : '1px solid #d9d9d9',
-                      color: 'black'
-                    };
+  let cellStyle = {
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '6px',
+    border: isToday ? '2px solid #1890ff' : '1px solid #d9d9d9',
+    color: 'black'
+  };
 
-                    const approvedLeave = leaveData.find(leave =>
-                      leave.user_id === employee.id &&
-                      leave.approved_dates &&
-                      Array.isArray(leave.approved_dates) &&
-                      leave.approved_dates.includes(date.format('YYYY-MM-DD'))
-                    );
+  const approvedLeave = leaveData.find(leave =>
+    leave.user_id === employee.id &&
+    leave.approved_dates &&
+    Array.isArray(leave.approved_dates) &&
+    leave.approved_dates.includes(date.format('YYYY-MM-DD'))
+  );
 
-                    if (approvedLeave) {
-                      const isFullDayLeave = !approvedLeave.sub_type ||
-                        approvedLeave.sub_type === 'FDL' ||
-                        (approvedLeave.leave_type === 'Casual Leave' && !approvedLeave.sub_type);
+  if (approvedLeave) {
+    const isFullDayLeave = !approvedLeave.sub_type ||
+      approvedLeave.sub_type === 'FDL' ||
+      (approvedLeave.leave_type === 'Casual Leave' && !approvedLeave.sub_type);
 
-                      const isPermission = approvedLeave.leave_type === 'permissions';
+    const isPermission = approvedLeave.leave_type === 'permissions';
 
-                      if (isFullDayLeave && !isPermission) {
-                        cellStyle.backgroundColor = '#e6f7ff';
-                        cellStyle.color = '#1890ff';
-                        cellStyle.border = `1px solid #91d5ff`;
-                      } else {
-                        cellStyle.backgroundColor = '#fff7e6';
-                        cellStyle.color = '#fa8c16';
-                        cellStyle.border = `1px solid #ffd591`;
-                      }
-                    }
-                    else if (dayAttendance?.present) {
-                      if (dayAttendance.checkIn && !dayAttendance.checkOut) {
-                        cellStyle.backgroundColor = '#fffbe6';
-                        cellStyle.color = '#faad14';
-                      } else {
-                        cellStyle.backgroundColor = '#f6ffed';
-                        cellStyle.color = '#52c41a';
-                      }
-                    } else if (dayAttendance && !dayAttendance.present) {
-                      cellStyle.backgroundColor = '#fff1f0';
-                      cellStyle.color = '#ff4d4f';
-                    } else if (isToday) {
-                      cellStyle.backgroundColor = '#e6f7ff';
-                      cellStyle.color = '#1890ff';
-                    }
+    if (isFullDayLeave && !isPermission) {
+      cellStyle.backgroundColor = '#e6f7ff';
+      cellStyle.color = '#1890ff';
+      cellStyle.border = `1px solid #91d5ff`;
+    } else {
+      cellStyle.backgroundColor = '#fff7e6';
+      cellStyle.color = '#fa8c16';
+      cellStyle.border = `1px solid #ffd591`;
+    }
+  }
+  else if (dayAttendance) {
+    // Check for missing checkout first (has check-in but no check-out)
+    if (dayAttendance.checkIn && !dayAttendance.checkOut) {
+      cellStyle.backgroundColor = '#fffbe6';
+      cellStyle.color = '#faad14';
+    } 
+    // Then check if present with both times
+    else if (dayAttendance.present && dayAttendance.checkIn && dayAttendance.checkOut) {
+      cellStyle.backgroundColor = '#f6ffed';
+      cellStyle.color = '#52c41a';
+    }
+    // Finally, check if explicitly marked absent
+    else if (!dayAttendance.present && !dayAttendance.checkIn) {
+      cellStyle.backgroundColor = '#fff1f0';
+      cellStyle.color = '#ff4d4f';
+    }
+  } 
+  else if (isToday) {
+    cellStyle.backgroundColor = '#e6f7ff';
+    cellStyle.color = '#1890ff';
+  }
 
-                    return (
-                      <div style={cellStyle}>
-                        {date.date()}
-                      </div>
-                    );
-                  }}
+  return (
+    <div style={cellStyle}>
+      {date.date()}
+    </div>
+  );
+}}
                 />
               </Card>
             </Space>
